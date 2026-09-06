@@ -6,7 +6,7 @@
 | Milestone | M0 Stands |
 | Size | L |
 | Depends on | — |
-| Status | done |
+| Status | approved |
 
 ## Goal
 A Phoenix 1.8 app named `trinity` that compiles on pinned Elixir 1.20.x / OTP 28.x, with the full quality gate

@@ -26,7 +26,7 @@ A size given as `M or L` is conditional on a decision named in that slice's file
 
 | ID | Slice | Phase | Size | Depends on | Status |
 |---|---|---|---|---|---|
-| 000 | Toolchain, repo bootstrap, quality gate | 0 Foundation | L | — | done |
+| 000 | Toolchain, repo bootstrap, quality gate | 0 Foundation | L | — | approved |
 | 001 | Packaging spike: Burrito + ex_tauri smoke build | 0 Foundation | M | 000 | planned |
 | 010 | Core domain + persistence (Ecto/SQLite, schemas, Repo owner) | 1 Core loop | M | 000 | planned |
 | 011 | LLM provider layer (req_llm behind `Trinity.LLM` behaviour) | 1 Core loop | M | 010 | planned |
