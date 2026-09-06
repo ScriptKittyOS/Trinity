@@ -836,12 +836,18 @@ finding issue's own title begins `F1 —`. So `PROOF.md` and this file cite **F1
 carries the mapping, and both the instruction and the enforcer are satisfied without weakening
 either.
 
-**The miss.** I wrote `SCR-256` into `PROOF.md` and `NOTES.md`, ran `mix gate` and
-`plan_check.sh`, read the gate's `exit=0`, and committed and pushed without reading the line
-below it — `plan_check exit=1`, eight `FAIL` lines, all of them this. `8048ad3` is on the
-remote failing rule 7 and is corrected by the commit that follows it rather than rewritten,
-because history on a pushed branch is a record.
+**The miss, and I made it twice.** I wrote the board identifier into `PROOF.md` and
+`NOTES.md`, ran `mix gate` and `plan_check.sh`, read the gate's `exit=0`, and committed and
+pushed without reading the line below it — `plan_check exit=1`, eight `FAIL` lines, all of
+them this. Then, writing *this very paragraph*, I quoted the identifier again to describe the
+mistake, ran both checks again, read the gate again, and pushed again on a `plan_check exit=1`.
+Two commits are on the remote failing rule 7. Both are corrected by the commits that follow
+them rather than rewritten, because history on a pushed branch is a record.
 
 Running a check and not reading its result is worse than not running it: it produces the
 appearance of verification. The gate and `plan_check` are two commands with two exit codes, and
-"verified" names its command **and** exit code, which is the rule I quote at other people.
+"verified" names its command **and** exit code — the rule I quote at other people. The second
+occurrence is the instructive one: an enforcer catches the thing it is for even when the
+mention is *about* the violation, and prose describing a rule does not get an exemption from
+it. That is the same lesson slice 000 recorded three times, when the version-form check, the
+SPDX check and the name check each caught their own artifacts.
