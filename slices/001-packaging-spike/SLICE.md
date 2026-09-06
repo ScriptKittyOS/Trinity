@@ -40,25 +40,35 @@ Desktop packaging is the riskiest, least-Elixir-native part of the plan. Finding
 
 ## Acceptance criteria
 1. [auto] `MIX_ENV=prod mix release` with Burrito produces a binary for the host OS; running it starts Phoenix on an ephemeral port and serves the scaffold page (curl output shown).
-2. [manual] `mix ex_tauri.dev` opens a native window showing the LiveView scaffold (screenshot) on macOS.
-3. [manual] The same on Windows (screenshot) — or a documented failure with the fallback that succeeded (screenshot) and ADR-0004 amended.
-4. [auto] Linux: same, or documented "not tested — no machine" (acceptable).
-5. [auto] Binary size and cold-start-to-first-paint time recorded per OS in `docs/packaging.md`.
-6. [manual] Killing the window terminates the sidecar within 5 s (heartbeat) — verified with `ps`/Task Manager.
-7. [auto] `mix gate` still green; `mix phx.server` still works without Tauri.
+2. [manual] `mix ex_tauri.dev` opens a native window showing the LiveView scaffold (screenshot) on macOS. **No machine available — Ubuntu is the only machine.**
+3. [manual] The same on Windows (screenshot) — or a documented failure with the fallback that succeeded (screenshot) and ADR-0004 amended. **No machine available — Ubuntu is the only machine.**
+4. [manual] The same on Linux (screenshot). Retagged from `[auto]` at G1: a native window on a desktop session is not a command's output, and the spec's "or documented not tested" clause is a waiver rather than an automation. **No desktop session available on this machine.**
+5. [auto] Binary size and cold-start-to-serving are recorded for **linux x86_64** in `docs/packaging.md`, measured with `stat -c %s` and a timed loop against the port the smoke run prints.
+6. [manual] The same figures for macOS and Windows, and cold-start-to-first-**paint** on any OS. Split from AC5 at G1: "per OS" needs machines that do not exist, and "first paint" needs a window. **No machine available.**
+7. [auto] Running the binary under `--smoke` exits 0 and leaves no process behind: `ps -eo pid,ppid,comm` before and after shows no surviving sidecar. Split from AC6 at G1 — this is the property underneath it, and it is measurable on linux today.
+8. [manual] Killing the **window** terminates the sidecar within 5 s (heartbeat), verified with `ps` or Task Manager. Split from AC6 at G1: killing a window needs a desktop. **No machine available.**
+9. [auto] `mix gate` still green; `mix phx.server` still works without Tauri.
 
 ## Proof required
 - Build logs (trimmed), curl output, screenshots under `proof/`, size/time table, process-list before/after window close.
 
 ## Manual verification queue
-Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
-than at review time.
-- **AC2** — `mix ex_tauri.dev` opens a native window showing the LiveView scaffold (screenshot) on macOS.
-- **AC3** — The same on Windows (screenshot) — or a documented failure with the fallback that succeeded (screenshot) and ADR-0004 amended.
-- **AC6** — Killing the window terminates the sidecar within 5 s (heartbeat) — verified with `ps`/Task Manager.
+Five `[manual]` criteria, and they are one missing thing: **a machine that is not this one.** The owner's only
+machine is Ubuntu. Each names the machine or account it needs.
+
+| AC | Needs | What a GitHub Actions runner can prove instead |
+|---|---|---|
+| 2 | a **macOS desktop** | the artifact builds, launches and exits clean under `--smoke`, and the launch log |
+| 3 | a **Windows desktop** | the same |
+| 4 | a **Linux desktop session** | the same, plus the shell under `xvfb-run` if that is what the job does |
+| 6 | a **macOS and a Windows machine** | binary size on each; not first paint |
+| 8 | any one of the three desktops | nothing — no runner can watch a window close |
+
+A runner **cannot** produce a screenshot of a real window on a real desktop, and no artifact from one will be
+offered as though it had. These five exit the slice **unproven and named**, not counted.
 
 ## Definition of Done
-- [ ] gate green · [ ] AC1–7 proven (or explicitly waived by the human for untested OSes) · [ ] ADR-0004 finalised · [ ] `VERSIONS.md` rows for burrito/ex_tauri/OTP flipped to ✅ with exact versions · [ ] ROADMAP → done · [ ] commit + tag
+- [ ] gate green · [ ] AC1–9 proven (or explicitly waived by the human for untested OSes) · [ ] ADR-0004 finalised · [ ] `VERSIONS.md` rows for burrito/ex_tauri/OTP flipped to ✅ with exact versions · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
 `feat(s001): complete slice 001 — packaging spike (Burrito + ex_tauri)` · tag `slice/001`
