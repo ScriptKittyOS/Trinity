@@ -6,6 +6,7 @@
 | Milestone | M0 Stands |
 | Size | L |
 | Depends on | — |
+| Status | done |
 
 ## Goal
 A Phoenix 1.8 app named `trinity` that compiles on pinned Elixir 1.20.x / OTP 28.x, with the full quality gate
@@ -93,7 +94,7 @@ unmet with no slice owning the remedy.
 - Elixir 1.20 type checker: ensure `mix compile --warnings-as-errors` treats type warnings as errors (it does by default; verify).
 
 ## Deliverables
-- Repo scaffold, `.tool-versions`, `mix.exs` with aliases, `versions.exs`, `lib/mix/tasks/versions.verify.ex`, `lib/mix/tasks/trinity.secrets.scan.ex`, `.github/workflows/gate.yml`, `.credo.exs`, `.formatter.exs`, plan package copied.
+- Repo scaffold, `.tool-versions`, `mix.exs` with aliases, `lib/trinity/versions.ex` (see the recorded deviation), `lib/mix/tasks/versions.verify.ex`, `lib/mix/tasks/versions.gen.ex`, `lib/mix/tasks/trinity.secrets.scan.ex`, `.github/workflows/gate.yml`, `.credo.exs`, `.formatter.exs`, plan package copied.
 
 ## Acceptance criteria
 1. [auto] `elixir --version` shows Elixir 1.20.x on OTP 28.x, matching `.tool-versions`, and the exact patch versions are written into `VERSIONS.md`.

@@ -356,3 +356,36 @@ Deleting the permitted section deletes the hits along with it, and a check that 
 permitted section" passes trivially on zero hits. The check guards against names appearing where they should not,
 not against the approved section being removed. That is a real limit of the design, and it is stated here rather
 than discovered later.
+
+---
+
+## Deviation, recorded at G3 — the status never moved to `in_progress`
+
+`docs/04-slice-process.md`'s lifecycle is `ready → in_progress → done → approved`, and the agent
+moves it to `in_progress` when it starts. **That never happened.** The slice ran from G1 to G3
+with `ROADMAP.md` reading `ready`, so anyone opening the board mid-slice would have seen a slice
+nobody was working on — and `CLAUDE.md` §0's own start-of-session check looks for the slice whose
+status is `in_progress` and would have found none.
+
+It is corrected forward, not backdated: the status moves straight to `done` in this commit,
+because that is what is true now. Pretending it passed through `in_progress` at a time it did not
+would be a worse record than admitting it skipped the state.
+
+**Two reasons it slipped, both worth fixing rather than resolving to be careful.** The transition
+is defined in `docs/04` and required by nothing: no gate checks it, and `plan_check` has no rule
+for it. And `SLICE.md` carried no `Status` row at all until this commit, so there was one place
+to forget rather than two to disagree.
+
+A rule asserting that a slice with commits on its branch is not `ready` would have caught this.
+It is not added here: it needs a definition of "in progress" that survives a branch being cut and
+abandoned, and inventing one at G3 to cover my own miss is the wrong moment. Raised as a
+follow-up instead.
+
+## Follow-ups
+
+- **No enforcer for the slice lifecycle.** `docs/04` defines `ready → in_progress → done →
+  approved` and nothing checks a slice ever occupies `in_progress`. See the deviation above.
+- **The project-wide `[manual]` tagging review** is still owed. Slice 000's own retag was the
+  owner's instruction at G1; the other 35 slices were tagged by the same mechanical keyword pass.
+- **The ADR status vocabulary.** Two ADRs read `proposed → to be confirmed by Slice NNN`, which is
+  informative and is not one of the three permitted values. Raised on the M3 issue; owner's call.
