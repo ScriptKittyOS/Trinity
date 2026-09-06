@@ -20,6 +20,9 @@ erl_crash.dump
 # Desktop shell (slices 001, 100, 101)
 /tauri/target/
 /priv/static/assets/
+# Burrito's output: one packaged binary per target, tens of MB each. Slice 001 measures them
+# and records the sizes in docs/packaging.md; the binaries themselves stay out of history.
+/burrito_out/
 
 # Editor and OS noise
 .elixir_ls/

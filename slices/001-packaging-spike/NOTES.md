@@ -171,3 +171,243 @@ wrong.
 **No refusal, so no stop.** ADR-0004's provisional decision to target `ex_tauri` survives its first
 measurement; whether it *packages* is lines 3 to 9, and confirmation is line 12's business, not this one's.
 Carrying on to line 2.
+
+---
+
+## Line 3 — Burrito wiring and the non-hex toolchain. Six deviations, recorded before the commit.
+
+Dated 2026-09-06. The G1 Decision's item 3 read:
+
+> Pin Rust in `.tool-versions` and the Tauri CLI at its measured version, add both as
+> VERSIONS.md rows with their own stated derivation (`rustc --version`, `cargo tauri
+> --version`), and state in NOTES.md that these rows are marked from those commands rather
+> than from the lock.
+
+Measurement contradicted three of its clauses and added a fourth pin it did not anticipate.
+Everything below is a deviation from the approved plan, recorded here **before** the commit
+that carries it, per CLAUDE.md §1.
+
+### D1 — Rust is pinned in `rust-toolchain.toml`, not `.tool-versions`
+
+`asdf` on this machine has plugins for elixir and erlang and **no rust plugin**, and asdf does
+not fail on a tool it has no plugin for. Measured in a scratch directory whose `.tool-versions`
+carried a `rust 1.92.0` line:
+
+```
+$ asdf current ; echo "exit=$?"
+Name            Version         Source                  Installed
+elixir          1.20.4-otp-28   .../.tool-versions      true
+erlang          28.5.0.5        .../.tool-versions      true
+exit=0
+
+$ asdf install >/dev/null 2>&1 ; echo "asdf install exit=$?"
+asdf install exit=0
+```
+
+**The rust line is absent from `asdf current` and `asdf install` exits 0.** A `rust 1.92.0`
+line in `.tool-versions` would be a pin that pins nothing — the same defect class as a ✅ whose
+meaning is assumed. `rustup` owns Rust here and does act on its own file:
+
+```
+$ rustup show active-toolchain ; echo "exit=$?"
+1.92.0-x86_64-unknown-linux-gnu (overridden by '/home/aylac/Projects/Trinity/rust-toolchain.toml')
+exit=0
+
+$ rustc --version ; echo "exit=$?"
+rustc 1.92.0 (ded5c06cf 2025-12-08)
+exit=0
+```
+
+`rust-toolchain.toml` is committed and its first line says why it is not `.tool-versions`.
+
+### D2 — the Tauri CLI's derivation command is not `cargo tauri --version`
+
+The Decision named `cargo tauri --version`. On this machine, before and after everything:
+
+```
+$ cargo tauri --version ; echo "exit=$?"
+error: no such command: `tauri`
+exit=101
+```
+
+`ex_tauri` does not expect the CLI on `PATH`. It installs the CLI itself, into its own
+installation path, which defaults to `_build/_tauri` and is gitignored:
+
+```
+ex_tauri-0.2.0/lib/ex_tauri/install/helpers.ex:493
+  ["install", "tauri-cli", "--version", "^#{cli_version}", "--root", "."]
+ex_tauri-0.2.0/lib/ex_tauri.ex:99
+  def installation_path, do: ... Path.join(Path.dirname(Mix.Project.build_path()), "_tauri")
+```
+
+Run exactly as `ex_tauri` would run it:
+
+```
+$ cargo install tauri-cli --version '^2' --root _build/_tauri ; echo "exit=$?"
+  Installing _build/_tauri/bin/cargo-tauri
+   Installed package `tauri-cli v2.11.4` (executable `cargo-tauri`)
+exit=0
+
+$ _build/_tauri/bin/cargo-tauri tauri --version ; echo "exit=$?"
+tauri-cli 2.11.4
+exit=0
+```
+
+**The measured pin is 2.11.4** and the deriving command is the one above, not the Decision's.
+Two consequences are stated in the row rather than left implicit: the `^2` requirement floats,
+so 2.11.4 is what it resolved to on 2026-09-06 and not a lower bound anyone re-running this
+will necessarily get; and because the binary lives under a gitignored path, **no file in the
+tree carries this pin**. Its VERSIONS.md mark is 📐, never ✅ — see D3's second half.
+
+### D3 — a fourth pin the Decision did not anticipate: Zig, and it must be exact
+
+Burrito 1.6.0 does not accept a Zig range. `deps/burrito/lib/burrito.ex`:
+
+```
+@zig_version_expected %Version{major: 0, minor: 16, patch: 0}
+...
+if version != @zig_version_expected do
+  Log.error(:build, "Your Zig version does not match the one Burrito requires! ...")
+  exit(1)
+end
+```
+
+Zig was absent (`zig version` → exit 127). `asdf` **does** have a zig plugin, so unlike Rust
+this one belongs in `.tool-versions` and is a real pin there:
+
+```
+$ asdf plugin add zig && asdf install zig 0.16.0 ; echo "exit=$?"
+exit=0
+
+$ cat .tool-versions
+erlang 28.5.0.5
+elixir 1.20.4-otp-28
+zig 0.16.0
+
+$ asdf current ; echo "exit=$?"
+zig             0.16.0          /home/aylac/Projects/Trinity/.tool-versions true
+exit=0
+```
+
+**The mark mechanism had to change, and this is the line's red.** Before this commit,
+`Mix.Tasks.Versions.Gen.mark/3` marked *every* toolchain row from a hardcoded constant:
+
+```elixir
+def mark(_row, :toolchain, _locked), do: "✅ `.tool-versions`"
+```
+
+so `VERSIONS.md` line 71 read
+
+```
+| `Rust + Tauri CLI` | stable | ✅ `.tool-versions` | ... |
+```
+
+while
+
+```
+$ grep -in 'rust\|tauri' .tool-versions ; echo "exit=$?"
+exit=1
+```
+
+A ✅ naming a file that carried neither name — **finding B3's defect, living inside the
+enforcer slice 000 built to prevent it.** `test/versions_toolchain_mark_test.exs` was committed
+failing at `82e74a3` (3 of 5 failing, `mix test` exit 2) and is green after the fix. Every
+toolchain row now states a `:from`: `{:file, path, needle}` marks ✅ only when that file
+actually carries the pin and ❌ when it does not, and `{:command, cmd}` marks 📐 and can never
+reach ✅, because nothing at this sha verifies it.
+
+### D4 — the Credo check had to leave `lib/`, which is a change to slice 000's tree
+
+The first `MIX_ENV=prod mix release` never reached anything about releases:
+
+```
+$ MIX_ENV=prod mix release desktop
+    error: module Credo.Check is not loaded and could not be found
+    │
+ 12 │   use Credo.Check,
+    └─ lib/trinity/credo/no_eval_on_model_output.ex:12
+exit=1
+```
+
+`credo` is `only: [:dev, :test]` and `lib/` compiles in every environment, so slice 000's own
+Credo check makes the app uncompilable in `:prod`. Under §8 that red is at an earlier fault
+than line 3's claim and had demonstrated nothing, so it was fixed before the real red was
+taken: the check moved to `credo_checks/`, which `elixirc_paths/1` adds for `:dev` and `:test`
+only. The module name, its test and `.credo.exs` are unchanged.
+
+**This is a change outside packaging by the letter of the plan's constraint.** It is recorded
+here rather than waved through. The judgement made: a tree that cannot compile under
+`MIX_ENV=prod` cannot be packaged at all, so this is a packaging prerequisite rather than a
+widening of scope, and it adds no domain code — it moves one file and adds two lines to
+`elixirc_paths/1`. **If the owner reads it the other way, it should be lifted out of slice 001
+and given to a slice of its own**, and the rest of line 3 stands without it only in the sense
+that nothing after this point could have been measured.
+
+### D5 — `burrito` is now a direct dependency, not `only: :dev`
+
+`&Burrito.wrap/1` is a release step and runs under `MIX_ENV=prod`. `ex_tauri` is `only: :dev`
+and so is the burrito it brings, so the module would not exist in the environment that calls
+it. `{:burrito, "~> 1.6"}` is declared directly. Its VERSIONS.md row already existed and now
+marks ✅ from the lock at 1.6.0.
+
+### D6 — the `windows_x86_64` target cannot be built on this machine
+
+All three targets are declared in `mix.exs`. Building all three:
+
+```
+$ MIX_ENV=prod mix release desktop --overwrite ; echo "exit=$?"
+...
+--> Resolving ERTS: {:precompiled, [version: "28.5.0.5"]}
+--> Remote ERTS From Beam Machine: https://github.com/erlang/otp/releases/download/OTP-28.5.0.5/otp_win64_28.5.0.5.exe
+** (RuntimeError) Couldn't find 7z/7zz
+    (burrito 1.6.0) lib/util/default_erts_resolver.ex:80
+exit=1
+```
+
+The Windows ERTS ships as a `.exe` installer and burrito unpacks it with 7z. None of
+`7z 7zz 7za 7zr p7zip` is present; `apt-cache policy p7zip-full` reports `Installed: (none)`,
+and installing it needs root, which CLAUDE.md §7 keeps off this agent's hands.
+
+**This is a host prerequisite, not a code defect**, and it goes to the owner as a question and
+to the manual queue rather than being fixed here. Line 3's green is therefore taken on the one
+target this host can build:
+
+```
+$ BURRITO_TARGET=linux_x86_64 MIX_ENV=prod mix release desktop --overwrite ; echo "exit=$?"
+exit=0
+
+$ stat -c '%n %s' burrito_out/* ; echo "exit=$?"
+burrito_out/desktop_linux_x86_64 20697016
+exit=0
+
+$ file burrito_out/desktop_linux_x86_64
+burrito_out/desktop_linux_x86_64: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, stripped
+```
+
+**One unexpected positive, stated as measured and no further.** In the three-target run before
+it failed on Windows, burrito cross-built `desktop_macos_aarch64` (13,782,104 bytes) on this
+Linux host through Zig. That binary is unsigned, unnotarised and cannot be launched here, so it
+proves that the macOS *cross-compile* works and **nothing about whether the macOS app runs**.
+AC2 stays `[manual]` with "no machine available" unchanged.
+
+### A method error of mine, recorded because it recurred
+
+I measured the release twice: once piped to `tail` for the output, once redirected to
+`/dev/null` for the exit code. Burrito caches ERTS between runs, so the two invocations were
+not the same run, and I printed `exit=0` beside output from a run that had raised. This is the
+third time in this slice that measuring a thing twice has produced a claim about neither run.
+The rule I am applying from here: **one invocation, output to a file, exit code taken from that
+same invocation.** Every command block above was taken that way.
+
+Redoing it that way also surfaced something worth keeping: `mix release` with a release
+directory already present prompts `Overwrite? [Yn]`, gets no stdin, and **exits 0 having built
+nothing**. `--overwrite` is on every release command in this slice for that reason.
+
+### Follow-ups this line opened
+
+- `7z`/`7zz` is a host prerequisite for the Windows target. Needs root, so it is the owner's to
+  install or the CI runner's to provide. Blocks nothing on Linux.
+- The `^2` Tauri CLI requirement floats and no file in the tree pins it. If a reproducible
+  desktop build matters later, that pin needs somewhere real to live.
+- `mix release`'s exit-0-on-declined-overwrite is a footgun for any CI job that omits
+  `--overwrite`; `.github/workflows/package.yml` at line 9 must carry it.

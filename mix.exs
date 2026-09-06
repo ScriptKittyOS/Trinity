@@ -18,7 +18,36 @@ defmodule Trinity.MixProject do
       # more than three points against the previous slice fails until NOTES.md names the reason.
       # `mix test --cover` defaults to a 90%% gate, which is a different rule than the one this
       # project states, so it is turned off and `mix trinity.coverage` enforces the real one.
-      test_coverage: [threshold: 0]
+      test_coverage: [threshold: 0],
+      releases: releases()
+    ]
+  end
+
+  # The desktop release. `Burrito.wrap/1` turns the assembled release into one self-extracting
+  # binary per target, which is what slice 001 AC1 launches and AC5 measures.
+  #
+  # The targets are named here, but only `linux_x86_64` is built on this machine: burrito
+  # cross-compiles with Zig, and the macOS and Windows targets additionally need signing and,
+  # for Windows, 7z. Slice 001 lines 9 and 10 say what a CI runner can and cannot prove for
+  # the other two; nothing here claims they were built.
+  #
+  # Prerequisites measured at slice 001 line 3, both outside hex and both pinned:
+  #   * Zig **exactly** 0.16.0 — burrito 1.6.0 compares for equality, not a range
+  #     (deps/burrito/lib/burrito.ex `@zig_version_expected`). Pinned in `.tool-versions`.
+  #   * Rust 1.92.0 for the Tauri shell. Pinned in `rust-toolchain.toml`, not `.tool-versions`
+  #     — see NOTES.md deviation D1.
+  defp releases do
+    [
+      desktop: [
+        steps: [:assemble, &Burrito.wrap/1],
+        burrito: [
+          targets: [
+            linux_x86_64: [os: :linux, cpu: :x86_64],
+            macos_aarch64: [os: :darwin, cpu: :aarch64],
+            windows_x86_64: [os: :windows, cpu: :x86_64]
+          ]
+        ]
+      ]
     ]
   end
 
@@ -39,7 +68,13 @@ defmodule Trinity.MixProject do
   end
 
   # Specifies which paths to compile per environment.
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  #
+  # `credo_checks/` holds this project's own Credo checks. They `use Credo.Check`, and `credo`
+  # is `only: [:dev, :test]`, so a check under `lib/` makes `MIX_ENV=prod mix compile` fail on
+  # a module Credo cannot load. Measured at slice 001 line 3: the first `MIX_ENV=prod mix
+  # release` stopped there, before it reached anything about releases.
+  defp elixirc_paths(:test), do: ["lib", "test/support", "credo_checks"]
+  defp elixirc_paths(:dev), do: ["lib", "credo_checks"]
   defp elixirc_paths(_), do: ["lib"]
 
   # Specifies your project dependencies.
@@ -87,7 +122,11 @@ defmodule Trinity.MixProject do
       {:ex_doc, "~> 0.38", only: :dev, runtime: false},
       {:nimble_options, "~> 1.1"},
       # Slice 001 line 1, arm (a): default configuration on the pinned toolchain.
-      {:ex_tauri, "~> 0.2", only: :dev}
+      {:ex_tauri, "~> 0.2", only: :dev},
+      # Slice 001 line 3. `ex_tauri` already depends on burrito, but only in :dev, and
+      # `&Burrito.wrap/1` is a release step that runs under MIX_ENV=prod. Declared directly so
+      # the module exists in the environment that calls it.
+      {:burrito, "~> 1.6"}
     ]
   end
 

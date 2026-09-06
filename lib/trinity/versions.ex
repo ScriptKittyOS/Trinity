@@ -23,13 +23,35 @@ defmodule Trinity.Versions do
   `lock: nil` marks a row that is not a single hex package: a toolchain component, an
   undecided choice, or two packages named together. Those are never ✅ by lock membership.
 
+  ## Toolchain rows name their own pin file, added at Slice 001 line 3
+
+  Until this slice every toolchain row was marked `✅ .tool-versions` from a hardcoded clause,
+  including Rust and Zig, which that file did not carry. Each toolchain row now states its
+  `:from`:
+
+    * `{:file, path, needle}` — the pin lives in a file in the tree. `mix versions.gen` reads
+      that file and marks the row from what it finds, so a row naming a file that stops
+      carrying its pin fails the gate rather than keeping a stale ✅.
+    * `{:command, cmd}` — no file in the tree carries this pin, and only running `cmd` can
+      answer. Marked 📐, never ✅, because nothing at this sha verifies it; the measurement
+      lives in the slice's PROOF.md with its exit code.
+
+  `VersionsToolchainMarkTest` is the enforcer, and it was committed failing first.
+
   **Deviation from `SLICE.md`, recorded here and in NOTES.md.** The spec named `versions.exs`,
   a data file. A `.exs` data file has to be evaluated at runtime, and
   `Trinity.Credo.NoEvalOnModelOutput` forbids the whole evaluation family under `lib/`. A
   compiled module carries the same data, needs no evaluation, and is checked by the compiler.
   """
 
-  @type row :: %{name: String.t(), pin: String.t(), lock: String.t() | nil, note: String.t()}
+  @type source :: {:file, Path.t(), String.t()} | {:command, String.t()}
+  @type row :: %{
+          required(:name) => String.t(),
+          required(:pin) => String.t(),
+          required(:lock) => String.t() | nil,
+          required(:note) => String.t(),
+          optional(:from) => source()
+        }
   @type table :: %{title: String.t(), kind: :toolchain | :deps, rows: [row()]}
 
   @toolchain [
@@ -37,6 +59,7 @@ defmodule Trinity.Versions do
       name: "Erlang/OTP",
       pin: "**28.5.0.5**",
       lock: nil,
+      from: {:file, ".tool-versions", "erlang 28.5.0.5"},
       note:
         "Measured at Slice 000, not read from a README: Burrito 1.6.0's ERTS resolver names one artifact source per target, and 28.5.0.5 is the newest OTP returning 200 on all four (macOS universal, Linux x86_64, Linux aarch64, Windows). 28.5.0.6 is released but its macOS and Linux artifacts are unbuilt (404). OTP 29 is 404 on macOS and both Linux arches. ⚠️ Windows tracks OTP releases immediately while the other three lag a third-party CDN's build queue, so re-probe at every phase boundary. See ADR-0005's second correction."
     },
@@ -44,6 +67,7 @@ defmodule Trinity.Versions do
       name: "Elixir",
       pin: "**1.20.4-otp-28**",
       lock: nil,
+      from: {:file, ".tool-versions", "elixir 1.20.4-otp-28"},
       note:
         "Confirmed at Slice 000: `elixir --version` reports Elixir 1.20.4 on Erlang/OTP 28, erts-16.4.0.5. Built-in type checker is part of the gate. `boundary` 0.10.4 compiles and enforces on this pair, measured at Slice 000 (H7)."
     },
@@ -51,20 +75,33 @@ defmodule Trinity.Versions do
       name: "asdf",
       pin: "v0.18.0",
       lock: nil,
+      from: {:command, "asdf --version"},
       note:
-        "`.tool-versions` committed in Slice 000. `mise` is absent on the build machine; measured at Slice 000 G1 with `which mise asdf`."
+        "`.tool-versions` committed in Slice 000. `mise` is absent on the build machine; measured at Slice 000 G1 with `which mise asdf`. asdf cannot pin itself, so this row is a command, not a file. ⚠️ Measured at Slice 001 line 3: asdf does **not** fail on a tool it has no plugin for — a `rust 1.92.0` line is omitted from `asdf current` and `asdf install` still exits 0. A pin file entry is only a pin where a plugin exists."
     },
     %{
-      name: "Rust + Tauri CLI",
-      pin: "stable",
+      name: "Rust",
+      pin: "**1.92.0**",
       lock: nil,
-      note: "Only needed for desktop slices (001, 100, 101). Not a hex package."
+      from: {:file, "rust-toolchain.toml", "1.92.0"},
+      note:
+        "Measured at Slice 001 line 3: `rustc --version` reports 1.92.0 (ded5c06cf 2025-12-08), exit 0. Pinned in `rust-toolchain.toml`, **not** `.tool-versions` — `asdf` here has no rust plugin and silently ignores a rust line, whereas `rustup show active-toolchain` reports this file as an override. See NOTES.md deviation D1. Corrected 2026-09-06: this row previously read `Rust + Tauri CLI | stable | ✅ .tool-versions`, which named a file carrying neither."
+    },
+    %{
+      name: "Tauri CLI",
+      pin: "**2.11.4**",
+      lock: nil,
+      from: {:command, "_build/_tauri/bin/cargo-tauri tauri --version"},
+      note:
+        "Measured at Slice 001 line 3. Not on `PATH` and not pinned by any file in the tree: `ex_tauri` provisions it with `cargo install tauri-cli --version ^2 --root .` inside `_build/_tauri`, which is gitignored, so `cargo tauri --version` exits 101 on a fresh machine. 📐 rather than ✅ because nothing at this sha verifies it. The `^2` floats; 2.11.4 is what it resolved to on 2026-09-06."
     },
     %{
       name: "Zig",
-      pin: "version required by Burrito",
+      pin: "**0.16.0**",
       lock: nil,
-      note: "Only for cross-target Burrito builds. Not a hex package."
+      from: {:file, ".tool-versions", "zig 0.16.0"},
+      note:
+        "Measured at Slice 001 line 3: burrito 1.6.0 compares Zig for **equality**, not a range (`@zig_version_expected` in `deps/burrito/lib/burrito.ex`), and exits 1 on any other version. `zig version` reports 0.16.0, exit 0. Installed through the asdf zig plugin, added this slice. Corrected 2026-09-06: this row previously read `version required by Burrito | ✅ .tool-versions` and that file carried no zig line."
     }
   ]
 
@@ -317,7 +354,11 @@ defmodule Trinity.Versions do
   @spec tables() :: [table()]
   def tables do
     [
-      %{title: "Toolchain, pinned in `.tool-versions`", kind: :toolchain, rows: @toolchain},
+      %{
+        title: "Toolchain — each row names its own pin file or command",
+        kind: :toolchain,
+        rows: @toolchain
+      },
       %{title: "Core libraries", kind: :deps, rows: @core},
       %{title: "Phoenix scaffold, added at slice 000", kind: :deps, rows: @scaffold},
       %{title: "Memory and ML", kind: :deps, rows: @memory},
