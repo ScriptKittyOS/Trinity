@@ -1,4 +1,9 @@
 defmodule Trinity.Application do
+  # The application supervises processes from both boundaries, so it is its own top-level
+  # boundary rather than a member of Trinity. Without this, starting the endpoint reads as
+  # Trinity depending on TrinityWeb, which docs/01 forbids.
+  use Boundary, top_level?: true, deps: [Trinity, TrinityWeb], exports: []
+
   # See https://elixir.hexdocs.pm/Application.html
   # for more information on OTP Applications
   @moduledoc false

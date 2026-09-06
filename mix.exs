@@ -5,12 +5,12 @@ defmodule Trinity.MixProject do
     [
       app: :trinity,
       version: "0.1.0",
-      elixir: "~> 1.17",
+      elixir: "~> 1.20",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      compilers: [:phoenix_live_view] ++ Mix.compilers(),
+      compilers: [:boundary, :phoenix_live_view] ++ Mix.compilers(),
       listeners: [Phoenix.CodeReloader]
     ]
   end
@@ -70,7 +70,15 @@ defmodule Trinity.MixProject do
       {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.5"}
+      {:bandit, "~> 1.5"},
+      # Slice 000: the gate's own tooling. Nothing else yet.
+      {:boundary, "~> 0.10", runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:mox, "~> 1.2", only: :test},
+      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
+      {:sobelow, "~> 0.15", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.38", only: :dev, runtime: false},
+      {:nimble_options, "~> 1.1"}
     ]
   end
 
@@ -93,7 +101,27 @@ defmodule Trinity.MixProject do
         "esbuild trinity --minify",
         "phx.digest"
       ],
-      precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]
+      precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"],
+      # The quality gate. `mix gate` must exit 0 before every commit (CLAUDE.md section 2).
+      #
+      # The compile step MUST carry --warnings-as-errors. Measured at slice 000 G1: boundary
+      # reports violations as warnings, so without that flag a boundary violation exits 0 and
+      # the architecture rules in docs/01 become advisory. test/gate_alias_test.exs asserts the
+      # flag is present, so removing it fails the gate.
+      gate: [
+        "format --check-formatted",
+        "compile --warnings-as-errors --force",
+        "credo --strict",
+        "sobelow --exit --skip",
+        "hex.audit",
+        "deps.audit",
+        "trinity.version_form",
+        "trinity.names",
+        "trinity.secrets.scan",
+        "trinity.reuse",
+        "test",
+        "trinity.coverage"
+      ]
     ]
   end
 end

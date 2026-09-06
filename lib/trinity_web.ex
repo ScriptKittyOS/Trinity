@@ -1,4 +1,6 @@
 defmodule TrinityWeb do
+  use Boundary, deps: [Trinity], exports: [Endpoint]
+
   @moduledoc """
   The entrypoint for defining your web interface, such
   as controllers, components, channels, and so on.
