@@ -72,3 +72,102 @@ Every one needs a machine that is not this one. **The owner's only machine is Ub
 A GitHub Actions runner covers none of these: it can build the artifact, run it under `--smoke`, and keep the
 launch log, and that is what lines 9 and 10 claim and no more. **No screenshot of a real window on a real desktop
 exists for macOS, Windows or Linux, and the slice will exit saying so rather than counting those criteria as met.**
+
+---
+
+## Line 1 — the ex_tauri measurement. **No refusal. ADR-0004 is confirmed.**
+
+Three arms, pre-registered at G1 before any was run. Toolchain: Elixir 1.20.4 on Erlang/OTP 28,
+erts-16.4.0.5, from `.tool-versions`.
+
+### Arm (c) — is `~> 27.0` a hard guard or a default? **Read first, because it decides what (a) and (b) mean.**
+
+```
+$ mix hex.package fetch ex_tauri 0.2.0 --unpack --output ./ex_tauri-0.2.0 ; echo "exit=$?"
+ex_tauri v0.2.0 extracted to ./ex_tauri-0.2.0
+exit=0
+
+$ grep -rn 'otp_release' ex_tauri-0.2.0/
+ex_tauri-0.2.0/mix.exs:14:      otp_release: "~> 27.0",
+ex_tauri-0.2.0/lib/ex_tauri.ex:29,31,34,44
+ex_tauri-0.2.0/lib/ex_tauri/task_helpers.ex:35,37,40,51
+```
+
+The guard is two branches on `:erlang.system_info(:otp_release)`, not on the `mix.exs` key:
+
+* `major < 27` → **`Mix.raise`**. A hard refusal.
+* `major > 27` → **`Mix.shell().info`**, a warning. **No raise.**
+* `major == 27` → `:ok`.
+
+**`~> 27.0` in `ex_tauri`'s `mix.exs` is declarative metadata.** Mix enforces `:elixir` as a version
+requirement; it has no built-in `:otp_release` enforcement. The behaviour lives entirely in the runtime check
+above, and at OTP 28 that check **warns**.
+
+### Arm (a) — default configuration on the pinned toolchain. **Succeeds.**
+
+```
+$ mix deps.compile ; echo "exit=$?"          # the whole tree, in dependency order
+exit=0
+
+$ mix deps.compile ex_tauri ; echo "exit=$?"
+exit=0
+
+$ mix compile ; echo "exit=$?"
+Compiling 5 files (.ex)
+Generated trinity app
+exit=0
+
+$ ls _build/dev/lib/ex_tauri/ebin/*.beam | wc -l   → 31
+$ ls _build/dev/lib/igniter/ebin/*.beam  | wc -l   → 63
+$ ls _build/dev/lib/burrito/ebin/*.beam  | wc -l   → 20
+```
+
+All seven `mix ex_tauri.*` tasks are available. The guard fires exactly as arm (c) predicted:
+
+```
+$ mix run -e 'ExTauri.TaskHelpers.check_otp_version()' ; echo "exit=$?"
+Warning: ExTauri targets OTP 27 but you are running OTP 28.
+Burrito may not have pre-compiled ERTS for OTP 28 yet.
+Development should work, but production builds may fail.
+exit=0
+```
+
+**Exit 0. A warning, not a refusal.** And its stated reason is the same stale fact ADR-0005's second
+correction already refutes: slice 000 measured that Burrito 1.6.0 **can** fetch OTP 28 ERTS for all four
+targets and **cannot** fetch OTP 27 for macOS or Linux. The warning has it backwards.
+
+### Arm (b) — the override. **Moot, and not performed.**
+
+The pre-registered rule is that a refusal is (a) **and** (b) both failing. **(a) succeeded, so there is
+nothing to override and no refusal to clear.** Arm (c) also shows why an override could not have helped:
+the check reads `:erlang.system_info/1` at runtime, so no project-config key changes its answer.
+
+**The configuration recorded for ADR-0004 is therefore the default**, `{:ex_tauri, "~> 0.2", only: :dev}`,
+with no override.
+
+### Two false failures, mine, recorded because the method was the defect
+
+I reported arm (a) as failing **twice** before it was true, and both were my method rather than the subject.
+
+**First**, I declared the dependency `only: :dev, runtime: false`. `runtime: false` is not the default, and
+arm (a) is defined as the *default* configuration. It failed with
+`module Igniter.Mix.Task is not loaded`.
+
+**Second**, with the flag corrected, I ran `mix deps.compile ex_tauri` and then
+`mix deps.compile igniter` in isolation, and read `Type checking failed with errors` —
+`struct Sourceror.Zipper is undefined`, `struct Rewrite.Source is undefined` — as an Elixir 1.20
+incompatibility in `igniter`. **It is not.** Compiling one dependency by name does not first build the
+dependencies *it* needs, so the undefined structs were a build-order artifact I manufactured. `mix
+deps.compile` with no arguments, which is the ordinary path, exits 0 and builds all three.
+
+**The lesson, stated so it is not repeated:** testing a dependency in isolation can manufacture a failure
+the ordinary path does not have. A negative result about a dependency is only worth reporting after the
+ordinary build has been tried. Had I stopped at either point I would have filed a Question against
+`ex_tauri` and ADR-0004 for a defect that does not exist, and the recommendation in it would have been
+wrong.
+
+### Outcome
+
+**No refusal, so no stop.** ADR-0004's provisional decision to target `ex_tauri` survives its first
+measurement; whether it *packages* is lines 3 to 9, and confirmation is line 12's business, not this one's.
+Carrying on to line 2.
