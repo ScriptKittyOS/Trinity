@@ -97,12 +97,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ps -eo pid,ppid,comm > ps-before.txt
+          # Match OUR processes, not the machine's. The first version of this step diffed the
+          # whole `ps -eo pid,ppid,comm` table and failed on macOS because the runner's own
+          # daemons churn between the two samples — mdworker_shared exiting, CloudTelemetry
+          # starting, and the `ps` process itself differing. The artifact had launched, served
+          # and exited cleanly; the assertion was wrong, not the binary. "No process of ours
+          # remains" is the claim AC7 actually makes.
+          ours() { ps -eo pid,ppid,comm | grep -E 'burrito|beam\.smp|erl_child_setup|desktop_' | grep -v grep || true; }
+          ours > ps-before.txt
           chmod +x "burrito_out/${{ matrix.artifact }}"
           "./burrito_out/${{ matrix.artifact }}" --no-halt --smoke | tee smoke.log
           sleep 3
-          ps -eo pid,ppid,comm > ps-after.txt
+          ours > ps-after.txt
           grep -q '^TRINITY_SMOKE_PORT=[0-9][0-9]*$' smoke.log
+          echo "--- ours, before ---"; cat ps-before.txt
+          echo "--- ours, after ----"; cat ps-after.txt
           diff ps-before.txt ps-after.txt
 
       - name: Smoke — Windows
