@@ -270,3 +270,36 @@ than the one the project states.
   slice.
 - **`docs/01`'s context table** describes contexts no code implements yet. Only `Trinity` and
   `TrinityWeb` exist, which is what this slice's scope names.
+
+---
+
+## Correction, appended 2026-09-06 — the coverage figure
+
+**Supersedes** the coverage figure above, which read:
+
+> ```
+> $ mix test --cover        # total
+> 27.98%
+> $ cat coverage.tsv
+> slice_id	percent	sha	date
+> 000	27.98	e60e3e7	2026-09-06
+> ```
+
+That was measured at `e60e3e7`, before the last four commits added the permitted-hit listing,
+`plan_check` rules 9 and 10, and the status row. Those added code without proportional tests, so
+the figure moved. Re-measured at this slice's head:
+
+```
+$ mix test --cover        # total
+27.01%
+$ cat coverage.tsv
+slice_id	percent	sha	date
+000	27.01	e935c7b	2026-09-06
+```
+
+**The drop is 27.01 from 27.98, inside the three-point tolerance**, so it would pass the rule
+even if there were a prior row to compare against. There is not: this is still the first row and
+still a baseline compared against nothing.
+
+The original figure is left standing above rather than edited, because a record that quietly
+changes its own numbers is the defect this project keeps finding.
