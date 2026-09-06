@@ -32,3 +32,153 @@ line-keyed changes. Fifteen lines, execution order, one sentence each, each nami
   per slice at its own G1, not a single sweep.
 - **One slice, one branch.** G2 is `mix gate` green; the gate transcript is posted and work stops at G3 with
   `PROOF.md` written.
+
+---
+
+## Line 1 — `boundary` probe (H7). Answered: it works.
+
+Run 2026-09-06 in a throwaway app outside the repository, on the pinned toolchain.
+
+```
+$ elixir -v
+Erlang/OTP 28 [erts-16.1.1] [source] [64-bit] [smp:32:32] [ds:32:32:10] [async-threads:1] [jit:ns]
+
+Elixir 1.20.4 (compiled with Erlang/OTP 28)
+$ mix deps | grep -A1 '^\* boundary'
+* boundary 0.10.4 (Hex package) (mix)
+  locked at 0.10.4 (boundary) 8baf6f23
+```
+
+Two boundaries: `A` with `deps: []`, `B` with `deps: [A]`. The violation is `A` calling `B.hello()`.
+
+**Baseline, no violation:**
+
+```
+$ mix compile --warnings-as-errors --force ; echo "exit=$?"
+==> boundary
+Compiling 15 files (.ex)
+Generated boundary app
+==> probe
+Compiling 2 files (.ex)
+Generated probe app
+exit=0
+```
+
+**Red, violation planted at `lib/a.ex:5`:**
+
+```
+$ mix compile --warnings-as-errors --force ; echo "exit=$?"
+Compiling 2 files (.ex)
+Generated probe app
+
+warning: forbidden reference to B
+  (references from A to B are not allowed)
+  lib/a.ex:5
+
+exit=1
+```
+
+**Green, violation removed:**
+
+```
+$ mix compile --warnings-as-errors --force ; echo "exit=$?"
+Compiling 2 files (.ex)
+Generated probe app
+exit=0
+```
+
+**H7 is closed: `boundary` 0.10.4 compiles and enforces on Elixir 1.20.4 / OTP 28.** No fallback ADR is needed,
+and ADR-0001, `docs/01-architecture.md`, CLAUDE.md §5 and AC4 keep the foundation they rest on.
+
+### One measurement the probe added, which the slice needs
+
+`boundary` reports a violation as a **warning**, not an error. With the same violation in place and the flag
+dropped:
+
+```
+$ mix compile --force ; echo "exit=$?"
+Compiling 2 files (.ex)
+Generated probe app
+
+warning: forbidden reference to B
+  (references from A to B are not allowed)
+  lib/a.ex:5
+
+exit=0
+```
+
+**Exit 0.** So `boundary` is an enforcer only while `--warnings-as-errors` is on the compile step; without it the
+architecture rules are advisory and a violation ships silently. That is the same shape as the `sobelow --exit`
+contradiction M5 was raised for. The gate alias at line 5 must therefore keep `--warnings-as-errors` on `compile`,
+and AC4 is a claim about that flag as much as about `boundary`.
+
+---
+
+## Line 2 — ERTS probe (B3). The three constraints do not intersect.
+
+Run 2026-09-06, before any pin file was written.
+
+### Where the numbers come from
+
+`burrito` 1.6.0 was fetched from hex and unpacked. `lib/util/default_erts_resolver.ex` delegates to
+`Burrito.Util.ERTSUniversalMachineFetcher.fetch_version/4`, which names three artifact sources verbatim:
+
+```
+@windows_url "https://github.com/erlang/otp/releases/download/OTP-{OTP_VERSION}/otp_win64_{OTP_VERSION}.exe"
+@linux_url   "https://beam-machine-universal.b-cdn.net/OTP-{OTP_VERSION}/linux/{ARCH}/any/otp_{OTP_VERSION}_linux_any_{ARCH}.tar.gz"
+@mac_url     "https://beam-machine-universal.b-cdn.net/OTP-{OTP_VERSION}/macos/universal/otp_{OTP_VERSION}_macos_universal.tar.gz"
+```
+
+Each was probed with `curl -I` per OTP version. 200 means the artifact exists; 404 means Burrito cannot fetch it.
+
+### Column 1 — what Burrito 1.6.0 can actually fetch, per target
+
+| OTP | macOS universal | Linux x86_64 | Linux aarch64 | Windows |
+|---|---|---|---|---|
+| 27.3.4.17 | **404** | **404** | not probed | 200 |
+| 28.1.1 | 200 | 200 | 200 | 200 |
+| **28.5** | **200** | **200** | **200** | **200** |
+| 29.0.6 | **404** | **404** | **404** | 200 |
+
+Windows comes from the official OTP release page, so it carries every version; macOS and Linux come from the
+BEAM-machine CDN, which **carries only the OTP 28 line**. Column 1 admits OTP 28.x and nothing else.
+
+### Column 2 — what Elixir 1.20.x lists
+
+Elixir 1.20.4 ships builds for OTP 27, 28 and 29 (`asdf list all elixir | grep '^1\.20\.4'` returns `1.20.4`,
+`1.20.4-otp-27`, `1.20.4-otp-28`, `1.20.4-otp-29`). Column 2 admits 27, 28 and 29.
+
+### Column 3 — what `ex_tauri` 0.2.0 states
+
+```
+$ grep -n 'otp' ex_tauri-0.2.0/mix.exs
+11:      elixir: "~> 1.15",
+12:      # Limited to OTP 27 due to Burrito pre-compiled ERTS availability
+13:      # OTP 28 doesn't have universal macOS binaries available yet
+14:      otp_release: "~> 27.0",
+$ grep -n 'OTP' ex_tauri-0.2.0/README.md
+29:- **Elixir** >= 1.15 with **OTP 27** (OTP 28 not yet supported due to Burrito ERTS availability)
+```
+
+Column 3 admits **only OTP 27**, and therefore excludes 28.
+
+### The intersection is empty, and column 3's stated reason is measurably false
+
+Column 1 ∩ column 2 = **OTP 28.x**, newest satisfying both is **28.5**. Column 3 excludes 28. **No OTP version
+satisfies all three constraints**, so line 2's rule as written yields nothing and I am not inventing a tie-break.
+
+The reason column 3 gives for excluding OTP 28 is *"OTP 28 doesn't have universal macOS binaries available yet"*.
+The measurement above says the opposite, and inverts it: **OTP 28 macOS universal returns 200, and OTP 27 macOS
+universal returns 404.** `ex_tauri`'s constraint is a stale fact of exactly the kind B3 was raised to catch — it
+was true when written and the CDN has moved on.
+
+### What this settles about ADR-0005
+
+The OTP 28 pin is **confirmed by measurement**, on the packaging chain's own artifact index, and the ADR-0005
+correction's suspicion that OTP 29 might now be viable is **overturned**: OTP 29 is missing on macOS and on both
+Linux architectures. The newest OTP that Burrito can package for all three targets is **28.5**, not the 28.1.1
+this machine currently runs.
+
+### Stopping here, before line 3 writes a pin
+
+Per CLAUDE.md §7 — a dependency incompatibility, and an ambiguity that changes the design.
