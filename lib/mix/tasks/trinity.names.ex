@@ -48,7 +48,7 @@ defmodule Mix.Tasks.Trinity.Names do
 
   @impl Mix.Task
   def run(argv) do
-    {opts, _} = OptionParser.parse!(argv, strict: [digests: :string])
+    {opts, _} = OptionParser.parse!(argv, strict: [digests: :string, list_permitted: :boolean])
     {salt, digests} = load_digests(opts[:digests] || @digests_path)
 
     files = tracked_files()
@@ -61,11 +61,33 @@ defmodule Mix.Tasks.Trinity.Names do
       ])
 
     if failures == [] do
+      if opts[:list_permitted], do: list_permitted(files)
       Mix.shell().info("trinity.names: OK over #{length(files)} tracked files")
     else
       Enum.each(failures, &Mix.shell().error("FAIL #{&1}"))
       Mix.raise("trinity.names: #{length(failures)} violation(s)")
     end
+  end
+
+  # Every permitted hit as file:line, with the heading whose section admitted it. AC8 asks the
+  # owner to confirm each one maps to an approved line, which needs them enumerated, not counted.
+  defp list_permitted(files) do
+    {lo, hi} = permitted_line_range()
+
+    Mix.shell().info(
+      "permitted section: #{@permitted_file} lines #{lo}-#{hi}, located by heading text"
+    )
+
+    Mix.shell().info("  #{@permitted_begin}")
+
+    for path <- files,
+        {line, n} <- numbered_lines(path),
+        Enum.any?(@platform_names, &String.contains?(String.downcase(line), &1)),
+        permitted?(path, n, {lo, hi}) do
+      Mix.shell().info("  PERMITTED #{path}:#{n}  (under #{inspect(@permitted_begin)})")
+    end
+
+    :ok
   end
 
   @doc "Downcase, then split on every run of non-alphanumeric characters."
