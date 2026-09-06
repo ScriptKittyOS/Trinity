@@ -18,12 +18,28 @@ import Config
 #
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
-if System.get_env("PHX_SERVER") do
+# Slice 001 line 5. `--smoke` implies `server: true`.
+#
+# Read straight from `:init.get_plain_arguments/0` rather than through `Trinity.Smoke.argv/0`,
+# which is the same call: this file is evaluated before the application is available under
+# Mix, so it may not call project modules. `Burrito.Util.Args.get_arguments/0` reads the same
+# thing.
+smoke? = "--smoke" in Enum.map(:init.get_plain_arguments(), &to_string/1)
+
+if System.get_env("PHX_SERVER") || smoke? do
   config :trinity, TrinityWeb.Endpoint, server: true
 end
 
-config :trinity, TrinityWeb.Endpoint,
-  http: [port: String.to_integer(System.get_env("PORT", "4000"))]
+# Scoped to :dev at slice 001 line 5. Unscoped, this line runs in every environment and
+# **overrides** the port config/test.exs and the :prod block below set, because runtime.exs is
+# evaluated last. Measured: with it unscoped, the test endpoint bound 4000 rather than the
+# ephemeral port config/test.exs asks for, so a test asserting "the reported port is the port
+# that was bound" was passing against a hardcoded default. :prod and :test each set their own
+# port for their own reason; only :dev wants a fixed 4000 that PORT can move.
+if config_env() == :dev do
+  config :trinity, TrinityWeb.Endpoint,
+    http: [port: String.to_integer(System.get_env("PORT", "4000"))]
+end
 
 if config_env() == :dev do
   # Reload browser tabs when matching files change.
@@ -43,12 +59,12 @@ if config_env() == :dev do
 end
 
 if config_env() == :prod do
-  database_path =
-    System.get_env("DATABASE_PATH") ||
-      raise """
-      environment variable DATABASE_PATH is missing.
-      For example: /etc/trinity/trinity.db
-      """
+  # Slice 001 line 5. A packaged binary is double-clicked with no environment prepared for it,
+  # so the generator's "raise if DATABASE_PATH is missing" is right for a server deployment and
+  # fatal for a desktop app. The env var still wins where someone sets it; the fallback is the
+  # per-OS data directory `Trinity.Paths` resolves, which is the only place a desktop app has
+  # any business writing to.
+  database_path = System.get_env("DATABASE_PATH") || Trinity.Paths.database_path()
 
   config :trinity, Trinity.Repo,
     database: database_path,
@@ -59,26 +75,30 @@ if config_env() == :prod do
   # want to use a different value for prod and you most likely don't want
   # to check this value into version control, so we use an environment
   # variable instead.
+  # Slice 001 line 5, and the same reasoning: a double-clicked binary has no SECRET_KEY_BASE.
+  #
+  # The fallback is generated fresh on every boot and **written nowhere**. That is a deliberate
+  # limit, not an oversight: sessions and signed cookies do not survive a restart of the
+  # packaged app. Persisting a secret means writing a credential to the user's disk and
+  # deciding its file mode, its rotation and what happens when it is copied to another machine
+  # — CLAUDE.md section 7 puts that in front of the owner, and slice 100 owns the desktop
+  # session story. A spike that quietly invented a credential store would be the larger sin.
   secret_key_base =
-    System.get_env("SECRET_KEY_BASE") ||
-      raise """
-      environment variable SECRET_KEY_BASE is missing.
-      You can generate one by calling: mix phx.gen.secret
-      """
+    System.get_env("SECRET_KEY_BASE") || Base.encode64(:crypto.strong_rand_bytes(48))
 
   host = System.get_env("PHX_HOST") || "example.com"
 
   config :trinity, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
+  # Slice 001 line 5. A desktop app binds the loopback on an ephemeral port and tells the shell
+  # which one it got; it does not listen on every interface, and a spike that shipped
+  # `{0,0,0,0,0,0,0,0}` in a binary users double-click would be putting a Phoenix app on their
+  # LAN without asking. PORT still wins where it is set, which is how ex_tauri drives it.
+  desktop_port = String.to_integer(System.get_env("PORT") || "0")
+
   config :trinity, TrinityWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
-    http: [
-      # Enable IPv6 and bind on all interfaces.
-      # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
-      # See the documentation on https://bandit.hexdocs.pm/Bandit.html#t:options/0
-      # for details about using IPv6 vs IPv4 and loopback vs public addresses.
-      ip: {0, 0, 0, 0, 0, 0, 0, 0}
-    ],
+    http: [ip: {127, 0, 0, 1}, port: desktop_port],
     secret_key_base: secret_key_base
 
   # ## SSL Support

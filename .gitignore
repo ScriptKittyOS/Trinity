@@ -34,6 +34,12 @@ erl_crash.dump
 /tmp/
 trinity-*.tar
 /priv/static/cache_manifest.json
+# `mix assets.deploy` (needed before MIX_ENV=prod builds, because config/prod.exs sets
+# cache_static_manifest) writes a digested copy and a .gz sibling next to every static file.
+# Both are derived from tracked originals. Added at slice 001 line 5, after a release build
+# staged seven of them.
+/priv/static/**/*.gz
+/priv/static/**/*-????????????????????????????????.*
 npm-debug.log
 /assets/node_modules/
 *.db-*

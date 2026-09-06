@@ -488,3 +488,150 @@ is wrong about the record: `SLICE.md`'s own Risks section already says "Windows 
 needs 7-Zip per Burrito notes; document." **This supersedes that framing.** What line 3 added
 was the measurement — the exact error, the resolver line it comes from, and that no 7z variant
 is installed and installing one needs root. The risk was written down before I got there.
+
+---
+
+## Line 5 — `Trinity.Smoke`, and the measurement that would have proved nothing
+
+Dated 2026-09-06. Red committed at `f7406c5`: `run/2` reported the port and returned without
+calling `halt`. `SmokeTest` failed 1 of 4 on it. Green after `halt.(0)`, 4 of 4.
+
+Two things changed with it, and both were section-8 problems rather than design choices.
+
+**`config/test.exs` now serves.** The first attempt at the red failed with `{:error,
+:no_server_found}` — the generator's `server: false` means there is no bound port to ask about,
+so the failure was at an earlier fault than the claim.
+
+**`config/runtime.exs`'s port line is now scoped to `:dev`.** Unscoped, it runs in every
+environment and is evaluated *last*, so it silently overrode the ephemeral port
+`config/test.exs` had just been given:
+
+```
+$ MIX_ENV=test mix run --no-start -e 'IO.inspect(Application.get_env(:trinity, TrinityWeb.Endpoint)[:http])'
+[ip: {127, 0, 0, 1}, port: 4000]
+```
+
+A test asserting "the reported port is the port that was bound" was therefore passing against a
+hardcoded 4000. The test now asserts the *configured* port is 0 and the *reported* port is not,
+which is a claim a fixed port cannot satisfy.
+
+### The binary does not stay alive, and that nearly made AC7 vacuous
+
+`PHX_SERVER=true ./burrito_out/desktop_linux_x86_64` exited immediately, having started the
+endpoint. It is not stdin, and it is not a crash. Burrito launches the release as
+
+```
+erl ... -noshell -s elixir start_cli -mode embedded -boot ... -extra <argv>
+```
+
+(`deps/burrito/src/erlang_launcher.zig:53`). `elixir start_cli` is the ordinary Elixir CLI
+entry point, and the ordinary Elixir CLI **halts when its command list is empty**, exactly as
+`elixir -e ''` does. A packaged Phoenix server therefore needs `--no-halt`:
+
+```
+$ PHX_SERVER=true timeout 20 ./burrito_out/desktop_linux_x86_64 --no-halt ; echo "exit=$?"
+exit=124        # 124 is timeout killing it — it was still running
+```
+
+**Which means the AC7 measurement I was about to take proves nothing.** `SLICE.md` AC7 reads
+"running the binary under `--smoke` exits 0 and leaves no process behind", and the binary exits
+0 and leaves no process behind **whether or not `--smoke` is passed**, because it halts by
+itself. My first smoke run — `./burrito_out/desktop_linux_x86_64 --smoke`, exit 0, clean `ps` —
+is a true observation that attributes nothing to the code under test.
+
+The discriminating form adds `--no-halt`, which makes staying alive the default so that exiting
+is attributable:
+
+```
+$ ps -eo pid,ppid,comm | grep -E 'desktop_linux|beam.smp|erl_child_setup'   # BEFORE
+2487028 2485809 beam.smp
+2487056 2487028 erl_child_setup
+
+$ ./burrito_out/desktop_linux_x86_64 --no-halt --smoke ; echo "exit=$?"
+18:56:11.939 [info] Running TrinityWeb.Endpoint with Bandit 1.12.5 at 127.0.0.1:45031 (http)
+TRINITY_SMOKE_PORT=45031
+exit=0
+
+$ ps -eo pid,ppid,comm | grep -E 'desktop_linux|beam.smp|erl_child_setup'   # AFTER
+2487028 2485809 beam.smp
+2487056 2487028 erl_child_setup
+
+$ diff ac7-before.txt ac7-after.txt ; echo "exit=$?"
+exit=0
+```
+
+The control above and this run together are the claim: with `--no-halt` and no `--smoke` it is
+still running at 20 s; with `--no-halt --smoke` it exits 0 immediately and the process list is
+byte-identical either side. **AC7's wording should say `--no-halt --smoke`, and PROOF.md will
+say why.** Recorded here rather than quietly taking the easier reading.
+
+### AC1 — the packaged binary serves
+
+```
+$ PHX_SERVER=true ./burrito_out/desktop_linux_x86_64 --no-halt &
+18:54:xx [info] Running TrinityWeb.Endpoint with Bandit 1.12.5 at 127.0.0.1:35159 (http)
+
+$ curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:35159/ ; echo "exit=$?"
+200
+exit=0
+
+$ curl -sS http://127.0.0.1:35159/ > page.html ; echo "exit=$?"   # 20165 bytes
+exit=0
+$ grep -o 'Phoenix Framework\|csrf-token' page.html | head -3
+csrf-token
+Phoenix Framework
+Phoenix Framework
+```
+
+### A leaked sidecar, found by accident, and it is AC8's exact failure mode
+
+Stopping the serving binary with `kill <wrapper pid>` left this behind:
+
+```
+$ ps -eo pid,ppid,comm | grep desktop_linux     # nothing
+$ ps -eo pid,ppid,comm | grep beam.smp
+2765267  139843 beam.smp
+$ tr '\0' ' ' < /proc/2765267/cmdline
+/home/aylac/.local/share/.burrito/desktop_erts-16.4.0.5_0.1.0/erts-16.4.0.5/bin/beam.smp -- -root ...
+```
+
+The wrapper died; **the BEAM it launched survived and was reparented to init.** That is
+precisely the property AC8 asks about — "killing the window terminates the sidecar within 5 s"
+— failing on this machine, by signal rather than by window, and it says the wrapper does not
+forward termination to its child. AC8 stays `[manual]` because no window exists to close here,
+but this is evidence that the behaviour underneath it is **not** currently correct, and it is a
+follow-up rather than something this slice fixes: the fix is in burrito's wrapper or in a
+supervisor around it, and neither is packaging wiring.
+
+### An intermittent boot error, reported because it is intermittent
+
+Some runs print, before the endpoint line:
+
+```
+[error] Exqlite.Connection (#PID<0.249.0> ("db_conn_2")) failed to connect: ** (Exqlite.Error) database is locked
+```
+
+Four of five pool connections, on a fresh empty database. The clean AC7 run above did not print
+it. The app serves either way, so it does not fail a criterion; the likely cause is
+`Ecto.Migrator` holding the file while the pool connects, which is a slice 010 question about
+boot ordering, not a packaging one. Recorded so it is not discovered twice.
+
+### What is now in `config/runtime.exs`, and one thing deliberately not
+
+`DATABASE_PATH` falls back to `Trinity.Paths.database_path/0`; the endpoint binds
+`127.0.0.1` on an ephemeral port rather than the generator's `{0,0,0,0,0,0,0,0}`, because a
+binary users double-click should not put a Phoenix app on their LAN.
+
+`SECRET_KEY_BASE` falls back to a value generated **fresh on every boot and written nowhere**.
+Sessions do not survive a restart of the packaged app. That is a stated limit, not an
+oversight: persisting it means writing a credential to the user's disk and deciding its mode,
+its rotation, and what happens when the file is copied to another machine, and CLAUDE.md §7
+puts that in front of the owner. Slice 100 owns the desktop session story.
+
+### Follow-ups this line opened
+
+- The burrito wrapper does not forward termination to the BEAM it launches. Blocks AC8's
+  property from ever being true; needs the owner or slice 100.
+- `--no-halt` is mandatory for the packaged server and is easy to omit. `docs/packaging.md`
+  (line 8) and `.github/workflows/package.yml` (line 9) must both carry it.
+- Intermittent `database is locked` for four of five pool connections at boot.

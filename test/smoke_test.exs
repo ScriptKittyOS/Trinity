@@ -32,11 +32,23 @@ defmodule SmokeTest do
   end
 
   describe "run/2" do
-    test "reports the port the endpoint actually bound" do
+    test "reports the port the endpoint actually bound, not the one it was configured with" do
+      configured = Application.get_env(:trinity, TrinityWeb.Endpoint)[:http][:port]
+
+      assert configured == 0,
+             "this test only means something against an ephemeral bind; configured port is " <>
+               "#{inspect(configured)}. runtime.exs overrode it with 4000 once already."
+
       me = self()
       Smoke.run(&send(me, {:said, &1}), fn _ -> :ok end)
       assert_received {:said, line}
-      assert line =~ ~r/^TRINITY_SMOKE_PORT=\d+$/
+      assert [_, reported] = String.split(line, "=")
+      reported = String.to_integer(reported)
+
+      assert reported != 0,
+             "run/2 echoed the configured 0 instead of asking the endpoint what it got"
+
+      assert {:ok, {_ip, ^reported}} = TrinityWeb.Endpoint.server_info(:http)
     end
 
     test "stops the OS process instead of serving forever" do

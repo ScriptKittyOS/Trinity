@@ -19,11 +19,12 @@ defmodule Trinity.Smoke do
   the endpoint what port it got, so it is its own top-level boundary alongside
   `Trinity.Application`, for the same reason that module is: it is the boot path, not the core.
 
-  ## FIRST PASS — the red for slice 001 line 5
+  ## Why it stops the OS process and not the application
 
-  `run/2` below reports the port and returns. It never calls `halt`, so a binary launched with
-  `--smoke` prints its port and then keeps serving forever. `test/smoke_test.exs` fails on
-  exactly that, which is the property line 5 exists to establish.
+  `System.halt/1` ends the VM. `Application.stop/1` would leave the Burrito wrapper's process
+  tree standing, and a wrapper still running after the app it wraps has finished is precisely
+  the leaked sidecar AC7 looks for. The smoke path therefore ends the process it was given,
+  which is the only exit a `ps` on the outside can see.
   """
 
   use Boundary, top_level?: true, deps: [Trinity, TrinityWeb], exports: []
@@ -61,8 +62,25 @@ defmodule Trinity.Smoke do
   the test runner's own OS process.
   """
   @spec run(say_fun(), halt_fun()) :: any()
-  def run(say \\ &IO.puts/1, _halt \\ &System.halt/1) do
+  def run(say \\ &IO.puts/1, halt \\ &System.halt/1) do
     {:ok, {_ip, port}} = TrinityWeb.Endpoint.server_info(:http)
     say.(port_line(port))
+    halt.(0)
+  end
+
+  @doc """
+  The supervised children the smoke path adds: one `Task`, or none.
+
+  Appended **after** `TrinityWeb.Endpoint` in `Trinity.Application`, because the task asks the
+  endpoint which port it bound and a child cannot ask that of a sibling that has not started.
+
+  It is a supervised child rather than a `Task.start/1` because CLAUDE.md section 5 says
+  supervise everything and no bare spawn, and because running it inside `start/2` would halt
+  the VM from within the OTP boot sequence — a boot crash rather than a clean exit. `ps`
+  cannot tell those apart from the outside; the exit code can, and AC7 reads both.
+  """
+  @spec children([String.t()]) :: [Supervisor.child_spec() | {module(), term()}]
+  def children(args) do
+    if requested?(args), do: [{Task, &run/0}], else: []
   end
 end
