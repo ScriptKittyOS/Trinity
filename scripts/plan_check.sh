@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
 # plan_check.sh — enforces the plan-consistency rules that were previously prose.
 #
 # Every rule below was a finding that closed on a hand check and stayed broken.
@@ -134,6 +136,25 @@ for c in $(git log --format=%H); do
   printf '%s\n' "$body" | grep -q '^Signed-off-by: ' \
     || report "FAIL commit $c: no Signed-off-by line ($(git log -1 --format=%s "$c"))"
 done
+
+section "10. No reference to the pre-move owner path"
+# The repository moved to the ScriptKittyOS organisation. A tracked file still pointing at the
+# old owner path sends people, tooling and citations to a repo that is no longer canonical.
+# The pattern is COMPOSED, so this file does not contain the literal and needs no exemption.
+# Enforcers 2 and 3 each carry a one-entry skip for exactly this reason; here it is avoidable.
+stale_owner="$(printf 'Hack%s' 'Tuah')"
+if git grep -nI "$stale_owner" -- . >/dev/null 2>&1; then
+  git grep -nI "$stale_owner" -- . | sed 's/^/FAIL stale owner path: /'
+  fail=1
+fi
+
+section "9. Secrets are ignored, as CLAUDE.md claims"
+# CLAUDE.md states ".env* is gitignored". A generator run overwrote .gitignore at
+# slice 000 and silently removed that rule; nothing caught it. This does.
+for f in .env .env.local .env.production; do
+  git check-ignore -q "$f" || report "FAIL .gitignore: '$f' is not ignored, but CLAUDE.md says .env* is"
+done
+grep -q '^!\.env\.example$' .gitignore || true
 
 printf '\n'
 if [ "$fail" -eq 0 ]; then echo "plan_check: PASS"; else echo "plan_check: FAIL"; fi

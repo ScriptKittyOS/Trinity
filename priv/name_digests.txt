@@ -1,0 +1,7 @@
+# Digest set for the slice 000 name check. Generated outside the tree.
+# Tokenisation: downcase, split on every non-alphanumeric run, digest each token.
+# The generator lives in ../trinity-private/gen_name_digests.exs and never in this repo.
+salt abc1a75750f4fe31c1e3aca40e36105c
+digest 13a09d421ca8e91ffc9d8c893f26808cfd8a612541b2bfdb289626fe01eb367f
+digest 9801a505c7beff79bd3f8ace5ab02e3e3f99745717c66522f65a1c6199b52d47
+digest b7cf6119f98f46264bbbdaeed94aae5306663f4df47d530b073ed8e3a83eb66c

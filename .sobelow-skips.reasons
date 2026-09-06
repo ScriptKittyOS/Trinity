@@ -1,0 +1,12 @@
+# One reason per skipped sobelow finding, keyed by the fingerprint in .sobelow-skips.
+#
+# Measured at slice 000: sobelow's skip file does NOT accept a trailing comment. Appending one
+# changes the line so the fingerprint no longer matches and the finding reappears (exit 1). So
+# reasons live here, and test/sobelow_skips_test.exs asserts every fingerprint has one.
+#
+# Also measured: the fingerprint includes the FILE AND LINE, so any edit above a finding
+# invalidates the skip. Adding SPDX headers at slice 000 moved router.ex:10 to :12 and did
+# exactly that. Re-run mix sobelow --mark-skip-all and rekey this file when it happens.
+#
+# format: <fingerprint><TAB><reason>
+2DBC9F9	Missing CSP on the browser pipeline. The scaffold ships no Content-Security-Policy, and setting one needs LiveView nonce handling, which belongs with the UI rather than the toolchain. Slice 013 owns it. Skipped rather than fixed blind: a CSP written without the UI it protects is a guess.

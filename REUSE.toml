@@ -1,0 +1,23 @@
+version = 1
+SPDX-PackageName = "trinity"
+SPDX-PackageSupplier = "Sudo Apt Holdings LLC"
+SPDX-PackageDownloadLocation = "https://github.com/ScriptKittyOS/Trinity"
+
+# Files that carry their own SPDX header are not listed here. This file covers only what
+# cannot hold a comment, or what is vendored and must keep its upstream licence.
+#
+# ADR-0012 decision 1 requires SPDX headers, REUSE and DCO from commit 1. Commit 1 carried
+# LICENSE, NOTICE and DCO but neither headers nor this file; slice 000 closes that gap, and
+# the gap is recorded rather than glossed.
+
+[[annotations]]
+path = ["mix.lock", "**/*.md", "**/*.json", "**/*.tsv", "**/*.cff", "**/*.toml", ".tool-versions", ".gitignore", ".sobelow-skips", ".sobelow-skips.reasons", "priv/name_digests.txt", ".formatter.exs"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Sudo Apt Holdings LLC"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = ["assets/vendor/**", "priv/static/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "Upstream authors; vendored unmodified"
+SPDX-License-Identifier = "MIT"

@@ -6,6 +6,7 @@
 | Milestone | M0 Stands |
 | Size | L |
 | Depends on | — |
+| Status | approved |
 
 ## Goal
 A Phoenix 1.8 app named `trinity` that compiles on pinned Elixir 1.20.x / OTP 28.x, with the full quality gate
@@ -29,7 +30,8 @@ unmet with no slice owning the remedy.
   pinned toolchain, wire two boundaries, plant a violation, and confirm it fails compilation. If it does not
   work, stop and record the fallback (conventions plus a custom Credo check, or an umbrella) in an ADR before
   continuing. Nothing else in this slice starts until this is answered.
-- `mise.toml` (or `.tool-versions`) pinning erlang + elixir; `elixir -v` output recorded.
+- `.tool-versions` pinning erlang + elixir; `elixir --version` output recorded. Measured at G1: `mise` is
+  absent on this machine and `asdf` v0.18.0 is present, so the pin file is asdf's, not `mise.toml`.
 - `mix phx.new trinity --database sqlite3 --no-mailer` (keep LiveView, Tailwind, daisyUI defaults; remove what is unused later).
 - Dependencies: `boundary`, `credo`, `mox`, `mix_audit`, `sobelow`, `ex_doc`, `nimble_options`. Nothing else yet.
 - `boundary` top-level definitions for `Trinity` and `TrinityWeb` (`TrinityWeb` deps `[Trinity]`; `Trinity` deps `[]`).
@@ -92,25 +94,31 @@ unmet with no slice owning the remedy.
 - Elixir 1.20 type checker: ensure `mix compile --warnings-as-errors` treats type warnings as errors (it does by default; verify).
 
 ## Deliverables
-- Repo scaffold, `mise.toml`, `mix.exs` with aliases, `versions.exs`, `lib/mix/tasks/versions.verify.ex`, `lib/mix/tasks/trinity.secrets.scan.ex`, `.github/workflows/gate.yml`, `.credo.exs`, `.formatter.exs`, plan package copied.
+- Repo scaffold, `.tool-versions`, `mix.exs` with aliases, `lib/trinity/versions.ex` (see the recorded deviation), `lib/mix/tasks/versions.verify.ex`, `lib/mix/tasks/versions.gen.ex`, `lib/mix/tasks/trinity.secrets.scan.ex`, `.github/workflows/gate.yml`, `.credo.exs`, `.formatter.exs`, plan package copied.
 
 ## Acceptance criteria
-1. [auto] `elixir -v` shows Elixir 1.20.x on OTP 28.x, matching `mise.toml`, and the exact patch versions are written into `VERSIONS.md`.
+1. [auto] `elixir --version` shows Elixir 1.20.x on OTP 28.x, matching `.tool-versions`, and the exact patch versions are written into `VERSIONS.md`.
 2. [auto] `mix gate` exits 0 on a clean checkout.
 3. [auto] `mix versions.verify` exits 0 and its output is pasted in PROOF.md; any 🔍 rows in `VERSIONS.md` that this slice touched are flipped to ✅ with today's date.
 4. [auto] Introducing a boundary violation (temporary test file making `Trinity` call `TrinityWeb`) makes `mix gate` fail; removing it makes it pass. Both outputs captured.
-5. [auto] CI workflow runs the gate and is green on the slice branch.
+5. [manual] CI workflow runs the gate and is green on the slice branch.
 6. [auto] `mix trinity.secrets.scan` detects a planted fake key in a temp file and exits non-zero; passes after removal.
 7. [auto] Each of the five enforcers above fails the gate on a planted violation and passes after its removal. Both outputs captured per enforcer.
-8. [auto] The name check exits 0 over the tree as it stands at commit 1, and every permitted hit maps to a line on the approved permitted-sites list.
-9. [auto] The name check's red is demonstrated on a synthetic token, not on real content, and the digest set's false-negative limit is stated in NOTES.md.
+8. [manual] The name check exits 0 over the tree as it stands at commit 1, and every permitted hit maps to a line on the approved permitted-sites list.
+9. [manual] The name check's red is demonstrated on a synthetic token, not on real content, and the digest set's false-negative limit is stated in NOTES.md.
 
 ## Proof required
-- `elixir -v`, `mise ls`, `mix gate` output, `mix versions.verify` output, the boundary-violation before/after, CI run URL or log excerpt, secret scan before/after.
+- `elixir --version`, `asdf current`, `mix gate` output, `mix versions.verify` output, the boundary-violation before/after, CI run URL or log excerpt, secret scan before/after.
 
 ## Manual verification queue
-None. Every acceptance criterion in this slice is `[auto]` and is proven by a command or a test.
-If that changes during the slice, the criterion is retagged and this section is filled at G1.
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC5** — confirm the CI Actions run is green on this branch, by pasting its status; the run is on a
+  remote this branch cannot vouch for.
+- **AC8** — answered at G1: the permitted-sites list is approved and the name check consumes it; the owner
+  confirms at G3 that each permitted hit maps to an approved line.
+- **AC9** — answered at G1: the digest-set design and its stated false-negative limit are approved as
+  written in NOTES.md; the owner confirms the limit still reads correctly at G3.
 
 ## Definition of Done
 - [ ] `mix gate` green · [ ] AC1–9 proven · [ ] CI green · [ ] `VERSIONS.md` updated · [ ] ROADMAP → done · [ ] final commit + tag

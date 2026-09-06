@@ -50,6 +50,12 @@ Tool tasks are linked to their Session but trapped; a tool crash is a tool error
 
 ## Bounded contexts and dependency rules (enforced by `boundary`)
 
+**`boundary` enforces this table only under `--warnings-as-errors`.** Measured at slice 000: it
+reports a violation as a *warning*, so `mix compile --force` with a planted `Trinity → TrinityWeb`
+call exits **0**. Every rule below is advisory unless the gate's compile step carries that flag,
+which `test/gate_alias_test.exs` asserts. Drop the flag and this table stops being enforced
+without anything failing.
+
 | Context (module) | Owns | May depend on |
 |---|---|---|
 | `Trinity.Sessions` | Session process, turn loop, message log | LLM, Tools, **Effects**, Permissions, Memory, Skills, Repo, PubSub |

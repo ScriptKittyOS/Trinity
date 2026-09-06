@@ -16,68 +16,24 @@ $ curl -s https://hex.pm/api/packages/<name>
 
 A ✅ means that command was run and its answer is in the row, with the date. Nothing else earns one.
 
-## Toolchain
+## The verification mark
 
-| Component | Pin | Latest seen | Notes |
-|---|---|---|---|
-| Erlang/OTP | **28.x, pending measurement** | 29.0.6 (2026-09-01) ✅ | ⚠️ The OTP 28 pin rested on two facts that were not measured and are now known stale: Burrito 1.5.0 and an ex_tauri README stating OTP 27. Burrito is at 1.6.0 and its README states precompiled ERTS from OTP-25.3 onwards, not a cap at 28; Elixir 1.20 requires OTP 27+ and is compatible with OTP 29. The pin may still be right. Slice 001 measures which ERTS versions Burrito 1.6.0 actually fetches per target, and what ex_tauri 0.2.0 states. See ADR-0005 and its appended correction. |
-| Elixir | **1.20.x** | 1.20.4 ✅ | Confirm 1.20.x supports the chosen OTP 28 patch at Slice 000 (`elixir -v`). Built-in type checker is part of the gate. |
-| mise / asdf | current | — | `.tool-versions` / `mise.toml` committed in Slice 000. |
-| Rust + Tauri CLI | stable | Tauri 2.10.x ✅ | Only needed for desktop slices (001, 100, 101). |
-| Zig | version required by Burrito | — | Only for cross-target Burrito builds. |
+**The mark is derived, never typed.** `mix versions.gen` reads `mix.lock` through
+`Mix.Dep.Lock.read/0` and emits the Verified column from membership:
 
-## Core libraries
+| Mark | Means |
+|---|---|
+| ✅ `in mix.lock` | the package is present in `mix.lock` at this sha |
+| 🔍 `not yet a dependency` | absent from `mix.lock`; the slice that adds it flips this |
+| 🔍 `not a single package` | the row names a choice or a pair, so lock membership cannot answer it |
+| ✅ `.tool-versions` | a toolchain component, marked from the pin file rather than from hex |
 
-| Library | Pin | Latest seen | Status |
-|---|---|---|---|
-| phoenix | ~> 1.8.13 | 1.8.13 (2026-08-25) ✅ | |
-| phoenix_live_view | ~> 1.2.11 | 1.2.11 (2026-08-27) ✅ | 1.2 line; earlier 1.2.x flagged vulnerable on hex, do not pin lower. |
-| phoenix_pubsub | ~> 2.1 | — | |
-| bandit | ~> 1.x | — 🔍 | HTTP server. |
-| ecto_sql | ~> 3.13 | — 🔍 | |
-| ecto_sqlite3 | ~> 0.24 | 0.24.1 🔍 | Primary DB. FTS5 available. |
-| postgrex + pgvector | optional, ~> 0.3 | 0.3.x 🔍 | Secondary DB path. Not in default deps; behind `TRINITY_DB=postgres`. |
-| oban | ~> 2.24 | 2.24.1 (2026-09-03) ✅ | Uses `Oban.Engines.Lite` on SQLite. ⚠️ Oban Pro Workflows/Smart engine are Postgres-only. |
-| req | ~> 0.5 | — 🔍 | HTTP client. |
-| req_llm | ~> 1.22 | 1.22.0 (2026-09-04) ✅ | Provider layer (streaming, tools, structured output, usage). ⚠️ The pin was `~> 1.10` against a recorded latest of 1.10.0; the real latest was twelve minors ahead. Check event shapes against the current version at Slice 011, not against this file's prose. |
-| MCP library | **decided by Slice 059** | — | Candidates verified 2026-09-05: **anubis_mcp** 2.0.x (hex updated 2026-08-07, **LGPL-3.0**, spec ≤ 2025-11-25, no 2026-07-28 seen) ✅; **fastest_mcp** 0.3.2 (2026-08-28, Apache-2.0, claims 2026-07-28 + 2025-11-25 client+server, OAuth, Tasks, MCP Apps; very new, ~400 total downloads) ✅; **gen_mcp** 2.0.0 (2026-07-30, server-only stateless 2026-07-28 + compat plug; license 🔍) ✅. ⚠️ None speaks 2024-11-05, which is obsolete and not a target. |
-| jido | ~> 2.3 (pending ADR-0009) | 2.3.3 (2026-08-10) ✅ | Actions, directives and the effect boundary, if the Slice 012 checkpoint adopts it. |
-| jason | ~> 1.4 | — | |
-| boundary | ~> 0.10 | 0.10.4 (2024-09-25) ✅ | Compile-time module dependency enforcement. ⚠️ No release in roughly two years and unverified on Elixir 1.20. ADR-0001, docs/01, CLAUDE.md §5 and Slice 000 AC4 all rest on it. Probe it first in Slice 000. |
-| nimble_options | ~> 1.1 | — | Config validation for behaviours. |
+**This replaces the old legend**, under which ✅ meant "someone ran `curl` against hex.pm on the
+date in the row". That mark could not be re-derived and outlived the fact twice — finding B3
+caught two false ✅ marks on the two packages the OTP pin rested on. A mark a command produces
+cannot go stale without the command saying so, and `mix versions.gen --check` is a gate step.
 
-## Memory / ML
-
-| Library | Pin | Latest seen | Status |
-|---|---|---|---|
-| nx, exla | latest stable | — 🔍 | Local embeddings. EXLA binary size matters for desktop — measure in 032. |
-| bumblebee | ~> 0.7 | 0.7.0 (2026-05-15) 🔍 | `all-MiniLM-L6-v2` embeddings; Whisper later. |
-| sqlite_vec | ~> 0.1 | 0.1.0 (2024-11-19) ✅ | Vectors in SQLite. Verify the loadable extension works inside the Burrito bundle (Slice 032). ⚠️ Pre-1.0, no release in roughly 22 months, 6,938 downloads all-time. R11's trigger already fires. Decide the fallback before Slice 032 starts. |
-| hnswlib | ~> 0.1.7 | 0.1.7 🔍 | ⚠️ Pre-1.0. Optional accelerator; not on the critical path. |
-
-## Tools / sandbox / desktop
-
-| Library | Pin | Latest seen | Status |
-|---|---|---|---|
-| muontrap | ~> 2.0 | 2.0.0 (2026-08-13) ✅ | Shell tool. Linux cgroups optional. ⚠️ The pin was `~> 1.8`, which cannot resolve the current major. A major bump is an API review, not a version bump: re-read the child-kill guarantee against 2.0 before Slice 022. |
-| floki | ~> 0.38 | — 🔍 | HTML parsing. |
-| luerl (+ sandbox) | latest | sandbox 0.5 🔍 | Slice 110 only. |
-| burrito | ~> 1.6 | 1.6.0 (2026-07-24) 🔍 | ⚠️ ERTS availability drives the OTP pin. Corrected 2026-09-05: this row previously read `~> 1.5 / 1.5.0 ✅`; the ✅ was not measured. Re-verify the ERTS set at Slice 001. |
-| ex_tauri | ~> 0.2 | 0.2.0 (2026-07-12) 🔍 | ⚠️ Windows unverified; Slice 001 tests it. ⚠️ 439 downloads all-time, so the ADR-0004 fallback matrix carries real weight. Corrected 2026-09-05: this row previously read `~> 0.1 / 0.1.x ✅`; the ✅ was not measured. |
-| nostrum | ~> 0.10 | 0.10.4 (2025-03-02) ✅ | Discord. ⚠️ No release in roughly 18 months. R11's trigger already fires. Check intents and components against the current gateway before Slice 072. |
-| telegex | **not pinned** | 1.9.0-rc.0 (2024-09-18) ✅ | Telegram. ⚠️ The latest release on hex is a release candidate, roughly two years old, and this file's own rule forbids pinning an `-rc`. Alternative: ex_gram. Slice 071 decides with the measurement. |
-| phoenix_streamdown | **not pinned** | 1.0.0-beta.4 (2026-05-03) ✅ | Streaming markdown renderer for LiveView. ⚠️ Pre-release, and this file's own rule forbids pinning an `-rc`; a beta is the same category. Verify at Slice 013; fallback: earmark or mdex with chunk buffering. |
-
-## Dev / quality
-
-| Library | Pin | Notes |
-|---|---|---|
-| credo | ~> 1.7 | `--strict` in gate |
-| mox | ~> 1.2 | mocks for all behaviours |
-| mix_audit | ~> 2.1 | `mix deps.audit` |
-| sobelow | ~> 0.15 | 0.15.0 (2026-08-05). Phoenix security lint. Blocking in the gate with a committed `--skip` list (M5) |
-| ex_doc | ~> 0.38 | docs |
-| lazy_html | (transitive via LiveView test) | |
+The tables below are generated. Editing them by hand fails the gate.
 
 ## Re-verification procedure (run at Slice 000 and at every phase boundary)
 
@@ -90,3 +46,98 @@ mix deps.audit                    # known vulnerabilities
 Record the output in the slice's PROOF.md and update this file's "Latest seen" column with the date.
 Rules: prefer the newest stable that satisfies the packaging chain (Burrito/ex_tauri); never pin an `-rc`;
 never pin a version hex marks as retired or vulnerable.
+
+<!-- versions:begin -->
+<!-- GENERATED by `mix versions.gen` from lib/trinity/versions.ex and mix.lock.
+     Do not edit by hand: `mix versions.gen --check` is a gate step and fails on any drift.
+
+     The Verified column is DERIVED, never typed:
+       ✅ `in mix.lock`   the package is present in mix.lock at this sha
+       🔍 `not yet ...`   the package is absent; the slice that adds it will flip this
+       ✅ `.tool-versions` a toolchain component, marked from the pin file, not from hex
+
+     Deriving commands:
+       $ mix versions.gen --check     # asserts this block matches the data
+       $ mix versions.verify          # asserts every pin is satisfied by mix.lock
+     Marks last derived: 2026-09-06. -->
+
+### Toolchain, pinned in `.tool-versions`
+
+| Name | Pin | Verified | Note |
+|---|---|---|---|
+| `Erlang/OTP` | **28.5.0.5** | ✅ `.tool-versions` | Measured at Slice 000, not read from a README: Burrito 1.6.0's ERTS resolver names one artifact source per target, and 28.5.0.5 is the newest OTP returning 200 on all four (macOS universal, Linux x86_64, Linux aarch64, Windows). 28.5.0.6 is released but its macOS and Linux artifacts are unbuilt (404). OTP 29 is 404 on macOS and both Linux arches. ⚠️ Windows tracks OTP releases immediately while the other three lag a third-party CDN's build queue, so re-probe at every phase boundary. See ADR-0005's second correction. |
+| `Elixir` | **1.20.4-otp-28** | ✅ `.tool-versions` | Confirmed at Slice 000: `elixir --version` reports Elixir 1.20.4 on Erlang/OTP 28, erts-16.4.0.5. Built-in type checker is part of the gate. `boundary` 0.10.4 compiles and enforces on this pair, measured at Slice 000 (H7). |
+| `asdf` | v0.18.0 | ✅ `.tool-versions` | `.tool-versions` committed in Slice 000. `mise` is absent on the build machine; measured at Slice 000 G1 with `which mise asdf`. |
+| `Rust + Tauri CLI` | stable | ✅ `.tool-versions` | Only needed for desktop slices (001, 100, 101). Not a hex package. |
+| `Zig` | version required by Burrito | ✅ `.tool-versions` | Only for cross-target Burrito builds. Not a hex package. |
+
+### Core libraries
+
+| Name | Pin | Verified | Note |
+|---|---|---|---|
+| `phoenix` | ~> 1.8.13 | ✅ in `mix.lock` |  |
+| `phoenix_live_view` | ~> 1.2.0 | ✅ in `mix.lock` | 1.2 line; earlier 1.2.x flagged vulnerable on hex, do not pin lower. |
+| `phoenix_pubsub` | ~> 2.1 | ✅ in `mix.lock` |  |
+| `bandit` | ~> 1.5 | ✅ in `mix.lock` | HTTP server. |
+| `ecto_sql` | ~> 3.13 | ✅ in `mix.lock` |  |
+| `ecto_sqlite3` | >= 0.0.0 | ✅ in `mix.lock` | Primary DB. FTS5 available. |
+| `postgrex + pgvector` | optional, ~> 0.3 | 🔍 not a single package | Secondary DB path. Not in default deps; behind `TRINITY_DB=postgres`. Two packages, so no single lock key. |
+| `oban` | ~> 2.24 | 🔍 not yet a dependency | Uses `Oban.Engines.Lite` on SQLite. ⚠️ Oban Pro Workflows/Smart engine are Postgres-only. Added at Slice 050. |
+| `req` | ~> 0.5 | 🔍 not yet a dependency | HTTP client. |
+| `req_llm` | ~> 1.22 | 🔍 not yet a dependency | Provider layer (streaming, tools, structured output, usage). ⚠️ The pin was `~> 1.10` against a recorded latest of 1.10.0; the real latest was twelve minors ahead. Check event shapes against the current version at Slice 011, not against this file's prose. Added at Slice 011. |
+| `MCP library` | **decided by Slice 059** | 🔍 not a single package | Candidates verified 2026-09-05: **anubis_mcp** 2.0.x (hex updated 2026-08-07, **LGPL-3.0**, spec ≤ 2025-11-25); **fastest_mcp** 0.3.2 (2026-08-28, Apache-2.0, very new, ~400 total downloads); **gen_mcp** 2.0.0 (2026-07-30, server-only stateless + compat plug, MIT). ⚠️ None speaks 2024-11-05, which is obsolete and not a target. Undecided, so no lock key. |
+| `jido` | ~> 2.3 (pending ADR-0009) | 🔍 not yet a dependency | Actions, directives and the effect boundary, if the Slice 012 checkpoint adopts it. |
+| `jason` | ~> 1.2 | ✅ in `mix.lock` |  |
+| `boundary` | ~> 0.10 | ✅ in `mix.lock` | Compile-time module dependency enforcement. Measured at Slice 000: it compiles and enforces on Elixir 1.20.4 / OTP 28, and it reports violations as **warnings**, so it enforces only while `--warnings-as-errors` is on the compile step. ⚠️ No release since 2024-09-25. |
+| `nimble_options` | ~> 1.1 | ✅ in `mix.lock` | Config validation for behaviours. |
+
+### Phoenix scaffold, added at slice 000
+
+| Name | Pin | Verified | Note |
+|---|---|---|---|
+| `phoenix_ecto` | ~> 4.5 | ✅ in `mix.lock` | Ecto integration for Phoenix. Scaffold. |
+| `phoenix_html` | ~> 4.1 | ✅ in `mix.lock` | HTML helpers. Scaffold. |
+| `phoenix_live_dashboard` | ~> 0.8.3 | ✅ in `mix.lock` | Runtime dashboard. Slice 090 surfaces it. |
+| `phoenix_live_reload` | ~> 1.2 | ✅ in `mix.lock` | Dev only. Scaffold. |
+| `esbuild` | ~> 0.10 | ✅ in `mix.lock` | JS bundling, dev only. Scaffold. |
+| `tailwind` | ~> 0.5 | ✅ in `mix.lock` | CSS, dev only. Scaffold. Slice 013 decides the design language on top of it. |
+| `heroicons` | v2.2.0 (github, sparse) | 🔍 not a single package | Icon set, fetched from git rather than hex, so it has no lock key. Scaffold. |
+| `daisyui` | v5.5.20 (github, sparse) | 🔍 not a single package | Component classes, fetched from git rather than hex, so it has no lock key. Scaffold. |
+| `gettext` | ~> 1.0 | ✅ in `mix.lock` | Translations. Scaffold. |
+| `dns_cluster` | ~> 0.2.0 | ✅ in `mix.lock` | Node discovery. Unused until a clustered deployment exists. |
+| `telemetry_metrics` | ~> 1.0 | ✅ in `mix.lock` | Metric definitions. Slice 090 consumes them. |
+| `telemetry_poller` | ~> 1.0 | ✅ in `mix.lock` | VM measurements. Slice 090 consumes them. |
+
+### Memory and ML
+
+| Name | Pin | Verified | Note |
+|---|---|---|---|
+| `nx, exla` | latest stable | 🔍 not a single package | Local embeddings. EXLA binary size matters for desktop — measure in 032. Two packages, so no single lock key. |
+| `bumblebee` | ~> 0.7 | 🔍 not yet a dependency | `all-MiniLM-L6-v2` embeddings; Whisper later. Added at Slice 032. |
+| `sqlite_vec` | ~> 0.1 | 🔍 not yet a dependency | Vectors in SQLite. Verify the loadable extension works inside the Burrito bundle (Slice 032). ⚠️ Pre-1.0, no release in roughly 22 months, 6,938 downloads all-time. R11's trigger already fires. Decide the fallback before Slice 032 starts. |
+| `hnswlib` | ~> 0.1.7 | 🔍 not yet a dependency | ⚠️ Pre-1.0. Optional accelerator; not on the critical path. |
+
+### Tools, sandbox and desktop
+
+| Name | Pin | Verified | Note |
+|---|---|---|---|
+| `muontrap` | ~> 2.0 | 🔍 not yet a dependency | Shell tool. Linux cgroups optional. ⚠️ The pin was `~> 1.8`, which cannot resolve the current major. A major bump is an API review, not a version bump: re-read the child-kill guarantee against 2.0 before Slice 022. Added at Slice 022. |
+| `floki` | ~> 0.38 | 🔍 not yet a dependency | HTML parsing. Added at Slice 022. |
+| `luerl (+ sandbox)` | latest | 🔍 not a single package | Slice 110 only. Two packages, so no single lock key. |
+| `burrito` | ~> 1.6 | 🔍 not yet a dependency | ⚠️ ERTS availability drives the OTP pin, and Slice 000 measured it: only the OTP 28 line is fetchable for macOS and Linux. Corrected 2026-09-05: this row previously read `~> 1.5 / 1.5.0 ✅`; that mark was not measured. Added at Slice 001. |
+| `ex_tauri` | ~> 0.2 | 🔍 not yet a dependency | ⚠️ Declares `otp_release: "~> 27.0"`, and Slice 000's probe refutes the reason it gives: OTP 28 macOS universal returns 200 and OTP 27 returns 404. Whether it runs on the pinned OTP is Slice 001's first measurement. ⚠️ 439 downloads all-time, so the ADR-0004 fallback matrix carries real weight. |
+| `nostrum` | ~> 0.10 | 🔍 not yet a dependency | Discord. ⚠️ No release in roughly 18 months. R11's trigger already fires. Check intents and components against the current gateway before Slice 072. |
+| `telegex` | **not pinned** | 🔍 not a single package | Telegram. ⚠️ The latest release on hex is a release candidate, roughly two years old, and this file's own rule forbids pinning an `-rc`. Alternative: ex_gram. Slice 071 decides with the measurement. |
+| `phoenix_streamdown` | **not pinned** | 🔍 not a single package | Streaming markdown renderer for LiveView. ⚠️ Pre-release, and this file's own rule forbids pinning an `-rc`; a beta is the same category. Verify at Slice 013; fallback: earmark or mdex with chunk buffering. |
+
+### Dev and quality
+
+| Name | Pin | Verified | Note |
+|---|---|---|---|
+| `credo` | ~> 1.7 | ✅ in `mix.lock` | `--strict` in the gate; hosts the eval-family check. |
+| `mox` | ~> 1.2 | ✅ in `mix.lock` | Mocks for every behaviour. |
+| `mix_audit` | ~> 2.1 | ✅ in `mix.lock` | `mix deps.audit`. |
+| `sobelow` | ~> 0.15 | ✅ in `mix.lock` | Phoenix security lint. Blocking in the gate with a committed `--skip` list (M5). ⚠️ Its skip fingerprint embeds the file AND line, so an edit above a finding invalidates the skip; reasons live in `.sobelow-skips.reasons`. |
+| `ex_doc` | ~> 0.38 | ✅ in `mix.lock` | Docs. |
+| `lazy_html` | (transitive via LiveView test) | ✅ in `mix.lock` |  |
+<!-- versions:end -->
