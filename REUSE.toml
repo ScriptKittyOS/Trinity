@@ -1,7 +1,7 @@
 version = 1
 SPDX-PackageName = "trinity"
 SPDX-PackageSupplier = "Sudo Apt Holdings LLC"
-SPDX-PackageDownloadLocation = "https://github.com/HackTuah/Trinity"
+SPDX-PackageDownloadLocation = "https://github.com/ScriptKittyOS/Trinity"
 
 # Files that carry their own SPDX header are not listed here. This file covers only what
 # cannot hold a comment, or what is vendored and must keep its upstream licence.
