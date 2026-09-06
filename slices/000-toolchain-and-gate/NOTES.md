@@ -182,3 +182,111 @@ this machine currently runs.
 ### Stopping here, before line 3 writes a pin
 
 Per CLAUDE.md §7 — a dependency incompatibility, and an ambiguity that changes the design.
+
+---
+
+## Line 2, continued — owner's extra measurement. The pin moves to 28.5.0.5.
+
+The owner's decision pinned 28.5 subject to probing every 28.x patch OTP has released above it, taking the newest
+that returns 200 on **all four** targets.
+
+### The population, from two independent sources that agree
+
+```
+$ asdf list all erlang | grep -E '^28\.' | tr '\n' ' '
+28.0-rc1 28.0-rc2 28.0-rc3 28.0-rc4 28.0 28.0.1 28.0.2 28.0.3 28.0.4 28.1 28.1.1 28.2 28.3 28.3.1 28.3.2 28.3.3
+28.4 28.4.1 28.4.2 28.4.3 28.5.0.1 28.5.0.2 28.5.0.3 28.5.0.4 28.5.0.5 28.5.0.6 28.5
+
+$ curl -s "https://api.github.com/repos/erlang/otp/releases?per_page=100" | grep -oE '"tag_name": *"OTP-28[^"]*"' | ...
+28.0 28.0-rc1 ... 28.4.3 28.5 28.5.0.1 28.5.0.2 28.5.0.3 28.5.0.4 28.5.0.5 28.5.0.6
+```
+
+Six patches exist above 28.5: **28.5.0.1 through 28.5.0.6**. The two sources agree, so the population is not a
+hand list.
+
+### The full table
+
+| OTP | macOS universal | linux x86_64 | linux aarch64 | Windows | all four? |
+|---|---|---|---|---|---|
+| 28.5.0.6 | **404** | **404** | **404** | 200 | no |
+| **28.5.0.5** | **200** | **200** | **200** | **200** | **yes — the pin** |
+| 28.5.0.4 | 200 | 200 | 200 | 200 | yes |
+| 28.5.0.3 | 200 | 200 | 200 | 200 | yes |
+| 28.5.0.2 | 200 | 200 | 200 | 200 | yes |
+| 28.5.0.1 | 200 | 200 | 200 | 200 | yes |
+| 28.5 | 200 | 200 | 200 | 200 | yes |
+
+**The measurement moved the pin.** 28.5.0.6 is released and is on the official Windows download page, but the
+BEAM-machine CDN has not built its macOS or Linux artifacts, so Burrito cannot package it for three of the four
+targets. **The pin is OTP 28.5.0.5**, not the 28.5 the decision provisionally named — which is why the decision
+made it subject to this probe.
+
+That gap is also the standing risk: Windows tracks OTP releases immediately and the other three targets lag behind
+a third-party CDN, so the newest packageable OTP is whatever that CDN last built. Re-run this probe at every phase
+boundary, as `VERSIONS.md`'s re-verification procedure already requires.
+
+## Line 1, continued — the toolchain install
+
+The machine ran Elixir 1.19.2, not the pinned 1.20.x, so the H7 probe could not have measured what H7 asks about:
+`boundary`'s behaviour under **Elixir 1.20's** type checker. The pinned Elixir was installed first.
+
+```
+$ which mise asdf ; echo "exit=$?"
+/usr/local/bin/asdf
+exit=1
+
+$ asdf install elixir 1.20.4-otp-28 ; echo "exit=$?"
+==> Checking whether specified Elixir release exists...
+==> Downloading 1.20.4-otp-28 to /home/aylac/.asdf/downloads/elixir/1.20.4-otp-28/elixir-precompiled-1.20.4-otp-28.zip
+==> Copying release into place
+exit=0
+
+$ elixir --version
+Erlang/OTP 28 [erts-16.1.1] [source] [64-bit] [smp:32:32] [ds:32:32:10] [async-threads:1] [jit:ns]
+
+Elixir 1.20.4 (compiled with Erlang/OTP 28)
+```
+
+`mise` is absent and `asdf` v0.18.0 is present, so **the pin file is `.tool-versions`, not `mise.toml`**, and
+line 3's rule — write the file for whichever manager is present — resolves to asdf. Every reference to
+`mise.toml` in `SLICE.md` is corrected to `.tool-versions` in the same commit.
+
+---
+
+## Amendment, 2026-09-06 — owner's addition to line 5
+
+Quoting the owner's Decision:
+
+> `boundary` enforces only under `--warnings-as-errors`, so the rule is advisory unless the gate carries the flag.
+> **Added to line 5:** the gate's compile step runs `mix compile --warnings-as-errors`, and **a test asserts the
+> gate alias contains that flag**, so removing it fails the gate. The red is demonstrated by dropping the flag in
+> a throwaway edit to `mix.exs`.
+
+Line 5 as posted is not rewritten; this amendment governs. The gate alias carries `--warnings-as-errors` on its
+compile step, and `test/gate_alias_test.exs` asserts the flag is present in the alias, so a future edit that drops
+it fails the gate rather than silently turning `boundary` and the type checker advisory.
+
+## Line 3 — the pin is written
+
+```
+$ printf 'erlang 28.5.0.5\nelixir 1.20.4-otp-28\n' > .tool-versions
+$ cat .tool-versions
+erlang 28.5.0.5
+elixir 1.20.4-otp-28
+
+$ elixir --version
+Erlang/OTP 28 [erts-16.4.0.5] [source] [64-bit] [smp:32:32] [ds:32:32:10] [async-threads:1] [jit:ns]
+
+Elixir 1.20.4 (compiled with Erlang/OTP 28)
+
+$ erl -noshell -eval 'io:format("~s / erts ~s~n",[erlang:system_info(otp_release), erlang:system_info(version)]), halt().'
+28 / erts 16.4.0.5
+```
+
+`asdf install erlang 28.5.0.5` completed with exit 0 and `asdf list erlang` now shows it installed alongside the
+28.1.1 the machine had. The running erts is **16.4.0.5**, which supersedes the erts-16.1.1 recorded in the line 1
+probe — the H7 result is unaffected, since `boundary` was measured against Elixir 1.20.4 and the OTP 28 line, and
+both still hold.
+
+`VERSIONS.md`'s toolchain table now carries the exact patch versions and the reason for each, replacing the
+"pending measurement" wording and the note that deferred the ERTS question to slice 001.

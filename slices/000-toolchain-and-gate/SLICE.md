@@ -29,7 +29,8 @@ unmet with no slice owning the remedy.
   pinned toolchain, wire two boundaries, plant a violation, and confirm it fails compilation. If it does not
   work, stop and record the fallback (conventions plus a custom Credo check, or an umbrella) in an ADR before
   continuing. Nothing else in this slice starts until this is answered.
-- `mise.toml` (or `.tool-versions`) pinning erlang + elixir; `elixir -v` output recorded.
+- `.tool-versions` pinning erlang + elixir; `elixir --version` output recorded. Measured at G1: `mise` is
+  absent on this machine and `asdf` v0.18.0 is present, so the pin file is asdf's, not `mise.toml`.
 - `mix phx.new trinity --database sqlite3 --no-mailer` (keep LiveView, Tailwind, daisyUI defaults; remove what is unused later).
 - Dependencies: `boundary`, `credo`, `mox`, `mix_audit`, `sobelow`, `ex_doc`, `nimble_options`. Nothing else yet.
 - `boundary` top-level definitions for `Trinity` and `TrinityWeb` (`TrinityWeb` deps `[Trinity]`; `Trinity` deps `[]`).
@@ -92,10 +93,10 @@ unmet with no slice owning the remedy.
 - Elixir 1.20 type checker: ensure `mix compile --warnings-as-errors` treats type warnings as errors (it does by default; verify).
 
 ## Deliverables
-- Repo scaffold, `mise.toml`, `mix.exs` with aliases, `versions.exs`, `lib/mix/tasks/versions.verify.ex`, `lib/mix/tasks/trinity.secrets.scan.ex`, `.github/workflows/gate.yml`, `.credo.exs`, `.formatter.exs`, plan package copied.
+- Repo scaffold, `.tool-versions`, `mix.exs` with aliases, `versions.exs`, `lib/mix/tasks/versions.verify.ex`, `lib/mix/tasks/trinity.secrets.scan.ex`, `.github/workflows/gate.yml`, `.credo.exs`, `.formatter.exs`, plan package copied.
 
 ## Acceptance criteria
-1. [auto] `elixir -v` shows Elixir 1.20.x on OTP 28.x, matching `mise.toml`, and the exact patch versions are written into `VERSIONS.md`.
+1. [auto] `elixir --version` shows Elixir 1.20.x on OTP 28.x, matching `.tool-versions`, and the exact patch versions are written into `VERSIONS.md`.
 2. [auto] `mix gate` exits 0 on a clean checkout.
 3. [auto] `mix versions.verify` exits 0 and its output is pasted in PROOF.md; any 🔍 rows in `VERSIONS.md` that this slice touched are flipped to ✅ with today's date.
 4. [auto] Introducing a boundary violation (temporary test file making `Trinity` call `TrinityWeb`) makes `mix gate` fail; removing it makes it pass. Both outputs captured.
@@ -106,7 +107,7 @@ unmet with no slice owning the remedy.
 9. [manual] The name check's red is demonstrated on a synthetic token, not on real content, and the digest set's false-negative limit is stated in NOTES.md.
 
 ## Proof required
-- `elixir -v`, `mise ls`, `mix gate` output, `mix versions.verify` output, the boundary-violation before/after, CI run URL or log excerpt, secret scan before/after.
+- `elixir --version`, `asdf current`, `mix gate` output, `mix versions.verify` output, the boundary-violation before/after, CI run URL or log excerpt, secret scan before/after.
 
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather

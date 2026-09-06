@@ -20,9 +20,9 @@ A ✅ means that command was run and its answer is in the row, with the date. No
 
 | Component | Pin | Latest seen | Notes |
 |---|---|---|---|
-| Erlang/OTP | **28.x, pending measurement** | 29.0.6 (2026-09-01) ✅ | ⚠️ The OTP 28 pin rested on two facts that were not measured and are now known stale: Burrito 1.5.0 and an ex_tauri README stating OTP 27. Burrito is at 1.6.0 and its README states precompiled ERTS from OTP-25.3 onwards, not a cap at 28; Elixir 1.20 requires OTP 27+ and is compatible with OTP 29. The pin may still be right. Slice 001 measures which ERTS versions Burrito 1.6.0 actually fetches per target, and what ex_tauri 0.2.0 states. See ADR-0005 and its appended correction. |
-| Elixir | **1.20.x** | 1.20.4 ✅ | Confirm 1.20.x supports the chosen OTP 28 patch at Slice 000 (`elixir -v`). Built-in type checker is part of the gate. |
-| mise / asdf | current | — | `.tool-versions` / `mise.toml` committed in Slice 000. |
+| Erlang/OTP | **28.5.0.5** | 28.5.0.6 released, 29.0.6 (2026-09-01) ✅ | Measured at Slice 000, not read from a README: Burrito 1.6.0's ERTS resolver names one artifact source per target, and 28.5.0.5 is the newest OTP returning 200 on all four (macOS universal, Linux x86_64, Linux aarch64, Windows). 28.5.0.6 is released but its macOS and Linux artifacts are unbuilt (404). OTP 29 is 404 on macOS and both Linux arches. ⚠️ Windows tracks OTP releases immediately while the other three lag a third-party CDN's build queue, so re-probe at every phase boundary. See ADR-0005's second correction. |
+| Elixir | **1.20.4-otp-28** | 1.20.4 ✅ | Confirmed at Slice 000: `elixir --version` reports Elixir 1.20.4 on Erlang/OTP 28, erts-16.4.0.5. Built-in type checker is part of the gate. `boundary` 0.10.4 compiles and enforces on this pair, measured at Slice 000 (H7). |
+| asdf | v0.18.0 | — | `.tool-versions` committed in Slice 000. `mise` is absent on the build machine; measured at Slice 000 G1 with `which mise asdf`. |
 | Rust + Tauri CLI | stable | Tauri 2.10.x ✅ | Only needed for desktop slices (001, 100, 101). |
 | Zig | version required by Burrito | — | Only for cross-target Burrito builds. |
 
