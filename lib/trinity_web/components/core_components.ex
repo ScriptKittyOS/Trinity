@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
 defmodule TrinityWeb.CoreComponents do
   @moduledoc """
   Provides core UI components.

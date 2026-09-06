@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
 defmodule Trinity do
   # DataCase and NetworkGuard live in test/support, which is compiled only in :test, so the
   # export list is environment-dependent. TrinityWeb.ConnCase crosses the boundary to reach

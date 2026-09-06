@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
 defmodule Trinity.NetworkGuard do
   @moduledoc """
   CLAUDE.md §5: "Tests must not hit the network."

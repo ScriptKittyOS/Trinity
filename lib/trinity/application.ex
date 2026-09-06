@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
 defmodule Trinity.Application do
   # The application supervises processes from both boundaries, so it is its own top-level
   # boundary rather than a member of Trinity. Without this, starting the endpoint reads as
@@ -39,7 +41,7 @@ defmodule Trinity.Application do
     :ok
   end
 
-  defp skip_migrations?() do
+  defp skip_migrations? do
     # By default, sqlite migrations are run when using a release
     System.get_env("RELEASE_NAME") == nil
   end

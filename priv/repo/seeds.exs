@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
 # Script for populating the database. You can run it as:
 #
 #     mix run priv/repo/seeds.exs

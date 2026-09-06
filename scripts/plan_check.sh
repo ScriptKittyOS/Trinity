@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
 # plan_check.sh — enforces the plan-consistency rules that were previously prose.
 #
 # Every rule below was a finding that closed on a hand check and stayed broken.

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
 defmodule Mix.Tasks.Trinity.VersionForm do
   @shortdoc "Fails if the protocol is written with a major version number instead of a date"
 

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
 defmodule Trinity.DataCase do
   @moduledoc """
   This module defines the setup for tests requiring

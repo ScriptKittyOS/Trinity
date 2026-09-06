@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
 defmodule Trinity.MixProject do
   use Mix.Project
 
@@ -11,7 +13,12 @@ defmodule Trinity.MixProject do
       aliases: aliases(),
       deps: deps(),
       compilers: [:boundary, :phoenix_live_view] ++ Mix.compilers(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      # docs/03-conventions.md sets NO absolute coverage threshold: the rule is that a drop of
+      # more than three points against the previous slice fails until NOTES.md names the reason.
+      # `mix test --cover` defaults to a 90%% gate, which is a different rule than the one this
+      # project states, so it is turned off and `mix trinity.coverage` enforces the real one.
+      test_coverage: [threshold: 0]
     ]
   end
 
@@ -27,7 +34,7 @@ defmodule Trinity.MixProject do
 
   def cli do
     [
-      preferred_envs: [precommit: :test]
+      preferred_envs: [precommit: :test, gate: :test]
     ]
   end
 
@@ -113,8 +120,13 @@ defmodule Trinity.MixProject do
         "compile --warnings-as-errors --force",
         "credo --strict",
         "sobelow --exit --skip",
-        "hex.audit",
+        # `cmd` runs it as its own OS process: Hex's tasks are not reliably resolvable from
+        # inside an alias after another task has run, and a separate process also gives this
+        # step its own exit code rather than one shared with the alias.
+        "cmd mix hex.audit",
         "deps.audit",
+        "versions.verify",
+        "versions.gen --check",
         "trinity.version_form",
         "trinity.names",
         "trinity.secrets.scan",

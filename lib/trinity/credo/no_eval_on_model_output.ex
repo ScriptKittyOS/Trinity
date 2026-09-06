@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
 defmodule Trinity.Credo.NoEvalOnModelOutput do
   @moduledoc """
   CLAUDE.md §5: "No `Code.eval_string` on model output. Ever."
@@ -25,26 +27,40 @@ defmodule Trinity.Credo.NoEvalOnModelOutput do
   @spec forbidden() :: {[atom()], atom()}
   def forbidden, do: {@forbidden_code, :erl_eval}
 
+  @doc """
+  Every forbidden call in the given source, as `{trigger, line}`.
+
+  Pure and independent of Credo's server, so the red can be planted directly in a test.
+  Parsing uses `Code.string_to_quoted/1`, which builds an AST and evaluates nothing.
+  """
+  @spec triggers(String.t()) :: [{String.t(), pos_integer()}]
+  def triggers(source) do
+    case Code.string_to_quoted(source) do
+      {:ok, ast} -> ast |> Macro.prewalk([], &collect/2) |> elem(1) |> Enum.reverse()
+      {:error, _} -> []
+    end
+  end
+
+  defp collect({{:., _, [{:__aliases__, _, [:Code]}, fun]}, meta, _} = ast, acc)
+       when fun in @forbidden_code do
+    {ast, [{"Code.#{fun}", meta[:line]} | acc]}
+  end
+
+  defp collect({{:., _, [:erl_eval, fun]}, meta, _} = ast, acc) do
+    {ast, [{":erl_eval.#{fun}", meta[:line]} | acc]}
+  end
+
+  defp collect(ast, acc), do: {ast, acc}
+
   @impl true
   def run(%SourceFile{} = source_file, params \\ []) do
     issue_meta = IssueMeta.for(source_file, params)
-    Credo.Code.prewalk(source_file, &traverse(&1, &2, issue_meta))
-  end
 
-  defp traverse(
-         {{:., _, [{:__aliases__, _, [:Code]}, fun]}, meta, _args} = ast,
-         issues,
-         issue_meta
-       )
-       when fun in @forbidden_code do
-    {ast, [issue_for(issue_meta, meta[:line], "Code.#{fun}") | issues]}
+    source_file
+    |> SourceFile.source()
+    |> triggers()
+    |> Enum.map(fn {trigger, line} -> issue_for(issue_meta, line, trigger) end)
   end
-
-  defp traverse({{:., _, [:erl_eval, fun]}, meta, _args} = ast, issues, issue_meta) do
-    {ast, [issue_for(issue_meta, meta[:line], ":erl_eval.#{fun}") | issues]}
-  end
-
-  defp traverse(ast, issues, _issue_meta), do: {ast, issues}
 
   defp issue_for(issue_meta, line_no, trigger) do
     format_issue(issue_meta,

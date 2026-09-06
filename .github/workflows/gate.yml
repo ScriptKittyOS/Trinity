@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
+name: gate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    env:
+      MIX_ENV: test
+      TRINITY_DB: sqlite
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # plan_check rule 8 reads the whole history
+
+      - uses: erlef/setup-beam@v1
+        with:
+          version-file: .tool-versions
+          version-type: strict
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ hashFiles('mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-
+
+      - run: mix deps.get
+
+      # The plan's own consistency, checked before the code's.
+      - run: ./scripts/plan_check.sh
+
+      # DCO. plan_check rule 8 also asserts every commit is signed off; this fails earlier
+      # and more legibly on a pull request.
+      - name: DCO sign-off present on every commit
+        run: |
+          git log --format=%B ${{ github.event.pull_request.base.sha || 'HEAD~1' }}..HEAD 2>/dev/null \
+            | grep -q '^Signed-off-by: ' || {
+              echo "::error::a commit in this range has no Signed-off-by line"; exit 1; }
+
+      - run: mix gate

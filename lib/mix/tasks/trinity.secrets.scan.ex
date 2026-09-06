@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
 defmodule Mix.Tasks.Trinity.Secrets.Scan do
   @shortdoc "Fails if anything shaped like an API key is in the tracked tree"
 

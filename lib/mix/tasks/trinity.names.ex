@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
 defmodule Mix.Tasks.Trinity.Names do
   @shortdoc "Fails if a forbidden project name appears anywhere in the tracked tree"
 
@@ -35,6 +37,15 @@ defmodule Mix.Tasks.Trinity.Names do
   @permitted_end "## Principles baked into this plan"
   @platform_names ~w(requisition ultraviolet sanction)
 
+  # The plain-text set has to be spelled somewhere in order to be matched, so this module is
+  # the single path the PLATFORM-NAME scan skips — the same structural exemption enforcer 2
+  # carries, and for the same reason. `test/trinity_names_test.exs` asserts it holds exactly
+  # one entry so it cannot quietly grow.
+  #
+  # The zero-permitted-site names need no such exemption: they are matched by digest and are
+  # spelled nowhere in this repository, this file included.
+  @platform_scan_skip ["lib/mix/tasks/trinity.names.ex"]
+
   @impl Mix.Task
   def run(argv) do
     {opts, _} = OptionParser.parse!(argv, strict: [digests: :string])
@@ -70,7 +81,10 @@ defmodule Mix.Tasks.Trinity.Names do
   defp load_digests(path) do
     lines = path |> File.read!() |> String.split("\n", trim: true)
     salt = lines |> Enum.find_value(fn l -> match_prefix(l, "salt ") end)
-    digests = lines |> Enum.flat_map(fn l -> List.wrap(match_prefix(l, "digest ")) end) |> MapSet.new()
+
+    digests =
+      lines |> Enum.flat_map(fn l -> List.wrap(match_prefix(l, "digest ")) end) |> MapSet.new()
+
     salt || Mix.raise("#{path}: no salt line")
     {salt, digests}
   end
@@ -103,10 +117,15 @@ defmodule Mix.Tasks.Trinity.Names do
         do: "#{path}: forbidden name in a PATH (zero permitted sites)"
   end
 
+  @doc "The only paths the plain-text platform-name scan skips. Exactly one: this module."
+  @spec platform_scan_skip() :: [String.t()]
+  def platform_scan_skip, do: @platform_scan_skip
+
   defp platform_name_hits(files) do
     permitted = permitted_line_range()
 
     for path <- files,
+        path not in @platform_scan_skip,
         {line, n} <- numbered_lines(path),
         Enum.any?(@platform_names, &String.contains?(String.downcase(line), &1)),
         not permitted?(path, n, permitted),

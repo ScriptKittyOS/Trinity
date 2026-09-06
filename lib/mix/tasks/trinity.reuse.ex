@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
 defmodule Mix.Tasks.Trinity.Reuse do
   @shortdoc "Fails if a tracked source file carries no SPDX licence header"
 
@@ -37,10 +39,13 @@ defmodule Mix.Tasks.Trinity.Reuse do
           not header?(bin),
           do: path
 
-    unless File.exists?("REUSE.toml"), do: Mix.raise("REUSE.toml is missing (ADR-0012 decision 1).")
+    unless File.exists?("REUSE.toml"),
+      do: Mix.raise("REUSE.toml is missing (ADR-0012 decision 1).")
 
     if missing == [] do
-      Mix.shell().info("trinity.reuse: OK — every commentable tracked file carries an SPDX header")
+      Mix.shell().info(
+        "trinity.reuse: OK — every commentable tracked file carries an SPDX header"
+      )
     else
       Enum.each(missing, &Mix.shell().error("FAIL #{&1}: no #{@spdx}"))
       Mix.raise("trinity.reuse: #{length(missing)} file(s) without an SPDX header")

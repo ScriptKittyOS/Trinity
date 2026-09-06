@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
 defmodule Trinity.Versions do
   @moduledoc """
   The machine-readable pin list — finding M6's single source of truth.
@@ -14,19 +16,30 @@ defmodule Trinity.Versions do
   """
 
   @toolchain [
-    %{name: "erlang", pin: "28.5.0.5",
-      note: "Newest OTP present on all four Burrito targets. Measured at slice 000; see ADR-0005's second correction."},
-    %{name: "elixir", pin: "1.20.4-otp-28",
-      note: "Built-in type checker is part of the gate."}
+    %{
+      name: "erlang",
+      pin: "28.5.0.5",
+      note:
+        "Newest OTP present on all four Burrito targets. Measured at slice 000; see ADR-0005's second correction."
+    },
+    %{name: "elixir", pin: "1.20.4-otp-28", note: "Built-in type checker is part of the gate."}
   ]
 
   @deps [
-    %{name: "boundary", pin: "~> 0.10",
-      note: "Compile-time boundary enforcement. Enforces ONLY under --warnings-as-errors; measured at slice 000."},
+    %{
+      name: "boundary",
+      pin: "~> 0.10",
+      note:
+        "Compile-time boundary enforcement. Enforces ONLY under --warnings-as-errors; measured at slice 000."
+    },
     %{name: "credo", pin: "~> 1.7", note: "--strict in the gate; hosts the eval-family check."},
     %{name: "mox", pin: "~> 1.2", note: "Mocks for every behaviour."},
     %{name: "mix_audit", pin: "~> 2.1", note: "Known vulnerabilities in the lock."},
-    %{name: "sobelow", pin: "~> 0.15", note: "Phoenix security lint, blocking with a committed skip list."},
+    %{
+      name: "sobelow",
+      pin: "~> 0.15",
+      note: "Phoenix security lint, blocking with a committed skip list."
+    },
     %{name: "ex_doc", pin: "~> 0.38", note: "Docs."},
     %{name: "nimble_options", pin: "~> 1.1", note: "Option validation for behaviours."}
   ]

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
 defmodule Mix.Tasks.Trinity.Coverage do
   @shortdoc "Fails if line coverage dropped more than three points against the previous slice"
 
