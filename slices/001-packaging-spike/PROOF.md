@@ -20,8 +20,10 @@ target was never built: Burrito unpacks the Windows ERTS with 7z and no 7z is in
 **ADR-0004 is therefore not confirmed**, because its own exit condition is a running smoke
 build on macOS *and* Windows, and stamping `accepted` on it would be inventing a result.
 
-Four criteria exit **unproven** and named, and they are one missing thing: a machine that is
-not this one. A fifth, **AC8, exits false** — not unproven — because the property underneath it
+Four criteria exit **unproven** and named. Three need a machine that is not this one.
+**The fourth, AC4, does not, and I said it did** — this is an X11 desktop with `DISPLAY=:0`;
+what is missing is that `mix ex_tauri.install` was never run, so there is no Tauri project to
+launch. The correction is under AC4. A fifth, **AC8, exits false** — not unproven — because the property underneath it
 was measured and does not hold: the Burrito wrapper does not forward termination, so the BEAM
 outlives it and goes on serving. Filed as **finding F1**, owned by slice 100.
 
@@ -151,8 +153,35 @@ ex_tauri", and Windows was never attempted, so nothing has been learned about th
 
 ### AC4 [manual] — a native window on Linux
 
-**Not proven. This machine has no desktop session in use.** Retagged from `[auto]` at G1: a
-window on a desktop session is not a command's output.
+**Not proven — and the reason I gave for it at G1 was wrong.**
+
+The G1 plan and the earlier draft of this file said "no desktop session available on this
+machine". Measured:
+
+```
+$ echo "DISPLAY=$DISPLAY  XDG_SESSION_TYPE=$XDG_SESSION_TYPE"
+DISPLAY=:0  XDG_SESSION_TYPE=x11
+```
+
+**There is a display.** This supersedes every earlier line in this slice's records that says
+otherwise. AC4 is unproven for two different reasons, and neither is the one I gave:
+
+1. **There is no Tauri project to run.** `SLICE.md` Scope says "run `mix ex_tauri.install`" and
+   Deliverables names a `tauri/` scaffold; `git ls-files tauri | wc -l` is `0`. The approved G1
+   plan's fifteen lines never included the install step, so the deliverable was dropped at plan
+   time and I did not flag it. `mix ex_tauri.dev` has nothing to launch.
+2. **The Tauri v2 system libraries are absent** — `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`,
+   `libayatana-appindicator3-dev`, `librsvg2-dev`, `patchelf`, none installed, all resolvable in
+   this machine's apt, all needing root.
+
+Neither is "no machine". A prepared, step-by-step procedure for the owner is in `NOTES.md`
+under "The owner's manual check on this machine", with who runs each step; step 2 is a Question
+on the slice issue because `mix ex_tauri.install` is an Igniter task that rewrites tracked
+files, and slice 000 has already been bitten once by a generator doing that.
+
+**AC2 and AC3 are unaffected by this correction** — they need a macOS and a Windows machine and
+those genuinely do not exist here. **AC4 does not need a machine. It needs the two steps
+above**, and saying "no machine" concealed that for the length of this slice.
 
 ### AC5 [auto] — binary size and cold-start-to-serving recorded for linux x86_64 in `docs/packaging.md`
 
@@ -181,8 +210,11 @@ figure would understate the launch that forms the impression by a factor of six.
 
 ### AC6 [manual] — the same figures for macOS and Windows, and cold-start-to-first-paint on any OS
 
-**Not proven.** Per-OS size needs those machines. First paint needs a window and a camera on
-the clock; there is no window. Split from AC5 at G1 for exactly this reason.
+**Not proven.** Per-OS size genuinely needs a macOS and a Windows machine, neither of which
+exists here. **First paint does not** — see AC4's correction: this is an X11 desktop, and first
+paint is measurable here once there is a Tauri project to paint. It is step 3 of the owner's
+prepared procedure in `NOTES.md`, timed from `return` to the window appearing. Split from AC5
+at G1, and the half that was blamed on a missing machine was blamed wrongly.
 
 ### AC7 [auto] — running the binary under `--smoke` exits 0 and leaves no process behind
 
@@ -379,7 +411,7 @@ Five criteria, and they are one missing thing: **a machine that is not this one.
 |---|---|---|---|
 | 2 | a **macOS desktop** | `mix ex_tauri.dev` | a native window showing the scaffold; screenshot to `slices/001-packaging-spike/proof/` |
 | 3 | a **Windows desktop** with 7z | `mix ex_tauri.dev` | the same, or a documented failure and the fallback |
-| 4 | a **Linux desktop session** | `mix ex_tauri.dev` | the same |
+| 4 | **not a machine** — `mix ex_tauri.install` (a Question, step 2) plus five apt packages (root, step 1) | `mix ex_tauri.dev` on this X11 desktop | a native window showing the scaffold |
 | 6 | a macOS and a Windows machine | `stat -c %s` on each artifact; a stopwatch to first paint | figures for `docs/packaging.md` |
 | 8 | any one of the three desktops | close the window, watch `ps` | sidecar gone within 5 s — **expect this to fail**, see AC8 |
 

@@ -851,3 +851,115 @@ occurrence is the instructive one: an enforcer catches the thing it is for even 
 mention is *about* the violation, and prose describing a rule does not get an exemption from
 it. That is the same lesson slice 000 recorded three times, when the version-form check, the
 SPDX check and the name check each caught their own artifacts.
+
+---
+
+## The owner's manual check on this machine — prepared procedure, 2026-09-06
+
+This machine **is** a Linux desktop and I had been writing as though it were not:
+
+```
+$ echo "DISPLAY=$DISPLAY  XDG_SESSION_TYPE=$XDG_SESSION_TYPE"
+DISPLAY=:0  XDG_SESSION_TYPE=x11
+```
+
+`DISPLAY=:0` on an X11 session. Earlier records in this file say "no desktop session available
+on this machine", carried over from the G1 framing. **That is superseded: there is a display.**
+What there is not, yet, is anything for `mix ex_tauri.dev` to run.
+
+### Two blockers, neither of which is the window
+
+**Blocker 1 — the Tauri project does not exist.** `SLICE.md` Scope says "run `mix
+ex_tauri.install`" and Deliverables names a `tauri/` scaffold.
+
+```
+$ git ls-files tauri | wc -l
+0
+```
+
+The approved G1 plan's fifteen lines never included the install step, so the deliverable was
+dropped at plan time and I did not flag it. `mix ex_tauri.dev` has no project to run against,
+which is why AC2, AC3 and AC4 were unrunnable by anyone this slice — not only for want of
+machines.
+
+`mix ex_tauri.install` is an `Igniter` task and it **modifies tracked files**: it adds
+`ExTauri.ShutdownManager` to the application's children, writes four `config` entries, updates
+`mix.exs`, and adds a `tauri-bridge` div to the layout. Given slice 000's experience of a
+generator overwriting `README.md` and `.gitignore`, that is not something to run silently at
+G3 on a slice awaiting review. **It is a Question on the slice issue, and the work below does
+not depend on the answer, so it is prepared either way.**
+
+**Blocker 2 — the Tauri v2 system libraries are absent.** Ubuntu 24.04.4 LTS, so the
+`webkit2gtk-4.1` line is the right one:
+
+```
+$ for p in libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf; do
+    printf '%-34s ' "$p"; dpkg -s "$p" >/dev/null 2>&1 && echo installed || echo "NOT installed"
+  done
+libwebkit2gtk-4.1-dev              NOT installed
+libgtk-3-dev                       NOT installed
+libayatana-appindicator3-dev       NOT installed
+librsvg2-dev                       NOT installed
+patchelf                           NOT installed
+```
+
+All five resolve in this machine's apt. Installing needs root, which CLAUDE.md §7 keeps off
+this agent's hands.
+
+### The procedure, in order, with who runs each step
+
+**Step 1 — owner, needs root.**
+
+```
+sudo apt install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+```
+
+**Step 2 — me, on approval.** `mix ex_tauri.install`, reviewed as a diff and committed on its
+own so the generator's edits are reviewable apart from everything else.
+
+**Step 3 — owner, on this desktop. The launch.**
+
+```
+mix ex_tauri.dev
+```
+
+Expected: a native window opens showing the Phoenix scaffold page. First run compiles the Rust
+shell and takes minutes; the window appears after `Running DevCommand`.
+
+**Step 4 — owner. Close the window with its ✕, then, in the same terminal:**
+
+```
+ps -eo pid,ppid,comm | grep -E 'desktop_linux|beam.smp|erl_child_setup|trinity' | grep -v grep ; echo "exit=$?"
+```
+
+Run it **twice, about five seconds apart**, and paste both. `exit=1` from `grep` means nothing
+matched, which is the pass. Any surviving `beam.smp` whose `/proc/<pid>/cmdline` points into
+`~/.local/share/.burrito/` is finding F1 reproducing through the window rather than through a
+signal, which is the measurement nobody has taken yet.
+
+**What each step settles.** Step 3 is **AC4** — a native window showing the scaffold on Linux —
+and, with a stopwatch from `return` to the window painting, the *first paint* half of **AC6**
+on one OS. Step 4 is **AC8's** manual half and the first evidence of whether
+`ExTauri.ShutdownManager` — which step 2 installs — actually closes finding F1.
+
+### The Windows artifact
+
+Still pending on 7z:
+
+```
+$ for c in 7z 7zz 7za 7zr; do printf '%-5s ' "$c"; command -v "$c" || echo "(absent)"; done
+7z    (absent)
+7zz   (absent)
+7za   (absent)
+7zr   (absent)
+```
+
+Once any of them is on `PATH`, the cross-build is one command and needs no display:
+
+```
+BURRITO_TARGET=windows_x86_64 MIX_ENV=prod mix release desktop --overwrite
+```
+
+On success **AC3 reads "built, not run"** rather than "never built", and `docs/packaging.md`'s
+target table gains a size for `windows_x86_64`. It will not read "runs", because nothing here
+can execute a Windows binary.
