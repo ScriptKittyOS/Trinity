@@ -411,3 +411,80 @@ nothing**. `--overwrite` is on every release command in this slice for that reas
   desktop build matters later, that pin needs somewhere real to live.
 - `mix release`'s exit-0-on-declined-overwrite is a footgun for any CI job that omits
   `--overwrite`; `.github/workflows/package.yml` at line 9 must carry it.
+
+---
+
+## Line 4 — `Trinity.Paths`. Green, and it opened a hole in slice 000's skip enforcer.
+
+Dated 2026-09-06. Red committed at `ec64ac7`: the first pass resolved one root for every OS and
+`PathsTest` failed 3 of 6 on it, including "the three roots are distinct for the same home",
+which collapsed to `["/h/.local/share/trinity"]`. Green after the branch split, 6 of 6.
+
+The three roots are `SLICE.md`'s. The case difference between them is deliberate and is stated
+in the module: `trinity` lower-case is the XDG convention, `Trinity` capitalised is the macOS
+and Windows convention.
+
+### Two enforcer findings, both from the same three lines of code
+
+**Sobelow flags `File.mkdir_p!(dir)`** as `Traversal.FileModule`, low confidence, because `dir`
+is a variable. Every possible implementation of this function passes a variable there, so no
+artifact change removes it; it is a named exception. It was taken **inline**, with
+`@sobelow_skip`, rather than in `.sobelow-skips`, because that file keys on file **and line**
+and slice 000 already measured what that costs — adding SPDX headers moved `router.ex:10` to
+`:12` and silently reopened the finding. `paths.ex` is still being edited this slice.
+
+**Which exposed the hole.** `SobelowSkipsTest` asserted every skip carried a reason, and it only
+knew about `.sobelow-skips`. An `@sobelow_skip` attribute is a second skip mechanism it could
+not see, so a reasonless inline skip passed the gate. The test now derives its population from
+`git ls-files` and requires a `# sobelow_skip reason:` line above every inline skip. Demonstrated
+by planting the violation and removing it, the way slice 000's five enforcers were:
+
+```
+$ mix test test/sobelow_skips_test.exs ; echo "exit=$?"     # reason comment removed
+  1) test inline @sobelow_skip attributes every inline skip is immediately preceded by its reason
+     these @sobelow_skip attributes carry no `# sobelow_skip reason:` line above them:
+     ["lib/trinity/paths.ex:71"]
+exit=2
+
+$ mix test test/sobelow_skips_test.exs ; echo "exit=$?"     # reason restored
+Result: 3 passed
+exit=0
+```
+
+**The check was wrong twice before it was right, and both corrections were to the check.** First
+its population was `String.contains?(line, "@sobelow_skip")`, which matched its own moduledoc
+and its own assertion message — five false hits in one file. The population is now an attribute
+*definition* anchored at the start of a line. Second, it demanded the reason on the single line
+immediately above, and rejected a correct six-line reason for being six lines; the rule now
+walks the contiguous comment block above the attribute. Neither fix was an exemption. In both
+cases the check was making a claim about the tree that the tree did not owe it.
+
+### `@sobelow_skip` does not survive `--warnings-as-errors` on its own
+
+```
+warning: module attribute @sobelow_skip was set but never used
+ 77 │   @sobelow_skip ["Traversal.FileModule"]
+   └─ lib/trinity/paths.ex:77: Trinity.Paths (module)
+Compilation failed due to warnings while using the --warnings-as-errors option
+```
+
+Sobelow reads the attribute out of the source AST and the compiler never sees it used.
+`Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)` makes it a real attribute
+to the compiler without changing what sobelow reads; `MIX_ENV=test mix compile
+--warnings-as-errors --force` then exits 0. **Anyone adding an inline sobelow skip to this
+project needs that line or the gate rejects the file**, which is why it is in `paths.ex` with
+its reason next to it rather than in a commit message.
+
+### One thing line 4 did not do
+
+`Trinity.Paths.database_path/0` exists and nothing calls it yet. `config/runtime.exs` still
+raises without `DATABASE_PATH`, which is right for a server and wrong for a double-clicked
+binary. Wiring it is line 5's, with the smoke run as its red.
+
+### A correction to line 3's D6
+
+I wrote that the Windows 7z prerequisite was something the Decision "did not anticipate". That
+is wrong about the record: `SLICE.md`'s own Risks section already says "Windows ERTS unpacking
+needs 7-Zip per Burrito notes; document." **This supersedes that framing.** What line 3 added
+was the measurement — the exact error, the resolver line it comes from, and that no 7z variant
+is installed and installing one needs root. The risk was written down before I got there.
