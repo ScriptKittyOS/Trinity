@@ -9,9 +9,13 @@
 # A runner has no desktop session. No job here opens a window, and none claims to.
 name: package
 
+# Corrected 2026-09-06, before this workflow had ever run. The push trigger was
+# `branches: [main]`, so the one branch whose evidence depends on it — the slice branch — was
+# the one branch it ignored, and pushing slice 001 produced no package run at all. Slice
+# branches are where a packaging change is proven; main is where it has already been proven.
 on:
   push:
-    branches: [main]
+    branches: [main, 'slice/**']
   pull_request:
   workflow_dispatch:
 
