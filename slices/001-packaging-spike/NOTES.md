@@ -771,13 +771,13 @@ stopped on `lib/trinity/credo/no_eval_on_model_output.ex`, and carry on with lin
 neither of which depended on the answer. Being right about the call does not make the order
 right, because the order is what gives the owner the chance to be wrong about it cheaply.
 
-### AC8 — exits **false**, citing SCR-256, not unproven
+### AC8 — exits **false**, citing finding F1, not unproven
 
-Owner's word: the wrapper finding is filed as **SCR-256**, and slice 001 exits with AC8 marked
+Owner's word: the wrapper finding is filed on the board, and slice 001 exits with AC8 marked
 false rather than unproven. The distinction is the one CLAUDE.md §8 draws between an empty
 population and a satisfied property: nobody has closed a window, but the property underneath
 has been measured and it does not hold. The transcript is in `PROOF.md` under AC8 and posted to
-SCR-256 as an Answer.
+the finding issue as an Answer.
 
 ### Correction — "reparented to init" is wrong, twice above
 
@@ -811,7 +811,7 @@ exit=0
 ```
 
 That is a stronger statement of the defect than "a process remains", and it is what makes
-SCR-256 a liveness-contract question rather than a tidiness one: a shell that closes its window
+F1 a liveness-contract question rather than a tidiness one: a shell that closes its window
 and kills the wrapper leaves a Phoenix app listening on the user's loopback with nothing on
 screen to say so.
 
@@ -825,3 +825,23 @@ Worth recording as a class, not an incident: **a workflow that never fires repor
 fails nothing**, so nothing in the gate, in `plan_check`, or in my own review would ever have
 caught it. It was found because the owner asked for the run. The evidence that a CI job works
 is a run, and until there is one, a workflow file is a plan.
+
+### Why the tree says "F1" and not the board id, and a miss of mine on the way there
+
+The owner's word was that AC8 exits false "citing it", the wrapper finding's issue. **The tree
+cannot carry a board identifier**: `plan_check` rule 7 forbids it, and that rule exists because
+the repository is the durable artifact and board numbering is not. The house style already
+resolves this — findings are cited in the tree by label (`H7`, `B3`, `M5`, `I3`), and the
+finding issue's own title begins `F1 —`. So `PROOF.md` and this file cite **F1**, the board
+carries the mapping, and both the instruction and the enforcer are satisfied without weakening
+either.
+
+**The miss.** I wrote `SCR-256` into `PROOF.md` and `NOTES.md`, ran `mix gate` and
+`plan_check.sh`, read the gate's `exit=0`, and committed and pushed without reading the line
+below it — `plan_check exit=1`, eight `FAIL` lines, all of them this. `8048ad3` is on the
+remote failing rule 7 and is corrected by the commit that follows it rather than rewritten,
+because history on a pushed branch is a record.
+
+Running a check and not reading its result is worse than not running it: it produces the
+appearance of verification. The gate and `plan_check` are two commands with two exit codes, and
+"verified" names its command **and** exit code, which is the rule I quote at other people.

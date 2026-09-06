@@ -23,7 +23,7 @@ build on macOS *and* Windows, and stamping `accepted` on it would be inventing a
 Four criteria exit **unproven** and named, and they are one missing thing: a machine that is
 not this one. A fifth, **AC8, exits false** — not unproven — because the property underneath it
 was measured and does not hold: the Burrito wrapper does not forward termination, so the BEAM
-outlives it and goes on serving. Filed as **SCR-256**, owned by slice 100.
+outlives it and goes on serving. Filed as **finding F1**, owned by slice 100.
 
 ## Gate
 
@@ -224,7 +224,7 @@ processes in both listings are this session's own dev BEAM, present before the r
 
 ### AC8 [manual] — killing the window terminates the sidecar within 5 s
 
-**FALSE, not unproven. Filed as SCR-256.**
+**FALSE, not unproven. Filed as finding F1.**
 
 No window exists to close on this machine, so the criterion cannot be exercised in the form
 `SLICE.md` states it. But the property underneath it — that the sidecar dies with its parent —
@@ -302,7 +302,7 @@ So the honest statement is narrower than "AC8 is false" and wider than "AC8 is u
   the overclaim this project keeps catching.
 
 Both halves are true and neither substitutes for the other. AC8 exits **false**, citing
-SCR-256, on the build that exists; the untested heartbeat is the first thing SCR-256 should
+F1, on the build that exists; the untested heartbeat is the first thing F1 should
 measure, and it is not among the candidates that issue currently names.
 
 **Why the mechanism is absent is a gap in this slice, not an oversight of `ex_tauri`'s.**
@@ -321,7 +321,7 @@ project to run against.
 
 **Where the fix lives.** Not here. Burrito's wrapper signal handling is upstream behaviour, and
 the remedy is Trinity's own liveness contract with its parent — designed and enforced in slice
-100 per SCR-256, with `ExTauri.ShutdownManager` measured first rather than assumed.
+100 per F1, with `ExTauri.ShutdownManager` measured first rather than assumed.
 
 ### AC9 [auto] — `mix gate` still green; `mix phx.server` still works without Tauri
 
