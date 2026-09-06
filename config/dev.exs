@@ -71,3 +71,18 @@ config :phoenix_live_view,
   debug_attributes: true,
   # Enable helpful, but potentially expensive runtime checks
   enable_expensive_runtime_checks: true
+
+# Slice 001. `ex_tauri` is a :dev-only dependency and warns on every `mix phx.server` start
+# until it is configured, which made the plain dev server nag about a desktop shell it is not
+# running. Configuring it here silences that without involving Tauri in the plain server: none
+# of these keys is read unless a `mix ex_tauri.*` task runs.
+#
+# `:version` is the **Tauri** version, and only its major is consumed — `extract_cli_version/1`
+# takes the major and installs `tauri-cli ^<major>`, which resolved to 2.11.4 on 2026-09-06
+# (VERSIONS.md carries that row with its deriving command). 2.5.1 is ex_tauri's own suggested
+# value and is kept so this file does not invent a pin the library does not use.
+config :ex_tauri,
+  version: "2.5.1",
+  app_name: "Trinity",
+  host: "127.0.0.1",
+  port: 4000

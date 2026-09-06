@@ -635,3 +635,116 @@ puts that in front of the owner. Slice 100 owns the desktop session story.
 - `--no-halt` is mandatory for the packaged server and is easy to omit. `docs/packaging.md`
   (line 8) and `.github/workflows/package.yml` (line 9) must both carry it.
 - Intermittent `database is locked` for four of five pool connections at boot.
+
+---
+
+## Lines 8 to 14 — docs, CI, ADR-0004, coverage, gates
+
+Dated 2026-09-06.
+
+### Line 8 — `docs/packaging.md`
+
+Size from `stat -c %s`, cold start from a timed loop, linux x86_64 only. Two figures are
+reported where one would have flattered the binary: **1 578 ms on the first launch of a fresh
+install**, when Burrito extracts its payload into `~/.local/share/.burrito`, and **231–245 ms
+across six warm runs** afterwards. The first is the one a person forms an impression from, so
+reporting only the warm figure would understate it sixfold. Extracted payload on disk is 88 MB
+against a 20 777 960-byte binary. **Cold start to first *paint* is absent from the table**,
+because first paint needs a window.
+
+### Line 9 — `.github/workflows/package.yml`, and one thing checked rather than assumed
+
+Three runners, three targets, each building, smoking under `--no-halt --smoke`, curling for a
+200, comparing `ps` either side of the exit, and uploading both the artifact and the launch
+log. Every job ends by writing to its own summary what it did **not** prove, which is line 10's
+requirement put where a reader of a green tick will actually meet it.
+
+The Zig version is read out of `.tool-versions` with `awk` rather than written into the
+workflow, because Burrito compares Zig for equality and a second copy of the number is a second
+thing to drift.
+
+**Checked rather than assumed:** `.tool-versions` gained a `zig` line this slice, and
+`.github/workflows/gate.yml` feeds that file to `erlef/setup-beam`. Its parser only consumes
+lines whose first token is in `['erlang', 'elixir', 'gleam', 'rebar']` and skips everything else
+silently, so the existing gate workflow is unaffected. That is from reading
+`setup-beam.js`'s `parseToolVersionsFile`, not from expecting it to be fine.
+
+**Not verified: this workflow has never run.** It is written from what was measured locally.
+AC5 was already `[manual]` for exactly this reason — the run is on a remote this branch cannot
+vouch for — and it stays that way.
+
+### Line 12 — ADR-0004 is **not** confirmed, and the plan expected it would be
+
+The G1 plan said line 12 would carry "a status word from the vocabulary `docs/03` allows —
+`accepted`, since this slice is what its current `proposed → to be confirmed by Slice 001` was
+waiting on". **That was written before the measurement and it is wrong.** ADR-0004's own
+decision text sets its exit condition:
+
+> Slice 001 must produce a running smoke build on macOS **and** Windows (and Linux if
+> available).
+
+macOS cross-compiles but has never been executed. Windows was never built — no 7z. Neither
+half of the condition is met, so the status stays `proposed`, and the correction appended to
+the ADR says what *was* settled (ex_tauri runs on the pinned toolchain; Burrito packages and
+serves on Linux), what was not, and the lift condition. Stamping `accepted` because the plan
+anticipated it would be is the exact defect this project keeps catching.
+
+The alternatives table is kept, as the plan required. The fallback path is **untriggered**, not
+eliminated: its trigger is "Windows fails with ex_tauri", and Windows was never attempted.
+
+### Line 13 — the coverage rule fired, and mix.exs's threshold had never worked
+
+`mix test --cover` exited **3**, not 0:
+
+```
+Coverage test failed, threshold not met:
+    Coverage:   30.37%
+    Threshold:  90.00%
+```
+
+`mix.exs` carried `test_coverage: [threshold: 0]` with a comment saying the built-in 90% gate
+"is turned off". **It was not.** Mix reads the threshold from the `:summary` sub-option —
+`Keyword.get(opts, :summary, true)`, then `get_threshold(true)` returns the built-in 90
+(`lib/mix/lib/mix/tasks/test.coverage.ex:278, 409` in Elixir 1.20.4) — so a top-level
+`:threshold` key is ignored entirely. The key has been in the wrong place since slice 000 and
+the comment above it has been claiming otherwise for as long. Corrected to
+`test_coverage: [summary: [threshold: 0]]`; `mix test --cover` now exits 0.
+
+This did not affect `mix gate`, which runs `test` and then `mix trinity.coverage` and never
+`--cover`. It affected anyone reading the comment.
+
+**The drop rule then did real work for the first time.** Seeded 4.01 points under 000:
+
+```
+$ mix trinity.coverage ; echo "exit=$?"
+** (Mix) trinity.coverage: 001 23.0% is 4.01 points below 000 27.01%, more than the
+   3.0-point tolerance. Name the reason in the slice's NOTES.md.
+exit=1
+```
+
+and at the real figure:
+
+```
+$ mix trinity.coverage ; echo "exit=$?"
+trinity.coverage: 001 30.37% vs 000 27.01% — OK
+exit=0
+```
+
+**001 is 30.37%, up 3.36 points from 000's 27.01%.** No reason is owed, because the rule is
+about drops.
+
+### Line 14 — both gates, and the plain server
+
+`mix gate` exit 0 (68 tests). `scripts/plan_check.sh` PASS. `timeout 25 mix phx.server` exit
+124 — still running when the timeout killed it — serving on 127.0.0.1:4000.
+
+That run was nagging on every start: `ex_tauri` warns until `:version` and `:app_name` are
+configured, so the plain dev server was complaining about a desktop shell it does not run.
+Configured in `config/dev.exs`. Only its major is consumed — `extract_cli_version/1` takes the
+major and installs `tauri-cli ^<major>` — so `2.5.1` is kept as the library's own suggested
+value rather than inventing a pin it does not use.
+
+**One warning is deliberately left in place**: "ExTauri currently targets OTP 27 but you are
+running OTP 28." It is upstream's, its stated reason is refuted by ADR-0005's second correction
+and by ADR-0004's, and silencing a warning whose content this project has measured to be wrong
+would hide the one place a reader might go looking.

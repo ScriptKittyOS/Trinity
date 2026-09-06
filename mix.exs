@@ -18,7 +18,14 @@ defmodule Trinity.MixProject do
       # more than three points against the previous slice fails until NOTES.md names the reason.
       # `mix test --cover` defaults to a 90%% gate, which is a different rule than the one this
       # project states, so it is turned off and `mix trinity.coverage` enforces the real one.
-      test_coverage: [threshold: 0],
+      #
+      # Corrected at slice 001 line 13. This read `test_coverage: [threshold: 0]`, which is
+      # the wrong shape and did nothing at all: Mix reads the threshold from the `:summary`
+      # sub-option (`Keyword.get(opts, :summary, true)` then `get_threshold/1`), so a
+      # top-level `:threshold` key is ignored and `get_threshold(true)` returns the built-in
+      # 90. `mix test --cover` was still exiting 3 on a rule this project does not have, and
+      # the comment above it claimed otherwise for the whole of slice 000.
+      test_coverage: [summary: [threshold: 0]],
       releases: releases()
     ]
   end
