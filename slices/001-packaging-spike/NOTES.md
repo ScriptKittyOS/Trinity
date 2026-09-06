@@ -748,3 +748,80 @@ value rather than inventing a pin it does not use.
 running OTP 28." It is upstream's, its stated reason is refuted by ADR-0005's second correction
 and by ADR-0004's, and silencing a warning whose content this project has measured to be wrong
 would hide the one place a reader might go looking.
+
+---
+
+## Owner decisions on the G3 open points, 2026-09-06
+
+### D4 — **accepted.** The Credo check leaving `lib/` is a packaging prerequisite
+
+Owner's word, 2026-09-06: nothing compiles under `MIX_ENV=prod` with a dev-only dependency
+referenced from `lib/`, and a spike that cannot compile for prod has not spiked. D4 is accepted
+as within slice 001's scope and does not need a slice of its own.
+
+**The principle attached to it, which is a correction to how I worked and not to the code:**
+
+> Post the Question, then proceed in parallel with the work that does not depend on the answer.
+> Commit first and ask second is the wrong order even when the call is right.
+
+I did the second thing. I found the conflict, judged it a prerequisite, made the change, wrote
+the deviation, committed, and raised it at G3 — by which point the branch had eight commits
+standing on it. The right shape was to post the Question the moment `MIX_ENV=prod mix release`
+stopped on `lib/trinity/credo/no_eval_on_model_output.ex`, and carry on with lines 4 and 5,
+neither of which depended on the answer. Being right about the call does not make the order
+right, because the order is what gives the owner the chance to be wrong about it cheaply.
+
+### AC8 — exits **false**, citing SCR-256, not unproven
+
+Owner's word: the wrapper finding is filed as **SCR-256**, and slice 001 exits with AC8 marked
+false rather than unproven. The distinction is the one CLAUDE.md §8 draws between an empty
+population and a satisfied property: nobody has closed a window, but the property underneath
+has been measured and it does not hold. The transcript is in `PROOF.md` under AC8 and posted to
+SCR-256 as an Answer.
+
+### Correction — "reparented to init" is wrong, twice above
+
+**This supersedes the phrase "reparented to init" in the line 5 record and in the line 5 commit
+message.** Measured:
+
+```
+$ ps -o pid,ppid,comm -p 139843
+    PID    PPID COMMAND
+ 139843       1 systemd
+
+$ ps -o pid,ppid,comm -p 2936771     # the orphaned BEAM, after its parent was killed
+    PID    PPID COMMAND
+2936771  139843 beam.smp
+```
+
+The orphan is reparented to **pid 139843, the per-user `systemd` instance acting as a
+subreaper**, not to pid 1. The wrapper's own ppid was 139843 before the kill as well, so the
+child was re-attached to the nearest subreaper rather than to init. Nothing about the finding
+changes — the BEAM outlives the wrapper either way — but "init" names a process that was not
+involved, and a stranger checking this would have looked at the wrong pid.
+
+### One thing the transcript adds that the earlier note did not have
+
+The orphan is not merely alive. **It is still serving**, after its parent is gone:
+
+```
+$ curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:39075/ ; echo "exit=$?"
+200
+exit=0
+```
+
+That is a stronger statement of the defect than "a process remains", and it is what makes
+SCR-256 a liveness-contract question rather than a tidiness one: a shell that closes its window
+and kills the wrapper leaves a Phoenix app listening on the user's loopback with nothing on
+screen to say so.
+
+### The `package` workflow had never run, and the reason was mine
+
+`gh run list --branch slice/001-packaging-spike --limit 5` showed three `gate` runs and **no
+`package` run**. Its push trigger was `branches: [main]`, so the branch whose evidence depends
+on it was the one branch it ignored. Corrected to `[main, 'slice/**']` in `0326dea`.
+
+Worth recording as a class, not an incident: **a workflow that never fires reports nothing and
+fails nothing**, so nothing in the gate, in `plan_check`, or in my own review would ever have
+caught it. It was found because the owner asked for the run. The evidence that a CI job works
+is a run, and until there is one, a workflow file is a plan.

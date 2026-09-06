@@ -20,10 +20,10 @@ target was never built: Burrito unpacks the Windows ERTS with 7z and no 7z is in
 **ADR-0004 is therefore not confirmed**, because its own exit condition is a running smoke
 build on macOS *and* Windows, and stamping `accepted` on it would be inventing a result.
 
-Five criteria exit unproven and named, and they are one missing thing: a machine that is not
-this one. Follow-ups are in `NOTES.md`; the sharpest is that the Burrito wrapper does not
-forward termination to the BEAM it launches, which is AC8's property failing on this machine
-by signal rather than by window.
+Four criteria exit **unproven** and named, and they are one missing thing: a machine that is
+not this one. A fifth, **AC8, exits false** — not unproven — because the property underneath it
+was measured and does not hold: the Burrito wrapper does not forward termination, so the BEAM
+outlives it and goes on serving. Filed as **SCR-256**, owned by slice 100.
 
 ## Gate
 
@@ -224,22 +224,104 @@ processes in both listings are this session's own dev BEAM, present before the r
 
 ### AC8 [manual] — killing the window terminates the sidecar within 5 s
 
-**Not proven — no window exists to close — and there is evidence the property is currently
-false.** Stopping the serving binary with `kill <wrapper pid>` left this behind:
+**FALSE, not unproven. Filed as SCR-256.**
+
+No window exists to close on this machine, so the criterion cannot be exercised in the form
+`SLICE.md` states it. But the property underneath it — that the sidecar dies with its parent —
+**has been measured, and it does not hold.** An empty population and a failed property are
+different facts (CLAUDE.md §8), and this is the second.
+
+Full transcript, one process, exit codes from the same invocation as their output:
 
 ```
-$ ps -eo pid,ppid,comm | grep desktop_linux      # nothing
-$ ps -eo pid,ppid,comm | grep beam.smp
-2765267  139843 beam.smp
-$ tr '\0' ' ' < /proc/2765267/cmdline
-/home/aylac/.local/share/.burrito/desktop_erts-16.4.0.5_0.1.0/erts-16.4.0.5/bin/beam.smp -- -root …
+$ ps -o pid,ppid,comm -p 2936769 -p 2936771 ; echo "exit=$?"     # BEFORE the kill
+    PID    PPID COMMAND
+2936769  139843 desktop_linux_x
+2936771 2936769 beam.smp
+exit=0
+
+$ kill 2936769 ; echo "exit=$?"                                  # SIGTERM to the wrapper only
+exit=0
+
+$ ps -o pid,ppid,comm -p 2936769 ; echo "exit=$?"                # the wrapper: gone
+    PID    PPID COMMAND
+exit=1
+
+$ ps -o pid,ppid,comm -p 2936771 ; echo "exit=$?"                # the BEAM it launched: alive
+    PID    PPID COMMAND
+2936771  139843 beam.smp
+exit=0
+
+$ tr '\0' ' ' < /proc/2936771/cmdline | cut -c1-140 ; echo "exit=$?"
+/home/aylac/.local/share/.burrito/desktop_erts-16.4.0.5_0.1.0/erts-16.4.0.5/bin/beam.smp -- -root /home/aylac/.local/share/.burrito/desktop_
+exit=0
+
+$ curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:39075/ ; echo "exit=$?"
+200
+exit=0
 ```
 
-The wrapper died; the BEAM it launched survived and was reparented to init. That is AC8's
-failure mode reached by signal rather than by window. The fix is in Burrito's wrapper or in a
-supervisor around it, neither of which is packaging wiring, so this slice records it and does
-not fix it. It is a `NOTES.md` follow-up and ADR-0004 carries it, because every alternative
-shell has to answer for it.
+Five seconds elapsed between the `kill` and the second `ps`, which is the bound the criterion
+names.
+
+**The orphan is not merely alive; it is still serving.** That is what makes this a liveness
+contract rather than a tidiness problem: a shell that closes its window and kills the wrapper
+leaves a Phoenix app listening on the user's loopback with nothing on screen to say so.
+
+**What it was reparented to, stated precisely.** Pid 139843 is the per-user `systemd` instance
+acting as a subreaper, not pid 1:
+
+```
+$ ps -o pid,ppid,comm -p 139843
+    PID    PPID COMMAND
+ 139843       1 systemd
+```
+
+An earlier note in `NOTES.md` said "reparented to init". That is corrected there; the finding
+is unchanged, but "init" names a process that was not involved.
+
+**What this build lacks, and it matters to how "false" should be read.** `ex_tauri` ships
+`ExTauri.ShutdownManager`, a heartbeat GenServer whose stated purpose is this exact case: the
+Rust frontend sends a byte every 100 ms over a Unix domain socket, and the sidecar shuts down
+gracefully after 1500 ms without one, "even when the process is killed without cleanup".
+`mix ex_tauri.install` adds it to the application's children.
+
+**It is not in this build.**
+
+```
+$ grep -n 'ShutdownManager' lib/trinity/application.ex ; echo "exit=$?"
+exit=1
+```
+
+So the honest statement is narrower than "AC8 is false" and wider than "AC8 is unproven":
+
+- **False, as measured, for the artifact this slice actually produced** — a bare Burrito binary
+  with no heartbeat in its supervision tree. Kill the parent and the BEAM serves on.
+- **Untested, not broken, for the mechanism `ex_tauri` provides for it.** I have not run
+  `ExTauri.ShutdownManager`, and reporting a defect in a mechanism I never installed would be
+  the overclaim this project keeps catching.
+
+Both halves are true and neither substitutes for the other. AC8 exits **false**, citing
+SCR-256, on the build that exists; the untested heartbeat is the first thing SCR-256 should
+measure, and it is not among the candidates that issue currently names.
+
+**Why the mechanism is absent is a gap in this slice, not an oversight of `ex_tauri`'s.**
+`SLICE.md`'s Scope says "run `mix ex_tauri.install`" and its Deliverables name a `tauri/`
+scaffold. Neither happened:
+
+```
+$ git ls-files tauri | wc -l
+0
+```
+
+The approved G1 plan's fifteen lines never included the install step — line 3 is Burrito wiring
+only — so the deliverable was dropped at plan time and I did not flag it. That is mine, and it
+is why AC2, AC3 and AC4 could not have been run by anyone this slice: `mix ex_tauri.dev` has no
+project to run against.
+
+**Where the fix lives.** Not here. Burrito's wrapper signal handling is upstream behaviour, and
+the remedy is Trinity's own liveness contract with its parent — designed and enforced in slice
+100 per SCR-256, with `ExTauri.ShutdownManager` measured first rather than assumed.
 
 ### AC9 [auto] — `mix gate` still green; `mix phx.server` still works without Tauri
 

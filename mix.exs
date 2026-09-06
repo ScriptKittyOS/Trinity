@@ -151,7 +151,18 @@ defmodule Trinity.MixProject do
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind trinity", "esbuild trinity"],
+      # `compile` first, added at slice 001 after CI caught it. Phoenix 1.8 writes colocated
+      # hook and CSS files under `_build/<env>/phoenix-colocated` during compilation, and
+      # `assets/css/app.css` imports `phoenix-colocated/trinity/colocated.css`. Without a
+      # compile the import cannot resolve, so this alias worked on any machine that had
+      # already built and failed on every clean checkout:
+      #
+      #   Error: Can't resolve 'phoenix-colocated/trinity/colocated.css' in '.../assets/css'
+      #
+      # `assets.build` above already leads with `compile` for the same reason; this one did
+      # not, and the difference only shows on a tree that has never been compiled.
       "assets.deploy": [
+        "compile",
         "tailwind trinity --minify",
         "esbuild trinity --minify",
         "phx.digest"
