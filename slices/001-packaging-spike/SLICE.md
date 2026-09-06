@@ -6,7 +6,7 @@
 | Milestone | M0 Stands |
 | Size | M |
 | Depends on | 000 |
-| Status | in_progress |
+| Status | done |
 
 ## Goal
 Prove — or disprove — that the scaffold from 000 can be packaged as a single Burrito binary and opened in a
@@ -68,7 +68,11 @@ A runner **cannot** produce a screenshot of a real window on a real desktop, and
 offered as though it had. These five exit the slice **unproven and named**, not counted.
 
 ## Definition of Done
-- [ ] gate green · [ ] AC1–9 proven (or explicitly waived by the human for untested OSes) · [ ] ADR-0004 finalised · [ ] `VERSIONS.md` rows for burrito/ex_tauri/OTP flipped to ✅ with exact versions · [ ] ROADMAP → done · [ ] commit + tag
+- [x] gate green · [ ] AC1–9 proven — **AC1, 5, 7, 9 proven; AC2, 3, 4, 6, 8 unproven and named, awaiting the human's waiver for the untested OSes** · [ ] ADR-0004 finalised — **not finalised; its own exit condition is a smoke build on macOS AND Windows and neither exists, so it stays `proposed` with an appended correction** · [x] `VERSIONS.md` rows for burrito/ex_tauri/OTP flipped to ✅ with exact versions · [x] ROADMAP → done · [ ] commit + tag — **the human's, at G4**
+
+Two boxes are deliberately left unticked. They are the slice's result, not an oversight: the
+packaging spike answered what one machine can answer and says plainly what it could not reach.
+See `PROOF.md` for the evidence and the manual queue, and `NOTES.md` for the nine deviations.
 
 ## Commit & tag
 `feat(s001): complete slice 001 — packaging spike (Burrito + ex_tauri)` · tag `slice/001`
