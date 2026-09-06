@@ -30,6 +30,23 @@ It is designed to be consumed by a coding agent with a human acting as product o
 6. After each slice, you review `slices/NNN-*/PROOF.md`, then say "approve slice NNN" or list changes.
    The agent does not begin the next slice without your approval (see `docs/04-slice-process.md`).
 
+## Running the app
+
+Requires the pinned toolchain in `.tool-versions` (Erlang 28.5.0.5, Elixir 1.20.4-otp-28), installed with
+`asdf install`.
+
+```
+mix setup          # deps, database, assets
+mix phx.server     # or: iex -S mix phx.server
+mix gate           # the full quality gate — must pass before every commit
+```
+
+Then visit [`localhost:4000`](http://localhost:4000).
+
+`mix gate` is the contract: format check, compile with warnings as errors, Credo, sobelow, dependency audits,
+tests, the secret scan and the five rule enforcers. `scripts/plan_check.sh` runs alongside it and checks the plan
+itself — acceptance-criteria numbering, roadmap agreement, dangling references, commit-message hygiene.
+
 ## What is in here
 
 | Path | Purpose |

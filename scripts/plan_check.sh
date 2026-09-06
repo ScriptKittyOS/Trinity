@@ -135,6 +135,14 @@ for c in $(git log --format=%H); do
     || report "FAIL commit $c: no Signed-off-by line ($(git log -1 --format=%s "$c"))"
 done
 
+section "9. Secrets are ignored, as CLAUDE.md claims"
+# CLAUDE.md states ".env* is gitignored". A generator run overwrote .gitignore at
+# slice 000 and silently removed that rule; nothing caught it. This does.
+for f in .env .env.local .env.production; do
+  git check-ignore -q "$f" || report "FAIL .gitignore: '$f' is not ignored, but CLAUDE.md says .env* is"
+done
+grep -q '^!\.env\.example$' .gitignore || true
+
 printf '\n'
 if [ "$fail" -eq 0 ]; then echo "plan_check: PASS"; else echo "plan_check: FAIL"; fi
 exit "$fail"

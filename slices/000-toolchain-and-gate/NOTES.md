@@ -290,3 +290,69 @@ both still hold.
 
 `VERSIONS.md`'s toolchain table now carries the exact patch versions and the reason for each, replacing the
 "pending measurement" wording and the note that deferred the ERTS question to slice 001.
+
+---
+
+## Line 3, continued — the scaffold, and an incident worth recording
+
+```
+$ mix archive.install hex phx_new 1.8.13 --force ; echo "exit=$?"
+* creating /home/aylac/.asdf/installs/elixir/1.20.4-otp-28/.mix/archives/phx_new-1.8.13
+exit=0
+
+$ mix phx.new . --app trinity --database sqlite3 --no-mailer --install false
+...
+$ mix compile ; echo "exit=$?"
+Compiling 14 files (.ex)
+Generated trinity app
+exit=0
+```
+
+The app compiles on the pinned toolchain.
+
+### The generator overwrote two files it had no business replacing
+
+`mix phx.new .` writes `README.md` and `.gitignore` unconditionally when generating into an existing directory.
+It destroyed both.
+
+**`README.md`** was replaced with the stock Phoenix readme. That file held the **only approved site for the four
+platform names** — the section the name check exists to permit — and the `git config core.hooksPath .githooks`
+setup step. Restored from `HEAD`, with the generator's run instructions folded in as a new section rather than
+either version being lost.
+
+**This vindicates line 9's heading-text rule.** The permitted section had been at `README.md` lines 46–62. After
+restoration with the run section inserted above it, it sits at **lines 72–88**. A name check that had hard-coded
+46–62 would now be reading the wrong sixteen lines and would have permitted names in the wrong place while
+flagging the real section. Locating it by `## Connecting Trinity to the platform` survives the move.
+
+**`.gitignore`** was replaced with the stock Phoenix ignore list, which does **not** ignore `.env*`. That silently
+falsified `CLAUDE.md` §4's claim that "`.env*` is gitignored" — the exact defect that file was created to fix, undone
+by a generator, with nothing to catch it. Restored and merged: the eight generator-only entries worth keeping
+(`/.fetch`, `*.ez`, `/tmp/`, `trinity-*.tar`, the static-asset cache manifest, npm noise) were kept and the secret
+rules put back.
+
+### `plan_check` rule 9
+
+A claim in `CLAUDE.md` that a generator can quietly falsify is a rule with no enforcer, which is what I1 is about.
+Rule 9 asserts the claim against git itself rather than against the file's text:
+
+```
+$ ./scripts/plan_check.sh ; echo "exit=$?"     # with .env dropped from .gitignore
+FAIL .gitignore: '.env' is not ignored, but CLAUDE.md says .env* is
+FAIL .gitignore: '.env.local' is not ignored, but CLAUDE.md says .env* is
+FAIL .gitignore: '.env.production' is not ignored, but CLAUDE.md says .env* is
+plan_check: FAIL
+exit=1
+
+$ ./scripts/plan_check.sh ; echo "exit=$?"     # restored
+exit=0
+```
+
+It uses `git check-ignore`, so it tests the behaviour rather than the presence of a line, and a reordering or a
+later negation pattern cannot fool it.
+
+**Not caught by anything, and worth stating plainly:** the name check would *not* have caught the README loss.
+Deleting the permitted section deletes the hits along with it, and a check that verifies "every hit is inside the
+permitted section" passes trivially on zero hits. The check guards against names appearing where they should not,
+not against the approved section being removed. That is a real limit of the design, and it is stated here rather
+than discovered later.
