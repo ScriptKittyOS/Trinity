@@ -164,6 +164,12 @@ section "11. Slice lifecycle matches the branch"
 #
 # Only ROADMAP.md is read: check 4 already asserts SLICE.md agrees with it, so checking both
 # would be checking the same fact twice and calling it two.
+#
+# Demonstrating the main half needs care, and the first attempt at it passed vacuously: checking
+# out main reverts THIS FILE to the version without the rule, so the run proves nothing. Bring the
+# branch's script onto main's worktree first:
+#   git checkout main && git checkout <slice-branch> -- scripts/plan_check.sh
+# then plant a status and run. Recorded so the next person does not repeat it.
 roadmap_status() {
   awk -F'|' -v I=" $1 " '$2==I{gsub(/^ +| +$/,"",$7); print $7}' ROADMAP.md
 }
