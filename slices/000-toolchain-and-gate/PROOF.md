@@ -303,3 +303,138 @@ still a baseline compared against nothing.
 
 The original figure is left standing above rather than edited, because a record that quietly
 changes its own numbers is the defect this project keeps finding.
+
+---
+
+# G4 changes requested — the four items
+
+Appended, not merged into the sections above, so the reviewed document stands as reviewed.
+
+## Item 1 — AC3's second clause, derived rather than hand-listed
+
+**Superseded:** "Rows this slice touched, and only those, were updated" and the AC3 line calling
+the second clause *partial*. "Rows this slice touched" was a hand list, which is the defect.
+
+**The mark's meaning is now derivable.** ✅ means *the package is in `mix.lock` at this sha*,
+emitted by `mix versions.gen` from `Mix.Dep.Lock.read/0`. Toolchain rows are marked from
+`.tool-versions`. Nothing is marked by hand, so a mark cannot outlive the fact it asserts —
+which is exactly how finding B3 found two false ✅ marks on the packages the OTP pin rested on.
+The old legend, under which ✅ meant "someone ran `curl` on some date", is replaced and says so.
+
+Every row now lives in `Trinity.Versions` and the whole table body is generated. **That also
+removed a duplication I had introduced**: `versions.gen` had appended a block *beside* the
+hand-written tables rather than replacing them, so the toolchain and the seven slice-000
+dependencies were listed twice.
+
+Derived population, cross-checked both ways:
+
+```
+$ grep -c '| ✅ in `mix.lock` |' VERSIONS.md          → 15
+$ grep -c '| 🔍 not yet a dependency |' VERSIONS.md    → 12
+$ grep -c '| 🔍 not a single package |' VERSIONS.md    → 6
+$ grep -c '| ✅ `.tool-versions` |' VERSIONS.md        → 5
+
+# every ✅ row is genuinely in mix.lock
+phoenix phoenix_live_view phoenix_pubsub bandit ecto_sql ecto_sqlite3 jason boundary
+nimble_options credo mox mix_audit sobelow ex_doc lazy_html   → all OK
+# no 🔍 row is in mix.lock
+(no output)
+
+$ mix versions.gen --check ; echo "exit=$?"
+versions.gen: VERSIONS.md already matches Trinity.Versions and mix.lock
+exit=0
+```
+
+**The change found a real gap.** `versions.verify` gained a check that every direct dependency
+in `mix.exs` has a row, and it immediately named **twelve** the generator had added and the pin
+list never documented: `phoenix_ecto`, `phoenix_html`, `phoenix_live_dashboard`,
+`phoenix_live_reload`, `esbuild`, `tailwind`, `heroicons`, `daisyui`, `gettext`, `dns_cluster`,
+`telemetry_metrics`, `telemetry_poller`. All now carry rows.
+
+**One assertion corrected while doing this.** `versions.verify` briefly failed eleven pins as
+"absent from mix.lock". That was wrong: absence is not disagreement — most pinned packages
+arrive at a later slice. The rule is now that **the lock must not disagree** with the pin list,
+and a pin that is not a version requirement at all (`not pinned`, `optional, ~> 0.3`,
+`(transitive via LiveView test)`) is documentation with nothing to satisfy. The tests encoding
+the old semantics were updated rather than left passing against a rule that no longer holds.
+
+```
+$ mix versions.verify ; echo "exit=$?"
+versions.verify: OK — 52 locked packages, none disagreeing with 45 pins
+exit=0
+```
+
+## Item 2 — AC5, green at head, not at some earlier sha
+
+```
+$ git log --oneline -1
+1921293 docs(s000): state the coverage drop as points, not as the new figure
+
+$ gh run list --branch slice/000-toolchain-and-gate --limit 5 ; echo "exit=$?"
+completed	success	docs(s000): state the coverage drop as points, not as the new figure	gate	slice/000-toolchain-and-gate	push	34050775439	37s	2026-09-06T18:08:39Z
+completed	success	docs(s000): correct the coverage figure by appending	gate	slice/000-toolchain-and-gate	push	34050748444	32s	2026-09-06T18:08:06Z
+completed	success	feat(s000): list every permitted name hit for AC8	gate	slice/000-toolchain-and-gate	push	34050721136	36s	2026-09-06T18:07:34Z
+completed	success	chore(s000): repoint the repository URL to the ScriptKittyOS organisa…	gate	slice/000-toolchain-and-gate	push	34050683172	29s	2026-09-06T18:06:49Z
+completed	success	docs(s000): status done in SLICE.md and ROADMAP.md	gate	slice/000-toolchain-and-gate	push	34050634156	28s	2026-09-06T18:05:54Z
+exit=0
+```
+
+**The run for the head commit `1921293` is `completed success`.** All five listed runs are green.
+Commits made after this listing carry runs of their own.
+
+## Item 3 — AC7 enforcer 2, the transcript and the test
+
+The red was described and not shown. Reproduced by reverting the fixture to a literal:
+
+```
+$ mix gate ; echo "exit=$?"
+FAIL test/version_form_test.exs:24: assert VersionForm.forbidden?("we target <the forbidden form> now")
+** (Mix) trinity.version_form: 1 violation(s)
+exit=1
+```
+
+**The form is elided in that transcript**, for the same reason the platform names are elided in
+AC8: writing it literally would make this document a violation. The enforcer proved that too —
+the first draft of this section carried it verbatim and `mix gate` failed on
+`PROOF.md:391`, `exit=1`. Twice now, a proof document has been caught by the rule it was
+proving. That is the enforcers working on their author, and it is worth more than a green run.
+
+Green once the fixture is composed at runtime again:
+
+```
+$ mix trinity.version_form ; echo "exit=$?"
+trinity.version_form: OK
+exit=0
+$ mix gate >/dev/null 2>&1 ; echo "exit=$?"
+exit=0
+```
+
+**The test that plants the composed form and asserts detection** is
+`test "the forbidden form is caught"` in `test/version_form_test.exs:23`. It builds the string
+from `@protocol <> " " <> "2.0"` so the file never contains it, and asserts `forbidden?/1`
+returns true. Result:
+
+```
+$ mix test test/version_form_test.exs --trace
+  * test the forbidden form is caught (0.01ms) [L#23]
+Result: 4 passed
+```
+
+The companion `test "the skip list holds exactly one entry"` keeps the exemption from growing to
+cover the file instead.
+
+## Item 4 — the deviation list
+
+`NOTES.md` now carries **"Deviations from the G1 plan — the complete list"** with all four. The
+pin-file one was recorded in the narrative at *"Line 1, continued — the toolchain install"* and
+was **not in the deviation list** until this item asked for it. That gap is stated in the list
+itself: a fact buried in a run log is not a deviation anyone will find.
+
+## Taken up from the Coordinator's closing note
+
+`boundary` enforcing only under `--warnings-as-errors` is now stated in `docs/01-architecture.md`
+where the architecture rules live, not only here. The next reader of that file will not read this
+document, which was the point.
+
+The sobelow fingerprint's line-number sensitivity stays recorded in `.sobelow-skips.reasons`,
+as the note accepts.

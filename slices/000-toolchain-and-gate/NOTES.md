@@ -381,6 +381,37 @@ It is not added here: it needs a definition of "in progress" that survives a bra
 abandoned, and inventing one at G3 to cover my own miss is the wrong moment. Raised as a
 follow-up instead.
 
+## Deviations from the G1 plan — the complete list
+
+Four. Each is also recorded where the artefact lives, so a reader of any one finds it; this list
+exists because "recorded somewhere" is not the same as "listed", and the fourth below proves it.
+
+**1. The pin file is `.tool-versions`, not `mise.toml`.** The G1 plan's line 3 named `mise.toml`
+with `.tool-versions` as the alternative. Measured before either was written:
+
+```
+$ which mise asdf ; echo "exit=$?"
+/usr/local/bin/asdf
+exit=1
+```
+
+`mise` is absent; `asdf` v0.18.0 is present. `SLICE.md`'s scope, deliverables, AC1 and proof
+lines were corrected, as was `VERSIONS.md`'s toolchain table.
+
+*This was recorded in the narrative at "Line 1, continued — the toolchain install" and was
+**not** in this deviation list until G4 asked for it.* That is the gap the list closes: a fact
+buried in a run log is not a deviation anyone will find.
+
+**2. The pin list is `lib/trinity/versions.ex`, not `versions.exs`.** A `.exs` data file must be
+evaluated at runtime and `Trinity.Credo.NoEvalOnModelOutput` forbids that family under `lib/`.
+Also in the module's `@moduledoc` and in `PROOF.md`.
+
+**3. `mix test --cover`'s 90% threshold is off.** `docs/03` sets no absolute threshold; its rule
+is drop-based, and leaving the default on would enforce a rule nobody wrote. Also in `mix.exs`
+and in `PROOF.md`.
+
+**4. The status never moved to `in_progress`.** Recorded in full below.
+
 ## Follow-ups
 
 - **No enforcer for the slice lifecycle.** `docs/04` defines `ready → in_progress → done →
