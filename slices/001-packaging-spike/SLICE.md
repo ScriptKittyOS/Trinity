@@ -6,6 +6,7 @@
 | Milestone | M0 Stands |
 | Size | M |
 | Depends on | 000 |
+| Status | in_progress |
 
 ## Goal
 Prove — or disprove — that the scaffold from 000 can be packaged as a single Burrito binary and opened in a
