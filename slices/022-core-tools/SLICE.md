@@ -49,6 +49,12 @@ M2 "Acts". Also closes the placeholder-overwrite class of data loss by design.
 ## Proof required
 - Tests, `ps` evidence, GIF.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC6** — `Web.Search` fake returns structured results; live-tagged test hits the real provider (redacted output).
+- **AC10** — End-to-end manual: ask the agent to "list the files in the project and summarise the README" → works with approvals as expected (GIF).
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–11 proven · [ ] docs/07 synced · [ ] VERSIONS (muontrap, floki ✅) · [ ] ROADMAP → done · [ ] commit + tag
 

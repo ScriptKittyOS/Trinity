@@ -8,17 +8,26 @@ It is designed to be consumed by a coding agent with a human acting as product o
 
 ## How to use this package
 
-1. Create an empty git repo for the project.
-2. Copy these files and directories into the repo root, and only these:
+1. Point git at the tracked hooks, before the first commit:
+
+   ```
+   git config core.hooksPath .githooks
+   ```
+
+   `.githooks/commit-msg` strips assistant attribution trailers from every message. It is the first step
+   because a trailer that reaches a tag is permanent. `scripts/plan_check.sh` rule 8 checks the history
+   itself, so an unconfigured hook fails the gate rather than passing quietly.
+2. Create an empty git repo for the project.
+3. Copy these files and directories into the repo root, and only these:
    - `CLAUDE.md` (the coding agent reads it automatically)
    - `ROADMAP.md`
    - `VERSIONS.md`
    - `docs/`
    - `templates/`
    - `slices/`
-3. Commit: `chore: add project plan package` — this is commit #1, before any code.
-4. Tell the coding agent: **"Start Slice 000."** Everything else is in `CLAUDE.md`.
-5. After each slice, you review `slices/NNN-*/PROOF.md`, then say "approve slice NNN" or list changes.
+4. Commit: `chore: add project plan package` — this is commit #1, before any code.
+5. Tell the coding agent: **"Start Slice 000."** Everything else is in `CLAUDE.md`.
+6. After each slice, you review `slices/NNN-*/PROOF.md`, then say "approve slice NNN" or list changes.
    The agent does not begin the next slice without your approval (see `docs/04-slice-process.md`).
 
 ## What is in here

@@ -49,6 +49,13 @@ Desktop packaging is the riskiest, least-Elixir-native part of the plan. Finding
 ## Proof required
 - Build logs (trimmed), curl output, screenshots under `proof/`, size/time table, process-list before/after window close.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC2** — `mix ex_tauri.dev` opens a native window showing the LiveView scaffold (screenshot) on macOS.
+- **AC3** — The same on Windows (screenshot) — or a documented failure with the fallback that succeeded (screenshot) and ADR-0004 amended.
+- **AC6** — Killing the window terminates the sidecar within 5 s (heartbeat) — verified with `ps`/Task Manager.
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–7 proven (or explicitly waived by the human for untested OSes) · [ ] ADR-0004 finalised · [ ] `VERSIONS.md` rows for burrito/ex_tauri/OTP flipped to ✅ with exact versions · [ ] ROADMAP → done · [ ] commit + tag
 

@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+# Strips assistant attribution trailers from every commit message.
+#
+# House rule: commits carry the owner's name and nothing else. Tooling that
+# appends its own attribution is stripped here rather than caught in review,
+# because a trailer that reaches a tag is permanent (CLAUDE.md §4).
+#
+# Enable with:  git config core.hooksPath .githooks
+# Enforced by:  scripts/plan_check.sh rule 8, which checks the history itself,
+#               so a bypassed or unconfigured hook still fails the gate.
+set -eu
+msg_file="$1"
+tmp="$msg_file.stripped"
+
+grep -v '^Co-Authored-By: Claude' "$msg_file" \
+  | grep -v '^Claude-Session:' \
+  | grep -v '^🤖 Generated with' > "$tmp" || true
+
+# Drop blank lines the deletions left at the end of the message.
+sed -e :a -e '/^\n*$/{$d;N;};/\n$/ba' "$tmp" > "$msg_file"
+rm -f "$tmp"

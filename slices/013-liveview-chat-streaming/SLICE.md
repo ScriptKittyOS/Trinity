@@ -54,6 +54,13 @@ M1 "Talks" is only real if a human can use it. Also the surface where every late
 ## Proof required
 - Screenshots/GIF, LiveView test output, patch-count measurement.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC1** — Manual: create session, send "hello", see streamed markdown response (FakeProvider in dev via config flag, and a real provider) — screenshot/GIF.
+- **AC3** — Cancel during streaming: button works; interrupted message rendered with banner (test + screenshot).
+- **AC4** — Kill the Session process while the page is open: banner appears; page remains usable; next message works (manual + test using `Process.exit`).
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–8 proven · [ ] VERSIONS (phoenix_streamdown ✅ or fallback noted) · [ ] ROADMAP → done · [ ] commit + tag
 

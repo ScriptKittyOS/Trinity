@@ -44,10 +44,15 @@ Modularity promise: "adding a tool is adding a module". Everything in phases 2, 
 5. [auto] `Big` result is truncated to the cap with a marker; original size in `meta`.
 6. [auto] Invalid args (schema mismatch) → error result without calling `execute/2` (test with Mox on a tool).
 7. [auto] `Trinity.Permissions.decide/3` is invoked exactly once per tool call (Mox expectation).
-9. [auto] **A census test derives the effect catalog from the tree and asserts no `:catalog` tool is registered by any path other than the module attribute. Plant a second path; the census must flag it.**
+8. [auto] **A census test derives the effect catalog from the tree and asserts no `:catalog` tool is registered by any path other than the module attribute. Plant a second path; the census must flag it.**
+9. [auto] Registering a dynamic tool named exactly like a core tool does not give it the core tool's tier (test).
 
 ## Proof required
 - Diff for AC1, test outputs with timings.
+
+## Manual verification queue
+None. Every acceptance criterion in this slice is `[auto]` and is proven by a command or a test.
+If that changes during the slice, the criterion is retagged and this section is filled at G1.
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–9 proven · [ ] ROADMAP → done · [ ] commit + tag
@@ -68,8 +73,7 @@ Modularity promise: "adding a tool is adding a module". Everything in phases 2, 
   names are denied and receipted; malformed args are denied, never repaired.
 - **Risk tier is a function of the tool name only** (`Trinity.Permissions.tier/1`), unmapped → `:ask`. The
   namespace is closed to make that safe: dynamic tools are namespaced before the lookup (`mcp:<server>:<tool>`,
-  `skill:<name>`) and core names are reserved. AC9: registering a dynamic tool named exactly like a core tool does
-  not give it the core tool's tier (test).
+  `skill:<name>`) and core names are reserved. AC9 in the list above is the test for it.
 - **Declared versus observed surface:** each turn records the declared tool surface (names + definition
   digests) and each run records observed calls; `Trinity.Tools.surface_diff/1` is a query, and a non-empty diff is
   a finding surfaced in the UI.

@@ -35,6 +35,11 @@ Zero-context-cost delegation, done with OTP processes and message passing rather
 6. [auto] Approval raised in a child appears in the parent's approval stream with the child id (test).
 7. [manual] UI screenshot of the tree during a run.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC7** — UI screenshot of the tree during a run.
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–7 proven · [ ] docs/01 synced · [ ] ROADMAP → done · [ ] commit + tag
 

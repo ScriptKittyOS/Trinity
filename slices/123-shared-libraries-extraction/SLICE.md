@@ -1,11 +1,11 @@
-# Slice 123 — Extract the shared components as Hex packages (ADR-0011)
+# Slice 123 — Extract the shared components as Hex packages
 
 | Field | Value |
 |---|---|
 | Phase | 13 Open source & donation |
 | Milestone | M9 Donatable |
 | Size | L |
-| Depends on | 062, 082, 083, 040, 120; and the owner's package-naming decision |
+| Depends on | 062, 040, 120; and the owner's package-naming decision |
 | Labels | composition |
 
 ## Goal
@@ -19,7 +19,9 @@ names are an owner decision at this slice.
 2. [auto] Trinity's `mix.lock` pins the published versions; `boundary` still passes; behaviour unchanged (gate green).
 3. [auto] A consumer smoke test: a fresh Phoenix app adds the MCP authorization package and serves PRM plus a CIMD
    login in the number of steps its README states (count recorded).
-4. [auto] The cross-repo notes are posted (links recorded) and each asked question has a place for the answer.
+4. [auto] Each package README states what the package is, its licence and the versions it supports, and the
+   extraction rationale is written on this tree's own merits. The original rationale rested on consumers outside
+   this tree and is withdrawn; a package with no rationale of its own is not extracted.
 
 ## Scope
 **In:**
@@ -36,6 +38,10 @@ names are an owner decision at this slice.
 
 ## Proof required
 - For each acceptance criterion: the command and its output, or a test name and its result, or a screenshot under `proof/`. A sentence is not proof.
+
+## Manual verification queue
+None. Every acceptance criterion in this slice is `[auto]` and is proven by a command or a test.
+If that changes during the slice, the criterion is retagged and this section is filled at G1.
 
 ## Definition of Done
 - [ ] `mix gate` green · [ ] AC1–4 proven · [ ] docs/ADR/VERSIONS updated if affected · [ ] ROADMAP status → done · [ ] final commit + tag

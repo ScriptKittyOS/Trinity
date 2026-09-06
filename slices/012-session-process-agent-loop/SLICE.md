@@ -54,6 +54,10 @@ Vision goals 1 and 2. Silent process death and the one-agent-per-machine limitat
 ## Proof required
 - Test names + output for each AC; a `:sys.get_state`-free assertion style except in crash tests; supervisor restart counts.
 
+## Manual verification queue
+None. Every acceptance criterion in this slice is `[auto]` and is proven by a command or a test.
+If that changes during the slice, the criterion is retagged and this section is filled at G1.
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–9 proven · [ ] docs/01 tree updated · [ ] ROADMAP → done · [ ] commit + tag
 
@@ -64,7 +68,7 @@ Vision goals 1 and 2. Silent process death and the one-agent-per-machine limitat
 - Draft-persistence write frequency vs SQLite single writer: measure; default every 500 ms or 2 KB.
 - Decide whether `ensure_started/1` is called by UI on mount or lazily on first message (recommend: on mount).
 
-## Platform alignment (appended 2026-09-05; see docs/09-platform-context.md)
+## Platform alignment (appended 2026-09-05)
 - **M3, code-owned caps:** iteration, token and wall-clock caps are module attributes on the loop module; the loop
   function takes no cap argument (a test asserts the arity/signature and that no config key can raise them).
   Reaching a cap is a recorded, receipted outcome and a normal `idle` transition, never a crash.

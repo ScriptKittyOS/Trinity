@@ -36,6 +36,13 @@ Skills that can execute need a real programming surface. This gives the agent on
 7. [manual] Manual: ask the agent to "compute the total size of all markdown files under X using a script" → it writes Lua, runs it via the sandbox, returns the answer (GIF).
 8. [manual] `docs/sandbox.md` reviewed by the human.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC1** — Infinite loop script → terminated by reduction limit within the configured bound; runner process gone; no VM impact (test measuring scheduler….
+- **AC7** — Manual: ask the agent to "compute the total size of all markdown files under X using a script" → it writes Lua, runs it via the sandbox, returns….
+- **AC8** — `docs/sandbox.md` reviewed by the human.
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–8 proven · [ ] docs/07, docs/sandbox.md · [ ] VERSIONS (luerl/sandbox ✅) · [ ] ROADMAP → done · [ ] commit + tag
 

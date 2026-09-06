@@ -37,6 +37,12 @@ equivalent; `Trinity.Memory.Search.messages/2`; a `session_search` tool; a searc
 ## Proof required
 - Tests on both adapters, timing, screenshot, GIF.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC4** — Tool returns ≤ `limit` hits with snippets; agent can answer "what did we decide about X last week" using it (manual GIF).
+- **AC5** — Search page renders results and deep-links (screenshot).
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–5 proven · [ ] docs/05 synced · [ ] ROADMAP → done · [ ] commit + tag
 

@@ -21,7 +21,7 @@ RFC 8693 token exchange at the IdP, redeemed via the RFC 7523 JWT-bearer grant a
 IdP's JWKS (issuer, audience = our AS, subject, expiry, `client_id`), apply local policy (verified email domain →
 organisation, group → scopes), and issue our own access token; admins configure trusted IdPs in Settings.
 
-Identity is not authority (docs/09): OAuth/EMA answers *who is calling and with what scopes*; the permission gate and,
+Identity is not authority: OAuth/EMA answers *who is calling and with what scopes*; the permission gate and,
 the selected authority adapter answer *may this effect happen*. Every token decision is receipted.
 
 ## Scope
@@ -44,10 +44,15 @@ clients (CIMD URLs), scopes; conformance tests modelled on the spec's flows; doc
 6. [manual] Manual: one real MCP client that supports EMA (per the MCP client matrix at the time) connects through the fake IdP
    flow; screenshots. If none is available on the developer machine, recorded as not measured.
 7. [auto] The library boundary: `Trinity.MCP.Auth.*` has no dependency on `Trinity.Sessions`/`Trinity.Tools` (boundary check),
-   so it can be extracted per ADR-0011.
+   so it can be extracted as its own package (slice 123).
+
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC6** — Manual: one real MCP client that supports EMA (per the MCP client matrix at the time) connects through the fake IdP.
 
 ## Definition of Done
-- [ ] gate green · [ ] AC1–7 proven · [ ] docs/08, docs/10 synced · [ ] ADR-0011 note appended · [ ] ROADMAP → done · [ ] commit + tag
+- [ ] gate green · [ ] AC1–7 proven · [ ] docs/08 synced · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
 `feat(s062): complete slice 062 — MCP authorization (RS, embedded AS, EMA)` · tag `slice/062`

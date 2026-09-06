@@ -45,7 +45,15 @@ property, and "Trinity keeps no executor for delegated effects" is unfalsifiable
 - Signing unavailable ⇒ the effect is **denied** and the failure alarms outside the receipt stream (the
   completion-definition C1 resolution, adopted).
 - UI: receipts view per session; boot receipt in Settings.
-**Out:** the plane's receipts (083), proposals (082), hold socket.
+**Out:** receipts, proposals or sockets belonging to an external authority plane. This slice builds Trinity's own
+local chain and nothing else.
+
+## Deliverables
+- `Trinity.Effects` (the membrane) and `Trinity.Effects.Catalog`; `Trinity.Authority` behaviour with the `Local`
+  implementation and boot-time selection; `Trinity.Receipts` with `ChainWriter` (ADR-0013) and the signer.
+- **The `Trinity.Sessions.ToolRunner` refactor from slice 020**, routing effectful calls through the membrane and
+  leaving `effect: :none` calls direct. It belongs to no other slice and is a deliverable of this one.
+- Migration for `receipts`; the census test for the single insert path; the boot receipt.
 
 ## Acceptance criteria
 1. [auto] Census test: exactly one caller of `execute/2` for effectful tools; a planted bypass is flagged (both outputs).
@@ -56,6 +64,10 @@ property, and "Trinity keeps no executor for delegated effects" is unfalsifiable
 5. [auto] Signing key removed mid-run → next effect denied, alarm event emitted, no unsigned receipt row exists.
 6. [auto] Boot receipt carries `core_policy_hash`; changing a policy module changes the hash (test).
 7. [auto] `bin/verify_receipt.exs` runs from an empty directory against an exported receipt file + registry (stranger test).
+
+## Manual verification queue
+None. Every acceptance criterion in this slice is `[auto]` and is proven by a command or a test.
+If that changes during the slice, the criterion is retagged and this section is filled at G1.
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–7 proven · [ ] docs/01, docs/05, docs/07 synced · [ ] ROADMAP → done · [ ] commit + tag

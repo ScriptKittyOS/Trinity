@@ -49,6 +49,12 @@ Provider-agnostic by construction (Vision goal 6). Sessions never see a vendor S
 ## Proof required
 - Test outputs, live test output (redacted), a sample `usage_events` row.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC2** — `generate_object/3` returns a validated map for a given JSON schema (fake) and (live-tagged) for one real provider.
+- **AC6** — `mix test --only live` passes against at least one configured provider on the developer machine (output pasted; keys redacted).
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–7 proven · [ ] VERSIONS updated · [ ] ROADMAP → done · [ ] commit + tag
 

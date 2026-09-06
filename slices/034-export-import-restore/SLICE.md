@@ -54,6 +54,10 @@ and neither is a user-facing path.
 ## Proof required
 - For each criterion: the command and its output, or the test name and its result. A sentence is not proof.
 
+## Manual verification queue
+None. Every acceptance criterion in this slice is `[auto]` and is proven by a command or a test.
+If that changes during the slice, the criterion is retagged and this section is filled at G1.
+
 ## Definition of Done
 - [ ] `mix gate` green · [ ] AC1–6 proven · [ ] `docs/backup.md` written · [ ] ROADMAP status → done · [ ] final commit + tag
 

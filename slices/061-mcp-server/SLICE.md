@@ -44,6 +44,11 @@ attributed to a system persona with `origin: "mcp"` and crossing `Trinity.Effect
 7. [auto] An MRTR exchange begun against one server instance completes against a different instance of the same release, carrying only the `requestState`; a retry with it altered or missing is refused (test).
 8. [manual] Claude Code connected and calling `recall` (screenshot).
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC8** — Claude Code connected and calling `recall` (screenshot).
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–8 proven · [ ] docs synced · [ ] ROADMAP → done · [ ] commit + tag
 

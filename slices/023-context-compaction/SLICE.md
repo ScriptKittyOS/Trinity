@@ -45,6 +45,12 @@ Risk R7. Compression that quietly discards critical context is the failure to de
 ## Proof required
 - Tests, eval table, screenshot.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC4** — Eval harness: ≥ 90 % of tracked facts survive across the 3 scripted conversations with a real model (live/eval tag; table in proof).
+- **AC5** — UI shows the token indicator and compaction card (screenshot).
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–6 proven · [ ] docs/05 synced · [ ] ROADMAP → done · [ ] commit + tag
 

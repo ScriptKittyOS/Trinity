@@ -45,8 +45,12 @@ compat plug), `anubis_mcp` 2.x (LGPL-3.0, ≤ 2025-11-25), own minimal stateless
 ## Proof required
 - For each acceptance criterion: the command and its output, or a test name and its result, or a screenshot under `proof/`. A sentence is not proof.
 
+## Manual verification queue
+None. Every acceptance criterion in this slice is `[auto]` and is proven by a command or a test.
+If that changes during the slice, the criterion is retagged and this section is filled at G1.
+
 ## Definition of Done
-- [ ] `mix gate` green · [ ] AC1–10 proven · [ ] docs/ADR/VERSIONS updated if affected · [ ] ROADMAP status → done · [ ] final commit + tag
+- [ ] `mix gate` green · [ ] AC1–3 proven · [ ] docs/ADR/VERSIONS updated if affected · [ ] ROADMAP status → done · [ ] final commit + tag
 
 ## Commit & tag
 `feat(s059): complete slice 059 — MCP library spike` · tag `slice/059`

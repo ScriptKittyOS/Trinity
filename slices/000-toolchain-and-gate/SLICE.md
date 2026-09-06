@@ -15,8 +15,11 @@ A Phoenix 1.8 app named `trinity` that compiles on pinned Elixir 1.20.x / OTP 28
 Everything downstream assumes the gate exists and the versions are real. Accountability starts here.
 
 **Sized L, not M, and not split.** The scope holds a toolchain, a generator run, boundary wiring, an eight-step
-gate, two Mix tasks, CI and eleven open-source hygiene artefacts. The hygiene half cannot be split out, because
-ADR-0012 requires it in commit 1 and a later slice is after commit 1.
+gate, two Mix tasks, CI and the open-source hygiene artefacts. The hygiene half stays here because ADR-0012
+decision 2 puts the governance files at this slice by name, and because decision 1's commit-1 requirement is
+only partly met: commit 1 carries `LICENSE`, `NOTICE` and DCO sign-off, and does **not** carry SPDX headers or
+`REUSE.toml`. This slice closes that gap and delivers decision 2, so splitting it would leave an accepted ADR
+unmet with no slice owning the remedy.
 
 ## Scope
 **In:**
@@ -45,19 +48,32 @@ ADR-0012 requires it in commit 1 and a later slice is after commit 1.
   stated reason; these had neither. Each is a separate gate step and a separate line in PROOF.md; none is reported
   as covering another:
   1. `Code.eval_string` on model output: a Credo check or grep over `lib/`. Fails the gate on any occurrence.
-  2. The phrase "MCP 2.0": grep. The protocol is date-versioned and has no 2.0.
-  3. **The name check.** Zero hits for either code name anywhere, paths included; the four real names only at
-     sites on the approved permitted list. Consumes the list approved under B2; this slice does not originate it.
-     Runs over **paths as well as contents**: a content-only grep would pass a tree whose filenames carry names.
-     The two code names are matched by a committed digest set rather than a plaintext pattern, because a pattern
-     file spelling them would itself break the rule; G1 states that set's false-negative limit.
+  2. **The version-form check.** MCP is versioned by date, never by a major number, so the forbidden form is a
+     literal `MCP` followed by a major version number. The pattern is **case-sensitive with word boundaries**,
+     which is what excludes `gen_mcp 2.0` and `anubis_mcp 2.0.x`: they are lower-case and the underscore is a
+     word character, so no boundary opens before `mcp`. **There is no exemption list.** The enforcer's own
+     source file is the single path it skips, because it must contain the pattern to test it, and a test asserts
+     that skip list has exactly one entry.
+  3. **The name check.** Two policies, and which policy a name gets decides how it is matched.
+     **Zero-permitted-sites names** — the two code names and the superseded agent name — are matched by a
+     **committed digest set**, never by a plaintext pattern, because any file spelling them would itself be a
+     hit. That is why this specification does not name them either. G1 states the digest set's
+     false-negative limit.
+     **Permitted-site names** — the four platform names — are matched in plain text and are allowed only
+     inside the one approved section of `README.md`. That section is located **by its heading text**, never by
+     line numbers, so editing the file above it cannot silently move the permitted window.
+     The check runs over **paths as well as contents**: a content-only grep would pass a tree whose filenames
+     carry names, which is how a filename carrying a code name was caught.
   4. `reuse lint`: per-file copyright and licence information. **This is a separate check from 3 and covers none
      of it.**
-  5. Tests must not reach the network: outbound sockets blocked in the `test` environment, so the rule fails
-     loudly rather than passing quietly on a developer machine that happens to be online.
+  5. **Tests must not reach the network.** Outbound sockets are blocked on the **default** test run, so the rule
+     fails loudly rather than passing quietly on a machine that happens to be online. The `:live` tag is excluded
+     from `mix gate` and runs only under an explicit flag, with the network open — those tests exist to reach a
+     real provider, so blocking them would break the opt-in path CLAUDE.md §5 and `docs/03` both define.
 - Secret scan: a small Mix task (`mix trinity.secrets.scan`) with regexes for common API key shapes over `git diff --cached` and the tree; part of gate.
 - GitHub Actions (or equivalent) workflow running `mix gate` on ubuntu-latest with a matrix `TRINITY_DB=sqlite` (postgres job added in 010).
-- `.gitignore` for `.env*`, `_build`, `deps`, `priv/data/`, `tauri/target`.
+- `.gitignore` already exists and covers `.env*`, `_build`, `deps`, `priv/data/` and `tauri/target`; the
+  generator's additions merge into it rather than replacing it.
 - `README.md` in repo root: how to run, how the slice process works (link to `docs/`).
 - Copy this plan package into the repo (`docs/`, `slices/`, `templates/`, `CLAUDE.md`, `ROADMAP.md`, `VERSIONS.md`).
 - **Open-source hygiene from commit 1 (ADR-0012):** `LICENSE` = Apache-2.0; `NOTICE` with the three-role pattern
@@ -91,6 +107,10 @@ ADR-0012 requires it in commit 1 and a later slice is after commit 1.
 
 ## Proof required
 - `elixir -v`, `mise ls`, `mix gate` output, `mix versions.verify` output, the boundary-violation before/after, CI run URL or log excerpt, secret scan before/after.
+
+## Manual verification queue
+None. Every acceptance criterion in this slice is `[auto]` and is proven by a command or a test.
+If that changes during the slice, the criterion is retagged and this section is filled at G1.
 
 ## Definition of Done
 - [ ] `mix gate` green · [ ] AC1–9 proven · [ ] CI green · [ ] `VERSIONS.md` updated · [ ] ROADMAP → done · [ ] final commit + tag

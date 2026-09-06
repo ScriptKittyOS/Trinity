@@ -42,12 +42,24 @@ the OS keychain, launch-at-login, single-instance behaviour, and graceful shutdo
 3. [manual] An approval requested while the window is hidden produces an OS notification; clicking it focuses the window on the approval card (GIF).
 4. [manual] Global hotkey shows/hides the window (GIF).
 5. [manual] Keychain: a provider key entered in Settings is retrievable after restart and absent from the DB file (`strings trinity.db | grep` returns nothing) and from logs (tests + manual).
-7. [auto] Receipts signed before the keychain migration still verify after it; the retired `key_id` carries a `valid_until` and the chain is unbroken across the boundary (test).
-6. [manual] Quit during a streaming turn → draft persisted as interrupted; on relaunch the banner shows (manual).
+6. [auto] Receipts signed before the keychain migration still verify after it; the retired `key_id` carries a `valid_until` and the chain is unbroken across the boundary (test).
+7. [manual] Quit during a streaming turn → draft persisted as interrupted; on relaunch the banner shows (manual).
 8. [manual] Second launch focuses the first instance (manual).
 9. [auto] Packaged-binary checks pass: FTS5, sqlite_vec, watcher (or documented fallback), embeddings cache (log excerpt).
 10. [auto] Headless `mix phx.server` still works with `Noop` desktop impl (test).
 11. [manual] First launch with no configuration reaches a working first turn through the setup path, on a fresh account (manual, screenshots).
+
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC1** — Packaged build launches to the chat window with no dev tooling on the machine (fresh user account or VM): macOS + Windows screenshots (Linux if….
+- **AC2** — Tray menu actions work (screenshots); pending-approval count updates live.
+- **AC3** — An approval requested while the window is hidden produces an OS notification; clicking it focuses the window on the approval card (GIF).
+- **AC4** — Global hotkey shows/hides the window (GIF).
+- **AC5** — Keychain: a provider key entered in Settings is retrievable after restart and absent from the DB file (`strings trinity.db | grep` returns….
+- **AC7** — Quit during a streaming turn → draft persisted as interrupted; on relaunch the banner shows (manual).
+- **AC8** — Second launch focuses the first instance (manual).
+- **AC11** — First launch with no configuration reaches a working first turn through the setup path, on a fresh account (manual, screenshots).
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–11 proven · [ ] docs/packaging.md, docs/07 synced · [ ] ADR-0004 status accepted · [ ] ROADMAP → done · [ ] commit + tag

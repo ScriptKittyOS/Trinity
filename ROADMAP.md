@@ -26,7 +26,7 @@ A size given as `M or L` is conditional on a decision named in that slice's file
 
 | ID | Slice | Phase | Size | Depends on | Status |
 |---|---|---|---|---|---|
-| 000 | Toolchain, repo bootstrap, quality gate | 0 Foundation | M | — | ready |
+| 000 | Toolchain, repo bootstrap, quality gate | 0 Foundation | L | — | ready |
 | 001 | Packaging spike: Burrito + ex_tauri smoke build | 0 Foundation | M | 000 | planned |
 | 010 | Core domain + persistence (Ecto/SQLite, schemas, Repo owner) | 1 Core loop | M | 000 | planned |
 | 011 | LLM provider layer (req_llm behind `Trinity.LLM` behaviour) | 1 Core loop | M | 010 | planned |
@@ -46,7 +46,7 @@ A size given as `M or L` is conditional on a decision named in that slice's file
 | 041 | Skill self-management with staged approval + scanner | 4 Skills | M | 040, 021 | planned |
 | 050 | Scheduler: Oban cron agent tasks with delivery targets | 5 Automation | M | 012 | planned |
 | 059 | MCP library spike (finalises ADR-0007) | 6 MCP | M | 020 | planned |
-| 060 | MCP client (2026-07-28 preferred, 2025-11-25 compat, MRTR, Tasks, OAuth client) | 6 MCP | M or L | 059, 021 | planned |
+| 060 | MCP client (2026-07-28 preferred, 2025-11-25 compat, MRTR, Tasks, OAuth client) | 6 MCP | M/L | 059, 021 | planned |
 | 061 | MCP server (stateless 2026-07-28 + compat, MRTR approvals, headless profile) | 6 MCP | M | 060, 024 | planned |
 | 062 | MCP authorization: RS + embedded AS + Enterprise Managed Authorization (ID-JAG) | 6 MCP | L | 061 | planned |
 | 070 | Gateway core: adapter behaviour, routing, PubSub fan-out | 7 Gateways | M | 012 | planned |
@@ -64,7 +64,7 @@ A size given as `M or L` is conditional on a decision named in that slice's file
 | 120 | OSS hygiene and governance, audited | 13 Open source & donation | S | 000, 090 | planned |
 | 121 | Supply chain: SBOM, Sigstore, SLSA, Scorecard, MCP Registry entry | 13 Open source & donation | M | 101, 120 | planned |
 | 122 | Foundation Sandbox proposal package (owner-gated, needs legal review) | 13 Open source & donation | M | 120, 121 | planned |
-| 123 | Extract shared components as Hex packages (ADR-0011) | 13 Open source & donation | L | 062, 082, 083, 040, 120 | planned |
+| 123 | Extract shared components as Hex packages | 13 Open source & donation | L | 062, 040, 120 | planned |
 
 ## Minimum viable Trinity
 
@@ -109,3 +109,4 @@ After 012, multiple branches are independent. If running more than one coding ag
 | 2026-09-05 | Enterprise auth folded into Trinity's own MCP authorization server plus the managed-authorization extension (062, resized to L). Open-source posture made first-class: ADR-0012, OSS hygiene from commit 1 in slice 000, phase 13 (120–123), milestone M9. |
 | 2026-09-05 | Authority made an adapter behind a behaviour rather than a mode (ADR-0008, ADR-0010). ADR-0009 opened for the Jido question, decided at the 012 checkpoint. Slice 024 added: effect catalog, `TRINITY_AUTHORITY`, local receipts. Alignment appendices on 012, 020, 021, 022, 023, 030, 032, 040, 041. |
 | 2026-09-05 | Review pass before commit 1. Counts in the three entries above were typed, not derived, and none matches the tree; a decreasing count is impossible under insert-never-renumber. Derived this date: `find slices -name SLICE.md | wc -l` → **38**. Milestones are derived from the Milestones table, not from memory. From here, any count in this log names the command that produced it. Entries above are not rewritten. |
+| 2026-09-06 | Plan corrections, round 2. **Supersedes the slice count in the entry above:** that entry derived **38** on 2026-09-05, before slices 082, 083 and 084 were withdrawn and slice 034 was added. Re-derived this date, not adjusted by arithmetic: `find slices -name SLICE.md | wc -l` → **36**. The entry above is not rewritten. `scripts/plan_check.sh` now enforces this count, the acceptance-criteria numbering, the Definition-of-Done ranges, ROADMAP/SLICE.md agreement, and the absence of references to paths not in `git ls-files`. |

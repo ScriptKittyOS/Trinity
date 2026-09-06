@@ -37,6 +37,11 @@ Practices badge application, and a `server.json` for the MCP Registry describing
 ## Proof required
 - For each acceptance criterion: the command and its output, or a test name and its result, or a screenshot under `proof/`. A sentence is not proof.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC4** — `server.json` validates against the MCP Registry schema (command); publication itself is an owner action.
+
 ## Definition of Done
 - [ ] `mix gate` green · [ ] AC1–5 proven · [ ] docs/ADR/VERSIONS updated if affected · [ ] ROADMAP status → done · [ ] final commit + tag
 

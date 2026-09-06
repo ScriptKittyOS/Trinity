@@ -44,6 +44,11 @@ Vision goal 3, first half. A small always-on tier with a budget that consolidate
 ## Proof required
 - Tests, prompt snapshot diff, screenshots.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC5** — UI: edit SOUL, add/delete memory entries (screenshots); changes persist.
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–7 proven · [ ] docs/05 synced · [ ] ROADMAP → done · [ ] commit + tag
 

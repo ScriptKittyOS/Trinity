@@ -118,8 +118,9 @@ discovering it when the slice is otherwise finished is discovering it too late.
 - **A name is a claim.** A function called `verify` that records without verifying is renamed or fixed.
 - **Every egress gets a redaction row.** Anything Trinity sends off-machine (proposals, telemetry, MCP results to
   other agents) is enumerated with what crosses raw and what crosses hashed.
-- **Never write "MCP 2.0"; write "AARM" as the category; commercial names on public surfaces, code names only in
-  identifiers** (see docs/09 §naming).
+- **MCP is versioned by date, never by a major number.** Write "AARM" as the category. Commercial names belong on
+  public surfaces; code names live only in identifiers. Real names appear only where the name check permits them —
+  the enforcer is the rule, and no prose here overrides it.
 
 ## 9. Tone of PROOF.md and NOTES.md
 

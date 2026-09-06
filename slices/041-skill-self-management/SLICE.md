@@ -47,6 +47,12 @@ Vision goal 4: "grows safely". A self-improving skills library is only safe if t
 ## Proof required
 - Tests, screenshots, sample learned skill.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC6** — `/learn` with a local markdown file produces a staged knowledge skill with a `references/` file and a SKILL.md under ~200 lines (live/eval tag;….
+- **AC7** — UI screenshots: pending list, diff view, findings.
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–8 proven · [ ] docs/07 synced · [ ] ROADMAP → done · [ ] commit + tag
 

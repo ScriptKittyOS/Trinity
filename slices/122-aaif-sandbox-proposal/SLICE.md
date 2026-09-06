@@ -47,8 +47,14 @@ line ready to insert on acceptance.
 ## Proof required
 - For each acceptance criterion: the command and its output, or a test name and its result, or a screenshot under `proof/`. A sentence is not proof.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC2** — The goose interop proof (screenshots + commands) is in `proof/`.
+- **AC4** — Filing is an owner action; this slice is done when the package is complete, not when it is filed.
+
 ## Definition of Done
-- [ ] `mix gate` green · [ ] AC1–7 proven · [ ] docs/ADR/VERSIONS updated if affected · [ ] ROADMAP status → done · [ ] final commit + tag
+- [ ] `mix gate` green · [ ] AC1–4 proven · [ ] docs/ADR/VERSIONS updated if affected · [ ] ROADMAP status → done · [ ] final commit + tag
 
 ## Commit & tag
 `docs(s122): complete slice 122 — AAIF Sandbox proposal package` · tag `slice/122`

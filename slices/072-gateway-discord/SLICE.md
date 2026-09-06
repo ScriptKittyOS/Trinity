@@ -23,6 +23,14 @@ attachments in/out, slash commands registered with Discord, cron delivery target
 5. [auto] Consumer crash → restart without duplicate replies (test with fixtures).
 6. [manual] Cron delivery to a channel (manual proof).
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC1** — Manual/live proof: mention the bot in a channel → threaded streamed reply (screenshots).
+- **AC2** — Button approvals round-trip (screenshot).
+- **AC3** — Slash commands `/new`, `/model` work and are registered (screenshot of Discord command list).
+- **AC6** — Cron delivery to a channel (manual proof).
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–6 proven · [ ] VERSIONS (nostrum ✅) · [ ] ROADMAP → done · [ ] commit + tag
 

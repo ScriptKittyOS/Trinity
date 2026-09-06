@@ -24,7 +24,7 @@ Trinity.Application
 ├── Trinity.Tools.Supervisor                      # tool runtime (ports, browsers). Slice 020/022
 ├── Trinity.Permissions.Gate                      # approval requests + allowlist cache. Slice 021
 ├── Trinity.Receipts.Supervisor                   # Slice 024
-│     └── Trinity.Receipts.ChainWriter (one per chain_scope, :unique in Trinity.Registry)
+│     └── Trinity.Receipts.ChainWriter (one per chain_scope, :unique in Trinity.Registry; ADR-0013)
 │           # serialises append per scope. prev_hash -> receipt_hash is a read-then-write, so
 │           # concurrent sessions would otherwise race: SQLite's single writer serialises the
 │           # INSERT but does not guarantee each row read the correct predecessor.
@@ -58,7 +58,7 @@ Tool tasks are linked to their Session but trapped; a tool crash is a tool error
 | `Trinity.Permissions` | Policy, tier/1 (name-only), fingerprint-bound approvals, override adjudication | Repo, PubSub |
 | `Trinity.Effects` | The membrane; compile-time effect catalog; query receipts for reads | **Tools**, Permissions, Authority, Receipts, Repo |
 | `Trinity.Authority` | Behaviour; `Local` implementation; selection at boot; adapter responses | Receipts, Repo |
-| `Trinity.Receipts` | Local chain + Ed25519 signer + key registry; vendored plane verifier; collector | Repo |
+| `Trinity.Receipts` | Local chain (one supervised writer per scope, ADR-0013), Ed25519 signer, key registry | Repo |
 | `Trinity.Memory` | Always-on tier, episodic FTS, semantic store, retrieval, compaction | LLM (summaries/embeddings), Repo |
 | `Trinity.Skills` | SKILL.md parsing, registry, loader, manager, scanner | Repo, Permissions, **Effects**, **Receipts**, Sandbox |
 | `Trinity.Scheduler` | Oban workers for agent tasks, delivery | Sessions, Gateways, **Repo** |

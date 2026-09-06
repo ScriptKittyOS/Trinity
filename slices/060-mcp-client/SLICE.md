@@ -4,11 +4,18 @@
 |---|---|
 | Phase | 6 MCP |
 | Milestone | M5 Always-on |
-| Size | M |
+| Size | M/L |
 | Depends on | 059, 021 |
 
 Supersedes the 2026-09-05 first draft of this slice, which targeted anubis_mcp at 2025-11-25 and planned
 sampling/elicitation callbacks (both deprecated in 2026-07-28).
+
+**Sized `M/L`, conditionally, and the condition is decided by slice 059.** M if 059 selects a library that ships a
+working client. L otherwise: a server-only library, or the own-minimal-server fallback, leaves this slice to build
+the MRTR retry loop, Tasks polling and the whole OAuth client role — PKCE, resource indicators, client metadata
+with dynamic-registration fallback, issuer checking and per-issuer credential storage. `docs/08-standards.md` says
+as much in its own words: the stateless server side is small and the client side is more work. A single number
+here would be a guess wearing an estimate's clothes.
 
 ## Goal
 Connect to MCP servers (stdio and Streamable HTTP) with the library chosen in 059, one supervised client per
@@ -47,6 +54,11 @@ enter the effect catalog (M4); health, reconnect, UI.
 7. [auto] OAuth: against a test AS (in-repo fake supporting CIMD + PKCE + resource indicator), the client obtains an
    audience-bound token and the RS accepts it; wrong `iss` is rejected (tests).
 8. [manual] Manual: one real public 2026-07-28 server used end-to-end (GIF).
+
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC8** — Manual: one real public 2026-07-28 server used end-to-end (GIF).
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–8 proven · [ ] docs/01, docs/08 synced · [ ] VERSIONS ✅ · [ ] ROADMAP → done · [ ] commit + tag

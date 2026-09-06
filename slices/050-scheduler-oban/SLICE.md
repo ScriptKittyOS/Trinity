@@ -46,6 +46,13 @@ Scheduled work as durable, retried, observable jobs rather than entries in a con
 ## Proof required
 - Tests, screenshots, GIF.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC2** — `RunTask` creates a session with `origin: "cron"`, completes a FakeProvider turn, records a `task_runs` row with summary, and delivers a desktop….
+- **AC6** — Memory observer runs as an Oban job and is visible in Oban Web (screenshot).
+- **AC7** — Manual: create a "daily summary of my notes dir" task, run now, see the result (GIF).
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–7 proven · [ ] docs/05 synced · [ ] VERSIONS (oban ✅) · [ ] ROADMAP → done · [ ] commit + tag
 

@@ -1,0 +1,26 @@
+# Secrets never enter history. CLAUDE.md §4 states this rule; this file is what makes it true.
+.env
+.env.*
+!.env.example
+
+# Build and dependency output
+/_build/
+/deps/
+/cover/
+/doc/
+*.beam
+erl_crash.dump
+
+# Local data: the agent's own database and working state
+/priv/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Desktop shell (slices 001, 100, 101)
+/tauri/target/
+/priv/static/assets/
+
+# Editor and OS noise
+.elixir_ls/
+.DS_Store

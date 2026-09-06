@@ -49,6 +49,13 @@ Vision goal 4. Procedural memory that costs ~nothing until used.
 ## Proof required
 - Tests, GIF, external skill parse output.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC3** — Hot reload: modifying a SKILL.md on disk updates the registry within 2 s without restart (test with watcher; or manual proof if watcher….
+- **AC7** — Manual: agent, asked to do a git task, calls `skill_view("git-workflow")` then follows it (GIF).
+- **AC8** — An agentskills.io skill written for another agent, downloaded by the human, parses and appears (proof: name + source).
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–8 proven · [ ] docs/05 synced · [ ] ROADMAP → done · [ ] commit + tag
 

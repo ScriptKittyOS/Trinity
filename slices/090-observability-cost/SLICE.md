@@ -30,6 +30,13 @@ structured logs with redaction; optional OpenTelemetry export.
 5. [auto] OpenTelemetry: with the exporter set to a local collector (or in-memory exporter in test), one turn yields a trace with nested spans (test).
 6. [manual] Activity page screenshot.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC2** — Cost totals match the sum of `usage_events` for a seeded dataset; budget exceeded triggers the warning event and, when set, blocks a new turn with….
+- **AC3** — LiveDashboard custom page lists live sessions with their gen_statem state (screenshot).
+- **AC6** — Activity page screenshot.
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–6 proven · [ ] docs/telemetry.md · [ ] ROADMAP → done · [ ] commit + tag
 

@@ -52,6 +52,12 @@ Vision goal 2. Gateways are PubSub subscribers in the same node, not a separate 
 ## Proof required
 - Tests, screenshots.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC2** — Unpaired identity receives only a pairing prompt; after entering the code shown in the UI, the next message is processed (test + screenshot).
+- **AC9** — `/gateways` UI screenshot.
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–9 proven · [ ] docs/01, docs/07 synced · [ ] ROADMAP → done · [ ] commit + tag
 

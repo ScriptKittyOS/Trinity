@@ -48,6 +48,12 @@ Vision goal 3, second half. The unbounded tier that makes the always-on tier's s
 ## Proof required
 - Tests, live numbers, GIF, packaged-binary log, perf table.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC2** — Real Bumblebee embedder: `dim/0 == 384`; embedding "the cat sat" vs "a cat was sitting" cosine > 0.7; vs "quarterly tax filing" < 0.3 (live/slow….
+- **AC6** — `recall` tool works end-to-end (manual GIF: teach a fact in one session, recall it in a new one).
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–8 proven · [ ] docs/05, docs/perf.md, VERSIONS (bumblebee, nx, exla, sqlite_vec ✅) · [ ] ROADMAP → done · [ ] commit + tag
 

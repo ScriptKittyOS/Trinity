@@ -38,6 +38,14 @@ effective March 2026) at M0.
 6. [auto] Release notes generated from commits since last tag (excerpt).
 7. [auto] `docs/release.md` complete; a second person could run a release from it.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC2** — macOS: `spctl --assess --type execute` and `stapler validate` pass on the produced app (output).
+- **AC3** — Windows: `signtool verify /pa` passes (output) — or documented "unsigned pending cert" with the pipeline step proven using a self-signed cert in a….
+- **AC4** — Updater: install version N, publish N+1 to a test channel, app detects, downloads, verifies, updates, relaunches on N+1 (GIF/screenshots per OS).
+- **AC5** — Migration backup: simulate a failing migration on update → DB restored, error shown, app still opens on N (manual with a deliberately broken….
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–7 proven (cert-dependent ACs may be conditionally waived by the human with a follow-up slice) · [ ] docs/release.md · [ ] ROADMAP → done · [ ] commit + tag
 

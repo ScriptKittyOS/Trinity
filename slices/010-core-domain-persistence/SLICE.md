@@ -55,6 +55,10 @@ Data outlives processes. Everything later rehydrates from these tables.
 ## Proof required
 - Test output for stress tests on both adapters, migration logs, boundary check evidence, coverage.
 
+## Manual verification queue
+None. Every acceptance criterion in this slice is `[auto]` and is proven by a command or a test.
+If that changes during the slice, the criterion is retagged and this section is filled at G1.
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–7 proven · [ ] docs/05 updated · [ ] ROADMAP → done · [ ] commit + tag
 

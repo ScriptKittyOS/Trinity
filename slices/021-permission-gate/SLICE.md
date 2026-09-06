@@ -46,6 +46,12 @@ Vision goal 5. Nothing side-effecting runs without consent.
 ## Proof required
 - Tests, screenshots of the card and audit page.
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC2** — Write-risk tool → Session enters `approval_wait`; approval card renders (LiveView test + screenshot); "allow once" → tool runs → final message.
+- **AC7** — Every decision has an `approvals` row with `decided_at`; `/permissions` lists them (screenshot).
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–8 proven · [ ] docs/07 synced · [ ] ROADMAP → done · [ ] commit + tag
 

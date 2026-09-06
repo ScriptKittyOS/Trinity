@@ -24,6 +24,14 @@ images in/out, and the cron delivery target.
 5. [auto] Adapter crash (kill its process) → supervisor restarts it; polling resumes; no duplicate processing of the last update (offset persisted) (test with a fake Telegram API server).
 6. [manual] Cron task delivers to Telegram (manual proof).
 
+## Manual verification queue
+Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
+than at review time.
+- **AC1** — Live-tagged test (or manual with proof) — send a DM, get a streamed reply that updates in place, ending with the final text (screenshot sequence).
+- **AC2** — Approval buttons work from Telegram and the desktop UI reflects the decision (screenshot).
+- **AC3** — An image sent to the bot is stored and passed to a vision-capable model; the reply references it (live/manual proof).
+- **AC6** — Cron task delivers to Telegram (manual proof).
+
 ## Definition of Done
 - [ ] gate green · [ ] AC1–6 proven · [ ] VERSIONS (telegram lib ✅) · [ ] ROADMAP → done · [ ] commit + tag
 
