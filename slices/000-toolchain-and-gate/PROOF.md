@@ -297,7 +297,7 @@ slice_id	percent	sha	date
 000	27.01	e935c7b	2026-09-06
 ```
 
-**The drop is 27.01 from 27.98, inside the three-point tolerance**, so it would pass the rule
+**The drop is 0.97 points, 27.98 to 27.01, inside the three-point tolerance**, so it would pass the rule
 even if there were a prior row to compare against. There is not: this is still the first row and
 still a baseline compared against nothing.
 
