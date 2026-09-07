@@ -94,7 +94,14 @@ jobs:
         env:
           BURRITO_TARGET: ${{ matrix.target }}
           MIX_ENV: prod
-        run: mix release desktop --overwrite
+        run: |
+          set -euo pipefail
+          # `mix deps.get` above runs in the default env. The git dependencies (heroicons and
+          # daisyui, both `sparse`) are checked per environment, and on the Windows runner the
+          # prod build refused with "lock mismatch: the dependency is out of date" — measured,
+          # not guessed. Fetching under the env that builds fixes it and is a no-op elsewhere.
+          mix deps.get
+          mix release desktop --overwrite
 
       - name: The artifact exists and is not empty
         shell: bash
@@ -102,6 +109,21 @@ jobs:
           set -euo pipefail
           ls -l burrito_out/
           test -s "burrito_out/${{ matrix.artifact }}"
+
+      # Tauri resolves `externalBin: ["../burrito_out/desktop"]` to
+      # `desktop-<target triple>`; Burrito writes `desktop_<os>_<arch>`. Without this the
+      # shell's build script stops with `resource path ... doesn't exist`, which is exactly
+      # how the first run of this step failed. `ExTauri.run/1` does the same rename for
+      # production builds; the triple comes from rustc rather than a table in this file.
+      - name: Name the sidecar the way Tauri expects
+        shell: bash
+        run: |
+          set -euo pipefail
+          triple=$(rustc -vV | awk '/^host:/{print $2}')
+          if [ "${{ runner.os }}" = "Windows" ]; then dst="burrito_out/desktop-$triple.exe"
+          else dst="burrito_out/desktop-$triple"; fi
+          cp "burrito_out/${{ matrix.artifact }}" "$dst"
+          ls -l burrito_out/
 
       # Item 2 of the G4 decision. `src-tauri/` exists from slice 001's ex_tauri.install, so
       # the shell is buildable in CI. This compiles the Rust window; it does not run it, and
