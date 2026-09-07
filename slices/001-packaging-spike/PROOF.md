@@ -5,7 +5,13 @@ SPDX-License-Identifier: Apache-2.0
 
 # PROOF — Slice 001 — Packaging spike: Burrito + ex_tauri smoke build
 
-Agent: Claude Opus 5 · Date: 2026-09-06 · Branch: `slice/001-packaging-spike` · Final commit: written at the final commit, which is the one that adds this line to `ROADMAP.md`
+Agent: Claude Opus 5 · Date: 2026-09-06 · Branch: `slice/001-packaging-spike`
+
+`ROADMAP.md` set to `done` at **`b30c6ad`**, which is the final commit in CLAUDE.md §4's sense.
+Seven commits follow it, and they are not the slice being reworked: they are the owner's G3
+instructions applied — the CI run and the two defects it exposed, the wrapper transcript, and
+three corrections to this file's own claims. Each is listed under Git below. The branch head at
+G3 is named there; `git log --oneline main..HEAD` derives it.
 
 ## Summary
 
@@ -549,6 +555,14 @@ and both passed.
 
 ```
 $ git log --oneline main..HEAD
+e7202f4 docs(s001): CI ran — AC2 and AC3 upgrade from "never executed" to "built and run on a runner"
+c2be3fa ci(s001): the smoke step diffed the whole process table, not ours
+f8d1271 docs(s001): owner decisions recorded, AC8 false citing F1, and AC4's stated reason corrected
+5b17e30 fix(s001): the rule-7 correction note quoted the identifier it was correcting
+e25048f fix(s001): cite the wrapper finding as F1, not by board id — plan_check rule 7
+8048ad3 fix(s001): assets.deploy did not compile first, so it failed on every clean checkout
+0326dea ci(s001): package workflow never ran — its push trigger excluded slice branches
+b30c6ad feat(s001): complete slice 001 — packaging spike (Burrito + ex_tauri)
 263c96f docs(s001): lines 8-14 — packaging doc, package workflow, ADR-0004 correction, coverage row
 5a9c8f7 feat(s001): line 5 — the --smoke boot path, and the runtime config a double-clicked binary needs
 f7406c5 test(s001): line 5 — the smoke path never stops itself, committed failing
