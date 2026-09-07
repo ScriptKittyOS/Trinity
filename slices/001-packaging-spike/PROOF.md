@@ -555,10 +555,12 @@ them. The four that most change what a reader should expect:
    compares for equality, not a range.
 4. **The slice-000 Credo check had to move out of `lib/`.** `credo` is `only: [:dev, :test]` and
    `lib/` compiles in every environment, so nothing compiled under `MIX_ENV=prod` at all. This
-   is a change outside packaging by the letter of the plan's constraint, and it is flagged as
-   such in `NOTES.md` D4 for the owner to accept or split out; the judgement made was that a
-   tree that cannot compile in `:prod` cannot be packaged, so it is a prerequisite rather than
-   a widening of scope.
+   is a change outside packaging by the letter of the plan's constraint. **The owner accepted
+   it on 2026-09-06 as a packaging prerequisite** — a spike that cannot compile for prod has
+   not spiked — with a principle attached that is a correction to how I worked rather than to
+   the code: *post the Question, then proceed in parallel with the work that does not depend on
+   the answer; commit first and ask second is the wrong order even when the call is right.* I
+   did the second thing, and raised it at G3 with eight commits already standing on it.
 
 `SLICE.md`'s acceptance criteria were themselves retagged at G1 (line 2, commit `afca47d`):
 seven criteria became nine, AC4 moved `[auto]` → `[manual]`, and AC5 and AC6 were each split
