@@ -1593,3 +1593,47 @@ carries filesystem permissions and does not have this shape.
 **Three of my claims in this slice have been corrected by a measurement rather than by review**:
 "reparented to init", "AC4 needs a machine", and now "the heartbeat never fires". Each was
 stated with evidence that was real and partial.
+
+### The defect count, derived. It is nine, and I have typed two wrong numbers for it
+
+`grep`-able population — commits touching the packaging CI path, minus the two that are not
+defect fixes:
+
+```
+$ git log --oneline main..HEAD -- .github/workflows/package.yml
+f187cfe  the CI serve step curled the heartbeat port
+cdbd2a8  kill the Windows sidecar with taskkill
+8cfe36f  the serve step's curl loop had no bound
+f80145b  force a clean checkout of the two git sparse deps on Windows
+569c4dd  the cold-start timer used a GNU date extension
+a22687e  the shell build needs the sidecar under Tauri's name, and prod needs its own deps.get
+94e6c4e  G4 items 2-4                      <- feature work, not a defect fix
+c2be3fa  the smoke step diffed the whole process table
+0326dea  package workflow never ran
+263c96f  created the workflow              <- not a defect fix
+```
+
+| # | Defect | Fixed at |
+|---|---|---|
+| 1 | push trigger excluded slice branches — it never fired | `0326dea` |
+| 2 | `assets.deploy` did not lead with `compile` | `8048ad3` (in `mix.exs`, found by a package run) |
+| 3 | the smoke step diffed the whole `ps` table | `c2be3fa` |
+| 4 | the shell build asked for a sidecar name nothing produces | `a22687e` |
+| 5 | `daisyui` lock mismatch under `:prod`, Windows only | `a22687e`, wrongly, then `f80145b` |
+| 6 | `date +%s%3N` is a GNU extension | `569c4dd` |
+| 7 | the `curl` loop had no bound | `8cfe36f` |
+| 8 | `kill` from Git-bash does not stop a native Windows process | `cdbd2a8` |
+| 9 | the port parse took the first loopback address, not the endpoint | `f187cfe` |
+
+**Nine.** Note 5 has two commits because my first fix's reasoning was wrong, and that is one
+defect with two attempts rather than two defects.
+
+**I have now typed two wrong numbers for this.** Earlier in this file and on the board I wrote
+**nine** when the correct figure at that moment was **eight** — I had listed "(7 and 8 together)"
+as a ninth item, which is item 7 and item 8 restated. Then, in the Report closing the Windows
+question, I wrote **eleven**, derived from nothing at all.
+
+That the first wrong number happened to match the final correct one is the least useful kind of
+luck. **A count is a population and populations derive from the tree** — CLAUDE.md §8 — and I
+wrote this particular count from memory three times while using it as the headline of an
+argument about not writing things from memory.
