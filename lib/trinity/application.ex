@@ -23,15 +23,16 @@ defmodule Trinity.Application do
   def start(_type, _args) do
     children =
       [
+        # Start a worker by calling: Trinity.Worker.start_link(arg)
+        # {Trinity.Worker, arg},
+        # Start to serve requests, typically the last entry
+        ExTauri.ShutdownManager,
         TrinityWeb.Telemetry,
         Trinity.Repo,
         {Ecto.Migrator,
          repos: Application.fetch_env!(:trinity, :ecto_repos), skip: skip_migrations?()},
         {DNSCluster, query: Application.get_env(:trinity, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: Trinity.PubSub},
-        # Start a worker by calling: Trinity.Worker.start_link(arg)
-        # {Trinity.Worker, arg},
-        # Start to serve requests, typically the last entry
         TrinityWeb.Endpoint
       ] ++ Trinity.Smoke.children(Trinity.Smoke.argv())
 

@@ -9,6 +9,8 @@
 # General application configuration
 import Config
 
+config :ex_tauri, app_name: "Trinity", host: "localhost", port: 4000, version: "2.5.1"
+
 config :trinity,
   ecto_repos: [Trinity.Repo],
   generators: [timestamp_type: :utc_datetime]
