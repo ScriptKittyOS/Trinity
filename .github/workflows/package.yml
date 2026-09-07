@@ -96,10 +96,22 @@ jobs:
           MIX_ENV: prod
         run: |
           set -euo pipefail
-          # `mix deps.get` above runs in the default env. The git dependencies (heroicons and
-          # daisyui, both `sparse`) are checked per environment, and on the Windows runner the
-          # prod build refused with "lock mismatch: the dependency is out of date" — measured,
-          # not guessed. Fetching under the env that builds fixes it and is a no-op elsewhere.
+          # `mix deps.get` above runs in the default env. On the Windows runner the prod build
+          # then refused with
+          #
+          #   Unchecked dependencies for environment prod:
+          #   * daisyui (https://github.com/saadeghi/daisyui.git - v5.5.20)
+          #     lock mismatch: the dependency is out of date
+          #
+          # A second `mix deps.get` under MIX_ENV=prod did NOT fix it — it reported "All
+          # dependencies have been fetched" and the release refused anyway, so the checkout on
+          # disk is what Mix disagrees with, not the environment. Both offenders are git
+          # `sparse` deps carrying `app: false, compile: false`; they exist for the asset build
+          # and nothing in the release links them. Cleaning them forces a fresh checkout.
+          # Windows only, because neither other runner has ever refused.
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            mix deps.clean daisyui heroicons
+          fi
           mix deps.get
           mix release desktop --overwrite
 
