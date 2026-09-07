@@ -963,3 +963,93 @@ BURRITO_TARGET=windows_x86_64 MIX_ENV=prod mix release desktop --overwrite
 On success **AC3 reads "built, not run"** rather than "never built", and `docs/packaging.md`'s
 target table gains a size for `windows_x86_64`. It will not read "runs", because nothing here
 can execute a Windows binary.
+
+---
+
+## G4 — the four requested changes. Deviation D7, recorded before its commit.
+
+Dated 2026-09-07. Owner decision at G4 on the slice issue: changes requested, both Questions
+answered yes, 7z and the five Tauri v2 libraries installed by the owner. **Third time I have
+typed a board identifier into the tree this slice**; `plan_check` rule 7 caught it before the
+commit this time, because both exit codes were read. That is the check earning its place, and
+the Decision's item 3 — one exit code to read — is what stops the other half of the mistake.
+Verified before starting:
+
+```
+$ for c in 7z 7zz 7za 7zr; do printf '%-5s ' "$c"; command -v "$c" || echo "(absent)"; done
+7z    /usr/bin/7z
+7zz   (absent)
+7za   /usr/bin/7za
+7zr   /usr/bin/7zr
+
+$ for p in libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf; do
+    printf '%-34s ' "$p"; dpkg -s "$p" >/dev/null 2>&1 && echo installed || echo "NOT installed"
+  done
+libwebkit2gtk-4.1-dev              installed
+libgtk-3-dev                       installed
+libayatana-appindicator3-dev       installed
+librsvg2-dev                       installed
+patchelf                           installed
+```
+
+### D7 — `ex_tauri` is a dependency of every environment, not `only: :dev`
+
+**This supersedes what line 1 recorded as "the configuration" and what ADR-0004's first
+correction repeats from it:** `{:ex_tauri, "~> 0.2", only: :dev}`. That was the right answer to
+the question line 1 asked — does the default configuration compile on the pinned toolchain —
+and the wrong dependency spec for the slice's actual subject.
+
+`mix ex_tauri.install` adds `ExTauri.ShutdownManager` to the supervision tree unconditionally
+and writes `config :ex_tauri` into `config/config.exs`, which applies to every environment. On
+a `:dev`-only dependency that does not start:
+
+```
+$ mix gate ; echo "exit=$?"
+You have configured application :ex_tauri in your configuration file,
+but the application is not available.
+** (Mix) Could not start application trinity: exited in: Trinity.Application.start(:normal, [])
+    ** (EXIT) an exception was raised:
+        ** (ArgumentError) The module ExTauri.ShutdownManager was given as a child to a
+           supervisor but it does not exist
+exit=1
+```
+
+**The generator is right and the dependency spec was wrong.** The heartbeat is the Rust
+window's only channel for telling the BEAM it has closed. It must exist in the binary that
+ships, and `only: :dev` guarantees it does not — which would have shipped finding F1's failure
+mode as a permanent property of every release, discovered by a user rather than by a test.
+
+The fix is two-sided, and either half alone is a trap:
+
+* `{:ex_tauri, "~> 0.2"}`, every environment, so the packaged binary carries the heartbeat.
+* the child excluded from `:test` **at compile time**, `@desktop_children if Mix.env() == :test`,
+  rather than by asking whether the module happens to be loaded. A `Code.ensure_loaded?/1`
+  guard returns the same empty list whether the exclusion was intended or the dependency
+  vanished, and a heartbeat that is absent without saying so is the failure it exists to
+  prevent.
+
+`test/desktop_children_test.exs` asserts both: that `desktop_children/0` is empty under `:test`,
+that `ex_tauri` carries no `:only` key, and that the module is nonetheless loadable in `:test`
+so "empty" means "excluded on purpose" and not "not installed".
+
+**A consequence to measure rather than assume:** `ex_tauri` in `:prod` drags `igniter`,
+`sourceror`, `rewrite` and `spitfire` into the release. AC5's binary size will move, and the
+new figure is measured and recorded rather than the old one being left in place.
+
+### Two smaller things from the same commit
+
+`config/dev.exs`'s `config :ex_tauri` block is removed. The generator wrote the same keys into
+`config/config.exs`, which covers every environment, and two copies of one pin is exactly the
+drift `mix versions.gen` exists to stop elsewhere. The reasoning moved to the surviving copy.
+
+The generator creates **`src-tauri/`**, not the `tauri/` that `SLICE.md` Deliverables names.
+The root `.gitignore`'s `/tauri/target/` rule is therefore stale — it names a directory that
+does not exist. Rust build output is covered by the generator's own `src-tauri/.gitignore`:
+
+```
+$ git check-ignore -v src-tauri/target/debug/foo ; echo "exit=$?"
+src-tauri/.gitignore:3:/target/	src-tauri/target/debug/foo
+exit=0
+```
+
+so nothing is at risk today. The stale root rule is a follow-up, not a fix in this commit.

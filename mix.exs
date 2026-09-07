@@ -128,8 +128,13 @@ defmodule Trinity.MixProject do
       {:sobelow, "~> 0.15", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.38", only: :dev, runtime: false},
       {:nimble_options, "~> 1.1"},
-      # Slice 001 line 1, arm (a): default configuration on the pinned toolchain.
-      {:ex_tauri, "~> 0.2", only: :dev},
+      # Slice 001 line 1, arm (a) recorded `only: :dev`. **Corrected at G4**, and the reason is
+      # the shell, not the tooling: `ExTauri.ShutdownManager` is the sidecar's heartbeat — the
+      # Rust window's only way to tell the BEAM it has closed — so it has to exist in the
+      # binary that ships, and a `:dev`-only dependency does not. `mix ex_tauri.install` adds
+      # that child unconditionally, which is why the generator's output could not start under
+      # MIX_ENV=test or MIX_ENV=prod. Recorded as deviation D7 in NOTES.md.
+      {:ex_tauri, "~> 0.2"},
       # Slice 001 line 3. `ex_tauri` already depends on burrito, but only in :dev, and
       # `&Burrito.wrap/1` is a release step that runs under MIX_ENV=prod. Declared directly so
       # the module exists in the environment that calls it.

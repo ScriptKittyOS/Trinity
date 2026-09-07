@@ -22,19 +22,17 @@ defmodule Trinity.Application do
   @impl true
   def start(_type, _args) do
     children =
-      [
-        # Start a worker by calling: Trinity.Worker.start_link(arg)
-        # {Trinity.Worker, arg},
-        # Start to serve requests, typically the last entry
-        ExTauri.ShutdownManager,
-        TrinityWeb.Telemetry,
-        Trinity.Repo,
-        {Ecto.Migrator,
-         repos: Application.fetch_env!(:trinity, :ecto_repos), skip: skip_migrations?()},
-        {DNSCluster, query: Application.get_env(:trinity, :dns_cluster_query) || :ignore},
-        {Phoenix.PubSub, name: Trinity.PubSub},
-        TrinityWeb.Endpoint
-      ] ++ Trinity.Smoke.children(Trinity.Smoke.argv())
+      desktop_children() ++
+        [
+          TrinityWeb.Telemetry,
+          Trinity.Repo,
+          {Ecto.Migrator,
+           repos: Application.fetch_env!(:trinity, :ecto_repos), skip: skip_migrations?()},
+          {DNSCluster, query: Application.get_env(:trinity, :dns_cluster_query) || :ignore},
+          {Phoenix.PubSub, name: Trinity.PubSub},
+          # Start to serve requests, typically the last entry
+          TrinityWeb.Endpoint
+        ] ++ Trinity.Smoke.children(Trinity.Smoke.argv())
 
     # See https://elixir.hexdocs.pm/Supervisor.html
     # for other strategies and supported options
@@ -49,6 +47,21 @@ defmodule Trinity.Application do
     TrinityWeb.Endpoint.config_change(changed, removed)
     :ok
   end
+
+  # `ExTauri.ShutdownManager` is the sidecar heartbeat: the Rust window connects to a Unix
+  # domain socket and sends a byte every 100 ms, and the BEAM shuts itself down 1500 ms after
+  # they stop. It is the mechanism finding F1 is about, and it must run in the packaged binary.
+  #
+  # Excluded from `:test` only, and at **compile time** rather than by asking whether the
+  # module happens to be loaded. A `Code.ensure_loaded?/1` guard would silently ship a binary
+  # with no heartbeat if the dependency were ever dropped, and a heartbeat that is absent
+  # without saying so is the failure it exists to prevent. `test/desktop_children_test.exs`
+  # asserts both halves of this.
+  @desktop_children if Mix.env() == :test, do: [], else: [ExTauri.ShutdownManager]
+
+  @doc false
+  @spec desktop_children() :: [module()]
+  def desktop_children, do: @desktop_children
 
   defp skip_migrations? do
     # By default, sqlite migrations are run when using a release
