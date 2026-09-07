@@ -6,7 +6,7 @@
 | Milestone | M0 Stands |
 | Size | M |
 | Depends on | 000 |
-| Status | done |
+| Status | approved |
 
 ## Goal
 Prove — or disprove — that the scaffold from 000 can be packaged as a single Burrito binary and opened in a
@@ -68,7 +68,12 @@ A runner **cannot** produce a screenshot of a real window on a real desktop, and
 offered as though it had. These five exit the slice **unproven and named**, not counted.
 
 ## Definition of Done
-- [x] gate green · [ ] AC1–9 proven — **AC1, 5, 7, 9 proven; AC2, 3, 4, 6, 8 unproven and named, awaiting the human's waiver for the untested OSes** · [ ] ADR-0004 finalised — **not finalised; its own exit condition is a smoke build on macOS AND Windows and neither exists, so it stays `proposed` with an appended correction** · [x] `VERSIONS.md` rows for burrito/ex_tauri/OTP flipped to ✅ with exact versions · [x] ROADMAP → done · [ ] commit + tag — **the human's, at G4**
+- [x] gate green · [x] AC1–9 proven **or explicitly waived** — AC1, 4, 5, 6, 7, 9 proven; AC8 proven on the dev path with its production-shape failure recorded as finding F1; **AC2 and AC3 waived by the owner at G4**, both needing a desktop that does not exist here · [x] ADR-0004 finalised **as `proposed`** — the owner's G4 decision, with three appended corrections and an unchanged lift condition; its subject is the shell, and the shell has run on one OS · [x] `VERSIONS.md` rows for burrito/ex_tauri/OTP flipped to ✅ with exact versions · [x] ROADMAP → approved · [x] commit + tag
+
+Approved by the owner 2026-09-07 at `df10888`. **Two criteria exit unproven and named, not
+counted**: AC2 and AC3, a native window on macOS and on Windows. Two findings remain open and
+belong to slice 100: **F1**, the production sidecar orphaning with nothing attached, and **F2**,
+the Windows heartbeat's unauthenticated loopback TCP port.
 
 Two boxes are deliberately left unticked. They are the slice's result, not an oversight: the
 packaging spike answered what one machine can answer and says plainly what it could not reach.
