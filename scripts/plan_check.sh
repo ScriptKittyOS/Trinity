@@ -183,9 +183,14 @@ case "$branch" in
     else
       st=$(roadmap_status "$sid")
       case "$st" in
-        in_progress|done) ;;
+        # `approved` added at slice 001 G4. The lifecycle is ready -> in_progress -> done ->
+        # approved, and docs/04 has the owner set `approved` at G4 — which happens while the
+        # slice branch still exists, because CLAUDE.md section 4 puts the status change in the
+        # branch's own commit and the merge comes after. Without this the landing commit
+        # cannot pass its own gate, which is where it was found.
+        in_progress|done|approved) ;;
         "") report "FAIL ROADMAP.md: on branch '$branch' there is no row for slice $sid" ;;
-        *) report "FAIL ROADMAP.md: on branch '$branch', slice $sid reads '$st'; work in progress on a slice branch means that slice is in_progress or done" ;;
+        *) report "FAIL ROADMAP.md: on branch '$branch', slice $sid reads '$st'; a slice on its own branch is in_progress, done or approved" ;;
       esac
     fi
     ;;

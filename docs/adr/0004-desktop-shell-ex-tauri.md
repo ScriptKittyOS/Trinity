@@ -162,3 +162,25 @@ on at least one of them **by a mechanism this project owns**. The build-and-laun
 and was never the question.
 
 No date: the condition is two machines becoming available, and I do not know when that is.
+
+---
+
+## Third correction, 2026-09-07 — "a runner has no desktop session" is measured once and assumed twice
+
+Owner's word at G4. **This corrects a claim, not a decision: the status stays `proposed` and the
+lift condition above is unchanged.**
+
+Slice 001 wrote, in `docs/packaging.md`, in every `package.yml` job summary and in `PROOF.md`,
+that **a runner has no desktop session**. That is measured for `ubuntu-latest`, where the job
+states it smoked the sidecar alone with no display. **For `macos-latest` and `windows-latest` it
+is assumed.** Those images run interactive sessions, and a window launched there and captured
+with the platform's own screenshot tool would be a native window on that OS — which is exactly
+what AC2 and AC3 ask for.
+
+**Nobody has tried it.** The wording generalised from the one runner that was measured to the
+two that were not, and the generalisation is the sort this project treats as a defect when it
+appears in a mark or a count.
+
+**It may retire AC2 and AC3 without a machine**, and it is the first thing to try before waiting
+for one. It is not slice 001's work: this ADR records the correction and the manual queue
+carries the step.

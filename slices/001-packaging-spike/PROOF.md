@@ -618,8 +618,17 @@ machine at all, and the two that did are below.
 
 | AC | Needs | Step | Expected |
 |---|---|---|---|
-| 2 | a **macOS desktop** | `mix ex_tauri.dev` | a native window showing the scaffold; screenshot to `slices/001-packaging-spike/proof/` |
-| 3 | a **Windows desktop** | `mix ex_tauri.dev` | the same, or a documented failure and the fallback |
+| **2, 3 — try this first** | **no machine** | on `macos-latest` and `windows-latest`, launch the shell in the job and capture with the platform's own screenshot tool (`screencapture` on macOS, `Add-Type System.Windows.Forms` on Windows) | a native window on that OS. **May retire AC2 and AC3 without a machine** |
+| 2 | a **macOS desktop**, if the above does not work | `mix ex_tauri.dev` | a native window showing the scaffold; screenshot to `slices/001-packaging-spike/proof/` |
+| 3 | a **Windows desktop**, if the above does not work | `mix ex_tauri.dev` | the same, or a documented failure and the fallback |
+
+**Why the first row exists.** Slice 001 wrote "a runner has no desktop session" in
+`docs/packaging.md`, in every job summary and above in this file. **That is measured for
+`ubuntu-latest` and assumed for the other two** — `macos-latest` and `windows-latest` run
+interactive sessions. Nobody has tried launching a window there. The wording generalised from
+the one runner that was measured to the two that were not, which is the kind of generalisation
+this project treats as a defect when it turns up in a mark or a count. Recorded as ADR-0004's
+third correction.
 
 **Closed since G3, and how:**
 
