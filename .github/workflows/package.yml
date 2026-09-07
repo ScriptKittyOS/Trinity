@@ -229,12 +229,22 @@ jobs:
           echo "COLD_START_MS=$elapsed" | tee -a "$GITHUB_ENV"
           echo "### ${{ matrix.name }} — cold start to first HTTP 200: **${elapsed} ms**" >> "$GITHUB_STEP_SUMMARY"
           test "$code" = "200"
-          CHILD=$(pgrep -P "$PID" 2>/dev/null || true)
-          kill "$PID" || true
-          # The wrapper does not forward termination to the BEAM it launched — finding F1,
-          # re-measured at G4 as an orphan still serving 200 past 7.6 s. Kill the child
-          # explicitly or the runner leaves it behind.
-          [ -n "$CHILD" ] && kill "$CHILD" 2>/dev/null || true
+          # Stopping it, and Windows needs its own verb. `kill` from Git-bash does not stop a
+          # native Windows process, so the backgrounded .exe outlived the step and the job hung
+          # long past the bounded loops above — run 34078281292, cancelled by hand. `taskkill
+          # /T` takes the wrapper and its BEAM together, which on Windows is also the only
+          # thing that clears finding F1's orphan.
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            taskkill //PID "$PID" //T //F >/dev/null 2>&1 || true
+            taskkill //IM desktop_windows_x86_64.exe //T //F >/dev/null 2>&1 || true
+          else
+            CHILD=$(pgrep -P "$PID" 2>/dev/null || true)
+            kill "$PID" || true
+            # The wrapper does not forward termination to the BEAM it launched — finding F1,
+            # re-measured at G4 as an orphan still serving 200 past 7.6 s. Kill the child
+            # explicitly or the runner leaves it behind.
+            [ -n "$CHILD" ] && kill "$CHILD" 2>/dev/null || true
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
