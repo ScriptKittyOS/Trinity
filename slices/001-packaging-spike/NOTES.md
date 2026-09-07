@@ -1121,3 +1121,59 @@ The general form, which is the third variant of one mistake this slice: **a clai
 same breath as the change it describes is not evidence that the change happened.** Twice it was
 an exit code I did not read; here it was a `python3` traceback in the same output block as a
 green gate. The gate does not check that a commit message is true.
+
+---
+
+## Item 1 — the owner's step, prepared. Everything up to the window is done.
+
+Dated 2026-09-07. Nothing below needs root and nothing below is a first-time compile: the Rust
+shell is already built (52.84 s, exit 0), so the launch is fast. Port 4000 is free, checked.
+`import` is present for the screenshot; `gnome-screenshot`, `scrot` and `flameshot` are not.
+
+**Step A — launch.** One command, from the repo root:
+
+```
+mix ex_tauri.dev
+```
+
+It starts the Phoenix dev server as the sidecar and runs `cargo tauri dev` against
+`http://127.0.0.1:4000`. Expect a window titled **Trinity**, 800×600, resizable, showing the
+Phoenix scaffold page.
+
+**Step B — first paint.** Start timing when you press Enter, stop when the window paints the
+scaffold. Seconds to one decimal is enough; this is AC6's first-paint figure and there is no
+other way to get it.
+
+**Step C — screenshot**, in a second terminal while the window is open:
+
+```
+import -window "$(xdotool search --name '^Trinity$' | head -1)" slices/001-packaging-spike/proof/ac4-linux-window.png
+```
+
+If `xdotool` is absent, `import -window root slices/001-packaging-spike/proof/ac4-linux-window.png`
+captures the whole screen and is fine.
+
+**Step D — close the window with its ✕**, then run this in the launching terminal, **twice,
+about five seconds apart**, and paste both:
+
+```
+ps -eo pid,ppid,comm,etimes | grep -E 'desktop_linux|desktop-x86_64|beam.smp|erl_child_setup|cargo-tauri|trinity' | grep -v grep ; echo "exit=$?"
+```
+
+`exit=1` from `grep` means nothing matched, which is the pass. **This is the measurement
+finding F1 needs first**, and it is the first time it is being taken on a build that has
+`ExTauri.ShutdownManager` in it: the heartbeat should stop the sidecar ~1.5 s after the window
+goes. Either outcome is the answer — if a `beam.smp` survives with a `cmdline` pointing into
+`~/.local/share/.burrito/`, F1 reproduces through the window and not merely through a signal,
+which is worse news and more useful than a pass.
+
+### What each step settles
+
+| Step | Criterion | Currently |
+|---|---|---|
+| A | **AC4** — a native window showing the scaffold on Linux | unproven |
+| B | **AC6**, first-paint half | unproven |
+| C | AC4's proof artefact | no screenshot exists on any OS |
+| D | **AC8**, and finding F1's first measurement against the heartbeat | false on the build without it |
+
+AC4 exits **proven or failed**, not unproven, whichever way it goes.
