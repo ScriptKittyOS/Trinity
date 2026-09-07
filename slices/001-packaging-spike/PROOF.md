@@ -20,11 +20,18 @@ The scaffold from 000 packages as a single Burrito binary on linux x86_64, boots
 on the pinned OTP 28 toolchain — its `~> 27.0` is declarative metadata and its runtime guard
 warns rather than raising above OTP 27.
 
-**What this slice did not do is the more important half.** No native window has been opened on
-any operating system. The macOS target cross-compiles and has never been executed. The Windows
-target was never built: Burrito unpacks the Windows ERTS with 7z and no 7z is installed.
-**ADR-0004 is therefore not confirmed**, because its own exit condition is a running smoke
-build on macOS *and* Windows, and stamping `accepted` on it would be inventing a result.
+All three targets build and run — **on runners**. `package` run `34067973983` at `c2be3fa`,
+three jobs green: linux 20 790 808 B and macOS 11 927 096 B both served HTTP 200, Windows
+24 519 680 B booted and exited under `--smoke`. On this machine only linux builds; Windows
+needs 7z and macOS can only be cross-compiled.
+
+**What this slice did not do is the more important half. No native window has been opened on
+any operating system, and no screenshot of one exists.** A runner has no desktop session and
+every job says so in its own summary. **ADR-0004 is therefore not confirmed**: its exit
+condition is a *running smoke build* on macOS and Windows, which the runners now give, but its
+subject is the desktop **shell**, and `mix ex_tauri.dev` has never been run anywhere —
+including here, because `mix ex_tauri.install` was never run and there is no `tauri/` project.
+Stamping `accepted` on it would be inventing a result.
 
 Four criteria exit **unproven** and named. Three need a machine that is not this one.
 **The fourth, AC4, does not, and I said it did** — this is an X11 desktop with `DISPLAY=:0`;
