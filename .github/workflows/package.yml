@@ -60,6 +60,20 @@ jobs:
         with:
           version: ${{ steps.zig.outputs.version }}
 
+      # The Rust version is not written here either: rustup reads rust-toolchain.toml, which
+      # is the pin (see NOTES.md D1 — asdf has no rust plugin and ignores a rust line).
+      - name: Rust toolchain from rust-toolchain.toml
+        shell: bash
+        run: rustup show active-toolchain
+
+      # Tauri v2 on Linux needs these; macOS and Windows runners carry their own webviews.
+      - name: Tauri system libraries (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev patchelf
+
       - name: Confirm the toolchain is the pinned one
         shell: bash
         run: |
@@ -88,6 +102,23 @@ jobs:
           set -euo pipefail
           ls -l burrito_out/
           test -s "burrito_out/${{ matrix.artifact }}"
+
+      # Item 2 of the G4 decision. `src-tauri/` exists from slice 001's ex_tauri.install, so
+      # the shell is buildable in CI. This compiles the Rust window; it does not run it, and
+      # no job here claims a window opened — a runner has no desktop session.
+      - name: Build the Tauri shell
+        shell: bash
+        run: cargo build --manifest-path src-tauri/Cargo.toml --locked
+
+      - name: The shell binary exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ runner.os }}" = "Windows" ]; then bin=src-tauri/target/debug/trinity.exe
+          else bin=src-tauri/target/debug/trinity; fi
+          ls -l "$bin"
+          test -s "$bin"
+          echo "SHELL_BIN=$bin" >> "$GITHUB_ENV"
 
       # --no-halt is what makes the exit mean anything. Burrito launches the release as
       # `-s elixir start_cli`, and the Elixir CLI halts when its command list is empty, so
@@ -125,29 +156,35 @@ jobs:
             throw "no port line"
           }
 
-      # AC1's property, on a runner: the binary does not merely start, it serves.
-      - name: Serves HTTP 200
-        if: runner.os != 'Windows'
+      # AC1's property on a runner, and AC6's per-OS cold start, which used to be skipped.
+      # `bash` on every OS, Windows included: the job that never curled was the one gap in
+      # slice 001's CI evidence, and it was a hole in this file rather than in the artifact.
+      - name: Serves HTTP 200, timed from launch
         shell: bash
         run: |
           set -euo pipefail
+          start=$(date +%s%3N)
           PHX_SERVER=true "./burrito_out/${{ matrix.artifact }}" --no-halt > serve.log 2>&1 &
           PID=$!
-          for _ in $(seq 1 120); do
+          for _ in $(seq 1 240); do
             PORT=$(grep -o '127\.0\.0\.1:[0-9]*' serve.log | head -1 | cut -d: -f2 || true)
             [ -n "${PORT:-}" ] && break
             sleep 0.5
           done
           test -n "${PORT:-}"
-          code=$(curl -sS -o /dev/null -w '%{http_code}' --retry 10 --retry-all-errors "http://127.0.0.1:$PORT/")
+          until curl -sS -o /dev/null "http://127.0.0.1:$PORT/" 2>/dev/null; do sleep 0.05; done
+          elapsed=$(( $(date +%s%3N) - start ))
+          code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/")
           echo "HTTP $code on port $PORT"
+          echo "COLD_START_MS=$elapsed" | tee -a "$GITHUB_ENV"
+          echo "### ${{ matrix.name }} — cold start to first HTTP 200: **${elapsed} ms**" >> "$GITHUB_STEP_SUMMARY"
           test "$code" = "200"
-          CHILD=$(pgrep -P "$PID" || true)
+          CHILD=$(pgrep -P "$PID" 2>/dev/null || true)
           kill "$PID" || true
-          # The wrapper does not forward termination to the BEAM it launched — measured at
-          # slice 001 line 5, and the reason AC8's property is not currently true. Kill the
-          # child explicitly or the runner leaves it behind.
-          [ -n "$CHILD" ] && kill "$CHILD" || true
+          # The wrapper does not forward termination to the BEAM it launched — finding F1,
+          # re-measured at G4 as an orphan still serving 200 past 7.6 s. Kill the child
+          # explicitly or the runner leaves it behind.
+          [ -n "$CHILD" ] && kill "$CHILD" 2>/dev/null || true
 
       - uses: actions/upload-artifact@v4
         with:
@@ -177,9 +214,15 @@ jobs:
             echo "reaches serving; under \`--no-halt --smoke\` it exits by itself and the"
             echo "process list is unchanged either side; the launch log is attached."
             echo
-            echo "**Not established, and not claimed:** no native window was opened."
-            echo "This job smoked the **sidecar alone, with no display** — it did not run the"
-            echo "shell under \`xvfb-run\` and it did not use a desktop session, because this"
-            echo "runner has none. No screenshot exists. First paint was not measured."
-            echo "Nothing here speaks to signing or notarisation."
+            echo "**Also established:** the Tauri **shell compiles** on this OS"
+            echo "(\`cargo build --manifest-path src-tauri/Cargo.toml --locked\`), and cold"
+            echo "start to first HTTP 200 was measured at **${COLD_START_MS:-not measured} ms**."
+            echo
+            echo "**Not established, and not claimed:** the shell was **built, never run.**"
+            echo "No native window was opened. This job smoked the **sidecar alone, with no"
+            echo "display** — it did not run the shell under \`xvfb-run\` and it did not use a"
+            echo "desktop session, because this runner has none. No screenshot exists here;"
+            echo "the only screenshot of a real window in this project is the owner's, on"
+            echo "Linux, at slices/001-packaging-spike/proof/. First **paint** was not"
+            echo "measured. Nothing here speaks to signing or notarisation."
           } >> "$GITHUB_STEP_SUMMARY"

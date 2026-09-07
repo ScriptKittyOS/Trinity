@@ -167,3 +167,4 @@ something it is not.
 
 A screenshot of a real window on a real desktop does not exist for macOS, Windows or Linux, and
 Slice 001 exits saying so rather than counting those criteria as met.
+

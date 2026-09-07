@@ -196,7 +196,17 @@ defmodule Trinity.MixProject do
         "trinity.secrets.scan",
         "trinity.reuse",
         "test",
-        "trinity.coverage"
+        "trinity.coverage",
+        # The plan's own consistency, as the gate's final step rather than a second command
+        # with a second exit code. Added at slice 001 G4, for a mistake made three times in
+        # this slice: `mix gate` and `scripts/plan_check.sh` were run as a pair, the gate's
+        # `exit=0` was read, and `plan_check exit=1` on the line below it was not — twice
+        # reaching the remote. Two results printed and one read is a reporting failure the
+        # tooling can remove, so it is removed: **one command, one exit code.**
+        #
+        # `cmd` runs it as its own OS process, the same reason `hex.audit` uses it: the step
+        # gets its own exit code rather than sharing the alias's.
+        "cmd ./scripts/plan_check.sh"
       ]
     ]
   end

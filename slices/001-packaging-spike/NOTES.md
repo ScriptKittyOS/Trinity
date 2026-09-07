@@ -1335,3 +1335,87 @@ hook exit=0
 
 The second tier exists **because** the first one would have let the real mistake through, which
 was worth finding before claiming the check works.
+
+---
+
+## Items 2, 3 and 4
+
+Dated 2026-09-07.
+
+### Item 4 — the Windows artifact is built here
+
+7z is installed, so the blocker D6 recorded is gone:
+
+```
+$ BURRITO_TARGET=windows_x86_64 MIX_ENV=prod mix release desktop --overwrite ; echo "exit=$?"
+--> Going to recompile NIF for cross-build: exqlite -> x86_64-windows
+--> Successfully re-built exqlite for x86_64-windows!
+info: Archived 2189 files into payload! 📦
+exit=0
+
+$ stat -c '%n %s' burrito_out/desktop_windows_x86_64.exe
+burrito_out/desktop_windows_x86_64.exe 27316224
+```
+
+**AC3 now reads "built here and on a runner, window unproven."** It does not read "runs": nothing
+here can execute a Windows binary, and the runner's `--smoke` is what shows it runs.
+
+**A process mistake of mine, recorded because it is the fourth of its kind this slice.** I
+backgrounded this build, read a partial task file that showed the command echo, and reported
+"Windows cross-build exit 0" before it had finished. It did finish at exit 0, so the claim was
+true — **and it was not verified when I made it**, which is the same defect as the other three
+regardless of how it turned out. A claim that happens to be right is not evidence.
+
+### Item 3 — `mix gate` runs `plan_check` as its final step
+
+Three times this slice a green `mix gate` sat beside a failing `scripts/plan_check.sh` and only
+the first exit code was read; twice that reached the remote. **Two results printed and one read
+is a reporting failure the tooling can remove**, so it is removed: one command, one exit code.
+`cmd` gives it its own OS process, the same reason `hex.audit` uses it.
+
+Red, with a planted rule-7 violation, running **`mix gate` only**:
+
+```
+$ mix gate ; echo "exit=$?"
+FAIL docs/packaging.md:171:<!-- planted for the G4 item 3 demonstration: SCR-9xx -->
+plan_check: FAIL
+exit=1
+```
+
+Green after removing it:
+
+```
+$ mix gate ; echo "exit=$?"
+Result: 72 passed
+plan_check: PASS
+exit=0
+```
+
+`test/gate_alias_test.exs` asserts `plan_check.sh` is the **last** step and appears exactly once,
+so re-ordering it above the tests — where a failure would be reported before the tests ran —
+fails the gate.
+
+### Item 2 — the shell in CI, the Windows curl, and per-OS cold start
+
+`.github/workflows/package.yml` gains four things:
+
+* **`rustup show active-toolchain`**, so the Rust version comes from `rust-toolchain.toml`
+  rather than being written into the workflow. Same reasoning as the Zig version, which is read
+  from `.tool-versions` with `awk`.
+* **The Tauri system libraries on Linux only.** macOS and Windows runners carry their own
+  webviews; Linux needs `libwebkit2gtk-4.1-dev` and friends, which is what the owner installed
+  here.
+* **`cargo build --manifest-path src-tauri/Cargo.toml --locked`** on all three runners, then an
+  assertion that the shell binary exists and is non-empty. `--locked` because
+  `src-tauri/Cargo.lock` is tracked and a CI build that silently re-resolves it is not building
+  what the tree pins.
+* **The Windows curl, and a timer on every job.** Slice 001's first CI evidence had Windows
+  booting but never serving, because the serve step carried `if: runner.os != 'Windows'`. That
+  was a hole in this file, not a property of the artifact. The step now runs under `bash` on all
+  three and times exec-to-first-200, which is **AC6's per-OS cold start** — previously skipped
+  and recorded as a workflow gap rather than a missing machine.
+
+**Each job's summary now says the shell was built and never run.** A compiled shell is not a
+window, and a green tick on a job that compiled Rust must not read as one.
+
+**Not verified: this workflow has not run in this form.** Written from what was measured here.
