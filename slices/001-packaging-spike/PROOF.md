@@ -318,18 +318,34 @@ figure would understate the launch that forms the impression by a factor of six.
 **Partly proven, and the rest is not blocked by what I said it was.** Three sub-claims, three
 different answers:
 
-**Per-OS binary size — proven**, by the runners, run `34067973983`:
+**Per-OS binary size — proven**, by the runners. Two sets of figures, because D7 changed what
+is in the binary between them:
 
-| OS | Bytes |
+| OS | run `34067973983`, before D7 | run `34075257183`, after D7 |
+|---|---|---|
+| linux x86_64 | 20 790 808 | 21 298 216 |
+| macOS aarch64 | 11 927 096 | 12 435 992 |
+| Windows x86_64 | 24 519 680 | — see AC3 |
+
+The later column is the artifact this slice ships. Both are kept rather than the first being
+overwritten: the difference is `ex_tauri` and its dependency tail entering `:prod`, and a reader
+comparing sizes across slices needs to know a dependency moved rather than the code growing.
+
+**Per-OS cold-start-to-serving — measured, at G4 item 2**, run `34075257183`:
+
+| OS | exec to first HTTP 200 |
 |---|---|
-| linux x86_64 | 20 790 808 |
-| macOS aarch64 | 11 927 096 |
-| Windows x86_64 | 24 519 680 |
+| linux x86_64 | **699 ms** |
+| macOS aarch64 | **1 416 ms** |
 
-**Per-OS cold-start-to-serving — now measured in CI, at G4 item 2.** The jobs previously
-launched and curled without timing the interval, and Windows was never curled at all
-(`if: runner.os != 'Windows'`). Both were holes in `package.yml` rather than missing machines.
-Every job now times exec-to-first-200 and writes it to its own summary.
+The jobs previously launched and curled without timing the interval, and Windows was never
+curled at all (`if: runner.os != 'Windows'`). Both were holes in `package.yml` rather than
+missing machines.
+
+**These are not comparable with AC5's 231–245 ms.** That figure is a warm launch on this
+machine with the Burrito payload already extracted; a runner is cold every time, so 699 ms is
+the runner's equivalent of AC5's 1 578 ms first-launch figure, not of its warm one. Reporting
+them in one column would invite exactly that mistake.
 
 **Cold-start-to-first-paint — PROVEN on Linux, 2026-09-07.** The owner timed **2–3 seconds**
 from pressing Enter on `mix ex_tauri.dev` to the scaffold appearing in the window. Timed by hand,

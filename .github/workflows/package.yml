@@ -210,7 +210,19 @@ jobs:
             sleep 0.5
           done
           test -n "${PORT:-}"
-          until curl -sS -o /dev/null "http://127.0.0.1:$PORT/" 2>/dev/null; do sleep 0.05; done
+          # Bounded. The first version of this loop had no limit and the Windows runner sat in
+          # it until the run was cancelled by hand — a step that hangs reports nothing and
+          # fails nothing, which is the same shape as a workflow that never fires.
+          ok=0
+          for _ in $(seq 1 600); do
+            if curl -sS -o /dev/null "http://127.0.0.1:$PORT/" 2>/dev/null; then ok=1; break; fi
+            sleep 0.1
+          done
+          if [ "$ok" != "1" ]; then
+            echo "no HTTP response on port $PORT after 60 s" >&2
+            echo "--- serve.log ---" >&2; tail -40 serve.log >&2
+            exit 1
+          fi
           elapsed=$(( $(now_ms) - start ))
           code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/")
           echo "HTTP $code on port $PORT"
