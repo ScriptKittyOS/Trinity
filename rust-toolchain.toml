@@ -1,0 +1,10 @@
+# The Rust pin for the Tauri shell.
+#
+# This is not `.tool-versions`. Measured at slice 001 line 3: `asdf` on this machine has
+# plugins for elixir, erlang and zig, and none for rust — and asdf does not fail on a tool it
+# has no plugin for, it omits the line from `asdf current` and exits 0. A `rust 1.92.0` line
+# there would be a pin that pins nothing. `rustup` owns Rust here and honours this file, which
+# `rustup show active-toolchain` reports as an override. See NOTES.md, deviation D1.
+[toolchain]
+channel = "1.92.0"
+components = ["rustfmt", "clippy"]

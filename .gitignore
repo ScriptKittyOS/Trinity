@@ -18,8 +18,15 @@ erl_crash.dump
 *.db-wal
 
 # Desktop shell (slices 001, 100, 101)
-/tauri/target/
+# `mix ex_tauri.install` creates `src-tauri/`, not `tauri/`, so the rule this line replaces
+# named a directory that has never existed. Corrected at slice 001 G4. Rust build output was
+# never actually at risk — the generator writes its own src-tauri/.gitignore carrying
+# `/target/` — but a rule that matches nothing is a claim that is not true.
+/src-tauri/target/
 /priv/static/assets/
+# Burrito's output: one packaged binary per target, tens of MB each. Slice 001 measures them
+# and records the sizes in docs/packaging.md; the binaries themselves stay out of history.
+/burrito_out/
 
 # Editor and OS noise
 .elixir_ls/
@@ -31,6 +38,12 @@ erl_crash.dump
 /tmp/
 trinity-*.tar
 /priv/static/cache_manifest.json
+# `mix assets.deploy` (needed before MIX_ENV=prod builds, because config/prod.exs sets
+# cache_static_manifest) writes a digested copy and a .gz sibling next to every static file.
+# Both are derived from tracked originals. Added at slice 001 line 5, after a release build
+# staged seven of them.
+/priv/static/**/*.gz
+/priv/static/**/*-????????????????????????????????.*
 npm-debug.log
 /assets/node_modules/
 *.db-*

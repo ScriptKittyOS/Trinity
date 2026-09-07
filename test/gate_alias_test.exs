@@ -34,6 +34,19 @@ defmodule GateAliasTest do
     end
   end
 
+  test "plan_check is the gate's final step, so there is one exit code to read" do
+    steps = Mix.Project.config()[:aliases][:gate]
+
+    assert List.last(steps) =~ "plan_check.sh",
+           "the gate's last step is #{inspect(List.last(steps))}. scripts/plan_check.sh runs " <>
+             "inside `mix gate` so that a green gate cannot coexist with a failing plan " <>
+             "check — which happened three times in slice 001, twice reaching the remote, " <>
+             "because two commands printed two exit codes and only one was read."
+
+    assert Enum.count(steps, &(&1 =~ "plan_check.sh")) == 1,
+           "plan_check appears more than once in the gate"
+  end
+
   test "sobelow blocks rather than advises" do
     sobelow = Enum.find(gate_steps(), &String.starts_with?(&1, "sobelow"))
     assert sobelow =~ "--exit", "sobelow must block (M5): #{sobelow}"

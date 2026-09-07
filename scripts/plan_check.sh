@@ -156,6 +156,52 @@ for f in .env .env.local .env.production; do
 done
 grep -q '^!\.env\.example$' .gitignore || true
 
+section "11. Slice lifecycle matches the branch"
+# docs/04 defines ready -> in_progress -> done -> approved and nothing checked that a slice ever
+# occupies in_progress. Slice 000 ran G1 to G3 reading `ready`, so CLAUDE.md section 0's own
+# start-of-session check would have found no live slice. That deviation is recorded in slice
+# 000's NOTES.md; this is its enforcer.
+#
+# Only ROADMAP.md is read: check 4 already asserts SLICE.md agrees with it, so checking both
+# would be checking the same fact twice and calling it two.
+#
+# Demonstrating the main half needs care, and the first attempt at it passed vacuously: checking
+# out main reverts THIS FILE to the version without the rule, so the run proves nothing. Bring the
+# branch's script onto main's worktree first:
+#   git checkout main && git checkout <slice-branch> -- scripts/plan_check.sh
+# then plant a status and run. Recorded so the next person does not repeat it.
+roadmap_status() {
+  awk -F'|' -v I=" $1 " '$2==I{gsub(/^ +| +$/,"",$7); print $7}' ROADMAP.md
+}
+
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+case "$branch" in
+  slice/*)
+    sid=$(printf '%s' "$branch" | sed -n 's|^slice/\([0-9][0-9][0-9]\)-.*|\1|p')
+    if [ -z "$sid" ]; then
+      report "FAIL branch '$branch': a slice branch is named slice/NNN-short-name (CLAUDE.md section 4)"
+    else
+      st=$(roadmap_status "$sid")
+      case "$st" in
+        # `approved` added at slice 001 G4. The lifecycle is ready -> in_progress -> done ->
+        # approved, and docs/04 has the owner set `approved` at G4 — which happens while the
+        # slice branch still exists, because CLAUDE.md section 4 puts the status change in the
+        # branch's own commit and the merge comes after. Without this the landing commit
+        # cannot pass its own gate, which is where it was found.
+        in_progress|done|approved) ;;
+        "") report "FAIL ROADMAP.md: on branch '$branch' there is no row for slice $sid" ;;
+        *) report "FAIL ROADMAP.md: on branch '$branch', slice $sid reads '$st'; a slice on its own branch is in_progress, done or approved" ;;
+      esac
+    fi
+    ;;
+  main)
+    for row_id in $(awk -F'|' '/^\| [0-9][0-9][0-9] \|/{gsub(/ /,"",$2); print $2}' ROADMAP.md); do
+      [ "$(roadmap_status "$row_id")" = "in_progress" ] &&
+        report "FAIL ROADMAP.md: slice $row_id reads in_progress on main; a slice is in progress on its own branch"
+    done
+    ;;
+esac
+
 printf '\n'
 if [ "$fail" -eq 0 ]; then echo "plan_check: PASS"; else echo "plan_check: FAIL"; fi
 exit "$fail"

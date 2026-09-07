@@ -14,10 +14,22 @@ config :trinity, Trinity.Repo,
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
+# Slice 001 line 5. The endpoint serves in :test, on an ephemeral loopback port.
+#
+# `server: false` was the generator's default and it is right for controller tests, which go
+# through the plug pipeline without a socket. It is wrong for the one thing this slice has to
+# establish: `Trinity.Smoke` asks the endpoint which port it actually bound, and against a
+# non-serving endpoint that question returns `{:error, :no_server_found}` — a red at an
+# earlier fault than the claim, which under CLAUDE.md section 8 demonstrates nothing.
+#
+# `port: 0` is the same ephemeral bind the packaged binary uses, so the test exercises the
+# real path rather than a fixed 4002 that a second run or a stray process can take. Nothing
+# here reaches the network: `Trinity.NetworkGuard` blocks outbound connections and a loopback
+# listen is not one.
 config :trinity, TrinityWeb.Endpoint,
-  http: [ip: {127, 0, 0, 1}, port: 4002],
+  http: [ip: {127, 0, 0, 1}, port: 0],
   secret_key_base: "PAlioLgquSvnIrD4YjwqUt4LEP1x1E5d56Z7KY/QhgmyRUFR9ynpk3oz/hITAYwN",
-  server: false
+  server: true
 
 # Print only warnings and errors during test
 config :logger, level: :warning

@@ -55,10 +55,26 @@ defmodule Mix.Tasks.Versions.Gen do
   @doc """
   The mark for one row: ✅ when the lock carries it, 🔍 when it does not.
 
-  A `:toolchain` row is never a hex package and is marked from `.tool-versions`.
+  A `:toolchain` row is never a hex package, so it is marked from its own `:from`:
+
+    * `{:file, path, needle}` — ✅ naming that file when the file carries the pin, ❌ when it
+      does not. Before Slice 001 line 3 this clause was the constant `✅ \`.tool-versions\``
+      for every toolchain row, which marked Rust and Zig against a file carrying neither.
+    * `{:command, cmd}` — 📐 naming the command. Never ✅: nothing at this sha verifies it, and
+      a mark that says otherwise is the claim finding B3 caught.
   """
   @spec mark(map(), :toolchain | :deps, MapSet.t(String.t())) :: String.t()
-  def mark(_row, :toolchain, _locked), do: "✅ `.tool-versions`"
+  def mark(%{from: {:file, path, needle}}, :toolchain, _locked) do
+    if File.exists?(path) and String.contains?(File.read!(path), needle),
+      do: "✅ `#{path}`",
+      else: "❌ `#{path}` does not carry `#{needle}`"
+  end
+
+  def mark(%{from: {:command, cmd}}, :toolchain, _locked), do: "📐 `#{cmd}`"
+
+  def mark(row, :toolchain, _locked),
+    do: Mix.raise("versions.gen: toolchain row #{inspect(row[:name])} states no :from source")
+
   def mark(%{lock: nil}, :deps, _locked), do: "🔍 not a single package"
 
   def mark(%{lock: key}, :deps, locked) do
@@ -89,7 +105,10 @@ defmodule Mix.Tasks.Versions.Gen do
          The Verified column is DERIVED, never typed:
            ✅ `in mix.lock`   the package is present in mix.lock at this sha
            🔍 `not yet ...`   the package is absent; the slice that adds it will flip this
-           ✅ `.tool-versions` a toolchain component, marked from the pin file, not from hex
+           ✅ `<file>`        a toolchain pin, and that file in the tree carries it
+           ❌ `<file>` ...    a toolchain row naming a file that does NOT carry its pin
+           📐 `<command>`     no file in the tree pins this; only that command answers, and
+                              its output and exit code live in the slice PROOF.md. Never ✅.
 
          Deriving commands:
            $ mix versions.gen --check     # asserts this block matches the data

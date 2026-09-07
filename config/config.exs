@@ -9,6 +9,17 @@
 # General application configuration
 import Config
 
+# Written by `mix ex_tauri.install`; the reasoning is mine, moved here from config/dev.exs
+# when the generator put the same keys in this file. All environments, because
+# `ExTauri.ShutdownManager` runs in the packaged binary as well as in development.
+#
+# `:version` is the **Tauri** version and only its major is consumed —
+# `ExTauri.Install.Helpers.extract_cli_version/1` takes the major and installs
+# `tauri-cli ^<major>`, which resolved to 2.11.4 on 2026-09-06 (VERSIONS.md carries that row
+# with its deriving command). 2.5.1 is ex_tauri's own suggested value, kept so this file does
+# not invent a pin the library does not use.
+config :ex_tauri, app_name: "Trinity", host: "localhost", port: 4000, version: "2.5.1"
+
 config :trinity,
   ecto_repos: [Trinity.Repo],
   generators: [timestamp_type: :utc_datetime]

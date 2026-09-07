@@ -19,3 +19,63 @@ grep -v '^Co-Authored-By: Claude' "$msg_file" \
 # Drop blank lines the deletions left at the end of the message.
 sed -e :a -e '/^\n*$/{$d;N;};/\n$/ba' "$tmp" > "$msg_file"
 rm -f "$tmp"
+
+# ---------------------------------------------------------------------------
+# Warning only: does every repo path the message names appear in the staged diff?
+#
+# Added at slice 001 G4, for a mistake this slice made three times: a commit whose message ran
+# ahead of its tree. Twice it was an unread `plan_check exit=1`; once a message and a NOTES
+# line said `src-tauri/Cargo.lock` had been added to REUSE.toml when the edit had failed on a
+# stale anchor, in the same output as a green gate. `mix gate` does not check that a commit
+# message is true, and nothing else did either.
+#
+# **It warns and never blocks**, deliberately. A message legitimately names paths it does not
+# touch — the file a fix refers to, a path being explained, a command being quoted — so a
+# blocking version would be wrong far more often than right. This exists to put the claim and
+# the diff in front of the author at the moment of writing, not to arbitrate.
+#
+# Heuristic and stated as one: it looks for tokens that end in a source-ish extension or sit
+# under a known top-level directory, and it only reports paths that do not exist in the staged
+# diff AND do not exist in the working tree at all.
+staged=$(git diff --cached --name-only 2>/dev/null || true)
+[ -z "$staged" ] && exit 0
+
+missing=""
+unstaged=""
+for tok in $(tr -c 'A-Za-z0-9_./-' ' ' < "$msg_file"); do
+  case "$tok" in
+    */*)
+      case "$tok" in
+        lib/*|test/*|config/*|scripts/*|docs/*|slices/*|priv/*|assets/*|src-tauri/*|.github/*|.githooks/*|credo_checks/*) ;;
+        *) continue ;;
+      esac
+      ;;
+    mix.exs|mix.lock|README.md|REUSE.toml|ROADMAP.md|VERSIONS.md|coverage.tsv|.gitignore|.tool-versions|rust-toolchain.toml) ;;
+    *) continue ;;
+  esac
+  tok=${tok%%,}; tok=${tok%%.}; tok=${tok%%:}
+  printf '%s\n' "$staged" | grep -qxF "$tok" && continue
+  if [ -e "$tok" ]; then
+    # Exists, but this commit does not touch it. This is the tier that would have caught
+    # a6085b3, whose message said REUSE.toml had gained a line when the edit had failed:
+    # REUSE.toml existed, so "does it exist?" alone said nothing.
+    case " $unstaged " in *" $tok "*) ;; *) unstaged="$unstaged $tok" ;; esac
+    continue
+  fi
+  case " $missing " in *" $tok "*) ;; *) missing="$missing $tok" ;; esac
+done
+
+if [ -n "$missing" ]; then
+  echo "commit-msg: WARNING — the message names paths that exist nowhere in the tree:" >&2
+  for m in $missing; do echo "              $m" >&2; done
+fi
+
+if [ -n "$unstaged" ]; then
+  echo "commit-msg: NOTE — the message names paths this commit does not touch:" >&2
+  for m in $unstaged; do echo "              $m" >&2; done
+  echo "            Fine when the message refers to a file; wrong when it claims to have" >&2
+  echo "            changed one. This is the noisy tier and it is meant to be read, not obeyed." >&2
+fi
+
+# Never blocks, in either tier.
+exit 0

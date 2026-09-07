@@ -54,22 +54,26 @@ never pin a version hex marks as retired or vulnerable.
      The Verified column is DERIVED, never typed:
        ✅ `in mix.lock`   the package is present in mix.lock at this sha
        🔍 `not yet ...`   the package is absent; the slice that adds it will flip this
-       ✅ `.tool-versions` a toolchain component, marked from the pin file, not from hex
+       ✅ `<file>`        a toolchain pin, and that file in the tree carries it
+       ❌ `<file>` ...    a toolchain row naming a file that does NOT carry its pin
+       📐 `<command>`     no file in the tree pins this; only that command answers, and
+                          its output and exit code live in the slice PROOF.md. Never ✅.
 
      Deriving commands:
        $ mix versions.gen --check     # asserts this block matches the data
        $ mix versions.verify          # asserts every pin is satisfied by mix.lock
      Marks last derived: 2026-09-06. -->
 
-### Toolchain, pinned in `.tool-versions`
+### Toolchain — each row names its own pin file or command
 
 | Name | Pin | Verified | Note |
 |---|---|---|---|
 | `Erlang/OTP` | **28.5.0.5** | ✅ `.tool-versions` | Measured at Slice 000, not read from a README: Burrito 1.6.0's ERTS resolver names one artifact source per target, and 28.5.0.5 is the newest OTP returning 200 on all four (macOS universal, Linux x86_64, Linux aarch64, Windows). 28.5.0.6 is released but its macOS and Linux artifacts are unbuilt (404). OTP 29 is 404 on macOS and both Linux arches. ⚠️ Windows tracks OTP releases immediately while the other three lag a third-party CDN's build queue, so re-probe at every phase boundary. See ADR-0005's second correction. |
 | `Elixir` | **1.20.4-otp-28** | ✅ `.tool-versions` | Confirmed at Slice 000: `elixir --version` reports Elixir 1.20.4 on Erlang/OTP 28, erts-16.4.0.5. Built-in type checker is part of the gate. `boundary` 0.10.4 compiles and enforces on this pair, measured at Slice 000 (H7). |
-| `asdf` | v0.18.0 | ✅ `.tool-versions` | `.tool-versions` committed in Slice 000. `mise` is absent on the build machine; measured at Slice 000 G1 with `which mise asdf`. |
-| `Rust + Tauri CLI` | stable | ✅ `.tool-versions` | Only needed for desktop slices (001, 100, 101). Not a hex package. |
-| `Zig` | version required by Burrito | ✅ `.tool-versions` | Only for cross-target Burrito builds. Not a hex package. |
+| `asdf` | v0.18.0 | 📐 `asdf --version` | `.tool-versions` committed in Slice 000. `mise` is absent on the build machine; measured at Slice 000 G1 with `which mise asdf`. asdf cannot pin itself, so this row is a command, not a file. ⚠️ Measured at Slice 001 line 3: asdf does **not** fail on a tool it has no plugin for — a `rust 1.92.0` line is omitted from `asdf current` and `asdf install` still exits 0. A pin file entry is only a pin where a plugin exists. |
+| `Rust` | **1.92.0** | ✅ `rust-toolchain.toml` | Measured at Slice 001 line 3: `rustc --version` reports 1.92.0 (ded5c06cf 2025-12-08), exit 0. Pinned in `rust-toolchain.toml`, **not** `.tool-versions` — `asdf` here has no rust plugin and silently ignores a rust line, whereas `rustup show active-toolchain` reports this file as an override. See NOTES.md deviation D1. Corrected 2026-09-06: this row previously read `Rust + Tauri CLI | stable | ✅ .tool-versions`, which named a file carrying neither. |
+| `Tauri CLI` | **2.11.4** | 📐 `_build/_tauri/bin/cargo-tauri tauri --version` | Measured at Slice 001 line 3. Not on `PATH` and not pinned by any file in the tree: `ex_tauri` provisions it with `cargo install tauri-cli --version ^2 --root .` inside `_build/_tauri`, which is gitignored, so `cargo tauri --version` exits 101 on a fresh machine. 📐 rather than ✅ because nothing at this sha verifies it. The `^2` floats; 2.11.4 is what it resolved to on 2026-09-06. |
+| `Zig` | **0.16.0** | ✅ `.tool-versions` | Measured at Slice 001 line 3: burrito 1.6.0 compares Zig for **equality**, not a range (`@zig_version_expected` in `deps/burrito/lib/burrito.ex`), and exits 1 on any other version. `zig version` reports 0.16.0, exit 0. Installed through the asdf zig plugin, added this slice. Corrected 2026-09-06: this row previously read `version required by Burrito | ✅ .tool-versions` and that file carried no zig line. |
 
 ### Core libraries
 
@@ -83,7 +87,7 @@ never pin a version hex marks as retired or vulnerable.
 | `ecto_sqlite3` | >= 0.0.0 | ✅ in `mix.lock` | Primary DB. FTS5 available. |
 | `postgrex + pgvector` | optional, ~> 0.3 | 🔍 not a single package | Secondary DB path. Not in default deps; behind `TRINITY_DB=postgres`. Two packages, so no single lock key. |
 | `oban` | ~> 2.24 | 🔍 not yet a dependency | Uses `Oban.Engines.Lite` on SQLite. ⚠️ Oban Pro Workflows/Smart engine are Postgres-only. Added at Slice 050. |
-| `req` | ~> 0.5 | 🔍 not yet a dependency | HTTP client. |
+| `req` | ~> 0.5 | ✅ in `mix.lock` | HTTP client. |
 | `req_llm` | ~> 1.22 | 🔍 not yet a dependency | Provider layer (streaming, tools, structured output, usage). ⚠️ The pin was `~> 1.10` against a recorded latest of 1.10.0; the real latest was twelve minors ahead. Check event shapes against the current version at Slice 011, not against this file's prose. Added at Slice 011. |
 | `MCP library` | **decided by Slice 059** | 🔍 not a single package | Candidates verified 2026-09-05: **anubis_mcp** 2.0.x (hex updated 2026-08-07, **LGPL-3.0**, spec ≤ 2025-11-25); **fastest_mcp** 0.3.2 (2026-08-28, Apache-2.0, very new, ~400 total downloads); **gen_mcp** 2.0.0 (2026-07-30, server-only stateless + compat plug, MIT). ⚠️ None speaks 2024-11-05, which is obsolete and not a target. Undecided, so no lock key. |
 | `jido` | ~> 2.3 (pending ADR-0009) | 🔍 not yet a dependency | Actions, directives and the effect boundary, if the Slice 012 checkpoint adopts it. |
@@ -124,8 +128,8 @@ never pin a version hex marks as retired or vulnerable.
 | `muontrap` | ~> 2.0 | 🔍 not yet a dependency | Shell tool. Linux cgroups optional. ⚠️ The pin was `~> 1.8`, which cannot resolve the current major. A major bump is an API review, not a version bump: re-read the child-kill guarantee against 2.0 before Slice 022. Added at Slice 022. |
 | `floki` | ~> 0.38 | 🔍 not yet a dependency | HTML parsing. Added at Slice 022. |
 | `luerl (+ sandbox)` | latest | 🔍 not a single package | Slice 110 only. Two packages, so no single lock key. |
-| `burrito` | ~> 1.6 | 🔍 not yet a dependency | ⚠️ ERTS availability drives the OTP pin, and Slice 000 measured it: only the OTP 28 line is fetchable for macOS and Linux. Corrected 2026-09-05: this row previously read `~> 1.5 / 1.5.0 ✅`; that mark was not measured. Added at Slice 001. |
-| `ex_tauri` | ~> 0.2 | 🔍 not yet a dependency | ⚠️ Declares `otp_release: "~> 27.0"`, and Slice 000's probe refutes the reason it gives: OTP 28 macOS universal returns 200 and OTP 27 returns 404. Whether it runs on the pinned OTP is Slice 001's first measurement. ⚠️ 439 downloads all-time, so the ADR-0004 fallback matrix carries real weight. |
+| `burrito` | ~> 1.6 | ✅ in `mix.lock` | ⚠️ ERTS availability drives the OTP pin, and Slice 000 measured it: only the OTP 28 line is fetchable for macOS and Linux. Corrected 2026-09-05: this row previously read `~> 1.5 / 1.5.0 ✅`; that mark was not measured. Added at Slice 001. |
+| `ex_tauri` | ~> 0.2 | ✅ in `mix.lock` | ⚠️ Declares `otp_release: "~> 27.0"`, and Slice 000's probe refutes the reason it gives: OTP 28 macOS universal returns 200 and OTP 27 returns 404. Whether it runs on the pinned OTP is Slice 001's first measurement. ⚠️ 439 downloads all-time, so the ADR-0004 fallback matrix carries real weight. |
 | `nostrum` | ~> 0.10 | 🔍 not yet a dependency | Discord. ⚠️ No release in roughly 18 months. R11's trigger already fires. Check intents and components against the current gateway before Slice 072. |
 | `telegex` | **not pinned** | 🔍 not a single package | Telegram. ⚠️ The latest release on hex is a release candidate, roughly two years old, and this file's own rule forbids pinning an `-rc`. Alternative: ex_gram. Slice 071 decides with the measurement. |
 | `phoenix_streamdown` | **not pinned** | 🔍 not a single package | Streaming markdown renderer for LiveView. ⚠️ Pre-release, and this file's own rule forbids pinning an `-rc`; a beta is the same category. Verify at Slice 013; fallback: earmark or mdex with chunk buffering. |

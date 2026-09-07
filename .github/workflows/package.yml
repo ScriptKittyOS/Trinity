@@ -1,0 +1,299 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Slice 001 lines 9 and 10. This workflow builds the packaged binary on three operating
+# systems and smokes it. What it proves and what it cannot are written out in
+# docs/packaging.md and repeated by each job in its own summary, because an artifact from a
+# runner is easy to mistake for evidence of something it is not.
+#
+# A runner has no desktop session. No job here opens a window, and none claims to.
+name: package
+
+# Corrected 2026-09-06, before this workflow had ever run. The push trigger was
+# `branches: [main]`, so the one branch whose evidence depends on it — the slice branch — was
+# the one branch it ignored, and pushing slice 001 produced no package run at all. Slice
+# branches are where a packaging change is proven; main is where it has already been proven.
+on:
+  push:
+    branches: [main, 'slice/**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  package:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux x86_64
+            os: ubuntu-latest
+            target: linux_x86_64
+            artifact: desktop_linux_x86_64
+          - name: macOS aarch64
+            os: macos-latest
+            target: macos_aarch64
+            artifact: desktop_macos_aarch64
+          - name: windows x86_64
+            os: windows-latest
+            target: windows_x86_64
+            artifact: desktop_windows_x86_64.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          version-file: .tool-versions
+          version-type: strict
+
+      # The Zig version is read from .tool-versions rather than written here. Burrito 1.6.0
+      # compares Zig for equality, not a range, so a second copy of the number in this file
+      # would be a second thing to keep in step, and the one that drifts is always the copy.
+      - name: Read the pinned Zig version from .tool-versions
+        id: zig
+        shell: bash
+        run: echo "version=$(awk '$1=="zig"{print $2}' .tool-versions)" >> "$GITHUB_OUTPUT"
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ steps.zig.outputs.version }}
+
+      # The Rust version is not written here either: rustup reads rust-toolchain.toml, which
+      # is the pin (see NOTES.md D1 — asdf has no rust plugin and ignores a rust line).
+      - name: Rust toolchain from rust-toolchain.toml
+        shell: bash
+        run: rustup show active-toolchain
+
+      # Tauri v2 on Linux needs these; macOS and Windows runners carry their own webviews.
+      - name: Tauri system libraries (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      - name: Confirm the toolchain is the pinned one
+        shell: bash
+        run: |
+          set -euo pipefail
+          zig version
+          test "$(zig version)" = "${{ steps.zig.outputs.version }}"
+          elixir --version
+
+      - run: mix deps.get
+
+      # config/prod.exs sets cache_static_manifest; the endpoint raises at boot without it.
+      - run: mix assets.deploy
+
+      # --overwrite is not optional. Without it, and with a release directory already
+      # present, mix release prompts, gets no stdin, and exits 0 having built nothing.
+      - name: Build the Burrito binary
+        shell: bash
+        env:
+          BURRITO_TARGET: ${{ matrix.target }}
+          MIX_ENV: prod
+        run: |
+          set -euo pipefail
+          # `mix deps.get` above runs in the default env. On the Windows runner the prod build
+          # then refused with
+          #
+          #   Unchecked dependencies for environment prod:
+          #   * daisyui (https://github.com/saadeghi/daisyui.git - v5.5.20)
+          #     lock mismatch: the dependency is out of date
+          #
+          # A second `mix deps.get` under MIX_ENV=prod did NOT fix it — it reported "All
+          # dependencies have been fetched" and the release refused anyway, so the checkout on
+          # disk is what Mix disagrees with, not the environment. Both offenders are git
+          # `sparse` deps carrying `app: false, compile: false`; they exist for the asset build
+          # and nothing in the release links them. Cleaning them forces a fresh checkout.
+          # Windows only, because neither other runner has ever refused.
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            mix deps.clean daisyui heroicons
+          fi
+          mix deps.get
+          mix release desktop --overwrite
+
+      - name: The artifact exists and is not empty
+        shell: bash
+        run: |
+          set -euo pipefail
+          ls -l burrito_out/
+          test -s "burrito_out/${{ matrix.artifact }}"
+
+      # Tauri resolves `externalBin: ["../burrito_out/desktop"]` to
+      # `desktop-<target triple>`; Burrito writes `desktop_<os>_<arch>`. Without this the
+      # shell's build script stops with `resource path ... doesn't exist`, which is exactly
+      # how the first run of this step failed. `ExTauri.run/1` does the same rename for
+      # production builds; the triple comes from rustc rather than a table in this file.
+      - name: Name the sidecar the way Tauri expects
+        shell: bash
+        run: |
+          set -euo pipefail
+          triple=$(rustc -vV | awk '/^host:/{print $2}')
+          if [ "${{ runner.os }}" = "Windows" ]; then dst="burrito_out/desktop-$triple.exe"
+          else dst="burrito_out/desktop-$triple"; fi
+          cp "burrito_out/${{ matrix.artifact }}" "$dst"
+          ls -l burrito_out/
+
+      # Item 2 of the G4 decision. `src-tauri/` exists from slice 001's ex_tauri.install, so
+      # the shell is buildable in CI. This compiles the Rust window; it does not run it, and
+      # no job here claims a window opened — a runner has no desktop session.
+      - name: Build the Tauri shell
+        shell: bash
+        run: cargo build --manifest-path src-tauri/Cargo.toml --locked
+
+      - name: The shell binary exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ runner.os }}" = "Windows" ]; then bin=src-tauri/target/debug/trinity.exe
+          else bin=src-tauri/target/debug/trinity; fi
+          ls -l "$bin"
+          test -s "$bin"
+          echo "SHELL_BIN=$bin" >> "$GITHUB_ENV"
+
+      # --no-halt is what makes the exit mean anything. Burrito launches the release as
+      # `-s elixir start_cli`, and the Elixir CLI halts when its command list is empty, so
+      # without --no-halt the binary exits 0 on its own and `--smoke` proves nothing.
+      - name: Smoke — boots, serves, exits by itself, leaves nothing behind
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Match OUR processes, not the machine's. The first version of this step diffed the
+          # whole `ps -eo pid,ppid,comm` table and failed on macOS because the runner's own
+          # daemons churn between the two samples — mdworker_shared exiting, CloudTelemetry
+          # starting, and the `ps` process itself differing. The artifact had launched, served
+          # and exited cleanly; the assertion was wrong, not the binary. "No process of ours
+          # remains" is the claim AC7 actually makes.
+          ours() { ps -eo pid,ppid,comm | grep -E 'burrito|beam\.smp|erl_child_setup|desktop_' | grep -v grep || true; }
+          ours > ps-before.txt
+          chmod +x "burrito_out/${{ matrix.artifact }}"
+          "./burrito_out/${{ matrix.artifact }}" --no-halt --smoke | tee smoke.log
+          sleep 3
+          ours > ps-after.txt
+          grep -q '^TRINITY_SMOKE_PORT=[0-9][0-9]*$' smoke.log
+          echo "--- ours, before ---"; cat ps-before.txt
+          echo "--- ours, after ----"; cat ps-after.txt
+          diff ps-before.txt ps-after.txt
+
+      - name: Smoke — Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          & ".\burrito_out\${{ matrix.artifact }}" --no-halt --smoke | Tee-Object smoke.log
+          if ($LASTEXITCODE -ne 0) { throw "smoke exited $LASTEXITCODE" }
+          if (-not (Select-String -Path smoke.log -Pattern '^TRINITY_SMOKE_PORT=\d+$')) {
+            throw "no port line"
+          }
+
+      # AC1's property on a runner, and AC6's per-OS cold start, which used to be skipped.
+      # `bash` on every OS, Windows included: the job that never curled was the one gap in
+      # slice 001's CI evidence, and it was a hole in this file rather than in the artifact.
+      - name: Serves HTTP 200, timed from launch
+        shell: bash
+        run: |
+          set -euo pipefail
+          # `date +%s%3N` is a GNU extension: BSD date on the macOS runner emitted
+          # "17887458973N" and the arithmetic died with "value too great for base". python3 is
+          # present on all three runner images and gives the same number everywhere.
+          now_ms() { python3 -c 'import time;print(int(time.time()*1000))'; }
+          start=$(now_ms)
+          PHX_SERVER=true "./burrito_out/${{ matrix.artifact }}" --no-halt > serve.log 2>&1 &
+          PID=$!
+          # Match the ENDPOINT line, not any loopback address. `grep -o '127.0.0.1:[0-9]*' |
+          # head -1` picked the wrong port on Windows and only on Windows: there,
+          # ExTauri.ShutdownManager's heartbeat listens on a **TCP** socket because the BEAM
+          # cannot listen on a Unix domain socket on that OS, so serve.log reads
+          #
+          #   [ExTauri.ShutdownManager] Started - heartbeat monitoring active on 127.0.0.1:58911
+          #   Running TrinityWeb.Endpoint with Bandit 1.12.5 at 127.0.0.1:58912 (http)
+          #
+          # and the first match is the heartbeat. macOS and Linux use a Unix socket, print no
+          # loopback line before the endpoint, and were right by luck.
+          for _ in $(seq 1 240); do
+            PORT=$(grep -oE 'Running TrinityWeb\.Endpoint with Bandit [0-9.]+ at 127\.0\.0\.1:[0-9]+' serve.log \
+                     | head -1 | grep -oE '[0-9]+$' || true)
+            [ -n "${PORT:-}" ] && break
+            sleep 0.5
+          done
+          test -n "${PORT:-}"
+          # Bounded. The first version of this loop had no limit and the Windows runner sat in
+          # it until the run was cancelled by hand — a step that hangs reports nothing and
+          # fails nothing, which is the same shape as a workflow that never fires.
+          ok=0
+          for _ in $(seq 1 600); do
+            if curl -sS -o /dev/null "http://127.0.0.1:$PORT/" 2>/dev/null; then ok=1; break; fi
+            sleep 0.1
+          done
+          if [ "$ok" != "1" ]; then
+            echo "no HTTP response on port $PORT after 60 s" >&2
+            echo "--- serve.log ---" >&2; tail -40 serve.log >&2
+            exit 1
+          fi
+          elapsed=$(( $(now_ms) - start ))
+          code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/")
+          echo "HTTP $code on port $PORT"
+          echo "COLD_START_MS=$elapsed" | tee -a "$GITHUB_ENV"
+          echo "### ${{ matrix.name }} — cold start to first HTTP 200: **${elapsed} ms**" >> "$GITHUB_STEP_SUMMARY"
+          test "$code" = "200"
+          # Stopping it, and Windows needs its own verb. `kill` from Git-bash does not stop a
+          # native Windows process, so the backgrounded .exe outlived the step and the job hung
+          # long past the bounded loops above — run 34078281292, cancelled by hand. `taskkill
+          # /T` takes the wrapper and its BEAM together, which on Windows is also the only
+          # thing that clears finding F1's orphan.
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            taskkill //PID "$PID" //T //F >/dev/null 2>&1 || true
+            taskkill //IM desktop_windows_x86_64.exe //T //F >/dev/null 2>&1 || true
+          else
+            CHILD=$(pgrep -P "$PID" 2>/dev/null || true)
+            kill "$PID" || true
+            # The wrapper does not forward termination to the BEAM it launched — finding F1,
+            # re-measured at G4 as an orphan still serving 200 past 7.6 s. Kill the child
+            # explicitly or the runner leaves it behind.
+            [ -n "$CHILD" ] && kill "$CHILD" 2>/dev/null || true
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: burrito_out/${{ matrix.artifact }}
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: launch-log-${{ matrix.target }}
+          path: |
+            smoke.log
+            serve.log
+          if-no-files-found: warn
+
+      # Line 10. Each job states, in its own summary, which of the two things it did — and
+      # every job here did the second one.
+      - name: State what this job did not prove
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## ${{ matrix.name }} — what this run does and does not establish"
+            echo
+            echo "**Established:** the artifact builds on ${{ matrix.os }}; it launches and"
+            echo "reaches serving; under \`--no-halt --smoke\` it exits by itself and the"
+            echo "process list is unchanged either side; the launch log is attached."
+            echo
+            echo "**Also established:** the Tauri **shell compiles** on this OS"
+            echo "(\`cargo build --manifest-path src-tauri/Cargo.toml --locked\`), and cold"
+            echo "start to first HTTP 200 was measured at **${COLD_START_MS:-not measured} ms**."
+            echo
+            echo "**Not established, and not claimed:** the shell was **built, never run.**"
+            echo "No native window was opened. This job smoked the **sidecar alone, with no"
+            echo "display** — it did not run the shell under \`xvfb-run\` and it did not use a"
+            echo "desktop session, because this runner has none. No screenshot exists here;"
+            echo "the only screenshot of a real window in this project is the owner's, on"
+            echo "Linux, at slices/001-packaging-spike/proof/. First **paint** was not"
+            echo "measured. Nothing here speaks to signing or notarisation."
+          } >> "$GITHUB_STEP_SUMMARY"

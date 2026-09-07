@@ -71,3 +71,8 @@ config :phoenix_live_view,
   debug_attributes: true,
   # Enable helpful, but potentially expensive runtime checks
   enable_expensive_runtime_checks: true
+
+# The `config :ex_tauri` block that lived here at slice 001 line 14 is gone: `mix
+# ex_tauri.install` wrote the same keys into config/config.exs, which applies to every
+# environment, and two copies of one pin is the drift this project keeps closing. The
+# reasoning that was written here has moved to config/config.exs beside the surviving copy.

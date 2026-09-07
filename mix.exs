@@ -18,7 +18,43 @@ defmodule Trinity.MixProject do
       # more than three points against the previous slice fails until NOTES.md names the reason.
       # `mix test --cover` defaults to a 90%% gate, which is a different rule than the one this
       # project states, so it is turned off and `mix trinity.coverage` enforces the real one.
-      test_coverage: [threshold: 0]
+      #
+      # Corrected at slice 001 line 13. This read `test_coverage: [threshold: 0]`, which is
+      # the wrong shape and did nothing at all: Mix reads the threshold from the `:summary`
+      # sub-option (`Keyword.get(opts, :summary, true)` then `get_threshold/1`), so a
+      # top-level `:threshold` key is ignored and `get_threshold(true)` returns the built-in
+      # 90. `mix test --cover` was still exiting 3 on a rule this project does not have, and
+      # the comment above it claimed otherwise for the whole of slice 000.
+      test_coverage: [summary: [threshold: 0]],
+      releases: releases()
+    ]
+  end
+
+  # The desktop release. `Burrito.wrap/1` turns the assembled release into one self-extracting
+  # binary per target, which is what slice 001 AC1 launches and AC5 measures.
+  #
+  # The targets are named here, but only `linux_x86_64` is built on this machine: burrito
+  # cross-compiles with Zig, and the macOS and Windows targets additionally need signing and,
+  # for Windows, 7z. Slice 001 lines 9 and 10 say what a CI runner can and cannot prove for
+  # the other two; nothing here claims they were built.
+  #
+  # Prerequisites measured at slice 001 line 3, both outside hex and both pinned:
+  #   * Zig **exactly** 0.16.0 — burrito 1.6.0 compares for equality, not a range
+  #     (deps/burrito/lib/burrito.ex `@zig_version_expected`). Pinned in `.tool-versions`.
+  #   * Rust 1.92.0 for the Tauri shell. Pinned in `rust-toolchain.toml`, not `.tool-versions`
+  #     — see NOTES.md deviation D1.
+  defp releases do
+    [
+      desktop: [
+        steps: [:assemble, &Burrito.wrap/1],
+        burrito: [
+          targets: [
+            linux_x86_64: [os: :linux, cpu: :x86_64],
+            macos_aarch64: [os: :darwin, cpu: :aarch64],
+            windows_x86_64: [os: :windows, cpu: :x86_64]
+          ]
+        ]
+      ]
     ]
   end
 
@@ -39,7 +75,13 @@ defmodule Trinity.MixProject do
   end
 
   # Specifies which paths to compile per environment.
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  #
+  # `credo_checks/` holds this project's own Credo checks. They `use Credo.Check`, and `credo`
+  # is `only: [:dev, :test]`, so a check under `lib/` makes `MIX_ENV=prod mix compile` fail on
+  # a module Credo cannot load. Measured at slice 001 line 3: the first `MIX_ENV=prod mix
+  # release` stopped there, before it reached anything about releases.
+  defp elixirc_paths(:test), do: ["lib", "test/support", "credo_checks"]
+  defp elixirc_paths(:dev), do: ["lib", "credo_checks"]
   defp elixirc_paths(_), do: ["lib"]
 
   # Specifies your project dependencies.
@@ -85,7 +127,18 @@ defmodule Trinity.MixProject do
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.15", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.38", only: :dev, runtime: false},
-      {:nimble_options, "~> 1.1"}
+      {:nimble_options, "~> 1.1"},
+      # Slice 001 line 1, arm (a) recorded `only: :dev`. **Corrected at G4**, and the reason is
+      # the shell, not the tooling: `ExTauri.ShutdownManager` is the sidecar's heartbeat — the
+      # Rust window's only way to tell the BEAM it has closed — so it has to exist in the
+      # binary that ships, and a `:dev`-only dependency does not. `mix ex_tauri.install` adds
+      # that child unconditionally, which is why the generator's output could not start under
+      # MIX_ENV=test or MIX_ENV=prod. Recorded as deviation D7 in NOTES.md.
+      {:ex_tauri, "~> 0.2"},
+      # Slice 001 line 3. `ex_tauri` already depends on burrito, but only in :dev, and
+      # `&Burrito.wrap/1` is a release step that runs under MIX_ENV=prod. Declared directly so
+      # the module exists in the environment that calls it.
+      {:burrito, "~> 1.6"}
     ]
   end
 
@@ -103,7 +156,18 @@ defmodule Trinity.MixProject do
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind trinity", "esbuild trinity"],
+      # `compile` first, added at slice 001 after CI caught it. Phoenix 1.8 writes colocated
+      # hook and CSS files under `_build/<env>/phoenix-colocated` during compilation, and
+      # `assets/css/app.css` imports `phoenix-colocated/trinity/colocated.css`. Without a
+      # compile the import cannot resolve, so this alias worked on any machine that had
+      # already built and failed on every clean checkout:
+      #
+      #   Error: Can't resolve 'phoenix-colocated/trinity/colocated.css' in '.../assets/css'
+      #
+      # `assets.build` above already leads with `compile` for the same reason; this one did
+      # not, and the difference only shows on a tree that has never been compiled.
       "assets.deploy": [
+        "compile",
         "tailwind trinity --minify",
         "esbuild trinity --minify",
         "phx.digest"
@@ -132,7 +196,17 @@ defmodule Trinity.MixProject do
         "trinity.secrets.scan",
         "trinity.reuse",
         "test",
-        "trinity.coverage"
+        "trinity.coverage",
+        # The plan's own consistency, as the gate's final step rather than a second command
+        # with a second exit code. Added at slice 001 G4, for a mistake made three times in
+        # this slice: `mix gate` and `scripts/plan_check.sh` were run as a pair, the gate's
+        # `exit=0` was read, and `plan_check exit=1` on the line below it was not — twice
+        # reaching the remote. Two results printed and one read is a reporting failure the
+        # tooling can remove, so it is removed: **one command, one exit code.**
+        #
+        # `cmd` runs it as its own OS process, the same reason `hex.audit` uses it: the step
+        # gets its own exit code rather than sharing the alias's.
+        "cmd ./scripts/plan_check.sh"
       ]
     ]
   end
