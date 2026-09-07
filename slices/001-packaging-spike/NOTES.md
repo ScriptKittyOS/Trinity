@@ -1053,3 +1053,58 @@ exit=0
 ```
 
 so nothing is at risk today. The stale root rule is a follow-up, not a fix in this commit.
+
+### The Linux shell builds — item 1's prerequisite, measured before handing the owner a command
+
+```
+$ cargo build --manifest-path src-tauri/Cargo.toml ; echo "exit=$?"
+   Compiling webkit2gtk v2.0.2
+   Compiling tao v0.35.3
+   Compiling tray-icon v0.24.2
+   Compiling tauri-plugin-single-instance v2.4.4
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 52.84s
+exit=0
+
+$ mix ex_tauri.info ; echo "exit=$?"
+    ✔ webkit2gtk-4.1: 2.52.6
+    ✔ rsvg2: 2.58.0
+    ✔ rustc: 1.92.0 (ded5c06cf 2025-12-08)
+    ✔ Rust toolchain: 1.92.0-x86_64-unknown-linux-gnu (overridden by '.../rust-toolchain.toml')
+    - tauri 🦀: 2.11.5
+exit=0
+```
+
+The Rust compiles against the libraries the owner installed, and `rust-toolchain.toml` is doing
+the work D1 said it would — `ex_tauri.info` reports the override by name.
+
+**`src-tauri/Cargo.lock` is now tracked.** It is the Cargo-side `mix.lock`: without it the Rust
+dependency set is whatever resolves on the day, which is the unpinned-version defect this
+project spends most of its enforcement on. Added to `REUSE.toml`'s aggregate list beside
+`mix.lock`.
+
+**Two Tauri versions, and they are different things.** The **CLI** is 2.11.4 — VERSIONS.md's
+📐 row, derived from `_build/_tauri/bin/cargo-tauri tauri --version`. The **crate** is 2.11.5,
+now pinned by `src-tauri/Cargo.lock`. `config :ex_tauri, version: "2.5.1"` is neither: only its
+major is consumed. Three numbers that look like one pin and are not, recorded here so the next
+reader does not reconcile them.
+
+### The sidecar after the heartbeat entered it
+
+Rebuilt and re-smoked, because D7 changed what is inside the binary:
+
+```
+$ stat -c '%n %s' burrito_out/desktop_linux_x86_64
+burrito_out/desktop_linux_x86_64 21398872          # was 20777960
+
+$ ./burrito_out/desktop_linux_x86_64 --no-halt --smoke ; echo "exit=$?"
+TRINITY_SMOKE_PORT=36711
+exit=0
+
+$ diff before.txt after.txt ; echo "exit=$?"
+exit=0
+```
+
+**+620 912 bytes, +3.0%**, which is `igniter`, `sourceror`, `rewrite` and `spitfire` arriving in
+the release with `ex_tauri`. AC5's figure is updated to the measured 21 398 872 rather than the
+old one being left standing. The heartbeat does not keep the VM alive and does not shut it down
+early: exit 0, process list unchanged either side.
