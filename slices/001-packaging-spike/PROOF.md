@@ -176,12 +176,18 @@ TRINITY_SMOKE_PORT=60534
 **Built natively on Windows and ran under `--no-halt --smoke`, printing its port and exiting
 0.** The runner has 7z, so the ERTS unpack that fails here succeeds there.
 
-**Windows has still never been observed serving — and the reason is now known and is mine.**
-Run `34080826739` answered it: the app *was* serving, on port 58912, and my step curled 58911,
-which on Windows is `ExTauri.ShutdownManager`'s TCP heartbeat socket. That connection armed the
-heartbeat, `curl` closing disarmed nothing, and 1824 ms later the app shut itself down. See
-AC8's correction. The port parse is fixed; a run that confirms a Windows 200 has not yet
-completed, and this stays unproven until one does.
+**Windows serves. Confirmed 2026-09-07, run `34083291129` at `5ab1698`, all three jobs green:**
+
+```
+HTTP 200 on port 61453
+COLD_START_MS=929
+```
+
+**This closes the last CI question in the slice.** The earlier "never observed serving" was
+mine, not the artifact's: run `34080826739` showed the app serving on 58912 while my step curled
+58911, which on Windows is `ExTauri.ShutdownManager`'s TCP heartbeat socket. That connection
+armed the heartbeat and the app shut itself down 1824 ms later. See AC8's correction. The port
+parse now matches the endpoint line rather than the first loopback address.
 
 **The original G3 reading of this gap:** At G3 the reason was that the step carried `if: runner.os != 'Windows'`. At G4
 that condition is gone and the step runs everywhere, but three further defects — all mine, all
@@ -346,10 +352,15 @@ comparing sizes across slices needs to know a dependency moved rather than the c
 
 **Per-OS cold-start-to-serving — measured, at G4 item 2**, run `34075257183`:
 
-| OS | exec to first HTTP 200 |
-|---|---|
-| linux x86_64 | **699 ms** |
-| macOS aarch64 | **1 416 ms** |
+Final figures, run `34083291129` at `5ab1698`, all three green:
+
+| OS | Artifact | Bytes | exec to first HTTP 200 |
+|---|---|---|---|
+| linux x86_64 | `desktop_linux_x86_64` | 21 293 896 | **589 ms** |
+| macOS aarch64 | `desktop_macos_aarch64` | 12 435 992 | **1 556 ms** |
+| Windows x86_64 | `desktop_windows_x86_64.exe` | 25 024 512 | **929 ms** |
+
+**All three OSes, size and cold start, from one green run.** AC6's per-OS half is complete.
 
 The jobs previously launched and curled without timing the interval, and Windows was never
 curled at all (`if: runner.os != 'Windows'`). Both were holes in `package.yml` rather than
