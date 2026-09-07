@@ -176,8 +176,14 @@ TRINITY_SMOKE_PORT=60534
 **Built natively on Windows and ran under `--no-halt --smoke`, printing its port and exiting
 0.** The runner has 7z, so the ERTS unpack that fails here succeeds there.
 
-**Windows has still never been observed serving, and it is the one CI question this slice does
-not answer.** At G3 the reason was that the step carried `if: runner.os != 'Windows'`. At G4
+**Windows has still never been observed serving — and the reason is now known and is mine.**
+Run `34080826739` answered it: the app *was* serving, on port 58912, and my step curled 58911,
+which on Windows is `ExTauri.ShutdownManager`'s TCP heartbeat socket. That connection armed the
+heartbeat, `curl` closing disarmed nothing, and 1824 ms later the app shut itself down. See
+AC8's correction. The port parse is fixed; a run that confirms a Windows 200 has not yet
+completed, and this stays unproven until one does.
+
+**The original G3 reading of this gap:** At G3 the reason was that the step carried `if: runner.os != 'Windows'`. At G4
 that condition is gone and the step runs everywhere, but three further defects — all mine, all
 Windows-only — have stood between it and an answer: a git `sparse` dependency Mix refused under
 `:prod`, an unbounded `curl` loop, and `kill` from Git-bash failing to stop a native Windows
@@ -501,8 +507,49 @@ Either something faster kills the sidecar, or nothing does.
 
 AC8 **passes on the dev path** and the criterion's own wording — a window, a close, `ps` — is
 satisfied there. It is **not** satisfied for the artifact this slice ships, and F1 is not
-closed. Slice 100 owns it, and what it must guarantee is not "add the heartbeat" — that is
-already added and has never once been the mechanism that worked.
+closed. Slice 100 owns it.
+
+#### Correction, 2026-09-07 — **the heartbeat does fire.** Supersedes the claim above and in three other places
+
+The paragraph above ended "that is already added and has never once been the mechanism that
+worked", and I wrote the same thing in `NOTES.md`, in the Answer on the F1 issue, and in the G3
+record. **It is false.** Run `34080826739`, job `windows x86_64`, `serve.log`:
+
+```
+[info] [ExTauri.ShutdownManager] Started - heartbeat monitoring active on 127.0.0.1:58911
+[info] Running TrinityWeb.Endpoint with Bandit 1.12.5 at 127.0.0.1:58912 (http)
+[warning] [ExTauri.ShutdownManager] Heartbeat timeout (1824ms) - Tauri frontend appears to have exited
+```
+
+**1824 ms — inside the module's documented 1500 ms timeout plus its 500 ms check interval, and
+well inside AC8's 5 s bound.** The mechanism works.
+
+The earlier measurements missed it for reasons that were true and partial: the dev path killed
+the sidecar in ~15 ms by a faster route, so the timer had no chance to run; the production-shape
+runs had no frontend at all, so the timeout was never armed. Here it armed and fired.
+
+**What armed it was my own `curl`.** On Windows the heartbeat listens on **TCP loopback** — the
+module selects a Unix domain socket on macOS and Linux and TCP on Windows, because the BEAM
+cannot listen on a Unix socket there. My port parse took the first `127.0.0.1:` line in the log,
+which on Windows is the heartbeat, so `curl` connected to the shutdown channel. That connection
+counts as a frontend attaching; `curl` then closed; 1824 ms later the app shut itself down.
+
+**Two readings this corrects at once:** the heartbeat is not unexercised, and "Windows does not
+serve" would also have been wrong — the app was serving on 58912 and shut down because
+something connected to 58911.
+
+**Follow-up F2, recorded not fixed:** on Windows that shutdown channel is an unauthenticated
+loopback TCP port whose number is written to `<tmpdir>/tauri_heartbeat_<app_name>.port` for
+discovery. **Any local process that connects and disconnects will shut Trinity down** — a stray
+`curl` did it by accident in CI. A denial-of-service surface on the one OS where the transport
+is TCP; macOS and Linux use a Unix socket carrying filesystem permissions. It belongs with F1's
+liveness contract in slice 100.
+
+**What still stands from the verdict above:** the production sidecar orphans when its parent
+dies with no frontend attached, three runs, past 7.6 s, still serving. F1 is not closed. What
+slice 100 must guarantee is now better specified — the heartbeat works when it is armed, so the
+question is what arms it, what may connect to it, and what happens on the path where nothing
+does.
 
 ### AC9 [auto] — `mix gate` still green; `mix phx.server` still works without Tauri
 
