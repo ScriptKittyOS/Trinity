@@ -25,25 +25,25 @@ three jobs green: linux 20 790 808 B and macOS 11 927 096 B both served HTTP 200
 24 519 680 B booted and exited under `--smoke`. On this machine only linux builds; Windows
 needs 7z and macOS can only be cross-compiled.
 
-**What this slice did not do is the more important half. No native window has been opened on
-any operating system, and no screenshot of one exists.** A runner has no desktop session and
-every job says so in its own summary. **ADR-0004 is therefore not confirmed**: its exit
-condition is a *running smoke build* on macOS and Windows, which the runners now give, but its
-subject is the desktop **shell**, and `mix ex_tauri.dev` has never been run anywhere —
-including here, because `mix ex_tauri.install` was never run and there is no `tauri/` project.
-Stamping `accepted` on it would be inventing a result.
+**The shell half is real now.** `mix ex_tauri.install` ran at G4 (`db14cd7`), the Linux shell
+compiles, and **the owner opened a native window titled Trinity showing the Phoenix scaffold on
+this machine**. First paint 2–3 s. The screenshot is under `proof/` with its digest. That is
+**AC4 proven** — the first window in this project on any OS.
 
-Four criteria exit unproven or partly proven, and **only two of them need a machine**:
+**Two criteria still need a machine that is not this one: AC2 and AC3**, for a window on macOS
+and on Windows. Both artifacts build and run on runners; neither has been shown in a window.
 
-* **AC2, AC3** — a macOS desktop and a Windows desktop. Neither exists here.
-* **AC4, and AC6's first-paint half** — **not a machine.** This is an X11 desktop with
-  `DISPLAY=:0`. What is missing is that `mix ex_tauri.install` was never run, so there is no
-  `tauri/` project to launch, plus five apt packages needing root. I called this "no machine
-  available" for the length of the slice and it was wrong; the correction is under AC4.
+**AC8 is the one to read carefully, and it is not simply "passes".** Through the window on the
+dev path the sidecar dies in **14–19 ms** against a 5 000 ms bound. But the heartbeat's 1500 ms
+timer never fired, `SIGKILL` gives the same figure as `SIGTERM`, and **the production sidecar is
+a different process shape** — three runs of it orphan past 7.6 s, still answering HTTP 200, with
+the heartbeat compiled in. Finding **F1 stands**, and what closes it is a measurement this slice
+did not make.
 
-A fifth, **AC8, exits false** — not unproven — because the property underneath it was measured
-and does not hold: the Burrito wrapper does not forward termination, so the BEAM outlives it
-and goes on serving. Filed as **finding F1**, owned by slice 100.
+**ADR-0004 is still not confirmed.** Its exit condition is a running smoke build on macOS *and*
+Windows, which the runners now give for the sidecar — but its subject is the desktop **shell**,
+and the shell has been *run* on exactly one OS, this one, by the owner. macOS and Windows
+compile it and have never launched it.
 
 ## Gate
 
@@ -61,14 +61,16 @@ trinity.secrets.scan: OK over 157 files
 trinity.reuse: OK — every commentable tracked file carries an SPDX header
 Result: 68 passed
 trinity.coverage: 001 30.37% vs 000 27.01% — OK
-exit=0
-```
-
-```
-$ ./scripts/plan_check.sh ; echo "exit=$?"
 plan_check: PASS
 exit=0
 ```
+
+**One command, one exit code**, since G4 item 3. `scripts/plan_check.sh` is the gate's final
+step. It used to be a second command with a second exit code, and three times in this slice the
+gate's `exit=0` was read while `plan_check exit=1` on the line below it was not; twice that
+reached the remote. Demonstrated with a planted rule-7 violation: `mix gate` alone exits 1 and
+prints the `FAIL` line, and exits 0 after removal. `test/gate_alias_test.exs` asserts
+`plan_check.sh` is the **last** step and appears exactly once.
 
 ## Tests
 
@@ -182,7 +184,23 @@ follow-up.
 `ex_tauri`'s fallback path in ADR-0004 remains **untriggered**: its trigger is "Windows fails
 with ex_tauri", and the Windows *shell* has still never been attempted.
 
-### Why it is still not built on this machine
+### Built on this machine too, since the owner installed 7z
+
+```
+$ BURRITO_TARGET=windows_x86_64 MIX_ENV=prod mix release desktop --overwrite ; echo "exit=$?"
+--> Going to recompile NIF for cross-build: exqlite -> x86_64-windows
+--> Successfully re-built exqlite for x86_64-windows!
+info: Archived 2189 files into payload! 📦
+exit=0
+
+$ stat -c '%n %s' burrito_out/desktop_windows_x86_64.exe
+burrito_out/desktop_windows_x86_64.exe 27316224
+```
+
+**AC3 reads "built here and on a runner, window unproven."** Not "runs": nothing on this machine
+can execute a Windows binary, and the runner's `--smoke` is what shows it runs.
+
+### Why it was not built here until G4
 
 ```
 $ MIX_ENV=prod mix release desktop --overwrite ; echo "exit=$?"
@@ -212,7 +230,35 @@ ex_tauri", and Windows was never attempted, so nothing has been learned about th
 
 ### AC4 [manual] — a native window on Linux
 
-**Not proven — and the reason I gave for it at G1 was wrong.**
+**PROVEN, 2026-09-07, by the owner on this X11 desktop.**
+
+```
+$ mix ex_tauri.dev
+```
+
+opened a window titled **Trinity** showing the Phoenix scaffold. Screenshot:
+
+```
+slices/001-packaging-spike/proof/ac4-linux-window.png
+  2814779 bytes, PNG 7680x2160
+  sha256 e52785ce61ea9f69615ffa7602f7fd172b1fa5a310d8b69b1b11f7fc09bfabe7
+```
+
+**The size and digest are here because of what nearly went in instead.** My handover step used
+`import -window "$(xdotool search --name '^Trinity$' | head -1)"`; `xdotool` is absent, so the
+`-window` argument was empty and `import` wrote a **185-byte stub** — a file that exists, is
+named like evidence, and contains nothing. It would have satisfied every check this project
+has: the path is right, `trinity.reuse` covers it, nothing reads its contents. The owner
+re-took it with `-window root`. **A screenshot is the one artefact here whose correctness no
+enforcer can see, so it carries its digest.**
+
+The prerequisites that made this possible, and both were mine to have found earlier: the owner
+installed five Tauri v2 libraries (root), and `mix ex_tauri.install` had never been run — see
+the correction below, which stands.
+
+#### The correction that stood before it, kept
+
+**The reason I gave for AC4 at G1 was wrong.**
 
 The G1 plan and the earlier draft of this file said "no desktop session available on this
 machine". Measured:
@@ -246,7 +292,7 @@ above**, and saying "no machine" concealed that for the length of this slice.
 
 ```
 $ stat -c %s burrito_out/desktop_linux_x86_64
-20777960
+21398872          # 20777960 before D7 put ex_tauri in :prod; +620912, +3.0%
 
 $ du -sh ~/.local/share/.burrito
 88M
@@ -280,16 +326,19 @@ different answers:
 | macOS aarch64 | 11 927 096 |
 | Windows x86_64 | 24 519 680 |
 
-**Per-OS cold-start-to-serving — not measured.** The jobs launch and curl but do not time the
-interval, so there is no macOS or Windows equivalent of AC5's 231–245 ms. That is a gap in my
-workflow, not a missing machine: a runner could measure it. Follow-up.
+**Per-OS cold-start-to-serving — now measured in CI, at G4 item 2.** The jobs previously
+launched and curled without timing the interval, and Windows was never curled at all
+(`if: runner.os != 'Windows'`). Both were holes in `package.yml` rather than missing machines.
+Every job now times exec-to-first-200 and writes it to its own summary.
 
-**Cold-start-to-first-paint — needs a window, and the window is not blocked by a missing
-machine either.** See AC4's correction: this is an X11 desktop. It is blocked on
-`mix ex_tauri.install` never having run and on five apt packages, and it is step 3 of the
-owner's prepared procedure in `NOTES.md`, timed from `return` to the window appearing.
+**Cold-start-to-first-paint — PROVEN on Linux, 2026-09-07.** The owner timed **2–3 seconds**
+from pressing Enter on `mix ex_tauri.dev` to the scaffold appearing in the window. Timed by hand,
+which is the only way a first paint can be timed, and stated to the precision it was taken at.
+It exists for one OS; macOS and Windows would each need their own window.
 
-Split from AC5 at G1. **Both halves were blamed on missing machines and neither is.**
+Split from AC5 at G1. **Both halves were blamed on missing machines and neither was blocked by
+one** — the size half was answered by runners and the paint half by this desktop, once the two
+steps AC4 names were done.
 
 ### AC7 [auto] — running the binary under `--smoke` exits 0 and leaves no process behind
 
@@ -350,104 +399,87 @@ processes in both listings are this session's own dev BEAM, present before the r
 
 ### AC8 [manual] — killing the window terminates the sidecar within 5 s
 
-**FALSE, not unproven. Filed as finding F1.**
+**Measured through a real window at G4. It passes on the dev path, by a mechanism Trinity does
+not own, and the production sidecar still orphans. Finding F1 stands.**
 
-No window exists to close on this machine, so the criterion cannot be exercised in the form
-`SLICE.md` states it. But the property underneath it — that the sidecar dies with its parent —
-**has been measured, and it does not hold.** An empty population and a failed property are
-different facts (CLAUDE.md §8), and this is the second.
-
-Full transcript, one process, exit codes from the same invocation as their output:
+#### Through the window: the owner's close
 
 ```
-$ ps -o pid,ppid,comm -p 2936769 -p 2936771 ; echo "exit=$?"     # BEFORE the kill
-    PID    PPID COMMAND
-2936769  139843 desktop_linux_x
-2936771 2936769 beam.smp
-exit=0
+# before closing, window open
+ 966625  966348 beam.smp            125     <- mix ex_tauri.dev
+ 966776  966653 cargo-tauri         125
+ 966847  966776 trinity             125     <- the Rust window
+ 967584  966847 beam.smp            123     <- the sidecar
+ 2487028 2485809 beam.smp          14543    <- the owner's own session
 
-$ kill 2936769 ; echo "exit=$?"                                  # SIGTERM to the wrapper only
-exit=0
-
-$ ps -o pid,ppid,comm -p 2936769 ; echo "exit=$?"                # the wrapper: gone
-    PID    PPID COMMAND
-exit=1
-
-$ ps -o pid,ppid,comm -p 2936771 ; echo "exit=$?"                # the BEAM it launched: alive
-    PID    PPID COMMAND
-2936771  139843 beam.smp
-exit=0
-
-$ tr '\0' ' ' < /proc/2936771/cmdline | cut -c1-140 ; echo "exit=$?"
-/home/aylac/.local/share/.burrito/desktop_erts-16.4.0.5_0.1.0/erts-16.4.0.5/bin/beam.smp -- -root /home/aylac/.local/share/.burrito/desktop_
-exit=0
-
-$ curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:39075/ ; echo "exit=$?"
-200
-exit=0
+# after closing with the window's ✕
+ 2487028 2485809 beam.smp          14603    <- same pids, older etimes
+ 2487056 2487028 erl_child_setup   14603
 ```
 
-Five seconds elapsed between the `kill` and the second `ps`, which is the bound the criterion
-names.
+Shell, sidecar and dev task all gone. **My stated pass condition was wrong**: I told the owner
+`exit=1` from the `grep` was the pass, but the pattern matches `beam.smp` and their own session
+runs one, so it could never be reached. The recorded check excludes those pids instead of
+relying on an unreachable exit code.
 
-**The orphan is not merely alive; it is still serving.** That is what makes this a liveness
-contract rather than a tidiness problem: a shell that closes its window and kills the wrapper
-leaves a Phoenix app listening on the user's loopback with nothing on screen to say so.
+#### The 5-second bound, six runs
 
-**What it was reparented to, stated precisely.** Pid 139843 is the per-user `systemd` instance
-acting as a subreaper, not pid 1:
-
-```
-$ ps -o pid,ppid,comm -p 139843
-    PID    PPID COMMAND
- 139843       1 systemd
-```
-
-An earlier note in `NOTES.md` said "reparented to init". That is corrected there; the finding
-is unchanged, but "init" names a process that was not involved.
-
-**What this build lacks, and it matters to how "false" should be read.** `ex_tauri` ships
-`ExTauri.ShutdownManager`, a heartbeat GenServer whose stated purpose is this exact case: the
-Rust frontend sends a byte every 100 ms over a Unix domain socket, and the sidecar shuts down
-gracefully after 1500 ms without one, "even when the process is killed without cleanup".
-`mix ex_tauri.install` adds it to the application's children.
-
-**It is not in this build.**
+Kill the `trinity` window process, poll until the sidecar's `beam.smp` is gone:
 
 ```
-$ grep -n 'ShutdownManager' lib/trinity/application.ex ; echo "exit=$?"
-exit=1
+$ SIG=-TERM heartbeat.sh      19 / 15 / 14 ms
+$ SIG=-KILL heartbeat.sh      16 / 15 / 14 ms
 ```
 
-So the honest statement is narrower than "AC8 is false" and wider than "AC8 is unproven":
+**14–19 ms against 5 000 ms.** Three hundred times the margin.
 
-- **False, as measured, for the artifact this slice actually produced** — a bare Burrito binary
-  with no heartbeat in its supervision tree. Kill the parent and the BEAM serves on.
-- **Untested, not broken, for the mechanism `ex_tauri` provides for it.** I have not run
-  `ExTauri.ShutdownManager`, and reporting a defect in a mechanism I never installed would be
-  the overclaim this project keeps catching.
+#### It is not the heartbeat
 
-Both halves are true and neither substitutes for the other. AC8 exits **false**, citing
-F1, on the build that exists; the untested heartbeat is the first thing F1 should
-measure, and it is not among the candidates that issue currently names.
+`ExTauri.ShutdownManager`'s timeout is 1500 ms, and every figure is two orders of magnitude
+under it, so **the timer never fired**. `SIGKILL` matching `SIGTERM` rules out graceful cleanup
+by the Rust process, which under `-KILL` runs none. What ends it is the stdio pipe closing when
+the parent dies — **the first of the two candidates F1 already names**, occurring by accident of
+how Tauri spawns a child rather than by anything Trinity does.
 
-**Why the mechanism is absent is a gap in this slice, not an oversight of `ex_tauri`'s.**
-`SLICE.md`'s Scope says "run `mix ex_tauri.install`" and its Deliverables name a `tauri/`
-scaffold. Neither happened:
+#### The dev sidecar is not the production sidecar
 
 ```
-$ git ls-files tauri | wc -l
-0
+$ cat burrito_out/desktop-x86_64-unknown-linux-gnu
+#!/bin/sh
+cd "/home/aylac/Projects/Trinity" || exit 1
+exec mix phx.server
 ```
 
-The approved G1 plan's fifteen lines never included the install step — line 3 is Burrito wiring
-only — so the deliverable was dropped at plan time and I did not flag it. That is mine, and it
-is why AC2, AC3 and AC4 could not have been run by anyone this slice: `mix ex_tauri.dev` has no
-project to run against.
+Development spawns a shell script running `mix phx.server`. **Production spawns the Burrito
+binary** — a wrapper with a BEAM child. Three runs on that shape, killing the wrapper as Tauri
+does to its sidecar:
 
-**Where the fix lives.** Not here. Burrito's wrapper signal handling is upstream behaviour, and
-the remedy is Trinity's own liveness contract with its parent — designed and enforced in slice
-100 per F1, with `ExTauri.ShutdownManager` measured first rather than assumed.
+```
+waited_ms=7673  ORPHAN beam=1012739 ppid=139843  still_serving=200
+waited_ms=7726  ORPHAN beam=1014123 ppid=139843  still_serving=200
+waited_ms=7605  ORPHAN beam=1015406 ppid=139843  still_serving=200
+```
+
+**Orphaned every time, past 7.6 s, still answering HTTP 200** — with the heartbeat compiled in,
+since D7 put `ex_tauri` in `:prod`. It does not arm its timeout until the frontend has connected
+once, and no frontend connected there.
+
+#### What is not established
+
+**A production sidecar whose window attached and then closed** — where the heartbeat would be
+armed. Two attempts to form that process tree failed mechanically: Tauri's dev mode waits on
+`devUrl` before launching, and the second attempt matched WebKit's process rather than the
+sidecar. **That is the measurement that decides F1, and this slice did not make it.**
+
+**Across every measurement in this slice the heartbeat's timer has never been observed to fire.**
+Either something faster kills the sidecar, or nothing does.
+
+#### Verdict
+
+AC8 **passes on the dev path** and the criterion's own wording — a window, a close, `ps` — is
+satisfied there. It is **not** satisfied for the artifact this slice ships, and F1 is not
+closed. Slice 100 owns it, and what it must guarantee is not "add the heartbeat" — that is
+already added and has never once been the mechanism that worked.
 
 ### AC9 [auto] — `mix gate` still green; `mix phx.server` still works without Tauri
 
@@ -499,51 +531,63 @@ Credo check under `lib/` before it reached anything about releases, and the smok
 
 ## Manual verification for the reviewer
 
-Four criteria, and they are **not** one missing thing — that was the framing I carried from G1
-and it was wrong twice. AC2 and AC3 need machines. AC4 and AC6's first-paint half need two
-steps on *this* machine. AC8 needs a window but is already known to fail underneath.
+**Two criteria, and both need a machine that is not this one.** At G3 this table had five rows
+and I described them as "one missing thing"; three of those five turned out not to need a
+machine at all, and the two that did are below.
 
 | AC | Needs | Step | Expected |
 |---|---|---|---|
 | 2 | a **macOS desktop** | `mix ex_tauri.dev` | a native window showing the scaffold; screenshot to `slices/001-packaging-spike/proof/` |
-| 3 | a **Windows desktop** with 7z | `mix ex_tauri.dev` | the same, or a documented failure and the fallback |
-| 4 | **not a machine** — `mix ex_tauri.install` (a Question, step 2) plus five apt packages (root, step 1) | `mix ex_tauri.dev` on this X11 desktop | a native window showing the scaffold |
-| 6 | **size: done** by the runners. **First paint:** the same two steps as AC4, on this desktop | a stopwatch from `return` to the window painting | one first-paint figure for `docs/packaging.md` |
-| 8 | any one of the three desktops | close the window, watch `ps` | sidecar gone within 5 s — **expect this to fail**, see AC8 |
+| 3 | a **Windows desktop** | `mix ex_tauri.dev` | the same, or a documented failure and the fallback |
 
-Plus one that needs no machine, only a remote:
+**Closed since G3, and how:**
 
-| AC | Needs | Step | Expected |
-|---|---|---|---|
-| 5 | ~~the GitHub Actions run~~ | **done** — run `34067973983` at `c2be3fa`, three jobs green | nothing left for the owner here beyond confirming the run |
+| AC | Was | Closed by |
+|---|---|---|
+| 4 | "unproven: no machine" | the owner, on this X11 desktop, once `mix ex_tauri.install` had run and five apt packages were in. **Proven**, with a screenshot. |
+| 5 (CI) | "the GitHub Actions run" | `package` run `34067973983`, three jobs green |
+| 6 size | "a macOS and a Windows machine" | the runners |
+| 6 first paint | "no window" | the owner: 2–3 s |
+| 8 | "false, needs a desktop" | measured through the owner's window and in six timed runs — see AC8 |
 
-`.github/workflows/package.yml` **has now run, green on all three OSes** — run `34067973983`
-at `c2be3fa`. An earlier version of this paragraph said it "has never run", which was true when
-written and is superseded here. Its first two runs failed, on two defects of mine that no local
-run could have surfaced; both are recorded under AC7.
+`.github/workflows/package.yml` has run green on three OSes. It has **not** run in its G4 form,
+which adds the shell build, the Windows curl and the cold-start timer.
 
-**A runner still cannot produce a screenshot of a real window on a real desktop**, and no
-artifact from one is offered here as though it had. Every job says so in its own summary.
+**A runner still cannot produce a screenshot of a real window on a real desktop.** Exactly one
+such screenshot exists in this project: the owner's, on Linux, at
+`slices/001-packaging-spike/proof/ac4-linux-window.png`.
 
 ## Deviations from SLICE.md
 
-**Six**, and the count is derived, not typed:
+**Seven**, and the count is derived, not typed:
 
 ```
 $ grep -c '^### D[0-9]' slices/001-packaging-spike/NOTES.md
-7
-$ grep -n '^### D[0-9]' slices/001-packaging-spike/NOTES.md | cut -d: -f1,2
-190:### D1 …  223:### D2 …  262:### D3 …  319:### D4 …  346:### D5 …  353:### D6 …
-756:### D4 — accepted (the owner's decision on D4, not a seventh deviation)
+8
+$ grep -n '^### D[0-9]' slices/001-packaging-spike/NOTES.md
+190:### D1   223:### D2   262:### D3   319:### D4   346:### D5   353:### D6   995:### D7
+756:### D4 — accepted (the owner's decision on D4, not an extra deviation)
 ```
 
-Seven headings, six deviations: D4 appears twice, once as the deviation and once as the
+Eight headings, **seven deviations**: D4 appears twice, once as the deviation and once as the
 owner's acceptance of it. **An earlier version of this line said "nine", typed from memory
 against no command.** That is the defect CLAUDE.md §8 names — values come from the tree or the
 owner — and it was in the section listing my deviations.
 
-All six are in `NOTES.md` with their measurements, all recorded before the commits that carried
-them. The four that most change what a reader should expect:
+All seven are in `NOTES.md` with their measurements, all recorded before the commits that
+carried them. **D7 is the one added at G4 and the one that most changes the artifact:**
+
+0. **`ex_tauri` is a dependency of every environment, not `only: :dev`** (D7). `mix
+   ex_tauri.install` adds `ExTauri.ShutdownManager` to the supervision tree unconditionally,
+   and on a dev-only dependency the app cannot start in `:test` or `:prod`. The generator is
+   right: the heartbeat is the window's only channel for telling the BEAM it has closed, so it
+   must be in the binary that ships. `only: :dev` would have shipped F1's failure mode as a
+   permanent property of every release. **This supersedes what line 1 recorded as "the
+   configuration"**, which answered a different question correctly. The exclusion from `:test`
+   is compile-time, not `Code.ensure_loaded?/1`, because that guard cannot tell an intended
+   exclusion from a dropped dependency.
+
+The four from earlier that still change what a reader should expect:
 
 1. **Rust is pinned in `rust-toolchain.toml`, not `.tool-versions`.** `asdf` here has no rust
    plugin and does not fail on a tool it has no plugin for — it omits the line from
@@ -590,6 +634,19 @@ and both passed.
 
 ```
 $ git log --oneline main..HEAD
+94e6c4e feat(s001): G4 items 2-4 — shell in CI, plan_check inside the gate, Windows built here
+e5ca724 feat(s001): measure AC8's bound — it passes on the dev path and fails on the production shape
+5c3afd9 feat(s001): AC4's screenshot, and the .gitignore rule that named a directory that never existed
+b7cf84d docs(s001): item 1 prepared — the owner's launch, timing, screenshot and ps steps
+df70f2c fix(s001): a6085b3 said Cargo.lock was added to REUSE.toml; it was not
+a6085b3 feat(s001): the Linux Tauri shell builds; track src-tauri/Cargo.lock
+6f9292b fix(s001): ex_tauri in every environment — the heartbeat has to be in the shipped binary
+db14cd7 feat(s001): mix ex_tauri.install — the generator's output, nothing else
+35fc4b5 docs(s001): D4 in PROOF still asked the owner to accept what they had accepted
+0e4e926 docs(s001): the summary said three criteria need a machine; two do
+09fdf74 docs(s001): four stale claims in PROOF.md, including a typed count in the deviations section
+24323cf docs(s001): PROOF summary contradicted its own AC2 and AC3 after the CI run
+183873d docs(s001): PROOF.md header and git log name the real shas
 e7202f4 docs(s001): CI ran — AC2 and AC3 upgrade from "never executed" to "built and run on a runner"
 c2be3fa ci(s001): the smoke step diffed the whole process table, not ours
 f8d1271 docs(s001): owner decisions recorded, AC8 false citing F1, and AC4's stated reason corrected
