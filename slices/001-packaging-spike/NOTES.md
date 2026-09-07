@@ -1108,3 +1108,16 @@ exit=0
 the release with `ex_tauri`. AC5's figure is updated to the measured 21 398 872 rather than the
 old one being left standing. The heartbeat does not keep the VM alive and does not shut it down
 early: exit 0, process list unchanged either side.
+
+**Correction, same day.** The line above says `src-tauri/Cargo.lock` was "added to `REUSE.toml`'s
+aggregate list beside `mix.lock`", and commit `a6085b3`'s message says the same. **Neither was
+true when written.** The edit that would have done it failed on a stale anchor — the path list
+had gained `.sobelow-skips` entries since I last read it — and I did not read the failure before
+writing the claim into both the file and the commit message. `mix gate` passed anyway, because
+`mix trinity.reuse` does not treat a `.lock` file as commentable, so nothing caught it. Fixed in
+the commit that follows; `a6085b3` stands with a message that was ahead of its tree.
+
+The general form, which is the third variant of one mistake this slice: **a claim written in the
+same breath as the change it describes is not evidence that the change happened.** Twice it was
+an exit code I did not read; here it was a `python3` traceback in the same output block as a
+green gate. The gate does not check that a commit message is true.
