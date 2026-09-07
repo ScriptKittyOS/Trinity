@@ -176,10 +176,17 @@ TRINITY_SMOKE_PORT=60534
 **Built natively on Windows and ran under `--no-halt --smoke`, printing its port and exiting
 0.** The runner has 7z, so the ERTS unpack that fails here succeeds there.
 
-**One gap in this evidence, stated rather than glossed:** the workflow's "Serves HTTP 200" step
-is `if: runner.os != 'Windows'`, so **Windows was never asked to serve**. It booted and exited;
-it was not curled. That is a hole in my workflow, not a property of the artifact, and it is a
-follow-up.
+**Windows has still never been observed serving, and it is the one CI question this slice does
+not answer.** At G3 the reason was that the step carried `if: runner.os != 'Windows'`. At G4
+that condition is gone and the step runs everywhere, but three further defects — all mine, all
+Windows-only — have stood between it and an answer: a git `sparse` dependency Mix refused under
+`:prod`, an unbounded `curl` loop, and `kill` from Git-bash failing to stop a native Windows
+process so the job hung twice and was cancelled by hand. Each is fixed and pushed. **Linux and
+macOS pass the same step**, so the step itself works.
+
+The artifact's own evidence does not rest on that: it builds on the runner, it builds here, and
+it boots and exits under `--smoke`. What is unproven is that it *serves*, on Windows, and it is
+recorded as unproven rather than assumed from the other two runners.
 
 `ex_tauri`'s fallback path in ADR-0004 remains **untriggered**: its trigger is "Windows fails
 with ex_tauri", and the Windows *shell* has still never been attempted.

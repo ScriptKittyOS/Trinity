@@ -1492,3 +1492,32 @@ no amount of re-reading would surface: a file I created by hand, an environment 
 switched, a `date` I only ever ran on GNU. **Six defects in this workflow have now been found by
 running it and none by inspecting it** — the earlier three were a trigger that excluded slice
 branches, `assets.deploy` without `compile`, and a whole-table `ps` diff.
+
+### Three more, all Windows, all mine
+
+After the first three, the G4 workflow surfaced three further defects and every one was
+Windows-only — the runner nothing here can imitate:
+
+**4. `mix deps.get` under `:prod` did not fix the `daisyui` lock mismatch.** It reported "All
+dependencies have been fetched" and the release refused anyway, so what Mix disagreed with was
+the checkout on disk rather than the environment. **My previous commit's reasoning was wrong
+about which of the two it was, and the run said so.** `mix deps.clean daisyui heroicons` first.
+
+**5. The serve step's `curl` loop had no bound.** `until curl ...; do sleep 0.05; done`. Linux
+and macOS passed it in under two seconds; Windows sat in it until I cancelled the run by hand.
+A step that hangs reports nothing and fails nothing — the same shape as the workflow that never
+fired.
+
+**6. And the bound did not fix it, because the hang was somewhere else.** The job hung again,
+past 60 s, so it was not my loop. `kill` from Git-bash does not stop a native Windows process:
+the backgrounded `.exe` outlived the step and kept the job alive. `taskkill /T /F` takes the
+wrapper and its BEAM together — which on Windows is also the only thing that clears F1's
+orphan.
+
+**Nine defects in this workflow have now been found by running it and none by inspecting it.**
+Six of the nine were invisible on this machine because they are differences between it and a
+clean runner: a file I made by hand, an environment I never switched, a `date` extension, a
+`kill` that means different things on different kernels.
+
+**Windows has still never been observed serving.** That is the one CI question slice 001 leaves
+open, and it is recorded as open rather than inferred from the two runners that do.
