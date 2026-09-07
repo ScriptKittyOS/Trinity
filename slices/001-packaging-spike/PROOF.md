@@ -116,14 +116,55 @@ immediately, with status **0**, and nothing downstream notices.
 
 ### AC2 [manual] — `mix ex_tauri.dev` opens a native window showing the LiveView scaffold on macOS
 
-**Not proven. No macOS machine exists.** The `macos_aarch64` target does cross-compile on this
-Linux host through Zig — a 13 782 104-byte binary was produced in the three-target run — and
-that is a fact about the cross-compiler and **nothing about whether the macOS app runs**. It is
-unsigned, unnotarised, and has never been executed. No screenshot exists.
+**Window unproven. But the artifact is no longer "never executed".**
+
+Upgraded 2026-09-06 by the `package` workflow's first green run, `34067973983` at `c2be3fa`,
+job `macOS aarch64` on `macos-latest`:
+
+```
+-rwxr--r--  1 runner  staff  11927096 Sep  6 23:52 desktop_macos_aarch64
+Running TrinityWeb.Endpoint with Bandit 1.12.5 at 127.0.0.1:49432 (http)
+TRINITY_SMOKE_PORT=49432
+HTTP 200 on port 49433
+```
+
+**Built natively on macOS, launched, served HTTP 200, and exited by itself under `--no-halt
+--smoke` leaving no process of ours behind.** That is AC1's property on macOS.
+
+**It is not AC2.** AC2 asks for `mix ex_tauri.dev` opening a native window showing the scaffold,
+with a screenshot. A GitHub runner has no desktop session, the job's own summary says so, and no
+screenshot exists. AC2 stays `[manual]` and unproven, needing a macOS desktop.
+
+Superseding the earlier entry here: it said the macOS target "does cross-compile on this Linux
+host … and has never been executed", with a 13 782 104-byte figure. The cross-compile fact
+stands but is now beside the point — the runner built it natively at 11 927 096 bytes and ran
+it.
 
 ### AC3 [manual] — the same on Windows, or a documented failure with the fallback that succeeded
 
-**Not proven, and the artifact was never built.**
+**Window unproven. Built and run on a runner; still not built on this machine.**
+
+Upgraded 2026-09-06 by run `34067973983` at `c2be3fa`, job `windows x86_64` on
+`windows-latest`:
+
+```
+-rwxr-xr-x 1 runneradmin 197121 24519680 Sep  6 23:57 desktop_windows_x86_64.exe
+Running TrinityWeb.Endpoint with Bandit 1.12.5 at 127.0.0.1:60534 (http)
+TRINITY_SMOKE_PORT=60534
+```
+
+**Built natively on Windows and ran under `--no-halt --smoke`, printing its port and exiting
+0.** The runner has 7z, so the ERTS unpack that fails here succeeds there.
+
+**One gap in this evidence, stated rather than glossed:** the workflow's "Serves HTTP 200" step
+is `if: runner.os != 'Windows'`, so **Windows was never asked to serve**. It booted and exited;
+it was not curled. That is a hole in my workflow, not a property of the artifact, and it is a
+follow-up.
+
+`ex_tauri`'s fallback path in ADR-0004 remains **untriggered**: its trigger is "Windows fails
+with ex_tauri", and the Windows *shell* has still never been attempted.
+
+### Why it is still not built on this machine
 
 ```
 $ MIX_ENV=prod mix release desktop --overwrite ; echo "exit=$?"
@@ -210,11 +251,27 @@ figure would understate the launch that forms the impression by a factor of six.
 
 ### AC6 [manual] — the same figures for macOS and Windows, and cold-start-to-first-paint on any OS
 
-**Not proven.** Per-OS size genuinely needs a macOS and a Windows machine, neither of which
-exists here. **First paint does not** — see AC4's correction: this is an X11 desktop, and first
-paint is measurable here once there is a Tauri project to paint. It is step 3 of the owner's
-prepared procedure in `NOTES.md`, timed from `return` to the window appearing. Split from AC5
-at G1, and the half that was blamed on a missing machine was blamed wrongly.
+**Partly proven, and the rest is not blocked by what I said it was.** Three sub-claims, three
+different answers:
+
+**Per-OS binary size — proven**, by the runners, run `34067973983`:
+
+| OS | Bytes |
+|---|---|
+| linux x86_64 | 20 790 808 |
+| macOS aarch64 | 11 927 096 |
+| Windows x86_64 | 24 519 680 |
+
+**Per-OS cold-start-to-serving — not measured.** The jobs launch and curl but do not time the
+interval, so there is no macOS or Windows equivalent of AC5's 231–245 ms. That is a gap in my
+workflow, not a missing machine: a runner could measure it. Follow-up.
+
+**Cold-start-to-first-paint — needs a window, and the window is not blocked by a missing
+machine either.** See AC4's correction: this is an X11 desktop. It is blocked on
+`mix ex_tauri.install` never having run and on five apt packages, and it is step 3 of the
+owner's prepared procedure in `NOTES.md`, timed from `return` to the window appearing.
+
+Split from AC5 at G1. **Both halves were blamed on missing machines and neither is.**
 
 ### AC7 [auto] — running the binary under `--smoke` exits 0 and leaves no process behind
 
@@ -236,7 +293,26 @@ $ diff before.txt after.txt ; echo "exit=$?"
 exit=0
 ```
 
-Control, which is what makes the above mean anything:
+Corroborated on three runners, run `34067973983` at `c2be3fa`, all green:
+
+| Runner | Artifact | Bytes | Port printed | Served |
+|---|---|---|---|---|
+| `ubuntu-latest` | `desktop_linux_x86_64` | 20 790 808 | 40877 | HTTP 200 on 43181 |
+| `macos-latest` | `desktop_macos_aarch64` | 11 927 096 | 49432 | HTTP 200 on 49433 |
+| `windows-latest` | `desktop_windows_x86_64.exe` | 24 519 680 | 60534 | not asked — see AC3 |
+
+Each job compares a filtered process list either side of the exit and fails on any survivor.
+
+**The first run of that workflow failed on all three, and both causes were mine.** `mix
+assets.deploy` did not lead with `compile`, so Phoenix 1.8's colocated CSS did not exist on a
+clean checkout and the alias resolved only on a machine that had already built (fixed in
+`8048ad3`). Then the smoke step diffed the *whole* `ps` table, and a live runner churns between
+two samples — macOS on `mdworker_shared` and `CloudTelemetryService`, linux on a `kworker`
+kernel thread — while the artifact had launched, served and exited correctly (fixed in
+`c2be3fa`). Both were defects in the evidence-gathering, not in the thing being measured, and
+neither was findable locally.
+
+Control, which is what makes the local run above mean anything:
 
 ```
 $ PHX_SERVER=true timeout 20 ./burrito_out/desktop_linux_x86_64 --no-halt ; echo "exit=$?"
@@ -419,7 +495,7 @@ Plus one that needs no machine, only a remote:
 
 | AC | Needs | Step | Expected |
 |---|---|---|---|
-| 5 | the GitHub Actions run | open the `package` workflow run for this branch | three jobs green, each with an artifact, a launch log, and a summary saying what it did not prove |
+| 5 | ~~the GitHub Actions run~~ | **done** — run `34067973983` at `c2be3fa`, three jobs green | nothing left for the owner here beyond confirming the run |
 
 `.github/workflows/package.yml` **has never run.** It is written from what was measured
 locally. A runner cannot produce a screenshot of a real window on a real desktop, and no

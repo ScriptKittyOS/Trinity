@@ -125,14 +125,21 @@ neither of which is packaging wiring, so Slice 001 records it and Slice 100 owns
 
 Declared in `mix.exs`. Built here: one of three.
 
-| Target | Built on this machine | Blocker |
-|---|---|---|
-| `linux_x86_64` | **yes** | — |
-| `macos_aarch64` | **cross-compiles**, unsigned | Nothing to run it on. The binary is produced by Zig cross-compilation and has never been executed. |
-| `windows_x86_64` | **no** | `** (RuntimeError) Couldn't find 7z/7zz` — the Windows ERTS ships as a `.exe` installer and Burrito unpacks it with 7z. None of `7z 7zz 7za 7zr` is installed and installing one needs root. |
+| Target | Built on this machine | Built and run on a runner | Blocker here |
+|---|---|---|---|
+| `linux_x86_64` | **yes**, 20 777 960 bytes | **yes** — 20 790 808 bytes, served HTTP 200 | — |
+| `macos_aarch64` | **cross-compiles** only, 13 782 104 bytes, unsigned, never executed | **yes**, natively — 11 927 096 bytes, served HTTP 200 | Nothing here can execute a macOS binary. |
+| `windows_x86_64` | **no** | **yes**, natively — 24 519 680 bytes, booted and exited under `--smoke`; not asked to serve | `** (RuntimeError) Couldn't find 7z/7zz` — the Windows ERTS ships as a `.exe` installer and Burrito unpacks it with 7z. None of `7z 7zz 7za 7zr` is installed and installing one needs root. |
 
-That `macos_aarch64` links is a fact about the cross-compiler and **nothing about whether the
-macOS app runs**. No macOS binary produced here has been launched, signed or notarised.
+Runner evidence: `package` run `34067973983`, three jobs green.
+
+That `macos_aarch64` links under Zig here is a fact about the cross-compiler and **nothing about
+whether the macOS app runs** — the runner is what established that it runs. The 11 927 096-byte
+native build and the 13 782 104-byte cross build are different artifacts and are listed
+separately rather than averaged into one number.
+
+**No window has been opened on any of the three.** A runner has no desktop session, and every
+job says so in its own summary.
 
 ## What a CI runner proves, and what it cannot
 
