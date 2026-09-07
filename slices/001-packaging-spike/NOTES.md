@@ -1444,3 +1444,51 @@ defects would have to understand what the sentence asserts, and this one does no
 Its stated limit, so nobody mistakes it for an enforcer: it never blocks, it reasons about paths
 and not about claims, and it cannot see a message that describes a change in prose without
 naming a path. `a6085b3` is caught only because it happened to name `REUSE.toml`.
+
+### Item 2's workflow, and the three defects running it found
+
+The G4 form of `package.yml` failed three times before it was right, and **every one was a
+defect in my workflow rather than in the artifact**. None was findable locally. Recording them
+together because the pattern is the point.
+
+**1. The shell build asked for a file nothing produces.** All three runners:
+
+```
+resource path `../burrito_out/desktop-x86_64-unknown-linux-gnu` doesn't exist
+error: failed to run custom build command for `trinity`
+```
+
+Tauri resolves `externalBin` to `desktop-<target triple>`; Burrito writes
+`desktop_<os>_<arch>`. **I hit this locally, fixed it with a `cp` at the shell prompt, and did
+not carry the fix into the workflow** — so the file existed on my machine and nowhere else.
+`ExTauri.run/1` does the same rename for production builds. The triple now comes from
+`rustc -vV`, not a table in the workflow.
+
+**2. Windows refused the prod build on a dependency lock.**
+
+```
+Unchecked dependencies for environment prod:
+* daisyui (https://github.com/saadeghi/daisyui.git - v5.5.20)
+  lock mismatch: the dependency is out of date
+```
+
+`mix deps.get` ran in the default environment; the two git `sparse` dependencies are checked
+per environment. Only Windows refused, which is why nothing here or on the other two runners
+showed it.
+
+**3. The cold-start timer was a GNU extension.** macOS:
+
+```
+line 12: 17887458973N: value too great for base (error token is "17887458973N")
+```
+
+`date +%s%3N` is GNU-only; BSD `date` passes `%3N` through as literal text. **Linux passed the
+same step in the same run** — `COLD_START_MS=590`, `HTTP 200 on port 33395` — so the timer was
+correct and only its portability was wrong, which is the most misleading shape a bug can have:
+one green runner saying the code works.
+
+**What the three have in common.** Each is a difference between my machine and a clean one that
+no amount of re-reading would surface: a file I created by hand, an environment I never
+switched, a `date` I only ever ran on GNU. **Six defects in this workflow have now been found by
+running it and none by inspecting it** — the earlier three were a trigger that excluded slice
+branches, `assets.deploy` without `compile`, and a whole-table `ps` diff.
