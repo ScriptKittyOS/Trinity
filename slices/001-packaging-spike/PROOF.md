@@ -33,12 +33,17 @@ subject is the desktop **shell**, and `mix ex_tauri.dev` has never been run anyw
 including here, because `mix ex_tauri.install` was never run and there is no `tauri/` project.
 Stamping `accepted` on it would be inventing a result.
 
-Four criteria exit **unproven** and named. Three need a machine that is not this one.
-**The fourth, AC4, does not, and I said it did** — this is an X11 desktop with `DISPLAY=:0`;
-what is missing is that `mix ex_tauri.install` was never run, so there is no Tauri project to
-launch. The correction is under AC4. A fifth, **AC8, exits false** — not unproven — because the property underneath it
-was measured and does not hold: the Burrito wrapper does not forward termination, so the BEAM
-outlives it and goes on serving. Filed as **finding F1**, owned by slice 100.
+Four criteria exit unproven or partly proven, and **only two of them need a machine**:
+
+* **AC2, AC3** — a macOS desktop and a Windows desktop. Neither exists here.
+* **AC4, and AC6's first-paint half** — **not a machine.** This is an X11 desktop with
+  `DISPLAY=:0`. What is missing is that `mix ex_tauri.install` was never run, so there is no
+  `tauri/` project to launch, plus five apt packages needing root. I called this "no machine
+  available" for the length of the slice and it was wrong; the correction is under AC4.
+
+A fifth, **AC8, exits false** — not unproven — because the property underneath it was measured
+and does not hold: the Burrito wrapper does not forward termination, so the BEAM outlives it
+and goes on serving. Filed as **finding F1**, owned by slice 100.
 
 ## Gate
 
