@@ -1521,3 +1521,75 @@ clean runner: a file I made by hand, an environment I never switched, a `date` e
 
 **Windows has still never been observed serving.** That is the one CI question slice 001 leaves
 open, and it is recorded as open rather than inferred from the two runners that do.
+
+---
+
+## The Windows serve answer, and it supersedes a claim I made five times
+
+Dated 2026-09-07, run `34080826739`, job `windows x86_64`. The bounded loop and the
+`tail -40 serve.log` on failure — both added an hour earlier for exactly this — turned a hang
+into an answer, and the answer is better than a pass would have been.
+
+```
+no HTTP response on port 58911 after 60 s
+--- serve.log ---
+[warning] ExTauri currently targets OTP 27 but you are running OTP 28.
+[info] [ExTauri.ShutdownManager] Started - heartbeat monitoring active on 127.0.0.1:58911
+[error] Exqlite.Connection ("db_conn_1") failed to connect: ** (Exqlite.Error) database is locked
+[info] Running TrinityWeb.Endpoint with Bandit 1.12.5 at 127.0.0.1:58912 (http)
+[warning] [ExTauri.ShutdownManager] Heartbeat timeout (1824ms) - Tauri frontend appears to have exited
+```
+
+### Defect 10: I curled the wrong port, and only Windows could show it
+
+`grep -o '127\.0\.0\.1:[0-9]*' serve.log | head -1` takes the **first** loopback address in the
+log. On Windows that is **the heartbeat socket, 58911**, not the endpoint, **58912**.
+
+`ExTauri.ShutdownManager` selects its transport from the OS — a **Unix domain socket** on macOS
+and Linux, **TCP on loopback** on Windows, because the BEAM cannot listen on a Unix socket
+there. So on the two runners that passed, no loopback line is printed before the endpoint's and
+`head -1` was **right by luck**. Fixed to match the endpoint line itself.
+
+### And the heartbeat fired. **This supersedes "it has never been observed to fire."**
+
+I have written, in `NOTES.md`, in `PROOF.md` under AC8, in the Answer on the F1 issue, and in
+the G3 record, that *across every measurement in this slice the heartbeat's timer has never been
+observed to fire.* **That is now false, and the line that made it false is above:**
+
+```
+[warning] [ExTauri.ShutdownManager] Heartbeat timeout (1824ms) - Tauri frontend appears to have exited
+```
+
+**1824 ms, inside the 1500 ms + 500 ms check interval the module documents, and well inside
+AC8's 5 s bound.** The mechanism works. Every earlier measurement missed it for a reason that
+was true at the time and was never the whole story:
+
+* the dev path killed the sidecar in ~15 ms by a faster route, so the timer had no chance;
+* the production-shape runs had no frontend at all, so the timeout was never armed.
+
+Here it armed and fired, and my own `curl` is what armed it: connecting to 58911 **is** a
+frontend connection as far as the ShutdownManager can tell. `curl` connected, sent an HTTP
+request the heartbeat protocol does not understand, closed, and 1824 ms later the app shut
+itself down — which is why nothing ever answered on 58912.
+
+**So the "Windows does not serve" reading would have been wrong too.** The app was serving. It
+shut down because I connected to its heartbeat.
+
+### Follow-up F2: on Windows the heartbeat is an unauthenticated loopback TCP port
+
+Stated as a finding rather than fixed here, because it is a design question for slice 100 and
+not packaging wiring.
+
+On Windows the shutdown channel is a TCP socket on `127.0.0.1` with no authentication and no
+protocol check that I can see from this evidence. **Any local process that connects to it and
+disconnects will shut Trinity down**, and the port is discoverable — the module writes it to
+`<tmpdir>/tauri_heartbeat_<app_name>.port` so the frontend can find it. A stray `curl` did it by
+accident in CI.
+
+That is a denial-of-service surface on the one OS where the transport is TCP, and it belongs
+with the liveness contract F1 already sends to slice 100. On macOS and Linux the Unix socket
+carries filesystem permissions and does not have this shape.
+
+**Three of my claims in this slice have been corrected by a measurement rather than by review**:
+"reparented to init", "AC4 needs a machine", and now "the heartbeat never fires". Each was
+stated with evidence that was real and partial.

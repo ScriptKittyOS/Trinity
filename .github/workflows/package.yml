@@ -204,8 +204,19 @@ jobs:
           start=$(now_ms)
           PHX_SERVER=true "./burrito_out/${{ matrix.artifact }}" --no-halt > serve.log 2>&1 &
           PID=$!
+          # Match the ENDPOINT line, not any loopback address. `grep -o '127.0.0.1:[0-9]*' |
+          # head -1` picked the wrong port on Windows and only on Windows: there,
+          # ExTauri.ShutdownManager's heartbeat listens on a **TCP** socket because the BEAM
+          # cannot listen on a Unix domain socket on that OS, so serve.log reads
+          #
+          #   [ExTauri.ShutdownManager] Started - heartbeat monitoring active on 127.0.0.1:58911
+          #   Running TrinityWeb.Endpoint with Bandit 1.12.5 at 127.0.0.1:58912 (http)
+          #
+          # and the first match is the heartbeat. macOS and Linux use a Unix socket, print no
+          # loopback line before the endpoint, and were right by luck.
           for _ in $(seq 1 240); do
-            PORT=$(grep -o '127\.0\.0\.1:[0-9]*' serve.log | head -1 | cut -d: -f2 || true)
+            PORT=$(grep -oE 'Running TrinityWeb\.Endpoint with Bandit [0-9.]+ at 127\.0\.0\.1:[0-9]+' serve.log \
+                     | head -1 | grep -oE '[0-9]+$' || true)
             [ -n "${PORT:-}" ] && break
             sleep 0.5
           done
