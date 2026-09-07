@@ -494,14 +494,16 @@ Credo check under `lib/` before it reached anything about releases, and the smok
 
 ## Manual verification for the reviewer
 
-Five criteria, and they are one missing thing: **a machine that is not this one.**
+Four criteria, and they are **not** one missing thing — that was the framing I carried from G1
+and it was wrong twice. AC2 and AC3 need machines. AC4 and AC6's first-paint half need two
+steps on *this* machine. AC8 needs a window but is already known to fail underneath.
 
 | AC | Needs | Step | Expected |
 |---|---|---|---|
 | 2 | a **macOS desktop** | `mix ex_tauri.dev` | a native window showing the scaffold; screenshot to `slices/001-packaging-spike/proof/` |
 | 3 | a **Windows desktop** with 7z | `mix ex_tauri.dev` | the same, or a documented failure and the fallback |
 | 4 | **not a machine** — `mix ex_tauri.install` (a Question, step 2) plus five apt packages (root, step 1) | `mix ex_tauri.dev` on this X11 desktop | a native window showing the scaffold |
-| 6 | a macOS and a Windows machine | `stat -c %s` on each artifact; a stopwatch to first paint | figures for `docs/packaging.md` |
+| 6 | **size: done** by the runners. **First paint:** the same two steps as AC4, on this desktop | a stopwatch from `return` to the window painting | one first-paint figure for `docs/packaging.md` |
 | 8 | any one of the three desktops | close the window, watch `ps` | sidecar gone within 5 s — **expect this to fail**, see AC8 |
 
 Plus one that needs no machine, only a remote:
@@ -510,13 +512,32 @@ Plus one that needs no machine, only a remote:
 |---|---|---|---|
 | 5 | ~~the GitHub Actions run~~ | **done** — run `34067973983` at `c2be3fa`, three jobs green | nothing left for the owner here beyond confirming the run |
 
-`.github/workflows/package.yml` **has never run.** It is written from what was measured
-locally. A runner cannot produce a screenshot of a real window on a real desktop, and no
-artifact from one is offered here as though it had.
+`.github/workflows/package.yml` **has now run, green on all three OSes** — run `34067973983`
+at `c2be3fa`. An earlier version of this paragraph said it "has never run", which was true when
+written and is superseded here. Its first two runs failed, on two defects of mine that no local
+run could have surfaced; both are recorded under AC7.
+
+**A runner still cannot produce a screenshot of a real window on a real desktop**, and no
+artifact from one is offered here as though it had. Every job says so in its own summary.
 
 ## Deviations from SLICE.md
 
-Nine, all in `NOTES.md` with their measurements, all recorded before the commits that carried
+**Six**, and the count is derived, not typed:
+
+```
+$ grep -c '^### D[0-9]' slices/001-packaging-spike/NOTES.md
+7
+$ grep -n '^### D[0-9]' slices/001-packaging-spike/NOTES.md | cut -d: -f1,2
+190:### D1 …  223:### D2 …  262:### D3 …  319:### D4 …  346:### D5 …  353:### D6 …
+756:### D4 — accepted (the owner's decision on D4, not a seventh deviation)
+```
+
+Seven headings, six deviations: D4 appears twice, once as the deviation and once as the
+owner's acceptance of it. **An earlier version of this line said "nine", typed from memory
+against no command.** That is the defect CLAUDE.md §8 names — values come from the tree or the
+owner — and it was in the section listing my deviations.
+
+All six are in `NOTES.md` with their measurements, all recorded before the commits that carried
 them. The four that most change what a reader should expect:
 
 1. **Rust is pinned in `rust-toolchain.toml`, not `.tool-versions`.** `asdf` here has no rust
