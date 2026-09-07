@@ -185,7 +185,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          start=$(date +%s%3N)
+          # `date +%s%3N` is a GNU extension: BSD date on the macOS runner emitted
+          # "17887458973N" and the arithmetic died with "value too great for base". python3 is
+          # present on all three runner images and gives the same number everywhere.
+          now_ms() { python3 -c 'import time;print(int(time.time()*1000))'; }
+          start=$(now_ms)
           PHX_SERVER=true "./burrito_out/${{ matrix.artifact }}" --no-halt > serve.log 2>&1 &
           PID=$!
           for _ in $(seq 1 240); do
@@ -195,7 +199,7 @@ jobs:
           done
           test -n "${PORT:-}"
           until curl -sS -o /dev/null "http://127.0.0.1:$PORT/" 2>/dev/null; do sleep 0.05; done
-          elapsed=$(( $(date +%s%3N) - start ))
+          elapsed=$(( $(now_ms) - start ))
           code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/")
           echo "HTTP $code on port $PORT"
           echo "COLD_START_MS=$elapsed" | tee -a "$GITHUB_ENV"
