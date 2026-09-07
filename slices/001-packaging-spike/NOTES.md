@@ -1419,3 +1419,28 @@ fails the gate.
 window, and a green tick on a job that compiled Rust must not read as one.
 
 **Not verified: this workflow has not run in this form.** Written from what was measured here.
+
+### The commit-msg check's first fire in real use, and it was a false positive
+
+Committing `94e6c4e`:
+
+```
+commit-msg: NOTE — the message names paths this commit does not touch:
+              scripts/plan_check.sh
+              rust-toolchain.toml
+```
+
+Both are correct observations and neither is a defect. That commit *refers* to
+`scripts/plan_check.sh` (it adds it to the gate alias in `mix.exs`, it does not edit the script)
+and to `rust-toolchain.toml` (the workflow now reads the pin rather than duplicating it). **The
+check did exactly what it was built to do and the answer was "no problem here."**
+
+That is worth recording rather than tuning away. The tier-two rule is deliberately noisy — a
+message that names a file it does not change is the normal case in this project, where commit
+messages explain reasoning. Its value is not a low false-positive rate; it is that the author
+reads the claim beside the diff at the moment of writing. **A check that only ever fires on real
+defects would have to understand what the sentence asserts, and this one does not pretend to.**
+
+Its stated limit, so nobody mistakes it for an enforcer: it never blocks, it reasons about paths
+and not about claims, and it cannot see a message that describes a change in prose without
+naming a path. `a6085b3` is caught only because it happened to name `REUSE.toml`.
