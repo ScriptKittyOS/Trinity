@@ -76,7 +76,7 @@ defmodule Trinity.Smoke do
 
   It is a supervised child rather than a `Task.start/1` because CLAUDE.md section 5 says
   supervise everything and no bare spawn, and because running it inside `start/2` would halt
-  the VM from within the OTP boot sequence — a boot crash rather than a clean exit. `ps`
+  the VM from within the OTP boot sequence: a boot crash rather than a clean exit. `ps`
   cannot tell those apart from the outside; the exit code can, and AC7 reads both.
   """
   @spec children([String.t()]) :: [Supervisor.child_spec() | {module(), term()}]

@@ -1,4 +1,4 @@
-# Slice 062 — MCP authorization: resource server, embedded authorization server, Enterprise Managed Authorization
+# Slice 062: MCP authorization: resource server, embedded authorization server, Enterprise Managed Authorization
 
 | Field | Value |
 |---|---|
@@ -49,13 +49,13 @@ clients (CIMD URLs), scopes; conformance tests modelled on the spec's flows; doc
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
-- **AC6** — Manual: one real MCP client that supports EMA (per the MCP client matrix at the time) connects through the fake IdP.
+- **AC6**: Manual: one real MCP client that supports EMA (per the MCP client matrix at the time) connects through the fake IdP.
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–7 proven · [ ] docs/08 synced · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s062): complete slice 062 — MCP authorization (RS, embedded AS, EMA)` · tag `slice/062`
+`feat(s062): complete slice 062 (MCP authorization: RS, embedded AS, EMA)` · tag `slice/062`
 
 ## Risks / open questions
 - R23: ID-JAG draft revision pinned in NOTES.md; re-check at each phase boundary.

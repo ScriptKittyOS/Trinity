@@ -1,4 +1,4 @@
-# Slice 122 — Foundation Sandbox proposal package (owner-gated)
+# Slice 122: Foundation Sandbox proposal package (owner-gated)
 
 | Field | Value |
 |---|---|
@@ -50,11 +50,11 @@ line ready to insert on acceptance.
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
-- **AC2** — The goose interop proof (screenshots + commands) is in `proof/`.
-- **AC4** — Filing is an owner action; this slice is done when the package is complete, not when it is filed.
+- **AC2**: The goose interop proof (screenshots + commands) is in `proof/`.
+- **AC4**: Filing is an owner action; this slice is done when the package is complete, not when it is filed.
 
 ## Definition of Done
 - [ ] `mix gate` green · [ ] AC1–4 proven · [ ] docs/ADR/VERSIONS updated if affected · [ ] ROADMAP status → done · [ ] final commit + tag
 
 ## Commit & tag
-`docs(s122): complete slice 122 — AAIF Sandbox proposal package` · tag `slice/122`
+`docs(s122): complete slice 122 (AAIF Sandbox proposal package)` · tag `slice/122`

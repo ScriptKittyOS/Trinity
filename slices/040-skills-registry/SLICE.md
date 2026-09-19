@@ -1,4 +1,4 @@
-# Slice 040 — Skills registry, SKILL.md format, progressive disclosure
+# Slice 040: Skills registry, SKILL.md format, progressive disclosure
 
 | Field | Value |
 |---|---|
@@ -20,7 +20,7 @@ Vision goal 4. Procedural memory that costs ~nothing until used.
 **In:**
 - `Trinity.Skills.Skill` struct + `Trinity.Skills.Parser` (YAML frontmatter via `yaml_elixir`, body, `references/`, `scripts/` listing); validation with clear errors; Trinity extensions under `trinity:` key (`requires_tools`, `requires_toolsets`, `fallback_for_toolsets`, `risk`, `lua_entry`).
 - `Trinity.Skills.Registry` (GenServer + ETS) scanning sources in precedence order project → user → bundled; `FileSystem` watcher for hot reload; `mix trinity.skills.reindex`.
-- `skills` table as index (name, version, source, path, frontmatter, body_hash, status, scan_result) — filesystem canonical.
+- `skills` table as index (name, version, source, path, frontmatter, body_hash, status, scan_result): filesystem canonical.
 - Tools: `skills_list()` → compact index (name + one-line description, grouped by category; token-capped), `skill_view(name)` → SKILL.md body, `skill_file(name, path)` → reference file (path jailed to the skill dir). All `:read`.
 - Prompt: the skills index goes into the context tier with a cap (e.g. 2–3k tokens); over cap → categories only + hint to call `skills_list`.
 - Conditional activation: skills whose `requires_tools` are unavailable are hidden; `fallback_for_toolsets` shown only when those toolsets are disabled.
@@ -52,18 +52,18 @@ Vision goal 4. Procedural memory that costs ~nothing until used.
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
-- **AC3** — Hot reload: modifying a SKILL.md on disk updates the registry within 2 s without restart (test with watcher; or manual proof if watcher….
-- **AC7** — Manual: agent, asked to do a git task, calls `skill_view("git-workflow")` then follows it (GIF).
-- **AC8** — An agentskills.io skill written for another agent, downloaded by the human, parses and appears (proof: name + source).
+- **AC3**: Hot reload: modifying a SKILL.md on disk updates the registry within 2 s without restart (test with watcher; or manual proof if watcher….
+- **AC7**: Manual: agent, asked to do a git task, calls `skill_view("git-workflow")` then follows it (GIF).
+- **AC8**: An agentskills.io skill written for another agent, downloaded by the human, parses and appears (proof: name + source).
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–8 proven · [ ] docs/05 synced · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s040): complete slice 040 — skills registry and progressive disclosure` · tag `slice/040`
+`feat(s040): complete slice 040 (skills registry and progressive disclosure)` · tag `slice/040`
 
 ## Risks / open questions
-- `file_system` watcher on Windows/macOS inside a packaged app — verify in 100; reindex button is the fallback.
+- `file_system` watcher on Windows/macOS inside a packaged app: verify in 100; reindex button is the fallback.
 
 ## Platform alignment (appended 2026-09-05)
 - **Content digest:** `skills.body_hash` plus a per-file digest manifest under the skill dir; the

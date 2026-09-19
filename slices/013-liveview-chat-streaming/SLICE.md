@@ -1,4 +1,4 @@
-# Slice 013 — LiveView chat UI with streaming
+# Slice 013: LiveView chat UI with streaming
 
 | Field | Value |
 |---|---|
@@ -42,13 +42,13 @@ M1 "Talks" is only real if a human can use it. Also the surface where every late
 - `lib/trinity_web/live/session_live/*`, components, router, assets (hooks), tests, `docs/` screenshots in `proof/`.
 
 ## Acceptance criteria
-1. [manual] Manual: create session, send "hello", see streamed markdown response (FakeProvider in dev via config flag, and a real provider) — screenshot/GIF.
+1. [manual] Manual: create session, send "hello", see streamed markdown response (FakeProvider in dev via config flag, and a real provider), screenshot/GIF.
 2. [auto] LiveView test: send → `assistant_delta` updates → final message appears once in the DOM (no duplication).
 3. [manual] Cancel during streaming: button works; interrupted message rendered with banner (test + screenshot).
 4. [manual] Kill the Session process while the page is open: banner appears; page remains usable; next message works (manual + test using `Process.exit`).
 5. [auto] Reload the page mid-stream: history renders from DB; no duplicate or missing messages (test).
 6. [auto] Model picker changes `sessions.model` and the next turn uses it (test with FakeProvider recording the model).
-7. [auto] Render performance: 1,000 deltas in 1 s do not exceed ~25 DOM patches (count via `phx-update` hooks or telemetry) — number recorded.
+7. [auto] Render performance: 1,000 deltas in 1 s do not exceed ~25 DOM patches (count via `phx-update` hooks or telemetry): number recorded.
 8. [auto] Gate green; `mix sobelow` no new findings.
 
 ## Proof required
@@ -57,15 +57,15 @@ M1 "Talks" is only real if a human can use it. Also the surface where every late
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
-- **AC1** — Manual: create session, send "hello", see streamed markdown response (FakeProvider in dev via config flag, and a real provider) — screenshot/GIF.
-- **AC3** — Cancel during streaming: button works; interrupted message rendered with banner (test + screenshot).
-- **AC4** — Kill the Session process while the page is open: banner appears; page remains usable; next message works (manual + test using `Process.exit`).
+- **AC1**: Manual: create session, send "hello", see streamed markdown response (FakeProvider in dev via config flag, and a real provider), screenshot/GIF.
+- **AC3**: Cancel during streaming: button works; interrupted message rendered with banner (test + screenshot).
+- **AC4**: Kill the Session process while the page is open: banner appears; page remains usable; next message works (manual + test using `Process.exit`).
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–8 proven · [ ] VERSIONS (phoenix_streamdown ✅ or fallback noted) · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s013): complete slice 013 — LiveView chat UI with streaming` · tag `slice/013`
+`feat(s013): complete slice 013 (LiveView chat UI with streaming)` · tag `slice/013`
 
 ## Risks / open questions
 - The first-candidate renderer is a pre-release four months without a release. Treat the `earmark`/`mdex` chunk-buffering fallback as a live option, not a formality, and record the measurement and the choice in NOTES + VERSIONS.

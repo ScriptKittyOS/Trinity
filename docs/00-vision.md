@@ -1,8 +1,8 @@
-# 00 — Vision
+# 00: Vision
 
 ## One sentence
 A personal AI agent that runs on your machine, remembers you, learns procedures, acts through tools, reaches
-you on any surface, and never loses your work — built on the BEAM so those properties are structural,
+you on any surface, and never loses your work, built on the BEAM so those properties are structural,
 not aspirational.
 
 ## What we are building
@@ -30,7 +30,7 @@ substrate here.
    pieces that do so are built to be extractable as libraries in their own right.
 10. **Donatable.** Trinity is built from commit 1 as an open-source project that can be proposed to the Agentic AI
    Foundation at Sandbox stage (ADR-0012): OSI license, governance files, DCO, SBOM, signed releases, a thesis.
-   It stays private until the owner says it is ready for the public.
+   It is developed in the open from the first commit.
 
 ## Non-goals (for v1)
 

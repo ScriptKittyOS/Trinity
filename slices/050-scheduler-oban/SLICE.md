@@ -1,4 +1,4 @@
-# Slice 050 — Scheduler: Oban cron agent tasks with delivery targets
+# Slice 050: Scheduler: Oban cron agent tasks with delivery targets
 
 | Field | Value |
 |---|---|
@@ -49,15 +49,15 @@ Scheduled work as durable, retried, observable jobs rather than entries in a con
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
-- **AC2** — `RunTask` creates a session with `origin: "cron"`, completes a FakeProvider turn, records a `task_runs` row with summary, and delivers a desktop….
-- **AC6** — Memory observer runs as an Oban job and is visible in Oban Web (screenshot).
-- **AC7** — Manual: create a "daily summary of my notes dir" task, run now, see the result (GIF).
+- **AC2**: `RunTask` creates a session with `origin: "cron"`, completes a FakeProvider turn, records a `task_runs` row with summary, and delivers a desktop….
+- **AC6**: Memory observer runs as an Oban job and is visible in Oban Web (screenshot).
+- **AC7**: Manual: create a "daily summary of my notes dir" task, run now, see the result (GIF).
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–7 proven · [ ] docs/05 synced · [ ] VERSIONS (oban ✅) · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s050): complete slice 050 — scheduler with Oban cron agent tasks` · tag `slice/050`
+`feat(s050): complete slice 050 (scheduler with Oban cron agent tasks)` · tag `slice/050`
 
 ## Risks / open questions
-- Oban Lite + `ecto_sqlite3` pool contention with the app's writes — measure under the 010 stress test with Oban running.
+- Oban Lite + `ecto_sqlite3` pool contention with the app's writes: measure under the 010 stress test with Oban running.

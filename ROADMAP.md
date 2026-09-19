@@ -1,4 +1,4 @@
-# ROADMAP — Trinity
+# Roadmap
 
 Status values: `planned` → `ready` (deps approved) → `in_progress` → `done` (agent) → `approved` (human).
 `blocked` is also a status, as `docs/04-slice-process.md` has always defined it, and was missing from this legend.
@@ -11,22 +11,22 @@ A size given as `M or L` is conditional on a decision named in that slice's file
 
 | Milestone | Meaning | Reached when |
 |---|---|---|
-| **M0 — Stands** | Repo, gate, packaging path proven | 000, 001 approved |
-| **M1 — Talks** | Streaming chat with any provider, persisted, crash-safe | 010–013 approved |
-| **M2 — Acts** | Tools with permission gate, one side-effect membrane, local receipts, context compaction | 020–024 approved |
-| **M3 — Remembers** | Persona, always-on memory, FTS + semantic recall, project context, and data you can take with you | 030–034 approved |
-| **M4 — Learns** | Skills system with agent self-management + approval | 040–041 approved |
-| **M5a — Automates** | Cron tasks and MCP, client and server, with authorization | 050, 059–062 approved |
-| **M5b — Reaches** | Gateways over PubSub, subagents | 070–072, 080 approved (081 optional, outside the milestone) |
-| **M6 — Ships** | Observability, native desktop shell, signed releases | 090–101 approved |
-| **M7 — Sandboxed** | Executable skills in an in-VM sandbox | 110 approved |
-| **M9 — Donatable** | OSS hygiene audited, supply chain signed, AAIF Sandbox package complete, shared libraries extracted | 120–123 approved (122 filing is an owner action) |
+| **M0 Stands** | Repo, gate, packaging path proven | 000, 001 approved |
+| **M1 Talks** | Streaming chat with any provider, persisted, crash-safe | 010–013 approved |
+| **M2 Acts** | Tools with permission gate, one side-effect membrane, local receipts, context compaction | 020–024 approved |
+| **M3 Remembers** | Persona, always-on memory, FTS + semantic recall, project context, and data you can take with you | 030–034 approved |
+| **M4 Learns** | Skills system with agent self-management + approval | 040–041 approved |
+| **M5a Automates** | Cron tasks and MCP, client and server, with authorization | 050, 059–062 approved |
+| **M5b Reaches** | Gateways over PubSub, subagents | 070–072, 080 approved (081 optional, outside the milestone) |
+| **M6 Ships** | Observability, native desktop shell, signed releases | 090–101 approved |
+| **M7 Sandboxed** | Executable skills in an in-VM sandbox | 110 approved |
+| **M9 Donatable** | OSS hygiene audited, supply chain signed, AAIF Sandbox package complete, shared libraries extracted | 120–123 approved (122 filing is an owner action) |
 
 ## Slices
 
 | ID | Slice | Phase | Size | Depends on | Status |
 |---|---|---|---|---|---|
-| 000 | Toolchain, repo bootstrap, quality gate | 0 Foundation | L | — | approved |
+| 000 | Toolchain, repo bootstrap, quality gate | 0 Foundation | L | none | approved |
 | 001 | Packaging spike: Burrito + ex_tauri smoke build | 0 Foundation | M | 000 | approved |
 | 010 | Core domain + persistence (Ecto/SQLite, schemas, Repo owner) | 1 Core loop | M | 000 | planned |
 | 011 | LLM provider layer (req_llm behind `Trinity.LLM` behaviour) | 1 Core loop | M | 010 | planned |
@@ -54,9 +54,9 @@ A size given as `M or L` is conditional on a decision named in that slice's file
 | 072 | Gateway: Discord (Nostrum) | 7 Gateways | S | 070 | planned |
 | 080 | Subagents + delegation | 8 Orchestration | M | 020, 023 | planned |
 | 081 | A2A v1.0 Agent Card + task intake (optional) | 8 Orchestration | M | 080, 061 | planned (optional) |
-| 082 | withdrawn: delegating effects to an external authority layer is the adapter's job, outside this tree | — | — | — | withdrawn |
-| 083 | withdrawn: verifying another system's receipts belongs with that system's adapter | — | — | — | withdrawn |
-| 084 | withdrawn: connecting to a specific MCP server is configuration, not a slice | — | — | — | withdrawn |
+| 082 | withdrawn: delegating effects to an external authority layer is the adapter's job, outside this tree | none | none | none | withdrawn |
+| 083 | withdrawn: verifying another system's receipts belongs with that system's adapter | none | none | none | withdrawn |
+| 084 | withdrawn: connecting to a specific MCP server is configuration, not a slice | none | none | none | withdrawn |
 | 090 | Observability: telemetry, cost ledger, LiveDashboard | 1 Core loop | M | 011 | planned |
 | 100 | Desktop shell: ex_tauri window, tray, notifications, keychain | 10 Desktop | L | 001, 013 | planned |
 | 101 | Release pipeline: signing, notarization, auto-update | 10 Desktop | L | 100 | planned |

@@ -19,7 +19,7 @@ config :trinity, Trinity.Repo,
 # `server: false` was the generator's default and it is right for controller tests, which go
 # through the plug pipeline without a socket. It is wrong for the one thing this slice has to
 # establish: `Trinity.Smoke` asks the endpoint which port it actually bound, and against a
-# non-serving endpoint that question returns `{:error, :no_server_found}` — a red at an
+# non-serving endpoint that question returns `{:error, :no_server_found}`: a red at an
 # earlier fault than the claim, which under CLAUDE.md section 8 demonstrates nothing.
 #
 # `port: 0` is the same ephemeral bind the packaged binary uses, so the test exercises the

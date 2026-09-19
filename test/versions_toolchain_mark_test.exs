@@ -9,7 +9,7 @@ defmodule VersionsToolchainMarkTest do
       | `Rust + Tauri CLI` | stable | ✅ `.tool-versions` | ... |
 
   while `grep -in 'rust\\|tauri' .tool-versions` exited 1. The mark asserted a fact the file it
-  names does not carry — finding B3's defect, in the enforcer built to prevent it.
+  names does not carry: finding B3's defect, in the enforcer built to prevent it.
 
   These tests fail at that sha. The fix makes each toolchain row state its own derivation
   source and derives the mark from it.

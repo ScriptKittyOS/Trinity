@@ -1,4 +1,4 @@
-# Slice 061 — MCP server (stateless 2026-07-28, compat for 2025-11-25)
+# Slice 061: MCP server (stateless 2026-07-28, compat for 2025-11-25)
 
 | Field | Value |
 |---|---|
@@ -30,7 +30,7 @@ attributed to a system persona with `origin: "mcp"` and crossing `Trinity.Effect
 - Auth: `Trinity.MCP.Auth.Local` default (loopback bind + static token); the full RS profile is slice 062.
 - `MIX_ENV=prod TRINITY_MODE=headless` release: no Tauri, no LiveView required, MCP + HTTP API only; systemd unit example.
 - Docs page with connection snippets for common clients (Claude Code, Codex, goose, VS Code).
-**Out:** MCP Apps (server-rendered UI) — follow-up; internet exposure.
+**Out:** MCP Apps (server-rendered UI): follow-up; internet exposure.
 
 ## Acceptance criteria
 1. [auto] Our 060 client connects at 2026-07-28 and lists exported tools; a 2025-11-25 test client connects to the same
@@ -47,10 +47,10 @@ attributed to a system persona with `origin: "mcp"` and crossing `Trinity.Effect
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
-- **AC8** — Claude Code connected and calling `recall` (screenshot).
+- **AC8**: Claude Code connected and calling `recall` (screenshot).
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–8 proven · [ ] docs synced · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s061): complete slice 061 — MCP server` · tag `slice/061`
+`feat(s061): complete slice 061 (MCP server)` · tag `slice/061`

@@ -1,4 +1,4 @@
-# Slice 034 — Export, import, restore
+# Slice 034: Export, import, restore
 
 | Field | Value |
 |---|---|
@@ -62,7 +62,7 @@ If that changes during the slice, the criterion is retagged and this section is 
 - [ ] `mix gate` green · [ ] AC1–6 proven · [ ] `docs/backup.md` written · [ ] ROADMAP status → done · [ ] final commit + tag
 
 ## Commit & tag
-`feat(s034): complete slice 034 — export, import, restore` · tag `slice/034`
+`feat(s034): complete slice 034 (export, import, restore)` · tag `slice/034`
 
 ## Risks / open questions
 - Archive size once embeddings and model caches exist. Measure and decide what is excluded by default.

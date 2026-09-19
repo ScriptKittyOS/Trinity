@@ -1,4 +1,4 @@
-# Slice 012 — Session process + agent loop
+# Slice 012: Session process + agent loop
 
 | Field | Value |
 |---|---|
@@ -21,7 +21,7 @@ Vision goals 1 and 2. Silent process death and the one-agent-per-machine limitat
 - `Trinity.Sessions.Session` gen_statem with states: `idle`, `thinking`, `tool_wait`, `approval_wait` (stub), `compacting` (stub), `error`.
 - `Trinity.Sessions.start_session/1`, `ensure_started/1` (idempotent, rehydrates), `send_user_message/2`, `cancel_turn/1`, `state/1`, `subscribe/1`.
 - Turn pipeline: `Trinity.Sessions.Prompt.build/2` (system = persona stub + memory stub + history) → `Trinity.LLM.stream_to/3` in a Task under the session's `Task.Supervisor` → event handling → persist assistant message (parts + usage) → broadcast → idle.
-- Tool-call handling: parse tool calls into pending list; execution is a stub behaviour `Trinity.Sessions.ToolRunner` that 020 replaces (returns `{:error, :no_tools}` now) — the state machine path must be complete.
+- Tool-call handling: parse tool calls into pending list; execution is a stub behaviour `Trinity.Sessions.ToolRunner` that 020 replaces (returns `{:error, :no_tools}` now): the state machine path must be complete.
 - Persistence-before-broadcast rule; partial assistant text persisted every N chunks or M ms as a draft message (`parts.draft: true`), finalised at done.
 - Rehydrate: on init, load session + history; if a draft exists, mark it interrupted and broadcast `{:turn_interrupted, ...}`; do not auto-resume (a resume policy is a later slice).
 - Idle timeout: hibernate after X min; stop after Y (config); `ensure_started/1` restarts on demand.
@@ -62,7 +62,7 @@ If that changes during the slice, the criterion is retagged and this section is 
 - [ ] gate green · [ ] AC1–9 proven · [ ] docs/01 tree updated · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s012): complete slice 012 — session process and agent loop` · tag `slice/012`
+`feat(s012): complete slice 012 (session process and agent loop)` · tag `slice/012`
 
 ## Risks / open questions
 - Draft-persistence write frequency vs SQLite single writer: measure; default every 500 ms or 2 KB.

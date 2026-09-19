@@ -5,7 +5,7 @@ defmodule Trinity.Paths do
   Where the packaged app keeps its data on each OS.
 
   A Burrito binary is launched by a double-click with no environment prepared for it, so it
-  cannot ask for `DATABASE_PATH` the way `config/runtime.exs` does today — it has to work out
+  cannot ask for `DATABASE_PATH` the way `config/runtime.exs` does today: it has to work out
   where its own data lives. This module is that, and nothing else: no schema, no repo, no
   domain code.
 
@@ -13,7 +13,7 @@ defmodule Trinity.Paths do
 
   `:os.type/0` and `System.get_env/1` are read once, in the arity-0 wrappers, and passed into
   the arity-2 functions. Every branch is therefore reachable from a test on this Linux machine
-  — which matters here, because the two branches that cannot be run on the owner's only machine
+  (which matters here, because the two branches that cannot be run on the owner's only machine
   are exactly the two that ship to users. `test/paths_test.exs` drives all three from a stub and
   asserts they do not collapse into one, which is how the first pass of this module failed.
 
@@ -79,7 +79,7 @@ defmodule Trinity.Paths do
   # and joins a constant app name. An attacker who can set this process's environment has already
   # won by a shorter route than a path here. Scoped to this function rather than put in
   # .sobelow-skips because that file keys on file AND line, so any edit above this point silently
-  # reopens the finding — measured at slice 000 when SPDX headers moved router.ex:10 to :12.
+  # reopens the finding: measured at slice 000 when SPDX headers moved router.ex:10 to :12.
   @sobelow_skip ["Traversal.FileModule"]
   @spec ensure_data_dir() :: String.t()
   def ensure_data_dir do

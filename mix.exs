@@ -39,10 +39,10 @@ defmodule Trinity.MixProject do
   # the other two; nothing here claims they were built.
   #
   # Prerequisites measured at slice 001 line 3, both outside hex and both pinned:
-  #   * Zig **exactly** 0.16.0 — burrito 1.6.0 compares for equality, not a range
+  #   * Zig **exactly** 0.16.0: burrito 1.6.0 compares for equality, not a range
   #     (deps/burrito/lib/burrito.ex `@zig_version_expected`). Pinned in `.tool-versions`.
   #   * Rust 1.92.0 for the Tauri shell. Pinned in `rust-toolchain.toml`, not `.tool-versions`
-  #     — see NOTES.md deviation D1.
+  #     (see NOTES.md deviation D1).
   defp releases do
     [
       desktop: [
@@ -129,8 +129,8 @@ defmodule Trinity.MixProject do
       {:ex_doc, "~> 0.38", only: :dev, runtime: false},
       {:nimble_options, "~> 1.1"},
       # Slice 001 line 1, arm (a) recorded `only: :dev`. **Corrected at G4**, and the reason is
-      # the shell, not the tooling: `ExTauri.ShutdownManager` is the sidecar's heartbeat — the
-      # Rust window's only way to tell the BEAM it has closed — so it has to exist in the
+      # the shell, not the tooling: `ExTauri.ShutdownManager` is the sidecar's heartbeat, the
+      # Rust window's only way to tell the BEAM it has closed, so it has to exist in the
       # binary that ships, and a `:dev`-only dependency does not. `mix ex_tauri.install` adds
       # that child unconditionally, which is why the generator's output could not start under
       # MIX_ENV=test or MIX_ENV=prod. Recorded as deviation D7 in NOTES.md.
@@ -200,7 +200,7 @@ defmodule Trinity.MixProject do
         # The plan's own consistency, as the gate's final step rather than a second command
         # with a second exit code. Added at slice 001 G4, for a mistake made three times in
         # this slice: `mix gate` and `scripts/plan_check.sh` were run as a pair, the gate's
-        # `exit=0` was read, and `plan_check exit=1` on the line below it was not — twice
+        # `exit=0` was read, and `plan_check exit=1` on the line below it was not: twice
         # reaching the remote. Two results printed and one read is a reporting failure the
         # tooling can remove, so it is removed: **one command, one exit code.**
         #

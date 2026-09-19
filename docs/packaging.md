@@ -10,7 +10,7 @@ on the machine described under [Prerequisites](#prerequisites) on 2026-09-06; no
 quoted from a README. Where a thing was not measured, this file says so rather than estimating.
 
 The commands are `mix release` and Burrito. The Tauri shell is Slice 100's; what this file
-covers is the half a command can answer — a single binary that boots, serves and stops.
+covers is the half a command can answer: a single binary that boots, serves and stops.
 
 ## Prerequisites
 
@@ -21,7 +21,7 @@ covers is the half a command can answer — a single binary that boots, serves a
 | Zig | **exactly** 0.16.0 | `.tool-versions` | Burrito 1.6.0 compares for equality, not a range, and exits 1 on anything else. Installed with the asdf zig plugin. |
 | Rust | 1.92.0 | `rust-toolchain.toml` | Only for the Tauri shell. **Not** `.tool-versions`: asdf here has no rust plugin and ignores such a line silently, so it would be a pin that pins nothing. `rustup` honours this file. |
 | Tauri CLI | 2.11.4 | nothing in the tree | `ex_tauri` installs it into `_build/_tauri`, which is gitignored. `cargo tauri --version` exits 101 on a fresh machine; the real command is `_build/_tauri/bin/cargo-tauri tauri --version`. |
-| 7z or 7zz | any | — | **Windows target only.** Absent on the build machine, so the Windows target is unbuilt here. See [Targets](#targets). |
+| 7z or 7zz | any | none | **Windows target only.** Absent on the build machine, so the Windows target is unbuilt here. See [Targets](#targets). |
 
 `VERSIONS.md`'s toolchain table carries the same figures with a mark that names where each one
 came from, and `mix versions.gen --check` fails the gate if the table and
@@ -45,7 +45,7 @@ Three gotchas, all measured, all of which cost time before they were understood:
    a digested copy and a `.gz` sibling next to every static file; both are gitignored.
 3. **`BURRITO_TARGET` selects one target** out of those declared in `mix.exs`. Without it,
    Burrito builds all three and the run fails on the first target whose host prerequisites are
-   missing — for this machine, Windows.
+   missing: for this machine, Windows.
 
 ## Run
 
@@ -58,7 +58,7 @@ PHX_SERVER=true ./burrito_out/desktop_linux_x86_64 --no-halt      # serves until
 `erl … -noshell -s elixir start_cli … -extra <argv>`
 (`deps/burrito/src/erlang_launcher.zig`). `elixir start_cli` is the ordinary Elixir CLI entry
 point, and it halts when its command list is empty, exactly as `elixir -e ''` does. Without
-`--no-halt` the binary starts the endpoint and then exits immediately — and it exits **0**, so
+`--no-halt` the binary starts the endpoint and then exits immediately, and it exits **0**, so
 nothing downstream notices.
 
 `--smoke` boots the app, asks the endpoint which port Bandit actually bound, prints
@@ -66,7 +66,7 @@ nothing downstream notices.
 process. It is the only part of "the desktop app works" that a terminal can answer on a machine
 with no display.
 
-## Measurements — linux x86_64 only
+## Measurements: linux x86_64 only
 
 Machine: Linux 6.14.0-37-generic, x86_64. **These figures are for this host and this target.**
 Slice 001 AC6 asks for the same figures on macOS and Windows and they do not exist, because
@@ -117,7 +117,7 @@ $ tr '\0' ' ' < /proc/2765267/cmdline
 /home/aylac/.local/share/.burrito/desktop_erts-16.4.0.5_0.1.0/erts-16.4.0.5/bin/beam.smp -- -root …
 ```
 
-That is the failure mode AC8 describes — closing the window should stop the sidecar — reached
+That is the failure mode AC8 describes (closing the window should stop the sidecar), reached
 by signal rather than by window. The fix belongs in the wrapper or in a supervisor around it,
 neither of which is packaging wiring, so Slice 001 records it and Slice 100 owns it.
 
@@ -127,14 +127,14 @@ Declared in `mix.exs`. Built here: one of three.
 
 | Target | Built on this machine | Built and run on a runner | Blocker here |
 |---|---|---|---|
-| `linux_x86_64` | **yes**, 20 777 960 bytes | **yes** — 20 790 808 bytes, served HTTP 200 | — |
-| `macos_aarch64` | **cross-compiles** only, 13 782 104 bytes, unsigned, never executed | **yes**, natively — 11 927 096 bytes, served HTTP 200 | Nothing here can execute a macOS binary. |
-| `windows_x86_64` | **no** | **yes**, natively — 24 519 680 bytes, booted and exited under `--smoke`; not asked to serve | `** (RuntimeError) Couldn't find 7z/7zz` — the Windows ERTS ships as a `.exe` installer and Burrito unpacks it with 7z. None of `7z 7zz 7za 7zr` is installed and installing one needs root. |
+| `linux_x86_64` | **yes**, 20 777 960 bytes | **yes**, 20 790 808 bytes, served HTTP 200 | none |
+| `macos_aarch64` | **cross-compiles** only, 13 782 104 bytes, unsigned, never executed | **yes**, natively, 11 927 096 bytes, served HTTP 200 | Nothing here can execute a macOS binary. |
+| `windows_x86_64` | **no** | **yes**, natively, 24 519 680 bytes, booted and exited under `--smoke`; not asked to serve | `** (RuntimeError) Couldn't find 7z/7zz`, the Windows ERTS ships as a `.exe` installer and Burrito unpacks it with 7z. None of `7z 7zz 7za 7zr` is installed and installing one needs root. |
 
 Runner evidence: `package` run `34067973983`, three jobs green.
 
 That `macos_aarch64` links under Zig here is a fact about the cross-compiler and **nothing about
-whether the macOS app runs** — the runner is what established that it runs. The 11 927 096-byte
+whether the macOS app runs**: the runner is what established that it runs. The 11 927 096-byte
 native build and the 13 782 104-byte cross build are different artifacts and are listed
 separately rather than averaged into one number.
 
@@ -159,8 +159,8 @@ something it is not.
 **A runner cannot prove, and no job here will claim:**
 
 - that a **native window opens** on a real desktop. A GitHub runner has no desktop session; on
-  ubuntu-latest the job says which of two things it did — the shell under `xvfb-run`, or the
-  sidecar smoked alone with no display at all — and never leaves that ambiguous.
+  ubuntu-latest the job says which of two things it did: the shell under `xvfb-run`, or the
+  sidecar smoked alone with no display at all, and never leaves that ambiguous.
 - **first paint**, or anything else measured from pixels;
 - that **closing a window** stops the sidecar;
 - anything about **signing or notarisation**, which is Slice 101's.

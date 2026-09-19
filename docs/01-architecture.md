@@ -1,4 +1,4 @@
-# 01 — Architecture
+# 01: Architecture
 
 ## Shape
 
@@ -71,7 +71,7 @@ without anything failing.
 | `Trinity.MCP` | Client manager, tool bridge, server | Tools, **Effects**, **Permissions**, Memory |
 | `Trinity.Gateways` | Adapter behaviour, router, allowlists, pairing | Sessions, **Permissions**, PubSub |
 | `Trinity.Subagents` | Delegation, result collection | Sessions, Tools |
-| `Trinity.Sandbox` | Luerl runners, resource limits | — |
+| `Trinity.Sandbox` | Luerl runners, resource limits | none |
 | `Trinity.Desktop` | ex_tauri bridge | PubSub |
 | `Trinity.Telemetry` | events, cost ledger, metrics | Repo |
 | `TrinityWeb` | LiveViews, components, API | all `Trinity.*` public APIs |

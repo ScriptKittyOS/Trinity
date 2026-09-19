@@ -1,4 +1,4 @@
-# Slice 010 — Core domain + persistence
+# Slice 010: Core domain + persistence
 
 | Field | Value |
 |---|---|
@@ -24,7 +24,7 @@ Data outlives processes. Everything later rehydrates from these tables.
   data dir. Acquire an advisory lock or a lockfile carrying pid and mode at boot, and refuse to start with a named
   reason when it is held.
 - `TRINITY_DB=postgres` config branch (`postgrex`); CI matrix job with a Postgres service.
-- Migrations: `personas` (minimal: name, soul, model — full use in 030), `sessions`, `messages` per `docs/05-data-model.md`.
+- Migrations: `personas` (minimal: name, soul, model; full use in 030), `sessions`, `messages` per `docs/05-data-model.md`.
 - `Trinity.Sessions` persistence functions: `create_session/1`, `get_session/1`, `list_sessions/1`, `append_message/2`
   (assigns `seq` atomically), `history/2` (ordered, with limit/offset), `archive/1`.
 - `Trinity.Sessions.Store` internal module isolates queries; `boundary` `exports: [Trinity.Sessions]`.
@@ -38,7 +38,7 @@ Data outlives processes. Everything later rehydrates from these tables.
 ## Design notes
 - `append_message/2` must be a single transaction that reads max(seq) and inserts; on SQLite with one writer this is
   race-free; on Postgres use `SELECT … FOR UPDATE` on the session row. Test both.
-- Keep `parts` as `:map` — SQLite stores JSON text; Postgres jsonb.
+- Keep `parts` as `:map`: SQLite stores JSON text; Postgres jsonb.
 
 ## Deliverables
 - `config/*.exs` DB branches, `priv/repo/migrations/*`, `lib/trinity/sessions/{session,message,store}.ex`, `lib/trinity/sessions.ex`, `lib/trinity/paths.ex` (if not from 001), tests, CI matrix update, `docs/05-data-model.md` synced.
@@ -48,7 +48,7 @@ Data outlives processes. Everything later rehydrates from these tables.
 2. [auto] Property/stress test passes on both adapters: gapless `seq` per session under concurrency; `integrity_check` ok.
 3. [auto] `append_message/2` rejects unknown roles and empty content with `{:error, %Ecto.Changeset{}}`.
 4. [auto] `history/2` returns messages in `seq` order and respects `limit`.
-5. [auto] `boundary` prevents `TrinityWeb` from calling `Trinity.Sessions.Store` directly (test compiles a violating module in a tmp dir — or document the compile error).
+5. [auto] `boundary` prevents `TrinityWeb` from calling `Trinity.Sessions.Store` directly (test compiles a violating module in a tmp dir, or document the compile error).
 6. [auto] A second instance started against a held data dir refuses to start, names the holder's pid and mode, and leaves the database untouched (test).
 7. [auto] Gate green; coverage line reported.
 
@@ -63,7 +63,7 @@ If that changes during the slice, the criterion is retagged and this section is 
 - [ ] gate green · [ ] AC1–7 proven · [ ] docs/05 updated · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s010): complete slice 010 — core domain and persistence` · tag `slice/010`
+`feat(s010): complete slice 010 (core domain and persistence)` · tag `slice/010`
 
 ## Risks / open questions
 - `ecto_sqlite3` and Oban Lite both want the same file; confirm pool settings when Oban arrives (050).

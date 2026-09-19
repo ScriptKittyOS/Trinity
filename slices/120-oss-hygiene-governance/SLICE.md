@@ -1,4 +1,4 @@
-# Slice 120 — Open-source hygiene and governance, audited
+# Slice 120: Open-source hygiene and governance, audited
 
 | Field | Value |
 |---|---|
@@ -47,4 +47,4 @@ If that changes during the slice, the criterion is retagged and this section is 
 - [ ] `mix gate` green · [ ] AC1–4 proven · [ ] docs/ADR/VERSIONS updated if affected · [ ] ROADMAP status → done · [ ] final commit + tag
 
 ## Commit & tag
-`chore(s120): complete slice 120 — OSS hygiene and governance audit` · tag `slice/120`
+`chore(s120): complete slice 120 (OSS hygiene and governance audit)` · tag `slice/120`

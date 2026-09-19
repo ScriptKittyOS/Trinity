@@ -1,4 +1,4 @@
-# Slice 020 — Tool protocol + registry
+# Slice 020: Tool protocol + registry
 
 | Field | Value |
 |---|---|
@@ -10,7 +10,7 @@
 ## Goal
 The `Trinity.Tools.Tool` behaviour, a registry that discovers tools from config (and later from MCP and skills),
 JSON-schema generation for the LLM, and the real `Trinity.Sessions.ToolRunner` that executes tool calls in
-supervised Tasks with timeouts, parallelism, and structured results. No side-effecting tools yet — one `echo`
+supervised Tasks with timeouts, parallelism, and structured results. No side-effecting tools yet: one `echo`
 tool and one deliberately crashing tool for tests.
 
 ## Why
@@ -24,7 +24,7 @@ Modularity promise: "adding a tool is adding a module". Everything in phases 2, 
 - Toolsets: config groups (`:core`, `:web`, `:shell`…) that personas/sessions enable.
 - ToolRunner: executes N tool calls from one assistant turn concurrently via `Task.Supervisor.async_stream_nolink` with per-tool timeout; each result becomes a `tool` message; crash → error result, session continues.
 - Argument validation against `schema/0` before execute; invalid → error result the model can read.
-- Permission hook point: `Trinity.Permissions.decide/3` called before execute — stub returns `:allow` (real in 021).
+- Permission hook point: `Trinity.Permissions.decide/3` called before execute: stub returns `:allow` (real in 021).
 - Test tools in `test/support/tools/`: `Echo`, `Sleep`, `Crash`, `Big` (returns > cap).
 **Out:**
 - Real tools (022), approvals (021), MCP (060).
@@ -37,7 +37,7 @@ Modularity promise: "adding a tool is adding a module". Everything in phases 2, 
 - `lib/trinity/tools/{tool,result,context,registry,runner,schema}.ex`, `lib/trinity/tools.ex`, session ToolRunner swap, tests, docs.
 
 ## Acceptance criteria
-1. [auto] Adding a tool module in `test/support` + one config line makes it appear in `Trinity.Tools.list/0` and in `to_llm_tools/0` with a valid JSON schema — with zero changes to core modules (diff shown).
+1. [auto] Adding a tool module in `test/support` + one config line makes it appear in `Trinity.Tools.list/0` and in `to_llm_tools/0` with a valid JSON schema: with zero changes to core modules (diff shown).
 2. [auto] FakeProvider emits two tool calls in one turn → both execute concurrently (Sleep 300 ms each; total < 500 ms) → two `tool` messages → final assistant message.
 3. [auto] `Crash` tool → error result recorded; session continues; supervisor restart count unchanged.
 4. [auto] `Sleep` beyond timeout → timeout error result within timeout + 100 ms.
@@ -58,10 +58,10 @@ If that changes during the slice, the criterion is retagged and this section is 
 - [ ] gate green · [ ] AC1–9 proven · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s020): complete slice 020 — tool protocol and registry` · tag `slice/020`
+`feat(s020): complete slice 020 (tool protocol and registry)` · tag `slice/020`
 
 ## Risks / open questions
-- Provider-specific tool-call quirks (parallel tool calls support) — capability flag from 011 `capabilities/1`.
+- Provider-specific tool-call quirks (parallel tool calls support): capability flag from 011 `capabilities/1`.
 
 ## Platform alignment (appended 2026-09-05)
 - **Effect classification is part of the behaviour:** `effect/0 :: :none | :artifact | :catalog`. `:none` = read

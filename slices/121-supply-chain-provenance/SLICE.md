@@ -1,4 +1,4 @@
-# Slice 121 — Supply chain: SBOM, signed releases, provenance, Scorecard, MCP Registry entry
+# Slice 121: Supply chain: SBOM, signed releases, provenance, Scorecard, MCP Registry entry
 
 | Field | Value |
 |---|---|
@@ -40,10 +40,10 @@ Practices badge application, and a `server.json` for the MCP Registry describing
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
-- **AC4** — `server.json` validates against the MCP Registry schema (command); publication itself is an owner action.
+- **AC4**: `server.json` validates against the MCP Registry schema (command); publication itself is an owner action.
 
 ## Definition of Done
 - [ ] `mix gate` green · [ ] AC1–5 proven · [ ] docs/ADR/VERSIONS updated if affected · [ ] ROADMAP status → done · [ ] final commit + tag
 
 ## Commit & tag
-`feat(s121): complete slice 121 — supply chain and provenance` · tag `slice/121`
+`feat(s121): complete slice 121 (supply chain and provenance)` · tag `slice/121`

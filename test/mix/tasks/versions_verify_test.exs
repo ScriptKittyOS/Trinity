@@ -50,7 +50,7 @@ defmodule Mix.Tasks.Versions.VerifyUndocumentedTest do
   @moduledoc """
   The red is planted through the argument, not through `mix.exs`. Adding an unfetched
   dependency there makes Mix refuse to run at all, so the task never executes and the check
-  proves nothing — which is what happened on the first attempt.
+  proves nothing, which is what happened on the first attempt.
   """
 
   test "RED: a direct dependency with no row is reported" do

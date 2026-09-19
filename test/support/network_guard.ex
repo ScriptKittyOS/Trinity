@@ -5,7 +5,7 @@ defmodule Trinity.NetworkGuard do
   CLAUDE.md §5: "Tests must not hit the network."
 
   The block applies to the **default** test run only. `docs/03-conventions.md` and CLAUDE.md §5
-  both define an opt-in path — `@tag :live`, run with `mix test --only live` — for tests that
+  both define an opt-in path (`@tag :live`, run with `mix test --only live`) for tests that
   exist precisely to reach a real provider. Blocking those by construction would break the path
   the plan defines, so the guard opens when `TRINITY_LIVE=1` is set and the gate excludes
   `:live`.

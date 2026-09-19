@@ -1,4 +1,4 @@
-# Slice 023 — Context compaction + session lineage
+# Slice 023: Context compaction + session lineage
 
 | Field | Value |
 |---|---|
@@ -17,15 +17,15 @@ Risk R7. Compression that quietly discards critical context is the failure to de
 
 ## Scope
 **In:**
-- `Trinity.Memory.Tokens` — token estimation per model (provider tokenizer if req_llm exposes; else calibrated heuristic).
-- `Trinity.Memory.Compactor` — strategy: keep system + last K turns; summarise older turns via `Trinity.LLM.generate_object/3` into `%{summary, open_threads, decisions, facts}`; write a `system`-role `compaction` message; mark compacted messages `parts.compacted_by`; optionally fork a child session (`parent_id`) when history exceeds a hard limit.
+- `Trinity.Memory.Tokens`: token estimation per model (provider tokenizer if req_llm exposes; else calibrated heuristic).
+- `Trinity.Memory.Compactor`: strategy: keep system + last K turns; summarise older turns via `Trinity.LLM.generate_object/3` into `%{summary, open_threads, decisions, facts}`; write a `system`-role `compaction` message; mark compacted messages `parts.compacted_by`; optionally fork a child session (`parent_id`) when history exceeds a hard limit.
 - Session integration: `compacting` state triggered when estimated prompt > threshold (per model) before a turn; prompt builder uses the compaction message + uncompacted tail.
 - UI: "context: N / M tokens" indicator; compaction event shown as a collapsible card; "view original" link to the parent/compacted messages.
 - Eval harness built to take suites beyond this one. Compaction is its first; tool selection, injection resistance
   and memory recall are the next, added by the slices that own them rather than here.
-- Eval harness: `test/evals/compaction/*.exs` with 3 scripted long conversations and assertions that named facts survive (keyword presence) — run with `mix test --only eval` (excluded by default), results table saved to `proof/`.
+- Eval harness: `test/evals/compaction/*.exs` with 3 scripted long conversations and assertions that named facts survive (keyword presence): run with `mix test --only eval` (excluded by default), results table saved to `proof/`.
 **Out:**
-- Semantic memory extraction (032) — compaction may *emit* candidate memories to a queue consumed there.
+- Semantic memory extraction (032): compaction may *emit* candidate memories to a queue consumed there.
 
 ## Design notes
 - Never delete messages. Compaction adds; lineage points back.
@@ -48,14 +48,14 @@ Risk R7. Compression that quietly discards critical context is the failure to de
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
-- **AC4** — Eval harness: ≥ 90 % of tracked facts survive across the 3 scripted conversations with a real model (live/eval tag; table in proof).
-- **AC5** — UI shows the token indicator and compaction card (screenshot).
+- **AC4**: Eval harness: ≥ 90 % of tracked facts survive across the 3 scripted conversations with a real model (live/eval tag; table in proof).
+- **AC5**: UI shows the token indicator and compaction card (screenshot).
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–6 proven · [ ] docs/05 synced · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s023): complete slice 023 — context compaction and lineage` · tag `slice/023`
+`feat(s023): complete slice 023 (context compaction and lineage)` · tag `slice/023`
 
 ## Risks / open questions
 - Tokenizer accuracy per provider; calibrate against live `usage` numbers and record the error margin.

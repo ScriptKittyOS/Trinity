@@ -1,4 +1,4 @@
-# 06 — Risk register
+# 06: Risk register
 
 | # | Risk | Likelihood | Impact | Trigger / early warning | Mitigation | Owner slice |
 |---|---|---|---|---|---|---|
@@ -9,12 +9,12 @@
 | R5 | req_llm breaking changes / provider drift | Med | Med | Live tests fail after bump | Behaviour isolates it; LangChain-Elixir fallback | 011 |
 | R6 | LiveView streaming performance (token spam) | Med | Low | UI lag at > 20 msg/s | Coalescing broadcaster; phoenix_streamdown | 013 |
 | R7 | Context compaction loses critical information | Med | High | Eval set regression | Always-on tier preserved verbatim; compaction eval harness in 023 | 023 |
-| R8 | Prompt injection via tool output / skills / web | High | High | — | Untrusted-content framing; scanner on skills; permission gate on side effects; see 07-security-model | 021, 041 |
+| R8 | Prompt injection via tool output / skills / web | High | High | none | Untrusted-content framing; scanner on skills; permission gate on side effects; see 07-security-model | 021, 041 |
 | R9 | Oban on SQLite limitations (no Pro workflows) | Low | Med | Need for multi-step durable graphs | Postgres path kept alive in CI matrix | 050 |
 | R10 | Agent scope creep across slices | Med | Med | PROOF shows work outside spec | CLAUDE.md rules; NOTES follow-ups; human review | all |
-| R11 | Stale or single-maintainer libs (**boundary**, hnswlib, ex_tauri, sqlite_vec, nostrum, telegex) | High | Med–High | No release in 6 months. Measured 2026-09-05: boundary 2024-09-25, sqlite_vec 2024-11-19, telegex 1.9.0-rc.0 2024-09-18, nostrum 2025-03-02 — the trigger already fires for four of them | All behind behaviours; vendor if needed. **boundary is the highest-consequence one**: ADR-0001, docs/01, CLAUDE.md §5 and Slice 000 AC4 all rest on it, and it is unverified on Elixir 1.20. Probe it before anything is built on it | 000, 032, 072 |
+| R11 | Stale or single-maintainer libs (**boundary**, hnswlib, ex_tauri, sqlite_vec, nostrum, telegex) | High | Med–High | No release in 6 months. Measured 2026-09-05: boundary 2024-09-25, sqlite_vec 2024-11-19, telegex 1.9.0-rc.0 2024-09-18, nostrum 2025-03-02, the trigger already fires for four of them | All behind behaviours; vendor if needed. **boundary is the highest-consequence one**: ADR-0001, docs/01, CLAUDE.md §5 and Slice 000 AC4 all rest on it, and it is unverified on Elixir 1.20. Probe it before anything is built on it | 000, 032, 072 |
 | R12 | Secrets leak into logs/DB/commits | Low | High | grep hits in CI | `mix gate` includes a secret scan (gitleaks-style regex) from 000; Secrets module from 100 | 000, 100 |
-| R13 | Scope drifts toward matching other agents' breadth instead of shipping depth | Med | Low | Slice scope grows during a phase | Non-goals in docs/00 are binding; breadth is a later decision, not a default | — |
+| R13 | Scope drifts toward matching other agents' breadth instead of shipping depth | Med | Low | Slice scope grows during a phase | Non-goals in docs/00 are binding; breadth is a later decision, not a default | none |
 | R14 | Elixir MCP libraries lag the 2026-07-28 spec; the one that claims it is weeks old | High | Med | 059 probes fail | Behaviour boundaries; own minimal stateless server as fallback; fastest_mcp/gen_mcp/anubis compared by measurement | 059 |
 | R15 | anubis_mcp is LGPL-3.0 | Med | Med | It wins the 059 spike | Legal review before adoption in a distributed binary; prefer Apache or MIT candidates | 059 |
 | R20 | Foundation donation may require transferring assets or marks the project intends to keep | Med | Med | Proposal drafting (122) | Unverified: the requirement is asserted from an announcement, not from the charter text. Read the charter, then decide what is offered and what is retained. Legal review before any proposal leaves the tree | 122 |

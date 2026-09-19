@@ -1,4 +1,4 @@
-# Slice 021 — Permission gate + approval UI
+# Slice 021: Permission gate + approval UI
 
 | Field | Value |
 |---|---|
@@ -49,14 +49,14 @@ Vision goal 5. Nothing side-effecting runs without consent.
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
-- **AC2** — Write-risk tool → Session enters `approval_wait`; approval card renders (LiveView test + screenshot); "allow once" → tool runs → final message.
-- **AC7** — Every decision has an `approvals` row with `decided_at`; `/permissions` lists them (screenshot).
+- **AC2**: Write-risk tool → Session enters `approval_wait`; approval card renders (LiveView test + screenshot); "allow once" → tool runs → final message.
+- **AC7**: Every decision has an `approvals` row with `decided_at`; `/permissions` lists them (screenshot).
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–8 proven · [ ] docs/07 synced · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s021): complete slice 021 — permission gate and approval UI` · tag `slice/021`
+`feat(s021): complete slice 021 (permission gate and approval UI)` · tag `slice/021`
 
 ## Risks / open questions
 - Pattern language: start with glob for paths and prefix for commands; regex only via manual rule editing.
