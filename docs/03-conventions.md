@@ -34,7 +34,9 @@
 - Conventional Commits with the slice id as scope: `feat(s022): …`, `fix(s022): …`, `test(s022): …`, `docs(s022): …`,
   `chore(s000): …`, `refactor(s012): …`.
 - Final slice commit message: `feat(sNNN): complete slice NNN (<title>)`.
-- Merge: `git merge --no-ff`. Tag: `slice/NNN` (annotated). Never rebase or force-push `main`.
+- Merge: a pull request, merge-commit method only, `gate` green on the branch head (repository ruleset, no
+  bypass). Tag: `slice/NNN` (annotated), pushed after the merge; tags are protected against update and
+  deletion. Never rebase or force-push `main`; the ruleset refuses it anyway.
 - `mix.lock` is committed. Dependency changes are their own commit: `chore(sNNN): add req_llm ~> 1.10`.
 
 ## Definition of Done

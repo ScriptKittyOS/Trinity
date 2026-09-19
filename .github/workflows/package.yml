@@ -13,10 +13,23 @@ name: package
 # `branches: [main]`, so the one branch whose evidence depends on it, the slice branch, was
 # the one branch it ignored, and pushing slice 001 produced no package run at all. Slice
 # branches are where a packaging change is proven; main is where it has already been proven.
+#
+# Narrowed 2026-09-19. Between 2026-09-05 and 2026-09-07 this matrix ran 31 times on every
+# push, 1 600 runner-minutes, most of them Windows and macOS, for a packaging path that
+# slice 001 had already proven. It now runs when a slice or release tag is pushed, on a
+# change to something packaging actually depends on, or by hand. A slice that touches
+# packaging asks for the run with `workflow_dispatch` and cites the run id in its proof.
 on:
   push:
-    branches: [main, 'slice/**']
-  pull_request:
+    tags: ['slice/**', 'v*']
+    paths:
+      - mix.exs
+      - mix.lock
+      - config/**
+      - src-tauri/**
+      - rust-toolchain.toml
+      - .tool-versions
+      - .github/workflows/package.yml
   workflow_dispatch:
 
 jobs:
@@ -41,9 +54,9 @@ jobs:
             artifact: desktop_windows_x86_64.exe
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: erlef/setup-beam@v1
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
         with:
           version-file: .tool-versions
           version-type: strict
@@ -56,7 +69,7 @@ jobs:
         shell: bash
         run: echo "version=$(awk '$1=="zig"{print $2}' .tool-versions)" >> "$GITHUB_OUTPUT"
 
-      - uses: mlugg/setup-zig@v2
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
           version: ${{ steps.zig.outputs.version }}
 
@@ -257,13 +270,13 @@ jobs:
             [ -n "$CHILD" ] && kill "$CHILD" 2>/dev/null || true
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ matrix.artifact }}
           path: burrito_out/${{ matrix.artifact }}
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: launch-log-${{ matrix.target }}

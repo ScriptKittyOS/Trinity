@@ -60,8 +60,10 @@ mix versions.verify           # (Slice 000) prints installed vs VERSIONS.md
   `docs(s012): PROOF.md`
 - Final commit of a slice: `feat(s012): complete slice 012 (session process and agent loop)`.
   It must include `PROOF.md` and the `ROADMAP.md` status change.
-- Merge to `main` with `git merge --no-ff slice/NNN-short-name` (keeps the slice boundary visible), then
-  `git tag -a slice/NNN -m "Slice NNN: <title>"`.
+- Merge to `main` through a pull request. The repository ruleset requires one, allows only the merge-commit
+  method (the slice boundary stays visible, as `--no-ff` did), and requires the `gate` check green on the
+  branch head. Nobody can bypass it, the owner included. After the merge, on `main`:
+  `git tag -a slice/NNN -m "Slice NNN: <title>"` and push the tag. Tags cannot be moved or deleted.
 - Every commit is DCO signed-off (`git commit -s`); the hook and CI refuse otherwise (ADR-0012).
 - Never force-push `main`. Never rewrite tagged history.
 - Never commit secrets. `.env*` is gitignored. API keys come from env or the OS keychain module.

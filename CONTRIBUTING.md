@@ -49,8 +49,8 @@ docs(s012): proof
 ```
 
 The final commit of a slice reads `feat(s012): complete slice 012 (session process and agent loop)`
-and includes `PROOF.md` and the `ROADMAP.md` status change. Slices merge to `main` with a merge
-commit and are tagged `slice/NNN`.
+and includes `PROOF.md` and the `ROADMAP.md` status change. Slices merge to `main` through a
+pull request with the `gate` check green, merge-commit method only, and are then tagged `slice/NNN`.
 
 ## What gets a change sent back
 
