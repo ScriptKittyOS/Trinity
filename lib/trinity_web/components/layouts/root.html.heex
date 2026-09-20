@@ -4,11 +4,15 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
-    <.live_title default="Trinity" suffix=" · Phoenix Framework" phx-no-format>{assigns[:page_title]}</.live_title>
+    <.live_title default="Trinity" suffix=" · Trinity" phx-no-format>{assigns[:page_title]}</.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
-    <script>
+    <%!-- The theme is applied before first paint, so the page never flashes the other theme.
+          The script carries the request's CSP nonce (TrinityWeb.Plugs.ContentSecurityPolicy);
+          without it the policy refuses it. Dark is the default when nothing is stored (slice
+          013); "system", "light" and "dark" remain the three choices of the toggle. --%>
+    <script nonce={assigns[:csp_nonce]}>
       (() => {
         const systemTheme = () => matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 
@@ -24,9 +28,9 @@
           }
         };
         if (!document.documentElement.hasAttribute("data-theme")) {
-          setTheme(localStorage.getItem("phx:theme") || "system");
+          setTheme(localStorage.getItem("phx:theme") || "dark");
         }
-        window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
+        window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "dark"));
         window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
 
         matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
@@ -37,7 +41,7 @@
       })();
     </script>
   </head>
-  <body>
+  <body class="bg-base-200 text-base-content antialiased">
     <div id="tauri-bridge" phx-hook="TauriHook"></div>
     {@inner_content}
   </body>

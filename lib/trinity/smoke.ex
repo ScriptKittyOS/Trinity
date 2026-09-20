@@ -56,16 +56,36 @@ defmodule Trinity.Smoke do
   def port_line(port), do: "TRINITY_SMOKE_PORT=#{port}"
 
   @doc """
+  The second line (slice 013): whether the markdown renderer's NIF loaded and rendered in this
+  binary. A packaged build whose NIF fails to load still boots and serves, showing escaped
+  text instead of markdown (NOTES.md finding 13), so booting proves nothing about it; this
+  does. `ok` or `failed:<reason>`, one line, no prose.
+  """
+  @spec markdown_line() :: String.t()
+  def markdown_line do
+    case MDEx.to_html("**smoke**", render: [unsafe: false]) do
+      {:ok, html} ->
+        if html =~ "<strong>smoke</strong>",
+          do: "TRINITY_SMOKE_MARKDOWN=ok",
+          else: "TRINITY_SMOKE_MARKDOWN=failed:#{inspect(html)}"
+
+      {:error, reason} ->
+        "TRINITY_SMOKE_MARKDOWN=failed:#{inspect(reason)}"
+    end
+  end
+
+  @doc """
   Runs the smoke check: report the listening port, then stop the OS process.
 
   `say` and `halt` are injected so the whole path is exercisable from a test without ending
   the test runner's own OS process.
   """
-  @spec run(say_fun(), halt_fun()) :: any()
-  def run(say \\ &IO.puts/1, halt \\ &System.halt/1) do
+  @spec run(say_fun(), halt_fun(), String.t()) :: any()
+  def run(say \\ &IO.puts/1, halt \\ &System.halt/1, markdown \\ markdown_line()) do
     {:ok, {_ip, port}} = TrinityWeb.Endpoint.server_info(:http)
     say.(port_line(port))
-    halt.(0)
+    say.(markdown)
+    halt.(if markdown == "TRINITY_SMOKE_MARKDOWN=ok", do: 0, else: 3)
   end
 
   @doc """
@@ -79,8 +99,19 @@ defmodule Trinity.Smoke do
   the VM from within the OTP boot sequence: a boot crash rather than a clean exit. `ps`
   cannot tell those apart from the outside; the exit code can, and AC7 reads both.
   """
+  #
+  # The markdown line is computed here, inside `Trinity.Application.start/2`, not in the Task:
+  # `Kernel.CLI` reads the same plain arguments once the application has started and treats
+  # `--smoke` as a file to run ("No file named --smoke", exit 1), so the Task wins only by
+  # halting at once. Measured at slice 013 when a few milliseconds of rendering inside the
+  # Task lost that race on the first packaged run.
   @spec children([String.t()]) :: [Supervisor.child_spec() | {module(), term()}]
   def children(args) do
-    if requested?(args), do: [{Task, &run/0}], else: []
+    if requested?(args) do
+      markdown = markdown_line()
+      [{Task, fn -> run(&IO.puts/1, &System.halt/1, markdown) end}]
+    else
+      []
+    end
   end
 end

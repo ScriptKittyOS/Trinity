@@ -8,3 +8,6 @@
 [toolchain]
 channel = "1.92.0"
 components = ["rustfmt", "clippy"]
+# Slice 013: the linux package builds mdex's NIF for Burrito's musl ERTS (NOTES finding 14);
+# rustup installs the standard library for the target when it reads this file.
+targets = ["x86_64-unknown-linux-musl"]

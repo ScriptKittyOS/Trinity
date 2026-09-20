@@ -14,11 +14,9 @@ defmodule TrinityWeb.Layouts do
   embed_templates "layouts/*"
 
   @doc """
-  Renders your app layout.
-
-  This function is typically invoked from every template,
-  and it often contains your application menu, sidebar,
-  or similar.
+  The application shell: a slim top bar (the brand, a slot for what the page puts beside it,
+  the theme toggle) over a main region that fills the rest of the viewport. Slice 013 decided
+  it; every later surface renders inside it.
 
   ## Examples
 
@@ -34,41 +32,28 @@ defmodule TrinityWeb.Layouts do
     doc: "the current [scope](https://phoenix.hexdocs.pm/scopes.html)"
 
   slot :inner_block, required: true
+  slot :bar, doc: "what the page puts in the top bar, beside the brand"
 
   def app(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8">
-      <div class="flex-1">
-        <a href="/" class="flex-1 flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="36" />
-          <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
-        </a>
-      </div>
-      <div class="flex-none">
-        <ul class="flex flex-column px-1 space-x-4 items-center">
-          <li>
-            <a href="https://phoenixframework.org/" class="btn btn-ghost">Website</a>
-          </li>
-          <li>
-            <a href="https://github.com/phoenixframework/phoenix" class="btn btn-ghost">GitHub</a>
-          </li>
-          <li>
-            <.theme_toggle />
-          </li>
-          <li>
-            <a href="https://phoenix.hexdocs.pm/overview.html" class="btn btn-primary">
-              Get Started <span aria-hidden="true">&rarr;</span>
-            </a>
-          </li>
-        </ul>
-      </div>
-    </header>
+    <div class="flex h-dvh flex-col">
+      <header class="flex h-12 shrink-0 items-center gap-3 border-b border-base-300 bg-base-100 px-4">
+        <.link navigate={~p"/"} class="flex items-center gap-2 font-semibold tracking-tight">
+          <span class="grid size-6 place-items-center rounded-pill bg-primary text-primary-content text-meta font-bold">
+            T
+          </span>
+          <span>Trinity</span>
+        </.link>
+        <div class="flex min-w-0 flex-1 items-center gap-3 text-ui">
+          {render_slot(@bar)}
+        </div>
+        <.theme_toggle />
+      </header>
 
-    <main class="px-4 py-20 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-2xl space-y-4">
+      <main class="min-h-0 flex-1">
         {render_slot(@inner_block)}
-      </div>
-    </main>
+      </main>
+    </div>
 
     <.flash_group flash={@flash} />
     """

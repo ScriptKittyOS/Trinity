@@ -87,8 +87,12 @@ defmodule Trinity.Application do
     end
   end
 
-  defp skip_migrations? do
-    # By default, sqlite migrations are run when using a release
-    System.get_env("RELEASE_NAME") == nil
-  end
+  # Migrations run at boot everywhere except under Mix, where `mix ecto.migrate` and the test
+  # alias own them. The generator's version keyed on RELEASE_NAME, which the release's own
+  # `bin/desktop` script exports and the Burrito wrapper does not: it starts `erlexec`
+  # directly (deps/burrito/src/erlang_launcher.zig), so the packaged binary never migrated
+  # and every table was missing. Latent since slice 010, seen at slice 013 when `/` first
+  # read a table: package run 35519205973, "no such table: sessions" on all three operating
+  # systems, and the same binary locally answering 200 once RELEASE_NAME was set by hand.
+  defp skip_migrations?, do: Code.ensure_loaded?(Mix)
 end

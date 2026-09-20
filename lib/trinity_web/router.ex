@@ -9,6 +9,8 @@ defmodule TrinityWeb.Router do
     plug :fetch_live_flash
     plug :put_root_layout, html: {TrinityWeb.Layouts, :root}
     plug :protect_from_forgery
+    # Slice 013: before put_secure_browser_headers, which keeps a policy already present.
+    plug TrinityWeb.Plugs.ContentSecurityPolicy
     plug :put_secure_browser_headers
   end
 
@@ -16,10 +18,14 @@ defmodule TrinityWeb.Router do
     plug :accepts, ["json"]
   end
 
+  # Slice 013: the chat. One local user, so no scope is fetched; the session id is the URL.
   scope "/", TrinityWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    live_session :chat do
+      live "/", SessionLive.Index, :index
+      live "/s/:id", SessionLive.Show, :show
+    end
   end
 
   # Other scopes may use custom stacks.
@@ -39,7 +45,7 @@ defmodule TrinityWeb.Router do
     scope "/dev" do
       pipe_through :browser
 
-      live_dashboard "/dashboard", metrics: TrinityWeb.Telemetry
+      live_dashboard "/dashboard", metrics: TrinityWeb.Telemetry, csp_nonce_assign_key: :csp_nonce
     end
   end
 end

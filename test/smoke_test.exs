@@ -62,5 +62,16 @@ defmodule SmokeTest do
 
       assert status == 0
     end
+
+    # Slice 013: a packaged binary whose markdown NIF does not load still boots and serves
+    # (NOTES.md finding 13), so the smoke path says whether it rendered, and exits 3 if not.
+    test "says whether the markdown renderer rendered, on its own line" do
+      me = self()
+      Smoke.run(&send(me, {:said, &1}), &send(me, {:halted, &1}))
+      assert_received {:said, "TRINITY_SMOKE_PORT=" <> _}
+      assert_received {:said, "TRINITY_SMOKE_MARKDOWN=ok"}
+      assert_received {:halted, 0}
+      assert Smoke.markdown_line() == "TRINITY_SMOKE_MARKDOWN=ok"
+    end
   end
 end

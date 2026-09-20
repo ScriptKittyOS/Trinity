@@ -27,13 +27,14 @@ import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/trinity"
 import topbar from "../vendor/topbar"
 import { TauriHook } from "../vendor/ex_tauri"
+import { Composer, Shortcuts, ScrollToBottom, LocalTime } from "./hooks"
 
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: { TauriHook,...colocatedHooks},
+  hooks: { TauriHook, Composer, Shortcuts, ScrollToBottom, LocalTime, ...colocatedHooks},
 })
 
 // Show progress bar on live navigation and form submits

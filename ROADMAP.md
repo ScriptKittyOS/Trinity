@@ -36,7 +36,7 @@ standards register names the rows that ask for them.
 | 010 | Core domain + persistence (Ecto/SQLite, schemas, Repo owner) | 1 Core loop | M | 000 | approved |
 | 011 | LLM provider layer (req_llm behind `Trinity.LLM` behaviour) | 1 Core loop | M | 010 | approved |
 | 012 | Session process + agent loop (gen_statem, DynamicSupervisor, rehydration) | 1 Core loop | L | 010, 011 | approved |
-| 013 | LiveView chat UI with streaming | 1 Core loop | M | 012 | planned |
+| 013 | LiveView chat UI with streaming | 1 Core loop | M | 012 | done |
 | 020 | Tool protocol + registry | 2 Tools | M | 012 | planned |
 | 021 | Permission gate + approval UI (M2 fingerprint-bound, M7) | 2 Tools | M | 020, 013 | planned |
 | 022 | Core tools: filesystem, web fetch/search, shell (MuonTrap) | 2 Tools | L | 021 | planned |

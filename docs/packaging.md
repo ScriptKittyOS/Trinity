@@ -168,3 +168,29 @@ something it is not.
 A screenshot of a real window on a real desktop does not exist for macOS, Windows or Linux, and
 Slice 001 exits saying so rather than counting those criteria as met.
 
+
+## Native code in the bundle (slice 013)
+
+Burrito's Linux ERTS is a musl build, and every NIF in the bundle has to be one too. Burrito cross-compiles C
+NIFs (exqlite) with Zig by itself; a Rust NIF it does not touch. `mdex_native` (the markdown renderer's core)
+ships precompiled artifacts, and neither the gnu nor the musl one loads in that ERTS: both need glibc's
+`libgcc_s.so.1` (`_dl_find_object: symbol not found`). The linux package therefore builds it from source for
+`x86_64-unknown-linux-musl` with Zig as the linker:
+
+```
+MDEX_NATIVE_BUILD=1 TRINITY_NIF_TARGET=x86_64-unknown-linux-musl \
+CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=$PWD/scripts/zig-cc-musl \
+MIX_ENV=prod BURRITO_TARGET=linux_x86_64 mix release desktop --overwrite
+```
+
+`rust-toolchain.toml` names the musl target so rustup installs its standard library; `rustler` is a build-time
+dependency for this alone. The result needs `libc.so` only (`readelf -d`), the same shape as the exqlite NIF.
+macOS and Windows load the precompiled artifact for their native ERTS. Whether it loaded is not inferred from
+a boot: `--smoke` prints `TRINITY_SMOKE_MARKDOWN=ok` after rendering one line through the NIF and exits 3
+otherwise, and the `package` workflow's smoke step reads that line on every target.
+
+Two things measured on the way (slice 013 NOTES.md, findings 12 to 14): Burrito reuses the payload it
+extracted to `~/.local/share/.burrito/<name>_erts-<v>_<app v>` for as long as the app version stays the same,
+so a local run of a new binary at the same version runs the old code until that directory is removed; and the
+Burrito wrapper starts `erlexec` directly, so `RELEASE_NAME` is unset in the packaged app (the migrator no
+longer keys on it).

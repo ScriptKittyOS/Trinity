@@ -2,12 +2,18 @@
 # SPDX-License-Identifier: Apache-2.0
 defmodule Trinity.LLM.Providers.Fake do
   @moduledoc """
-  A scripted provider for tests. Slice 011, extended at 012. The default script streams two
+  A scripted provider. Slice 011, extended at 012 and 013. The default script streams two
   text deltas, one tool call in three chunks, usage and done. A test sets a script (`script/1`)
   or a sequence of scripts consumed one per call with the last repeating (`scripts/1`), or asks
   for `n` failures before success (`fail/2`). State is global (a persistent term), because a
   session's Task is not on the test process's `$callers` chain; tests using this provider are
   not `async: true`, and `clear/0` runs in their setup.
+
+  Since slice 013 it lives in `lib/` rather than `test/support`, because development runs it
+  too: `TRINITY_FAKE_PROVIDER=1` puts it in the dev registry (config/runtime.exs) with the
+  `:demo` script, a markdown answer streamed with short pauses, so the chat can be exercised
+  and screenshotted without a key. The script a fresh stream uses when no test set one comes
+  from `config :trinity, Trinity.LLM.Providers.Fake, script: :demo`; absent, the default above.
   """
   @behaviour Trinity.LLM.Provider
 
@@ -23,6 +29,31 @@ defmodule Trinity.LLM.Providers.Fake do
     {:usage, %{input_tokens: 10, output_tokens: 5}},
     {:done, :tool_calls}
   ]
+
+  @demo_text """
+  Hello. I am **Trinity**, running on the scripted provider, so nothing here left the machine.
+
+  Things this answer exercises while it streams:
+
+  - inline `code`, *emphasis* and a [link](https://example.com)
+  - a list that grows one item at a time
+  - a fenced block:
+
+  ```elixir
+  defmodule Trinity.Demo do
+    def answer, do: {:ok, "streamed"}
+  end
+  ```
+
+  | column | value |
+  |---|---|
+  | deltas | many |
+  | patches | few |
+
+  > Raw HTML in the answer is dropped, not rendered: <script>alert(1)</script>
+
+  That is the whole demo.
+  """
 
   @type step :: Trinity.LLM.Event.t() | {:sleep, pos_integer()} | :raise_now
 
@@ -48,15 +79,33 @@ defmodule Trinity.LLM.Providers.Fake do
   @spec calls() :: non_neg_integer()
   def calls, do: :persistent_term.get({__MODULE__, :calls}, 0)
 
-  @doc "Forgets scripts, pending failures and the call count."
+  @doc "The last request a stream call received, or nil. Slice 013's model-switch test reads it."
+  @spec last_request() :: Trinity.LLM.Request.t() | nil
+  def last_request, do: :persistent_term.get({__MODULE__, :last_request}, nil)
+
+  @doc "Forgets scripts, pending failures, the call count and the last request."
   @spec clear() :: :ok
   def clear do
-    for key <- [:scripts, :fail, :calls], do: :persistent_term.erase({__MODULE__, key})
+    for key <- [:scripts, :fail, :calls, :last_request],
+        do: :persistent_term.erase({__MODULE__, key})
+
     :ok
   end
 
+  @doc "The `:demo` script: the markdown answer above, word by word, 30 ms apart."
+  @spec demo_script() :: [step()]
+  def demo_script do
+    words = Regex.split(~r/(?<=\s)/, @demo_text)
+    n = length(words)
+
+    Enum.flat_map(words, &[{:text_delta, &1}, {:sleep, 30}]) ++
+      [{:usage, %{input_tokens: 12, output_tokens: n}}, {:done, :stop}]
+  end
+
   @impl true
-  def stream(_request, _opts, emit) do
+  def stream(request, _opts, emit) do
+    :persistent_term.put({__MODULE__, :last_request}, request)
+
     with :ok <- maybe_fail() do
       events = next_script()
 
@@ -117,9 +166,16 @@ defmodule Trinity.LLM.Providers.Fake do
 
   defp next_script do
     case :persistent_term.get({__MODULE__, :scripts}, nil) do
-      nil -> @default_script
+      nil -> configured_script()
       [only] -> only
       [head | rest] -> (:persistent_term.put({__MODULE__, :scripts}, rest) && head) || head
+    end
+  end
+
+  defp configured_script do
+    case Application.get_env(:trinity, __MODULE__, [])[:script] do
+      :demo -> demo_script()
+      _ -> @default_script
     end
   end
 

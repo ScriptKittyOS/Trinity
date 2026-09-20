@@ -36,6 +36,20 @@ config :trinity,
           other -> raise "TRINITY_DB must be sqlite or postgres, got #{inspect(other)}"
         end)
 
+# Slice 013 (owner decision, 2026-09-20): the packaged Linux binary runs on Burrito's musl ERTS,
+# in which neither precompiled mdex_native artifact loads (both need glibc's libgcc_s), so the
+# linux package builds that NIF from source for the musl target with Zig as the linker
+# (NOTES.md finding 14). Three settings travel together, all compile time:
+#   MDEX_NATIVE_BUILD=1                                  mdex_native compiles instead of downloading
+#   TRINITY_NIF_TARGET=x86_64-unknown-linux-musl         the cargo target, given to Rustler here
+#   CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=scripts/zig-cc-musl
+# Unset, development and the test gate use the precompiled artifact for the host as before.
+nif_target = System.get_env("TRINITY_NIF_TARGET", "")
+
+if nif_target != "" do
+  config :mdex_native, MDExNative.Native, target: nif_target
+end
+
 # Slice 011: the model registry lives in its own file so the live test suite can read it
 # without evaluating the environment-specific imports below.
 import_config "llm.exs"

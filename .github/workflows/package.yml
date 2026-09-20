@@ -102,11 +102,19 @@ jobs:
 
       # --overwrite is not optional. Without it, and with a release directory already
       # present, mix release prompts, gets no stdin, and exits 0 having built nothing.
+      # Slice 013: on Linux, mdex's NIF is built from source for Burrito's musl ERTS, linked
+      # through Zig (scripts/zig-cc-musl; config/config.exs names the three settings and
+      # NOTES.md finding 14 the measurement). rustup installed the musl standard library from
+      # rust-toolchain.toml above. macOS and Windows load the precompiled artifact for their
+      # native ERTS; the smoke step below is what says whether it loaded.
       - name: Build the Burrito binary
         shell: bash
         env:
           BURRITO_TARGET: ${{ matrix.target }}
           MIX_ENV: prod
+          MDEX_NATIVE_BUILD: ${{ runner.os == 'Linux' && '1' || '' }}
+          TRINITY_NIF_TARGET: ${{ runner.os == 'Linux' && 'x86_64-unknown-linux-musl' || '' }}
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: ${{ runner.os == 'Linux' && format('{0}/scripts/zig-cc-musl', github.workspace) || '' }}
         run: |
           set -euo pipefail
           # `mix deps.get` above runs in the default env. On the Windows runner the prod build
@@ -188,6 +196,8 @@ jobs:
           sleep 3
           ours > ps-after.txt
           grep -q '^TRINITY_SMOKE_PORT=[0-9][0-9]*$' smoke.log
+          # Slice 013: the renderer's NIF loaded and rendered in this binary (exit 3 otherwise).
+          grep -q '^TRINITY_SMOKE_MARKDOWN=ok$' smoke.log
           echo "--- ours, before ---"; cat ps-before.txt
           echo "--- ours, after ----"; cat ps-after.txt
           diff ps-before.txt ps-after.txt
@@ -201,6 +211,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "smoke exited $LASTEXITCODE" }
           if (-not (Select-String -Path smoke.log -Pattern '^TRINITY_SMOKE_PORT=\d+$')) {
             throw "no port line"
+          }
+          if (-not (Select-String -Path smoke.log -Pattern '^TRINITY_SMOKE_MARKDOWN=ok$')) {
+            throw "the markdown renderer did not render in this binary (slice 013)"
           }
 
       # AC1's property on a runner, and AC6's per-OS cold start, which used to be skipped.
@@ -233,7 +246,14 @@ jobs:
             [ -n "${PORT:-}" ] && break
             sleep 0.5
           done
-          test -n "${PORT:-}"
+          # No endpoint line in two minutes says nothing on its own either: runs 35512430836
+          # (slice/011), 35515556177 (slice/012) and 35521749862 all failed here on macOS and
+          # Windows with an empty step log. The log the binary wrote goes to stderr first.
+          if [ -z "${PORT:-}" ]; then
+            echo "no 'Running TrinityWeb.Endpoint' line in serve.log after 120 s" >&2
+            echo "--- serve.log ---" >&2; tail -60 serve.log >&2
+            exit 1
+          fi
           # Bounded. The first version of this loop had no limit and the Windows runner sat in
           # it until the run was cancelled by hand: a step that hangs reports nothing and
           # fails nothing, which is the same shape as a workflow that never fires.
@@ -252,6 +272,13 @@ jobs:
           echo "HTTP $code on port $PORT"
           echo "COLD_START_MS=$elapsed" | tee -a "$GITHUB_ENV"
           echo "### ${{ matrix.name }}: cold start to first HTTP 200: **${elapsed} ms**" >> "$GITHUB_STEP_SUMMARY"
+          # A non-200 says nothing on its own: run 35518054546 (slice 013) printed "HTTP 500"
+          # and nothing else, and the log that would have named the exception was never
+          # read. The body and the tail of serve.log go to stderr before the step fails.
+          if [ "$code" != "200" ]; then
+            echo "--- body of GET / ---" >&2; curl -sS "http://127.0.0.1:$PORT/" | head -c 2000 >&2; echo >&2
+            echo "--- serve.log ---" >&2; tail -60 serve.log >&2
+          fi
           test "$code" = "200"
           # Stopping it, and Windows needs its own verb. `kill` from Git-bash does not stop a
           # native Windows process, so the backgrounded .exe outlived the step and the job hung
