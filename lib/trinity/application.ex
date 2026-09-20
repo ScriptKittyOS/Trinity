@@ -37,6 +37,9 @@ defmodule Trinity.Application do
           {Task.Supervisor, name: Trinity.LLM.TaskSupervisor},
           # Slice 012: one session process per conversation, found by id.
           {Registry, keys: :unique, name: Trinity.Registry},
+          # Slice 020: the tool registry and the task supervisor tool calls run under, before
+          # the sessions that call them.
+          Trinity.Tools.Supervisor,
           Trinity.Sessions.Supervisor,
           # Start to serve requests, typically the last entry
           TrinityWeb.Endpoint

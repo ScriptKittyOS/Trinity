@@ -11,13 +11,13 @@ defmodule Trinity.Sessions.Prompt do
   alias Trinity.LLM.Request
   alias Trinity.Sessions.{Message, Persona, SessionRow}
 
-  @doc "The request for the next model call."
-  @spec build(SessionRow.t(), Persona.t() | nil, [Message.t()]) :: Request.t()
-  def build(%SessionRow{} = session, persona, history) do
+  @doc "The request for the next model call; `tools` is the declared surface (slice 020), none by default."
+  @spec build(SessionRow.t(), Persona.t() | nil, [Message.t()], [Request.tool()]) :: Request.t()
+  def build(%SessionRow{} = session, persona, history, tools \\ []) do
     Request.new!(%{
       system: system(persona),
       messages: Enum.map(history, &message/1),
-      tools: [],
+      tools: tools,
       model: session.model || (persona && persona.model),
       params: %{}
     })

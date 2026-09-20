@@ -85,7 +85,7 @@ defmodule Trinity.Sessions.SessionTest do
   end
 
   describe "the tool path (AC6)" do
-    test "a tool call enters tool_wait, the stub answers with an error, a tool row is written, a final message follows",
+    test "a tool call enters tool_wait, an unknown tool answers with an error, a tool row is written, a final message follows",
          %{id: id} do
       # The default script ends in a tool call; the follow-up turn gets a plain script.
       Fake.scripts([nil, script_deltas(3, "final ")] |> Enum.map(&(&1 || default_script())))
@@ -101,7 +101,8 @@ defmodule Trinity.Sessions.SessionTest do
       assert roles == ["user", "assistant", "tool", "assistant"]
       tool = Enum.find(history, &(&1.role == "tool"))
       assert tool.tool_call_id == "call_1"
-      assert tool.content =~ "no_tools"
+      # Slice 012 read the stub's "no_tools"; since slice 020 the runner answers by name.
+      assert tool.content =~ "no such tool"
       assert tool.parts["ok"] == false
       first = Enum.at(history, 1)
 

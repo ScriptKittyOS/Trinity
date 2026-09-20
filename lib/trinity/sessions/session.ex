@@ -224,7 +224,9 @@ defmodule Trinity.Sessions.Session do
     session = Store.get_session(id) || data.session
     data = %{data | session: session}
     persona = session.persona_id && Store.get_persona(session.persona_id)
-    request = Prompt.build(session, persona, Trinity.Sessions.history(id, limit: 500))
+    # Slice 020: the declared surface of this turn, into the request and onto the row.
+    tools = Trinity.Tools.to_llm_tools()
+    request = Prompt.build(session, persona, Trinity.Sessions.history(id, limit: 500), tools)
     ref = make_ref()
     me = self()
 
@@ -234,7 +236,19 @@ defmodule Trinity.Sessions.Session do
         send(me, {:llm_done, ref, result})
       end)
 
-    %{data | turn: %{turn | ref: ref, task: pid, buffer: [], text: "", pending: [], finish: nil}}
+    %{
+      data
+      | turn: %{
+          turn
+          | ref: ref,
+            task: pid,
+            buffer: [],
+            text: "",
+            pending: [],
+            finish: nil,
+            surface: Trinity.Tools.surface()
+        }
+    }
   end
 
   defp fold_event({:text_delta, s}, %State{turn: turn} = data) do
@@ -348,6 +362,7 @@ defmodule Trinity.Sessions.Session do
     }
 
     meta = if turn.finish, do: Map.put(meta, "finish", Atom.to_string(turn.finish)), else: meta
+    meta = Map.put(meta, "tool_surface", turn.surface)
     content = if turn.text == "", do: "(no text)", else: turn.text
 
     result =
@@ -401,9 +416,10 @@ defmodule Trinity.Sessions.Session do
     me = self()
     calls = turn.pending
 
+    # Slice 020: the turn's calls run at once through the runner in force.
     %Task{pid: pid} =
       Task.Supervisor.async_nolink(sup, fn ->
-        results = Enum.map(calls, fn call -> {call, ToolRunner.run(call, %{session_id: id})} end)
+        results = ToolRunner.run_all(calls, %{session_id: id, caller: id})
         send(me, {:tools_done, ref, results})
       end)
 
@@ -413,12 +429,31 @@ defmodule Trinity.Sessions.Session do
     }
   end
 
+  # One `tool` row per answer: the text the model reads, and in `parts` the tool's name, whether
+  # it succeeded, the result's shape (slice 020: content, truncated, meta) and the definition
+  # digest of the tool that answered.
   defp record_tool_results(%State{id: id} = data, results) do
     Enum.each(results, fn {call, result} ->
-      content =
+      {content, ok?, parts} =
         case result do
-          {:ok, text} -> text
-          {:error, reason} -> "error: #{inspect(reason)}"
+          {:ok, %Trinity.Tools.Result{} = r, meta} ->
+            {tool_text(r), true,
+             %{
+               "tool_result" => %{
+                 "content" => r.content,
+                 "truncated" => r.truncated?,
+                 "meta" => r.meta,
+                 "artifacts" => r.artifacts
+               },
+               "tool_definition_digest" => meta["tool_definition_digest"]
+             }}
+
+          {:error, reason, meta} ->
+            {"error: #{error_text(reason)}", false,
+             %{
+               "tool_result" => %{"error" => error_text(reason)},
+               "tool_definition_digest" => meta["tool_definition_digest"]
+             }}
         end
 
       {:ok, _} =
@@ -426,12 +461,30 @@ defmodule Trinity.Sessions.Session do
           role: "tool",
           content: content,
           tool_call_id: call.id,
-          parts: %{"tool" => call.name, "ok" => match?({:ok, _}, result)}
+          parts: Map.merge(%{"tool" => call.name, "ok" => ok?}, parts)
         })
     end)
 
     data
   end
+
+  defp tool_text(%Trinity.Tools.Result{} = r) do
+    case Trinity.Tools.Result.as_text(r) do
+      "" -> "(empty result)"
+      text -> text
+    end
+  end
+
+  defp error_text({:invalid_args, reasons}) when is_list(reasons),
+    do: "invalid arguments: " <> Enum.join(reasons, "; ")
+
+  defp error_text({:crash, {exception, _stack}}) when is_exception(exception),
+    do: "the tool crashed: " <> Exception.message(exception)
+
+  defp error_text({:crash, reason}), do: "the tool crashed: " <> inspect(reason)
+  defp error_text(:timeout), do: "the tool timed out"
+  defp error_text(:unknown_tool), do: "no such tool"
+  defp error_text(reason), do: inspect(reason)
 
   defp cap_reached(%State{id: id, turn: turn} = data, reason) do
     Logger.info("session #{id}: cap reached: #{reason}")

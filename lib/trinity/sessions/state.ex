@@ -25,7 +25,8 @@ defmodule Trinity.Sessions.State do
           started_at: integer(),
           tokens: non_neg_integer(),
           sentinel: [map()],
-          coalesce_timer: reference() | nil
+          coalesce_timer: reference() | nil,
+          surface: %{String.t() => String.t()}
         }
 
   @type t :: %__MODULE__{
@@ -55,7 +56,8 @@ defmodule Trinity.Sessions.State do
       started_at: System.monotonic_time(:millisecond),
       tokens: 0,
       sentinel: [],
-      coalesce_timer: nil
+      coalesce_timer: nil,
+      surface: %{}
     }
   end
 end
