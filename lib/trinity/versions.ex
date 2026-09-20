@@ -222,7 +222,8 @@ defmodule Trinity.Versions do
       name: "floki",
       pin: "~> 0.38",
       lock: "floki",
-      note: "HTML to text for `web_fetch` (Slice 022): script, style, nav, header, footer and aside dropped, the body's text taken."
+      note:
+        "HTML to text for `web_fetch` (Slice 022): script, style, nav, header, footer and aside dropped, the body's text taken."
     },
     %{
       name: "luerl (+ sandbox)",

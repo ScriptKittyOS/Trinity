@@ -15,10 +15,28 @@ config :trinity, :tools,
     Trinity.TestTools.Sleep,
     Trinity.TestTools.Crash,
     Trinity.TestTools.Big,
-    Trinity.TestTools.WriteNote
+    Trinity.TestTools.WriteNote,
+    # Slice 022: the core tools beside the test ones (this key replaces config.exs's list).
+    Trinity.Tools.FS.Read,
+    Trinity.Tools.FS.Write,
+    Trinity.Tools.FS.Edit,
+    Trinity.Tools.FS.List,
+    Trinity.Tools.FS.Glob,
+    Trinity.Tools.FS.Grep,
+    Trinity.Tools.Web.Fetch,
+    Trinity.Tools.Web.Search,
+    Trinity.Tools.Shell.Run
   ],
-  toolsets: %{core: ["echo", "sleep", "crash", "big", "write_note"]},
+  toolsets: %{
+    core: ["echo", "sleep", "crash", "big", "write_note"],
+    fs: ["fs_read", "fs_write", "fs_edit", "fs_list", "fs_glob", "fs_grep"],
+    web: ["web_fetch", "web_search"],
+    shell: ["shell"]
+  },
   timeout_ms: 2_000
+
+# Slice 022: the web search provider in tests is the fake; the tests' roots are set per test.
+config :trinity, :web, search_provider: Trinity.Tools.Web.SearchProvider.Fake
 
 # Slice 021: requests expire fast enough for AC6 to watch, and a session grant lasts an hour.
 config :trinity, :permissions, expiry_ms: 1_000, session_grant_ms: 3_600_000

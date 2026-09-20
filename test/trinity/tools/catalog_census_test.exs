@@ -39,11 +39,12 @@ defmodule Trinity.Tools.CatalogCensusTest do
     # The two plants claim :catalog and are deliberately absent from the attribute: the
     # census must say so by name rather than pass on an empty catalog.
     plants = Enum.sort([CatalogClaimer.name(), CatalogClaimerCore.name()])
-    assert Enum.sort(claimers) == plants
+    assert Enum.sort(claimers) == Enum.sort(plants ++ Catalog.names())
     outside = claimers |> Enum.reject(&(&1 in Catalog.names())) |> Enum.sort()
     assert outside == plants, "a :catalog tool outside the attribute went unnamed"
 
-    assert Catalog.all() == []
+    # Slice 022: the shell is the first real entry.
+    assert Catalog.all() == [{"shell", :exec}]
 
     for {name, tier} <- Catalog.all() do
       assert tier in [:read, :write, :exec, :network, :destructive]
@@ -53,7 +54,9 @@ defmodule Trinity.Tools.CatalogCensusTest do
 
   test "path 1, a runtime registration claiming :catalog, is refused and leaves no entry" do
     assert {:error, :catalog_is_compile_time} = Tools.register(CatalogClaimer)
-    refute Enum.any?(Registry.list(), &(&1.effect == :catalog))
+    # The only :catalog entries are the attribute's, all core.
+    for %{effect: :catalog} = e <- Registry.list(),
+        do: assert(e.kind == :core and e.name in Catalog.names())
   end
 
   test "path 2, a config line naming a :catalog tool absent from the attribute, refuses the registry's start" do

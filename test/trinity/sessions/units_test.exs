@@ -85,7 +85,9 @@ defmodule Trinity.Sessions.UnitsTest do
 
       r1 = Prompt.build(row, persona, history)
       assert r1 == Prompt.build(row, persona, history)
-      assert r1.system == "Be kind."
+      # Slice 022: the system prompt carries the untrusted-content rule after the soul.
+      assert String.starts_with?(r1.system, "Be kind.\n\n")
+      assert String.ends_with?(r1.system, Prompt.untrusted_rule())
       assert r1.model == "fake:chat"
 
       assert [
@@ -96,7 +98,7 @@ defmodule Trinity.Sessions.UnitsTest do
              ] = r1.messages
 
       assert Prompt.build(%SessionRow{id: "s", model: "x:y"}, nil, []).model == "x:y"
-      assert Prompt.build(row, nil, []).system == "You are Trinity."
+      assert String.starts_with?(Prompt.build(row, nil, []).system, "You are Trinity.")
     end
   end
 

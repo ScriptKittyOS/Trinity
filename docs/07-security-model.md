@@ -60,12 +60,41 @@ made against the arguments actually passed; a request left undecided expires int
 - Dangerous-pattern allowlist/denylist (rm -rf /, curl|sh, sudo, chmod 777 …) forces `:destructive`.
 - Working directory jailed to configured roots unless approved.
 
+As built at slice 022, the guarantee per platform. **POSIX (Linux, macOS):** `/bin/sh -c` under a MuonTrap port,
+SIGTERM at the timeout and SIGKILL 500 ms later, the child gone when the port is; the environment scrubbed to
+`PATH`, `HOME`, `LANG`, `LC_ALL`, `TERM`, `TMPDIR` and `USER` (every other name unset, since a port's `env` adds
+to the inherited environment); the timeout at most 600 s; the output capped at 1 MB with the head and the tail
+kept; `Trinity.Tools.Shell.Dangerous` is the pattern list, a tripwire over text and stated as such. **Windows:**
+no runtime in the tree keeps the kill guarantee, so the shell tool answers `available?/0` false and the registry
+does not register it; a `System.cmd` fallback that could orphan a process would be a different tool under the
+same name and is not offered. The approval card states which applies on the machine it runs on, and that the
+BEAM is not an OS sandbox. The shell is a `:catalog` effect (`Trinity.Effects.Catalog`) at risk `:exec`.
+
 ## Filesystem (Slice 022)
 
 - Path allowlist (project roots + data dir). Writes outside → ask.
 - **Write-validation hook**: reject writes whose content contains truncation markers (`/* ... */`, `// ...`,
   `# ... rest unchanged`) unless the file is new or the tool is called with `allow_placeholders: true` after approval.
 - Atomic writes (temp + rename) and a per-file backup ring (last 5) under the data dir.
+
+As built at slice 022: the roots are `config :trinity, :fs, roots:` (`TRINITY_FS_ROOTS` at runtime), the data
+directory always, and the session's working directory; a path is judged after normalisation and symlink
+resolution through its nearest existing ancestor; outside the roots every filesystem tool escalates the call to
+`:ask` (the tier can only rise: `Tool.escalate/2`, `Permissions.effective_tier/2`); the placeholder hook is
+`Trinity.Tools.FS.Placeholders`, applied to `fs_write`'s content and `fs_edit`'s replacement, and
+`allow_placeholders` raises the call to `:destructive`; backups live under `<data dir>/backups/<sha256 of the
+path>/`, five per file, `Trinity.Tools.FS.restore/2` puts one back through the same atomic write.
+
+## Provenance (Slice 022, M1 as built)
+
+Every tool result that came from outside the app is a `Trinity.Content.Part` tainted `untrusted` with a SHA-256
+digest, stored on the `tool` row (`parts.content_parts`, `parts.taint`); the prompt builder renders it inside
+`<untrusted source= ref= digest=>` and the system prompt states that instructions inside such blocks are data;
+a turn's assistant row carries the maximum taint of everything the model read (its history and the turn's tool
+results), so a summary of an untrusted page is itself untrusted, and every later turn in that session is too.
+`blocked` parts are rendered as a placeholder; nothing writes one yet (024's receipts and the sentinel are where
+a block comes from). `web_fetch` refuses no page by content, runs no JavaScript, and escalates a URL whose host
+is not public (loopback, private, link-local) to `:ask`.
 
 ## Skills (Slice 041)
 

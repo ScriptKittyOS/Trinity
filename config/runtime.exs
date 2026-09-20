@@ -41,6 +41,18 @@ if config_env() == :dev do
     http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 end
 
+# Slice 022: the filesystem roots a session may read and write without asking, beside the
+# data directory and the session's working directory: TRINITY_FS_ROOTS, colon-separated.
+if roots = System.get_env("TRINITY_FS_ROOTS") do
+  config :trinity, :fs, roots: String.split(roots, ":", trim: true)
+end
+
+# Slice 022: the search provider's key is read at call time from BRAVE_SEARCH_API_KEY; the
+# provider module is configuration so a fake can stand in.
+if config_env() != :test do
+  config :trinity, :web, search_provider: Trinity.Tools.Web.SearchProvider.Brave
+end
+
 # Slice 013. `TRINITY_FAKE_PROVIDER=1 mix phx.server` runs the chat on the scripted provider:
 # the registry becomes the fake's two entries and a fresh stream answers with its markdown
 # demo, so the UI can be exercised and screenshotted with no key and no egress. Development

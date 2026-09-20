@@ -29,7 +29,8 @@ defmodule Trinity.Sessions.State do
           coalesce_timer: reference() | nil,
           surface: %{String.t() => String.t()},
           awaiting: %{String.t() => map()},
-          held: [map()]
+          held: [map()],
+          taint: Trinity.Content.Part.taint()
         }
 
   @type t :: %__MODULE__{
@@ -62,7 +63,8 @@ defmodule Trinity.Sessions.State do
       coalesce_timer: nil,
       surface: %{},
       awaiting: %{},
-      held: []
+      held: [],
+      taint: :trusted
     }
   end
 end

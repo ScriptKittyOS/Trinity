@@ -35,6 +35,21 @@ defmodule Trinity.Permissions do
   @spec tier(String.t()) :: tier()
   def tier(name) when is_binary(name), do: Map.get(core_tiers(), name, :ask)
 
+  @doc """
+  The tier a call is judged at: the name's, raised by the tool's escalation when that is
+  higher (slice 022). An escalation can never lower a tier; `:ask` is the highest.
+  """
+  @spec effective_tier(String.t(), tier() | nil) :: tier()
+  def effective_tier(name, nil), do: tier(name)
+
+  def effective_tier(name, escalation) do
+    base = tier(name)
+    if rank(escalation) > rank(base), do: escalation, else: base
+  end
+
+  @ranks %{read: 0, network: 1, write: 2, exec: 3, destructive: 4, ask: 5}
+  defp rank(tier), do: Map.fetch!(@ranks, tier)
+
   @doc "The core names with a tier, for the census."
   @spec mapped_names() :: [String.t()]
   def mapped_names, do: core_tiers() |> Map.keys() |> Enum.sort()
@@ -59,7 +74,8 @@ defmodule Trinity.Permissions do
 
   @doc """
   The decision for one call, from the policy in force. `opts`: `persona:` (the row, for its
-  `settings["permissions"]`), `cwd:` (bound into the fingerprint).
+  `settings["permissions"]`), `cwd:` (bound into the fingerprint), `escalate:` (a tier the
+  tool raised the call to from its arguments; it can only raise).
   """
   @spec decide(String.t() | nil, String.t(), map(), keyword()) :: decision()
   def decide(session_id, tool, args, opts \\ []), do: impl().decide(session_id, tool, args, opts)

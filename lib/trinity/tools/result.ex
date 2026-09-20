@@ -3,18 +3,21 @@
 defmodule Trinity.Tools.Result do
   @moduledoc """
   What a tool returns. Slice 020. `content` is text or a map (rendered as JSON for the model);
-  `artifacts` are references to files a tool wrote under the data directory (none does at this
-  slice); `truncated?` and `meta.original_bytes` say when `cap/2` cut the content.
+  `parts` (slice 022) carry the content's provenance as `Trinity.Content.Part`s, empty for a
+  result the tool itself authored and one untrusted part for anything that came from outside
+  the app; `artifacts` are references to files a tool wrote (a backup, a path); `truncated?`
+  and `meta.original_bytes` say when `cap/2` cut the content.
   """
 
   @type t :: %__MODULE__{
           content: String.t() | map(),
+          parts: [Trinity.Content.Part.t()],
           artifacts: [map()],
           truncated?: boolean(),
           meta: map()
         }
 
-  defstruct content: "", artifacts: [], truncated?: false, meta: %{}
+  defstruct content: "", parts: [], artifacts: [], truncated?: false, meta: %{}
 
   @default_cap 65_536
   @marker "\n[truncated: the tool returned more than the cap]"
@@ -39,9 +42,12 @@ defmodule Trinity.Tools.Result do
     text = as_text(result)
 
     if byte_size(text) > bytes do
+      content = cut(text, bytes) <> @marker
+
       %{
         result
-        | content: cut(text, bytes) <> @marker,
+        | content: content,
+          parts: Enum.map(result.parts, &%{&1 | text: content}),
           truncated?: true,
           meta: Map.put(result.meta, "original_bytes", byte_size(text))
       }

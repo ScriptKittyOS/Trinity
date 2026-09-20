@@ -180,13 +180,7 @@ defmodule Trinity.Tools.RunnerTest do
     first = Enum.at(history, 1)
     assert first.provider_meta["tool_surface"] == Tools.surface()
 
-    assert Map.keys(first.provider_meta["tool_surface"]) == [
-             "big",
-             "crash",
-             "echo",
-             "sleep",
-             "write_note"
-           ]
+    assert Map.keys(first.provider_meta["tool_surface"]) == Enum.map(Tools.list(), & &1.name)
 
     assert Tools.surface_diff(history) == [%{seq: 2, name: "get_weather", reason: :undeclared}]
   end

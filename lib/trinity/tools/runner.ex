@@ -75,7 +75,11 @@ defmodule Trinity.Tools.Runner do
     with {:ok, entry} <- Registry.lookup(name),
          {:ok, args} <- validate(entry, args),
          :allow <-
-           Permissions.decide(ctx.session_id, name, args, persona: ctx.persona, cwd: ctx.cwd),
+           Permissions.decide(ctx.session_id, name, args,
+             persona: ctx.persona,
+             cwd: ctx.cwd,
+             escalate: escalation(entry, args, ctx)
+           ),
          {:ok, %Result{} = result} <- call_tool(entry, args, ctx) do
       {:ok, Result.cap(result), meta(name)}
     else
@@ -90,11 +94,22 @@ defmodule Trinity.Tools.Runner do
   # Session waits on; without a session there is nobody to ask, and the call is refused.
   defp ask(%Context{session_id: nil}, _name, _args), do: :approval_required
 
-  defp ask(%Context{session_id: sid, cwd: cwd}, name, args) do
-    case Permissions.request_approval(sid, name, args, cwd: cwd) do
+  defp ask(%Context{session_id: sid, cwd: cwd} = ctx, name, args) do
+    risk =
+      case Registry.lookup(name) do
+        {:ok, entry} -> Permissions.effective_tier(name, escalation(entry, args, ctx))
+        _ -> :ask
+      end
+
+    case Permissions.request_approval(sid, name, args, cwd: cwd, risk: risk) do
       {:ok, approval} -> {:approval_required, approval.id}
       {:error, reason} -> {:request_failed, reason}
     end
+  end
+
+  # The tool's own reading of its arguments (slice 022): a tier it raises the call to, or nil.
+  defp escalation(%{module: module}, args, ctx) do
+    if function_exported?(module, :escalate, 2), do: module.escalate(args, ctx), else: nil
   end
 
   defp validate(%{module: module}, args) do

@@ -45,7 +45,17 @@ defmodule Trinity.Tools.Tool do
   @doc "The text the model reads for a result. Default: the content as text."
   @callback format_result(Result.t()) :: String.t()
 
-  @optional_callbacks timeout: 0, format_result: 1
+  @doc """
+  A tier this call is raised to, from its arguments (slice 022): a read outside the roots is
+  `:ask`, a dangerous shell command `:destructive`. It can only raise; the gate takes the higher
+  of the name's tier and this. `nil` leaves the name's tier alone.
+  """
+  @callback escalate(args(), Context.t()) :: risk() | :ask | nil
+
+  @doc "False on a platform where the tool cannot keep its guarantee (slice 022: the shell on Windows); the registry skips it."
+  @callback available?() :: boolean()
+
+  @optional_callbacks timeout: 0, format_result: 1, escalate: 2, available?: 0
 
   @doc "True when `module` implements this behaviour."
   @spec implemented_by?(module()) :: boolean()

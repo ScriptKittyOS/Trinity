@@ -50,6 +50,31 @@ if nif_target != "" do
   config :mdex_native, MDExNative.Native, target: nif_target
 end
 
+# Slice 022: the core tools, every environment, and the toolsets they belong to. A tool is a
+# module implementing Trinity.Tools.Tool plus a line here (docs/03). The shell answers
+# available?/0 false on Windows and is skipped there with a logged reason.
+config :trinity, :tools,
+  modules: [
+    Trinity.Tools.FS.Read,
+    Trinity.Tools.FS.Write,
+    Trinity.Tools.FS.Edit,
+    Trinity.Tools.FS.List,
+    Trinity.Tools.FS.Glob,
+    Trinity.Tools.FS.Grep,
+    Trinity.Tools.Web.Fetch,
+    Trinity.Tools.Web.Search,
+    Trinity.Tools.Shell.Run
+  ],
+  toolsets: %{
+    fs: ["fs_read", "fs_write", "fs_edit", "fs_list", "fs_glob", "fs_grep"],
+    web: ["web_fetch", "web_search"],
+    shell: ["shell"]
+  }
+
+# Slice 022: the filesystem roots beside the data directory (always a root) and the session's
+# working directory. Empty here; config/runtime.exs reads TRINITY_FS_ROOTS (colon-separated).
+config :trinity, :fs, roots: []
+
 # Slice 011: the model registry lives in its own file so the live test suite can read it
 # without evaluating the environment-specific imports below.
 import_config "llm.exs"

@@ -17,6 +17,8 @@ defmodule Trinity.Tools.Registry do
   """
   use GenServer
 
+  require Logger
+
   alias Trinity.Effects.Catalog
   alias Trinity.Tools.{Schema, Tool}
 
@@ -103,7 +105,7 @@ defmodule Trinity.Tools.Registry do
     toolsets = Keyword.get(config, :toolsets, %{})
 
     entries =
-      for module <- Keyword.get(config, :modules, []) do
+      for module <- Keyword.get(config, :modules, []), available?(module) do
         case admit(module, :core, toolsets) do
           {:ok, entry} ->
             :ets.insert(table, {entry.name, entry})
@@ -143,6 +145,21 @@ defmodule Trinity.Tools.Registry do
       end
 
     {:reply, reply, state}
+  end
+
+  # A core tool may say it cannot keep its guarantee on this platform (slice 022: the shell on
+  # Windows); it is skipped with a logged reason rather than registered as something it is not.
+  defp available?(module) do
+    if Code.ensure_loaded?(module) and function_exported?(module, :available?, 0) and
+         not module.available?() do
+      Logger.warning(
+        "tool #{inspect(module)} is not available on this platform and was not registered"
+      )
+
+      false
+    else
+      true
+    end
   end
 
   ## Admission: the same checks for both kinds, plus the dynamic rules.

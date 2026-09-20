@@ -26,7 +26,8 @@ defmodule Trinity do
         Permissions,
         Permissions.Approval,
         Permissions.Rule,
-        Effects.Catalog
+        Effects.Catalog,
+        Content.Part
       ] ++
         if(Mix.env() == :test, do: [DataCase, NetworkGuard, Factory], else: [])
 
