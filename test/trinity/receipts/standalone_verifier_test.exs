@@ -85,7 +85,7 @@ defmodule Trinity.Receipts.StandaloneVerifierTest do
     assert {"compromised key: " <> _, 6} = run_script(dir, compromised)
 
     assert {"invalid: {:scheme_not_allowed, " <> _, 1} =
-             run_script(dir, export, ["--schemes", "receipt_v2_p384"])
+             run_script(dir, export, ["--schemes", other_scheme()])
 
     {out, 2} =
       System.cmd("elixir", [Path.join(dir, "verify_receipt.exs")],
@@ -94,6 +94,14 @@ defmodule Trinity.Receipts.StandaloneVerifierTest do
       )
 
     assert out =~ "usage"
+  end
+
+  # A scheme the chain is not: P-384's where the selection is Ed25519, Ed25519's on the fips leg.
+  defp other_scheme do
+    case Trinity.Receipts.KeyCustody.selected() do
+      %{algorithm: :ed25519} -> "receipt_v2_p384"
+      _ -> "receipt_v2_ed25519"
+    end
   end
 
   test "the script and the in-app verifier agree on every outcome", %{scope: scope, dir: dir} do

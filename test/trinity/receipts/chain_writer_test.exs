@@ -75,7 +75,7 @@ defmodule Trinity.Receipts.ChainWriterTest do
     assert Map.keys(body) |> Enum.sort() ==
              ~w(at chain_scope decision fingerprint key_id kind prev_hash scheme seq subject)
 
-    assert body["scheme"] == "receipt_v2_ed25519"
+    assert body["scheme"] == impl.scheme()
   end
 
   test "concurrent appenders to one scope produce one chain: no two rows share a prev_hash", %{

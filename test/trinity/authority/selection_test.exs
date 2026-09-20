@@ -80,20 +80,28 @@ defmodule Trinity.Authority.SelectionTest do
     peers =
       for port <- Port.list(),
           {:name, ~c"tcp_inet"} <- [Port.info(port, :name)],
-          {:ok, _} <- [:inet.peername(port)],
+          {:ok, peer} <- [:inet.peername(port)],
           {:connected, pid} <- [Port.info(port, :connected)],
-          do: {port, initial_call(pid)}
+          do: {port, peer, describe(pid)}
 
-    for {port, call} <- peers do
+    for {port, peer, %{initial_call: call} = who} <- peers do
       assert call in [{DBConnection.Connection, :init, 1}, {Postgrex.Protocol, :init, 1}],
-             "an outbound connection not owned by the database: #{inspect(port)} #{inspect(call)}"
+             "an outbound connection not owned by the database: #{inspect(port)} to #{inspect(peer)} owned by #{inspect(who)}"
     end
   end
 
-  defp initial_call(pid) do
-    case Process.info(pid, :dictionary) do
-      {:dictionary, d} -> Keyword.get(d, :"$initial_call")
-      _ -> nil
-    end
+  defp describe(pid) do
+    d =
+      case Process.info(pid, :dictionary) do
+        {:dictionary, d} -> d
+        _ -> []
+      end
+
+    %{
+      initial_call: Keyword.get(d, :"$initial_call"),
+      ancestors: Keyword.get(d, :"$ancestors"),
+      registered: Process.info(pid, :registered_name),
+      links: Process.info(pid, :links)
+    }
   end
 end

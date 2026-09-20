@@ -144,21 +144,30 @@ defmodule Trinity.Receipts.VerifierTest do
        %{scope: scope} do
     export = build(scope, 4)
     [row | _] = export["registry"]
-    assert row["algorithm"] == "ed25519"
+    # The chain's family is the selection's (Ed25519 here, P-384 on the fips leg); the foreign
+    # family is the other one. P-384 signs everywhere; Ed25519 does not in FIPS mode, so the
+    # half that needs a real foreign signature runs only where its signer is available.
+    %{algorithm: here} = Trinity.Receipts.KeyCustody.selected()
+    here_s = Atom.to_string(here)
+    assert row["algorithm"] == here_s
+    foreign = if here == :ed25519, do: :p384, else: :ed25519
+    foreign_impl = Signer.impl(foreign)
+    foreign_scheme = foreign_impl.scheme()
+    here_scheme = Signer.impl(here).scheme()
 
-    # Mutant 1 (the registry lookup dropped): a receipt whose scheme names P-384 while its key's
-    # registry row says Ed25519 must be refused for the family mismatch, before any signature
-    # is checked; a verifier that read the algorithm from the receipt would try P-384 and
-    # report a signature failure instead. The reason names the refusal, so the two are
-    # distinguishable.
+    # Mutant 1 (the registry lookup dropped): a receipt whose scheme names the foreign family
+    # while its key's registry row says the chain's must be refused for the family mismatch,
+    # before any signature is checked; a verifier that read the algorithm from the receipt
+    # would try the foreign family and report a signature failure instead. The reason names
+    # the refusal, so the two are distinguishable.
     claimed =
       update_in(export["receipts"], fn rows ->
         Enum.map(rows, fn r ->
-          if r["seq"] == 1, do: Map.put(r, "scheme", "receipt_v2_p384"), else: r
+          if r["seq"] == 1, do: Map.put(r, "scheme", foreign_scheme), else: r
         end)
       end)
 
-    assert {:error, 1, {:scheme_family_mismatch, 1, "receipt_v2_p384", "ed25519"}} =
+    assert {:error, 1, {:scheme_family_mismatch, 1, ^foreign_scheme, ^here_s}} =
              Verifier.verify(claimed)
 
     # The same with the body and the hash rewritten to agree with the column (an attacker who
@@ -167,13 +176,13 @@ defmodule Trinity.Receipts.VerifierTest do
       update_in(export["receipts"], fn rows ->
         Enum.map(rows, fn r ->
           if r["seq"] == 1 do
-            body = r["signed_payload"] |> JSON.decode!() |> Map.put("scheme", "receipt_v2_p384")
+            body = r["signed_payload"] |> JSON.decode!() |> Map.put("scheme", foreign_scheme)
             payload = Envelope.canonical(body)
-            bytes = Envelope.pae(Envelope.receipt_type("receipt_v2_p384"), payload)
+            bytes = Envelope.pae(Envelope.receipt_type(foreign_scheme), payload)
 
             %{
               r
-              | "scheme" => "receipt_v2_p384",
+              | "scheme" => foreign_scheme,
                 "signed_payload" => payload,
                 "receipt_hash" => Envelope.hash(bytes)
             }
@@ -183,20 +192,33 @@ defmodule Trinity.Receipts.VerifierTest do
         end)
       end)
 
-    assert {:error, 1, {:scheme_family_mismatch, 1, "receipt_v2_p384", "ed25519"}} =
+    assert {:error, 1, {:scheme_family_mismatch, 1, ^foreign_scheme, ^here_s}} =
              Verifier.verify(rebuilt)
 
-    # Mutant 2 (the scheme check dropped): a P-384 receipt with a P-384 key in the registry,
-    # presented to a verifier told to accept only the Ed25519 family, is refused at the
-    # scheme string; with all three schemes allowed it is a valid row on its own.
-    {pub, priv} = Signer.P384.generate_key()
-    jwk = Signer.P384.jwk(pub)
-    p384_id = Signer.thumbprint(jwk)
+    # Mutant 2 (the scheme check dropped): a receipt of the foreign family with its own key in
+    # the registry, presented to a verifier told to accept only the chain's family, is refused
+    # at the scheme string. Where the foreign signer is available the same row, with all three
+    # schemes allowed, is a valid row on its own; where it is not (Ed25519 in FIPS mode) the
+    # row carries a signature that cannot be made here and only the refusal is asserted.
+    {pub, sig_fun} =
+      if foreign_impl.available?() do
+        {pub, priv} = foreign_impl.generate_key()
+        {pub, fn bytes -> foreign_impl.sign(bytes, priv) end}
+      else
+        {:crypto.strong_rand_bytes(32), fn _ -> :crypto.strong_rand_bytes(64) end}
+      end
 
-    p384_row = %{
-      "key_id" => p384_id,
-      "algorithm" => "p384",
-      "scheme" => "receipt_v2_p384",
+    jwk = foreign_impl.jwk(pub)
+
+    foreign_id =
+      if jwk,
+        do: Signer.thumbprint(jwk),
+        else: Base.url_encode64(:crypto.hash(:sha256, pub), padding: false)
+
+    foreign_row = %{
+      "key_id" => foreign_id,
+      "algorithm" => Atom.to_string(foreign),
+      "scheme" => foreign_scheme,
       "jwk" => jwk,
       "public_key_b64" => Base.encode64(pub),
       "status" => "active",
@@ -205,7 +227,7 @@ defmodule Trinity.Receipts.VerifierTest do
     }
 
     body = %{
-      "scheme" => "receipt_v2_p384",
+      "scheme" => foreign_scheme,
       "seq" => 1,
       "chain_scope" => "other",
       "prev_hash" => nil,
@@ -214,35 +236,36 @@ defmodule Trinity.Receipts.VerifierTest do
       "decision" => %{"outcome" => "allow"},
       "fingerprint" => nil,
       "at" => "2026-09-20T00:00:00Z",
-      "key_id" => p384_id
+      "key_id" => foreign_id
     }
 
     payload = Envelope.canonical(body)
-    bytes = Envelope.pae(Envelope.receipt_type("receipt_v2_p384"), payload)
+    bytes = Envelope.pae(Envelope.receipt_type(foreign_scheme), payload)
 
-    foreign = %{
+    foreign_export = %{
       "receipts" => [
         %{
           "chain_scope" => "other",
           "seq" => 1,
           "prev_hash" => nil,
           "receipt_hash" => Envelope.hash(bytes),
-          "scheme" => "receipt_v2_p384",
+          "scheme" => foreign_scheme,
           "kind" => "decision",
           "signed_payload" => payload,
-          "signature_b64" => Base.encode64(Signer.P384.sign(bytes, priv)),
-          "key_id" => p384_id,
+          "signature_b64" => Base.encode64(sig_fun.(bytes)),
+          "key_id" => foreign_id,
           "meta" => %{}
         }
       ],
       "checkpoints" => [],
-      "registry" => [p384_row]
+      "registry" => [foreign_row]
     }
 
-    assert {:ok, %{receipts: 1}} = Verifier.verify(foreign)
+    if foreign_impl.available?(),
+      do: assert({:ok, %{receipts: 1}} = Verifier.verify(foreign_export))
 
-    assert {:error, 1, {:scheme_not_allowed, 1, "receipt_v2_p384"}} =
-             Verifier.verify(foreign, schemes: ["receipt_v2_ed25519"])
+    assert {:error, 1, {:scheme_not_allowed, 1, ^foreign_scheme}} =
+             Verifier.verify(foreign_export, schemes: [here_scheme])
   end
 
   test "coverage: a query receipt no checkpoint covers is 1 unless the caller waives coverage", %{
