@@ -29,6 +29,9 @@ defmodule TrinityWeb.SessionLive.Index do
     <Layouts.app flash={@flash}>
       <:bar>
         <span class="opacity-70">{gettext("Sessions")}</span>
+        <.link id="search-link" navigate={~p"/search"} class="text-meta opacity-70 hover:opacity-100">
+          {gettext("search")}
+        </.link>
       </:bar>
       <div
         id="index"

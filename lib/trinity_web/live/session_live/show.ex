@@ -348,6 +348,9 @@ defmodule TrinityWeb.SessionLive.Show do
         >
           {gettext("receipts")}
         </.link>
+        <.link id="search-link" navigate={~p"/search"} class="text-meta opacity-70 hover:opacity-100">
+          {gettext("search")}
+        </.link>
       </:bar>
       <div id="chat" phx-hook="Shortcuts" class="mx-auto flex h-full max-w-4xl flex-col">
         <div
