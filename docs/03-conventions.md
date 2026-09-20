@@ -27,6 +27,21 @@
   previous slice fails until a NOTES.md justification names the reason. The rule as originally written stored no
   baseline, so nothing could check it, which is the pattern CLAUDE.md §8 forbids.
 
+## Tools (slice 020)
+
+- A tool is a module implementing `Trinity.Tools.Tool` (`name/0`, `description/0`, `schema/0` as a JSON Schema
+  map with string keys, `risk/0`, `effect/0`, `execute/2`, optional `timeout/0` and `format_result/1`) plus one
+  line in `config :trinity, :tools` (`modules:`; `toolsets:` groups names). No core module changes; the
+  registry test asserts `git grep TestTools lib/` finds nothing.
+- Tool modules are stateless. A runtime with state (a shell, a browser) is a child of `Trinity.Tools.Supervisor`
+  the tool looks up.
+- `effect/0` is `:none` (a read), `:artifact` (a local write) or `:catalog` (an external effect). A `:catalog`
+  tool is listed in `Trinity.Effects.Catalog`'s module attribute or it does not start; nothing registered at
+  runtime may claim it. A runtime tool's name is namespaced (`mcp:<server>:<tool>`, `skill:<name>`); core
+  names are reserved; the tier map in `Trinity.Permissions` is code and lists core names only.
+- A tool returns `{:ok, %Trinity.Tools.Result{}}` or `{:error, reason}`; the runner caps the content at
+  `result_cap_bytes` (64 KB) with a marker. Arguments arrive validated; a tool never repairs them either.
+
 ## UI (decided at slice 013)
 
 - Tokens live in `assets/css/app.css` and nothing else names a colour, a radius or a font: two daisyUI themes

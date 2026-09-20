@@ -7,6 +7,18 @@ import Config
 # The MIX_TEST_PARTITION environment variable can be used
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
+# Slice 020: the test tools, and the toolset the core ones belong to. AC1's one config line
+# is the `modules:` entry; a tool module in test/support plus this line is the whole change.
+config :trinity, :tools,
+  modules: [
+    Trinity.TestTools.Echo,
+    Trinity.TestTools.Sleep,
+    Trinity.TestTools.Crash,
+    Trinity.TestTools.Big
+  ],
+  toolsets: %{core: ["echo", "sleep", "crash", "big"]},
+  timeout_ms: 2_000
+
 # Slice 012: sessions hibernate and stop quickly in tests so AC8 is observable in seconds.
 config :trinity, :sessions, idle_hibernate_ms: 200, idle_stop_ms: 60_000
 

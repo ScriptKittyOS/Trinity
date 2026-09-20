@@ -23,7 +23,9 @@ Trinity.Application
 ├── Trinity.Sessions.Supervisor (DynamicSupervisor) # one Trinity.Sessions.Session per conversation. Slice 012, as built
 │     └── Trinity.Sessions.Session (gen_statem)   # states: idle → thinking → tool_wait → approval_wait → compacting → error
 │           └── Task.Supervisor (started by the Session, linked, unnamed) # the model call and the tool calls of one turn
-├── Trinity.Tools.Supervisor                      # tool runtime (ports, browsers). Slice 020/022
+├── Trinity.Tools.Supervisor                      # Slice 020, as built: Trinity.Tools.TaskSupervisor (every tool
+│     │                                         # call of a turn runs under it) and Trinity.Tools.Registry
+│     │                                         # (GenServer over ETS). 022 adds the stateful runtimes beside them
 ├── Trinity.Permissions.Gate                      # approval requests + allowlist cache. Slice 021
 ├── Trinity.Receipts.Supervisor                   # Slice 024
 │     └── Trinity.Receipts.ChainWriter (one per chain_scope, :unique in Trinity.Registry; ADR-0013)
@@ -112,6 +114,17 @@ UI/Gateway ──user_message──▶ Session(gen_statem)
 
 Every state transition is persisted before it is broadcast. A crash between persist and broadcast is safe
 (rehydrate re-broadcasts the last state).
+
+**Tool calls (Slice 020):** at `{:done, :tool_calls}` the Session hands the turn's calls to
+`Trinity.Sessions.ToolRunner.run_all/2`, the seam whose implementation in force is `Trinity.Tools.Runner`
+(config, so a test can put the stub back). The runner runs every call at once under
+`Trinity.Tools.TaskSupervisor`, each with its tool's timeout: lookup, `jsv` validation of the arguments
+(refused, never repaired), `Trinity.Permissions.decide/3` once, `execute/2`, the result cap. A crash, a timeout
+and an unknown name are error results the model reads; the Session writes one `tool` row per answer with the
+tool's definition digest. Each turn's request carries the declared surface (`Trinity.Tools.to_llm_tools/0`) and
+the assistant row records it (`provider_meta.tool_surface`); `Trinity.Tools.surface_diff/1` over a history names
+the calls a turn made outside it. Sessions depends on Tools; Tools depends on Permissions and never on Sessions
+(the runner implements the seam's functions without naming the behaviour, which would close a cycle).
 
 **Effect path (Slice 024):** `Session → Permissions.decide → Effects.execute → Authority → tool.execute/2 (local) or a proposal (external adapter) → Receipts.append`. `Effects` is the only caller of `execute/2` for effectful tools; a census test enforces it. Reads emit query receipts.
 

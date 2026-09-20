@@ -36,7 +36,7 @@ with adapter-specific `execute/1` guarded by `repo().__adapter__()`.
 | role | string | "system" \| "user" \| "assistant" \| "tool" |
 | content | text | plain text or JSON for tool payloads |
 | parts | map | structured content parts (text, tool_call, tool_result, image ref). Every part carries `origin`, `source_ref`, `digest` and `taint ∈ {trusted, untrusted, blocked}`; summaries inherit the maximum taint of their inputs (Slice 022) |
-| tool_call_id | string, nullable | |
+| tool_call_id | string, nullable | the assistant row's call id a `tool` row answers (Slice 012); its `parts` carry `tool`, `ok`, `tool_result` (`content`, `truncated`, `meta`, `artifacts`, or `error`) and `tool_definition_digest`, and the assistant row's `provider_meta.tool_surface` maps every declared tool name to its digest (Slice 020) |
 | usage | map, nullable | prompt/completion tokens, cost |
 | provider_meta | map | model, finish reason, latency |
 Append-only. Editing is a new message with `parts.supersedes`. One edit is allowed and named (slice 012): an

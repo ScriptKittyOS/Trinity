@@ -8,3 +8,7 @@ Ecto.Adapters.SQL.Sandbox.mode(Trinity.Repo, :manual)
 
 # Slice 011: the Mox mock the registry's :mock provider points at.
 Mox.defmock(Trinity.LLM.ProviderMock, for: Trinity.LLM.Provider)
+# Slice 020: a tool whose execute/2 a test can forbid (AC6), and a policy whose decide/3 a
+# test can count (AC7).
+Mox.defmock(Trinity.Tools.ToolMock, for: Trinity.Tools.Tool)
+Mox.defmock(Trinity.Permissions.PolicyMock, for: Trinity.Permissions.Policy)
