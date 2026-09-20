@@ -40,7 +40,7 @@ standards register names the rows that ask for them.
 | 020 | Tool protocol + registry | 2 Tools | M | 012 | approved |
 | 021 | Permission gate + approval UI (M2 fingerprint-bound, M7) | 2 Tools | M | 020, 013 | approved |
 | 022 | Core tools: filesystem, web fetch/search, shell (MuonTrap) | 2 Tools | L | 021 | approved |
-| 023 | Context compaction + session lineage | 2 Tools | M | 012 | planned |
+| 023 | Context compaction + session lineage | 2 Tools | M | 012 | in_progress |
 | 024 | Effect catalog, authority selection (`TRINITY_AUTHORITY`), local receipts | 2 Tools | L | 021, 022 | planned |
 | 025 | Encryption at rest, and the key-custody seam | 2 Tools | M | 010, 024 | planned |
 | 026 | Store-and-forward receipts for disconnected operation | 2 Tools | L | 024 | planned |
