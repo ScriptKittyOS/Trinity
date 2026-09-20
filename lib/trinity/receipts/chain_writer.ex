@@ -166,53 +166,59 @@ defmodule Trinity.Receipts.ChainWriter do
     unless kind in Receipt.kinds(),
       do: raise(ArgumentError, "unknown receipt kind #{inspect(kind)}")
 
-    with {:ok, %{scheme: scheme, key_id: key_id}} <- selection() do
-      seq = state.seq + 1
-      at = DateTime.utc_now()
+    with {:ok, %{scheme: scheme, key_id: key_id}} <- selection(),
+         {row, at} = build_row(attrs, kind, scheme, key_id, state),
+         bytes = Envelope.pae(Envelope.receipt_type(scheme), row.signed_payload),
+         {:ok, signature} <- sign_if_needed(kind, bytes) do
+      insert_row(%{row | signature: signature, inserted_at: at}, state)
+    end
+  end
 
-      body = %{
-        "scheme" => scheme,
-        "seq" => seq,
-        "chain_scope" => state.scope,
-        "prev_hash" => state.prev_hash,
-        "kind" => kind,
-        "subject" => Map.get(attrs, :subject, %{}),
-        "decision" => Map.get(attrs, :decision),
-        "fingerprint" => Map.get(attrs, :fingerprint),
-        "at" => DateTime.to_iso8601(at),
-        "key_id" => key_id
-      }
+  defp build_row(attrs, kind, scheme, key_id, state) do
+    seq = state.seq + 1
+    at = DateTime.utc_now()
 
-      payload = Envelope.canonical(body)
-      bytes = Envelope.pae(Envelope.receipt_type(scheme), payload)
-      hash = Envelope.hash(bytes)
+    body = %{
+      "scheme" => scheme,
+      "seq" => seq,
+      "chain_scope" => state.scope,
+      "prev_hash" => state.prev_hash,
+      "kind" => kind,
+      "subject" => Map.get(attrs, :subject, %{}),
+      "decision" => Map.get(attrs, :decision),
+      "fingerprint" => Map.get(attrs, :fingerprint),
+      "at" => DateTime.to_iso8601(at),
+      "key_id" => key_id
+    }
 
-      with {:ok, signature} <- sign_if_needed(kind, bytes) do
-        row = %Receipt{
-          chain_scope: state.scope,
-          seq: seq,
-          prev_hash: state.prev_hash,
-          receipt_hash: hash,
-          scheme: scheme,
-          kind: kind,
-          signed_payload: payload,
-          signature: signature,
-          key_id: key_id,
-          subject: Map.get(attrs, :subject, %{}),
-          subject_ref: Map.get(attrs, :subject_ref),
-          meta: Map.get(attrs, :meta, %{}),
-          inserted_at: at
-        }
+    payload = Envelope.canonical(body)
+    hash = Envelope.hash(Envelope.pae(Envelope.receipt_type(scheme), payload))
 
-        case Repo.insert(row) do
-          {:ok, receipt} ->
-            state = %{state | seq: seq, prev_hash: hash}
-            {:ok, receipt, track_uncovered(receipt, state)}
+    row = %Receipt{
+      chain_scope: state.scope,
+      seq: seq,
+      prev_hash: state.prev_hash,
+      receipt_hash: hash,
+      scheme: scheme,
+      kind: kind,
+      signed_payload: payload,
+      key_id: key_id,
+      subject: Map.get(attrs, :subject, %{}),
+      subject_ref: Map.get(attrs, :subject_ref),
+      meta: Map.get(attrs, :meta, %{})
+    }
 
-          {:error, changeset} ->
-            {:error, {:insert, changeset.errors}}
-        end
-      end
+    {row, at}
+  end
+
+  defp insert_row(%Receipt{} = row, state) do
+    case Repo.insert(row) do
+      {:ok, receipt} ->
+        state = %{state | seq: receipt.seq, prev_hash: receipt.receipt_hash}
+        {:ok, receipt, track_uncovered(receipt, state)}
+
+      {:error, changeset} ->
+        {:error, {:insert, changeset.errors}}
     end
   end
 
@@ -273,53 +279,65 @@ defmodule Trinity.Receipts.ChainWriter do
   defp write_checkpoint(%{uncovered_first: nil} = state, _reason), do: {:ok, nil, state}
 
   defp write_checkpoint(state, reason) do
-    with {:ok, %{scheme: scheme, key_id: key_id}} <- selection() do
-      at = DateTime.utc_now()
+    with {:ok, %{scheme: scheme, key_id: key_id}} <- selection(),
+         {row, bytes} = build_checkpoint(state, reason, scheme, key_id),
+         {:ok, signature} <- sign_checkpoint(bytes) do
+      insert_checkpoint(%{row | signature: signature}, state)
+    end
+  end
 
-      body = %{
-        "scheme" => scheme,
-        "chain_scope" => state.scope,
-        "boot_receipt_hash" => Trinity.Receipts.boot_hash(),
-        "first_seq" => state.uncovered_first,
-        "last_seq" => state.seq,
-        "tail_hash" => state.prev_hash,
-        "key_id" => key_id,
-        "reason" => reason,
-        "at" => DateTime.to_iso8601(at)
-      }
+  defp build_checkpoint(state, reason, scheme, key_id) do
+    at = DateTime.utc_now()
 
-      payload = Envelope.canonical(body)
-      bytes = Envelope.pae(Envelope.checkpoint_type(scheme), payload)
+    body = %{
+      "scheme" => scheme,
+      "chain_scope" => state.scope,
+      "boot_receipt_hash" => Trinity.Receipts.boot_hash(),
+      "first_seq" => state.uncovered_first,
+      "last_seq" => state.seq,
+      "tail_hash" => state.prev_hash,
+      "key_id" => key_id,
+      "reason" => reason,
+      "at" => DateTime.to_iso8601(at)
+    }
 
-      case KeyCustody.sign(bytes) do
-        {:ok, signature} ->
-          row = %Checkpoint{
-            chain_scope: state.scope,
-            boot_receipt_hash: body["boot_receipt_hash"],
-            first_seq: state.uncovered_first,
-            last_seq: state.seq,
-            tail_hash: state.prev_hash,
-            scheme: scheme,
-            signed_payload: payload,
-            signature: signature,
-            key_id: key_id,
-            reason: reason,
-            inserted_at: at
-          }
+    payload = Envelope.canonical(body)
 
-          case Repo.insert(row) do
-            {:ok, cp} ->
-              if state.timer, do: Process.cancel_timer(state.timer)
-              {:ok, cp, %{state | uncovered_first: nil, uncovered_count: 0, timer: nil}}
+    row = %Checkpoint{
+      chain_scope: state.scope,
+      boot_receipt_hash: body["boot_receipt_hash"],
+      first_seq: state.uncovered_first,
+      last_seq: state.seq,
+      tail_hash: state.prev_hash,
+      scheme: scheme,
+      signed_payload: payload,
+      key_id: key_id,
+      reason: reason,
+      inserted_at: at
+    }
 
-            {:error, changeset} ->
-              {:error, {:insert, changeset.errors}}
-          end
+    {row, Envelope.pae(Envelope.checkpoint_type(scheme), payload)}
+  end
 
-        {:error, why} ->
-          Trinity.Receipts.Alarm.signer_unavailable(why)
-          {:error, {:signer_unavailable, why}}
-      end
+  defp sign_checkpoint(bytes) do
+    case KeyCustody.sign(bytes) do
+      {:ok, signature} ->
+        {:ok, signature}
+
+      {:error, why} ->
+        Trinity.Receipts.Alarm.signer_unavailable(why)
+        {:error, {:signer_unavailable, why}}
+    end
+  end
+
+  defp insert_checkpoint(%Checkpoint{} = row, state) do
+    case Repo.insert(row) do
+      {:ok, cp} ->
+        if state.timer, do: Process.cancel_timer(state.timer)
+        {:ok, cp, %{state | uncovered_first: nil, uncovered_count: 0, timer: nil}}
+
+      {:error, changeset} ->
+        {:error, {:insert, changeset.errors}}
     end
   end
 
@@ -395,10 +413,8 @@ defmodule Trinity.Receipts.ChainWriter do
       end
 
     with {:ok, rows} <- KeyRegistry.read(dir),
-         %{} = row <- KeyRegistry.lookup(rows, key_id) || {:error, {:unknown_key_id, key_id}},
-         {:ok, pub} <-
-           KeyRegistry.public_key(row) |> ok_or({:error, {:key_without_public, key_id}}) do
-      {:ok, pub}
+         %{} = row <- KeyRegistry.lookup(rows, key_id) || {:error, {:unknown_key_id, key_id}} do
+      KeyRegistry.public_key(row) |> ok_or({:error, {:key_without_public, key_id}})
     end
   end
 

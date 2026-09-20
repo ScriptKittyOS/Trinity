@@ -16,6 +16,8 @@ defmodule Trinity.Receipts.KeyRegistry do
 
   @type row :: %{required(String.t()) => term()}
 
+  Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
+
   @file_name "registry.json"
 
   @doc "The registry file's path in a keys directory."
@@ -23,6 +25,9 @@ defmodule Trinity.Receipts.KeyRegistry do
   def path(keys_dir), do: Path.join(keys_dir, @file_name)
 
   @doc "Every row, oldest first; an absent file is an empty registry."
+  # sobelow_skip reason: Traversal.FileModule: the path is a keys directory the caller took
+  # from configuration or Trinity.Paths, plus the constant file name; never input.
+  @sobelow_skip ["Traversal.FileModule"]
   @spec read(Path.t()) :: {:ok, [row()]} | {:error, term()}
   def read(keys_dir) do
     case File.read(path(keys_dir)) do
@@ -46,6 +51,9 @@ defmodule Trinity.Receipts.KeyRegistry do
   Appends a row. Reads the file, checks every existing row is byte-for-byte what it was,
   writes the array with the row at the end. Returns the rows as written.
   """
+  # sobelow_skip reason: Traversal.FileModule: as read/1, the keys directory plus the constant
+  # file name and its `.tmp` sibling.
+  @sobelow_skip ["Traversal.FileModule"]
   @spec append(Path.t(), row()) :: {:ok, [row()]} | {:error, term()}
   def append(keys_dir, row) when is_map(row) do
     with {:ok, rows} <- read(keys_dir) do

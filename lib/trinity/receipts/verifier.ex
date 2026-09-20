@@ -88,16 +88,18 @@ defmodule Trinity.Receipts.Verifier do
          bytes = Envelope.pae(Envelope.receipt_type(r["scheme"]), r["signed_payload"]),
          :ok <- expect(Envelope.hash(bytes) == r["receipt_hash"], 1, {:hash_mismatch, seq}),
          :ok <- body_matches(r, seq) do
-      if r["kind"] in @signed_kinds do
-        with {:ok, sig} <- decode_sig(r["signature_b64"], seq),
-             {:ok, pub} <- public_key(row, r["key_id"]) do
-          expect(impl.verify(bytes, sig, pub), 1, {:signature_invalid, seq})
-        end
-      else
-        :ok
-      end
+      check_signature(r, bytes, impl, row, seq)
     end
   end
+
+  defp check_signature(%{"kind" => kind} = r, bytes, impl, row, seq) when kind in @signed_kinds do
+    with {:ok, sig} <- decode_sig(r["signature_b64"], seq),
+         {:ok, pub} <- public_key(row, r["key_id"]) do
+      expect(impl.verify(bytes, sig, pub), 1, {:signature_invalid, seq})
+    end
+  end
+
+  defp check_signature(_r, _bytes, _impl, _row, _seq), do: :ok
 
   # The stored body must say what the row says: a row whose columns disagree with its
   # signed body is a row edited after the fact.

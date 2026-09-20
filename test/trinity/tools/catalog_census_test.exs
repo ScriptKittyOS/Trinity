@@ -13,9 +13,9 @@ defmodule Trinity.Tools.CatalogCensusTest do
   """
   use ExUnit.Case, async: false
 
-  alias Trinity.Tools.Catalog
   alias Trinity.TestTools.{CatalogClaimer, CatalogClaimerCore}
   alias Trinity.Tools
+  alias Trinity.Tools.Catalog
   alias Trinity.Tools.Registry
 
   defp tool_modules do

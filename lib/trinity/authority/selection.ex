@@ -44,11 +44,15 @@ defmodule Trinity.Authority.Selection do
   def select("local"), do: {:ok, Trinity.Authority.Local}
 
   def select(value) when is_binary(value) do
-    module = module_from(value)
+    case module_from(value) do
+      :"Elixir.Trinity.Authority.Unknown" ->
+        {:error, {:not_loaded, value}}
 
-    case Trinity.Authority.implemented_by?(module) do
-      :ok -> {:ok, module}
-      {:error, reason} -> {:error, reason}
+      module ->
+        case Trinity.Authority.implemented_by?(module) do
+          :ok -> {:ok, module}
+          {:error, reason} -> {:error, reason}
+        end
     end
   end
 
@@ -60,11 +64,19 @@ defmodule Trinity.Authority.Selection do
   @spec env() :: String.t()
   def env, do: @env
 
-  # "Elixir.Foo.Bar" and "Foo.Bar" both name the Elixir module; an unknown name is an atom
-  # that no module answers to, which `implemented_by?/1` reports as not loaded.
-  defp module_from("Elixir." <> _ = value), do: String.to_atom(value)
-  defp module_from(value), do: String.to_atom("Elixir." <> value)
+  # "Elixir.Foo.Bar" and "Foo.Bar" both name the Elixir module. A loaded module's name is an
+  # existing atom; a name that is no existing atom names no loaded module, so it is reported as
+  # not loaded without ever creating an atom from the environment's text.
+  defp module_from("Elixir." <> _ = value), do: existing(value)
+  defp module_from(value), do: existing("Elixir." <> value)
 
+  defp existing(name) do
+    String.to_existing_atom(name)
+  rescue
+    ArgumentError -> :"Elixir.Trinity.Authority.Unknown"
+  end
+
+  defp format({:not_loaded, m}) when is_binary(m), do: "module #{m} is not loaded"
   defp format({:not_loaded, m}), do: "module #{inspect(m)} is not loaded"
 
   defp format({:missing_callback, m, {f, a}}),

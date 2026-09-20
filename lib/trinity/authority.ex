@@ -52,13 +52,15 @@ defmodule Trinity.Authority do
           :ok
           | {:error, {:not_loaded, module()} | {:missing_callback, module(), {atom(), arity()}}}
   def implemented_by?(module) when is_atom(module) do
-    if Code.ensure_loaded?(module) do
-      case Enum.find(@callbacks, fn {f, a} -> not function_exported?(module, f, a) end) do
-        nil -> :ok
-        missing -> {:error, {:missing_callback, module, missing}}
-      end
-    else
-      {:error, {:not_loaded, module}}
+    if Code.ensure_loaded?(module),
+      do: missing_callback(module),
+      else: {:error, {:not_loaded, module}}
+  end
+
+  defp missing_callback(module) do
+    case Enum.find(@callbacks, fn {f, a} -> not function_exported?(module, f, a) end) do
+      nil -> :ok
+      missing -> {:error, {:missing_callback, module, missing}}
     end
   end
 end

@@ -30,7 +30,7 @@ defmodule Trinity.Effects.Runner do
 
   @doc "The executor: decide and receipt, then read directly or cross the membrane."
   @spec execute(map(), map(), Context.t()) :: {:ok, Result.t()} | {:error, term()}
-  def execute(%{name: name, effect: effect} = entry, args, %Context{} = ctx) do
+  def execute(entry, args, %Context{} = ctx) do
     {decision, fp, reason} =
       case Runner.decide(entry, args, ctx) do
         {:allow, fp} -> {:allow, fp, nil}
@@ -40,37 +40,37 @@ defmodule Trinity.Effects.Runner do
 
     scope = scope(ctx)
 
-    with {:ok, _} <- decision_receipt(scope, entry, ctx, decision, fp, reason) do
-      case {decision, effect} do
-        {:allow, :none} ->
-          result = Runner.call_tool(entry, args, ctx)
-          query_receipt(scope, entry, ctx, result)
-          result
-
-        {:allow, _} ->
-          Trinity.Effects.execute(
-            %Staged{
-              tool: name,
-              module: entry.module,
-              effect: effect,
-              args: args,
-              call_id: ctx.call_id,
-              session_id: ctx.session_id,
-              scope: scope,
-              cwd: ctx.cwd,
-              decision: :allow,
-              fingerprint: fp
-            },
-            ctx
-          )
-
-        {_, _} ->
-          {:error, reason}
-      end
-    else
+    case decision_receipt(scope, entry, ctx, decision, fp, reason) do
+      {:ok, _} -> dispatch(decision, entry, args, ctx, scope, fp, reason)
       {:error, why} -> {:error, {:decision_not_receipted, why}}
     end
   end
+
+  defp dispatch(:allow, %{effect: :none} = entry, args, ctx, scope, _fp, _reason) do
+    result = Runner.call_tool(entry, args, ctx)
+    query_receipt(scope, entry, ctx, result)
+    result
+  end
+
+  defp dispatch(:allow, %{name: name, effect: effect} = entry, args, ctx, scope, fp, _reason) do
+    Trinity.Effects.execute(
+      %Staged{
+        tool: name,
+        module: entry.module,
+        effect: effect,
+        args: args,
+        call_id: ctx.call_id,
+        session_id: ctx.session_id,
+        scope: scope,
+        cwd: ctx.cwd,
+        decision: :allow,
+        fingerprint: fp
+      },
+      ctx
+    )
+  end
+
+  defp dispatch(_decision, _entry, _args, _ctx, _scope, _fp, reason), do: {:error, reason}
 
   @doc "The chain scope a context's receipts go to."
   @spec scope(Context.t()) :: String.t()

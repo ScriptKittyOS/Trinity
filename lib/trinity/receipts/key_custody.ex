@@ -36,6 +36,9 @@ defmodule Trinity.Receipts.KeyCustody do
         }
 
   @doc "The keys directory in force: config `:trinity, :receipts, :keys_dir`, else the data directory's."
+  # sobelow_skip reason: Traversal.FileModule: the directory comes from this application's
+  # configuration or from Trinity.Paths, never from a request.
+  @sobelow_skip ["Traversal.FileModule"]
   @spec keys_dir() :: Path.t()
   def keys_dir do
     case Application.get_env(:trinity, :receipts, [])[:keys_dir] do
@@ -151,6 +154,9 @@ defmodule Trinity.Receipts.KeyCustody do
     end
   end
 
+  # sobelow_skip reason: Traversal.FileModule: `path` is the keys directory plus a constant per
+  # algorithm (key_path/2), never input.
+  @sobelow_skip ["Traversal.FileModule"]
   defp generate(dir, impl, path) do
     {pub, priv} = impl.generate_key()
     jwk = impl.jwk(pub)
@@ -189,6 +195,9 @@ defmodule Trinity.Receipts.KeyCustody do
     end
   end
 
+  # sobelow_skip reason: Traversal.FileModule: `path` is the selection's key path, built by
+  # key_path/2 at boot from the keys directory and the algorithm, never input.
+  @sobelow_skip ["Traversal.FileModule"]
   defp read_private(path, impl, key_id) do
     with {:ok, bin} <- File.read(path),
          {:ok, %{"private_b64" => b64, "key_id" => ^key_id}} <- JSON.decode(bin),
