@@ -3,10 +3,11 @@
 defmodule Trinity do
   # DataCase and NetworkGuard live in test/support, which is compiled only in :test, so the
   # export list is environment-dependent. TrinityWeb.ConnCase crosses the boundary to reach
-  # DataCase, and the live-tagged tests reach NetworkGuard.
+  # DataCase, and the live-tagged tests reach NetworkGuard. Paths is exported at slice 010:
+  # the application asks it for the data directory to lock before the Repo starts.
   use Boundary,
     deps: [],
-    exports: if(Mix.env() == :test, do: [DataCase, NetworkGuard], else: [])
+    exports: [Paths] ++ if(Mix.env() == :test, do: [DataCase, NetworkGuard], else: [])
 
   @moduledoc """
   Trinity keeps the contexts that define your domain
