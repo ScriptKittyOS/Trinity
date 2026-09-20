@@ -66,9 +66,16 @@ if config_env() == :prod do
   # any business writing to.
   database_path = System.get_env("DATABASE_PATH") || Trinity.Paths.database_path()
 
-  config :trinity, Trinity.Repo,
-    database: database_path,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "5")
+  # Slice 010: the pool size is 1 by config/config.exs and is not read from the environment
+  # here, because a larger pool on SQLite is a second writer waiting on busy_timeout, not
+  # capacity. A Postgres build sets its own size below.
+  config :trinity, Trinity.Repo, database: database_path
+
+  if System.get_env("TRINITY_DB") == "postgres" do
+    config :trinity, Trinity.Repo,
+      url: System.get_env("DATABASE_URL") || raise("TRINITY_DB=postgres needs DATABASE_URL"),
+      pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10")
+  end
 
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you

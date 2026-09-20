@@ -65,3 +65,32 @@ exit=0
 The population is `git ls-files '.github/*.yml' '.github/*.yaml' '.github/**/*.yml' '.github/**/*.yaml'`, three
 files today. The parser is Python's yaml module (6.0.1 here, present on the ubuntu runner); its absence is a
 FAIL, not a skip.
+
+## Line 2, 2026-09-20: the one-connection pool, named pragmas, the receipts slot
+
+`config/config.exs` names every pragma (`journal_mode :wal`, `synchronous :normal`, `foreign_keys :on`,
+`busy_timeout 5000`, `cache_size -64000`, `wal_auto_check_point 1000`) and sets `pool_size: 1` for SQLite in
+every environment; dev and test no longer override the pool. The adapter is chosen at compile time from
+`TRINITY_DB` (default sqlite), because `use Ecto.Repo` takes the adapter as a literal; the config says so.
+`Trinity.Repo.Receipts` is declared with the same adapter, not started, not in `:ecto_repos`.
+
+`test/trinity/repo_config_test.exs` reads the pragmas back from a live connection: `wal`, `1` (normal), `1`
+(foreign keys), `1000` (autocheckpoint pages) all read back as configured. **One does not:** `PRAGMA
+busy_timeout` reads `0`, because exqlite installs its own busy handler and applies the timeout on its side of
+it (`deps/exqlite/lib/exqlite/connection.ex`, the comment above `set_busy_timeout/2`, at 0.40.0); the pragma
+would destroy that handler, so the driver never sets it. The test asserts the configured value and the `0`
+together, with the reason. Contention itself is the stress test's job (line 9).
+
+A read pool is not added at this slice: WAL readers do not block the writer, but a one-connection pool
+serialises reads behind writes in the same process queue. Measured need arrives with 012 and 013, and the
+Repo layout admits a read-only replica repo then without moving anything. Recorded under Follow-ups.
+
+```
+$ mix test test/trinity/repo_config_test.exs        → 7 passed
+$ mix compile --warnings-as-errors --force          → Generated trinity app
+$ mix test                                           → 79 passed
+$ mix credo --strict                                 → found no issues
+```
+
+## Follow-ups
+- A read-only replica repo over the same file, when 012 or 013 measures read latency behind the single writer.
