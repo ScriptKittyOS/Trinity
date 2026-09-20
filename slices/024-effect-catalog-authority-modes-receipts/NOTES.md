@@ -187,3 +187,73 @@ Read this date, primary sources only; each amendment names the line of the G1 pl
 What the research did not change: RFC 8785 canonicalisation (the tree already uses it, `jcs` 0.2.0, the RFC
 8785 vector passes); one writer per scope (ADR-0013); signing every decision, effect, boot and cap receipt;
 denial when no approved signer exists; the registry as the only source of the algorithm.
+
+## Findings, 2026-09-20, in the order they were met
+
+1. **The catalog cannot live in `Trinity.Effects`.** The tool registry reads it and Effects depends on Tools, so
+   the boundary compiler refuses `Trinity.Tools` referring to `Trinity.Effects.Catalog`; `classify_to` is for
+   mix tasks and protocols only. The module is `Trinity.Tools.Catalog` (deviation e); the 020 census test
+   follows it; every mention of the old name in docs names the move.
+2. **The boundary compiler counts calls, not child-list atoms.** `Trinity.Application` may list
+   `Trinity.Authority.Selection` as a child but not call `boot!/0`; the selection became a transient child
+   (right after the data directory lock) that refuses the boot by raising. The boot receipt moved from Receipts
+   to `Trinity.Effects.Boot` because it reads CorePolicy, Permissions and Authority, which only Effects may.
+3. **`--warnings-as-errors` on an incremental compile hid boundary violations** until the boundary test's
+   forced compile showed them; `mix compile --force --warnings-as-errors` is the check to run after adding a
+   boundary, recorded here so it is not relearned.
+4. **`:alarm_handler` needs `:sasl`** in `extra_applications`; added.
+5. **A decision made while the tools still run was dropped by the Session** (slice 021's design): the gate
+   broadcasts the request from inside the runner, before the runner returns, and the catch-all clause dropped a
+   decision that arrived in `tool_wait`. Seen once by chance at slice 003's close (its finding 11) and on every
+   run once the decision receipt widened the window from microseconds to a fsync. Fixed as `fix(s021)` at
+   `85c0cdb`: the decided event is postponed in `tool_wait` and redelivered on entering `approval_wait`.
+6. **A killed chain writer was restarted by its supervisor before the test looked**, and a supervisor restart
+   loop on a chain that refuses to start would take the supervisor down: writers are `restart: :temporary`,
+   started again by the next append, which rehydrates.
+7. **The insert census over `git ls-files` sees only tracked files**, which is the population it should see;
+   a new file is invisible to it until staged. Recorded because it looked like a broken census for a minute.
+8. **The signer test's temp-dir boots replaced the suite's selection**; each restores it on exit.
+9. **`Trinity.Effects.Runner.run_all/2` is the seam in force**, and the 020 test that asserted
+   `Trinity.Tools.Runner` was updated; the seam's doc names the change.
+10. **The core policy hash disagreed with itself mid-suite.** `Dbgi` (debug info) stores the expanded AST, and a
+    large map literal in an Ecto query (the `%Ecto.Query{}` struct has more than 32 keys) is rendered there in a
+    key order that depends on the compiling VM's atom table; the boundary test's forced recompile in a second VM
+    produced a `Trinity.Receipts.ChainWriter` beam that differed only in that chunk, and the boot receipt's hash
+    stopped matching `CorePolicy.hash/0` when that test ran first. The hash is now over beams stripped with
+    `:beam_lib.strip/1` (no debug info, no docs): what the code does, not its metadata. Measured: the two
+    differing beams are byte-equal once stripped.
+11. **Credo and sobelow at the gate**: seven readability and nesting findings, refactored; nine sobelow findings,
+    two `String.to_atom` fixed properly (`String.to_existing_atom`; an absent module is reported by its text and
+    no atom is made from the environment), seven file-traversal ones skipped inline with reasons (the paths are
+    the keys directory plus constants).
+12. **The fips leg selected P-384 and three tests named Ed25519** (run 35542450360): the edit that made them
+    mode-aware had never landed (a script aborted on its first assertion and wrote nothing). The tests now derive
+    the chain's family and the foreign one from `KeyCustody.selected/0`; the AC8 half that needs a real foreign
+    signature runs where the foreign signer is available and asserts only the refusal where it is not (Ed25519
+    cannot sign in the mode).
+13. **The outbound-connection assertion found Hex's TLS connection on the runners** (run 35542784455): Mix's Hex
+    client holds a connection to hex.pm (Cloudflare addresses, port 443, `Port<0.13>`, opened before the
+    application, no Trinity ancestor) in the suite's VM there; this machine's warm registry cache never opens
+    one. The assertion is scoped to processes `:application.get_application/1` places in `:trinity`.
+14. **Fail closed includes reads.** A decision that cannot be receipted refuses the call whether or not it has
+    an effect; with no signer, no tool runs. Stated in docs/07 as built. The alternative (reads proceed unreceipted)
+    is a silent gap in the chain and was not taken.
+
+## Deviations found during the build (beside a to d at G1)
+
+- (e) `Trinity.Effects.Catalog` is `Trinity.Tools.Catalog` (finding 1).
+- (f) The boot receipt is written by `Trinity.Effects.Boot`, a child of the application, not by Receipts (finding 2).
+- (g) One effect gives two effect receipts, `admit` before execution and `done` after, so AC5's "next effect
+  denied" is a fact before anything runs and the outcome is on the chain too; a denial is one `denied` receipt.
+- (h) The chain scope for calls without a session is `session:none`.
+
+## Follow-ups
+- Slice 100: move the key to the OS keychain; the registry gets a new row with `custody` `keychain`.
+- Slice 090: the cost of receipts per call (one fsync per signed row under FULL) beside the model's cost.
+- Slice 026: the store-and-forward mode for `receipt/2`; the checkpoint gains a Merkle root under a new scheme
+  string when a third party needs inclusion proofs without the rows (research amendment 6).
+- Slice 061: the MCP core's signer seam wired to `KeyCustody.sign/2`, with its own DSSE payload type.
+- Slice 002: `supported_groups` or `middlebox_comp_mode` for Trinity's clients (slice 003's finding 4), unchanged.
+- The `receipts` page shows a scope wholesale; when 031's search lands, a receipt can open beside its tool row.
+- ML-DSA-87 is compiled and measured (the 003 image, mode off) and has no test in the default suite: this
+  machine's OpenSSL lacks it. A test on the 003 image with the mode off is possible and is not written here.
