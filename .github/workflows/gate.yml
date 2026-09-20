@@ -140,6 +140,13 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      # The checkout action marks the workspace safe under a temporary HOME it removes when
+      # it is done; every later git call in the container (plan_check, the names, secrets and
+      # reuse censuses, all of which read `git ls-files`) then hits git's dubious-ownership
+      # refusal and reads an empty tree. Found on run 35537462271: plan_check rule 4 named
+      # every slice as missing its SLICE.md.
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
