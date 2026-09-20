@@ -17,7 +17,14 @@ Data outlives processes. Everything later rehydrates from these tables.
 
 ## Scope
 **In:**
-- Repo config: SQLite path from `Trinity.Paths.data_dir/0`, `journal_mode: :wal`, `busy_timeout`, pool size 1 for the write pool; optional read pool.
+- Repo config: SQLite path from `Trinity.Paths.data_dir/0`, `journal_mode: :wal`, `synchronous: :normal` stated
+  explicitly rather than inherited from the adapter's default, `busy_timeout`, a WAL checkpoint threshold set and
+  named in config (the adapter's default is the starting value; the stress test below reports checkpoint stalls
+  if any), pool size 1 for the write pool; optional read pool. (Amended 2026-09-20.)
+- **A slot for a second database file.** The Repo layout admits a second SQLite file for receipts later
+  (`Trinity.Repo.Receipts`, declared and unused here) so that slice 024 can run its chain on `synchronous: :full`
+  in its own file without moving the primary. One file at this slice; the slot is the whole change. (Amended
+  2026-09-20.)
 - **Data-dir lock at boot.** The single-writer pool makes concurrent writes safe *within one BEAM node*. It does
   nothing about two OS processes on one database file, which is exactly the failure `docs/00-vision.md` claims to
   fix. Slice 061 ships a headless profile and slice 100 ships a desktop app; nothing today stops them sharing a
@@ -67,3 +74,7 @@ If that changes during the slice, the criterion is retagged and this section is 
 
 ## Risks / open questions
 - `ecto_sqlite3` and Oban Lite both want the same file; confirm pool settings when Oban arrives (050).
+- WAL checkpoint starvation under a continuous writer: the stress test is the place it would show, as a
+  growing `-wal` file or a stalled append; report the file size after the run either way.
+- `synchronous: :normal` under WAL can lose the last transaction on power loss and never corrupts. That is the
+  right trade for sessions and messages; the receipts file (slice 024) decides its own setting.
