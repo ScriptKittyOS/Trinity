@@ -189,3 +189,11 @@ jobs:
               echo "::error::a commit in this range has no Signed-off-by line"; exit 1; }
 
       - run: mix gate
+
+      # AC2 and AC3 by test name with this run's id in the log, and AC5's coverage line for
+      # this leg. The gate above already ran the suite; this repeats the four FIPS tests with
+      # their names printed, then the whole suite once more under the coverage tool.
+      - name: The FIPS tests by name, and this leg's coverage
+        run: |
+          mix test --trace test/fips
+          mix test --cover | grep -E 'Result:|\| *Total'
