@@ -36,6 +36,10 @@ config :trinity,
           other -> raise "TRINITY_DB must be sqlite or postgres, got #{inspect(other)}"
         end)
 
+# Slice 011: the model registry lives in its own file so the live test suite can read it
+# without evaluating the environment-specific imports below.
+import_config "llm.exs"
+
 # Slice 010, every environment, SQLite only (the Postgres adapter ignores keys it does not
 # know, and the CI matrix proves that). One writer: the pool has exactly one connection, so the
 # single-writer rule SQLite imposes is the pool's shape rather than a hope. Each pragma is named

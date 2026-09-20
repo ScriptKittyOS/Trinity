@@ -100,7 +100,6 @@ defmodule Trinity.MixProject do
       # Slice 011: the provider layer behind Trinity.LLM (docs/adr/0003). What it brings into
       # mix.lock is counted in the slice's NOTES.md, because the desktop binary carries it.
       {:req_llm, "~> 1.22"},
-      {:mox, "~> 1.2", only: :test},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.2.0"},

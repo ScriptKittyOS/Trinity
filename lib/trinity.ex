@@ -10,7 +10,7 @@ defmodule Trinity do
   use Boundary,
     deps: [],
     exports:
-      [Paths, Repo, UUID, Sessions] ++
+      [Paths, Repo, UUID, Config, Sessions, LLM] ++
         if(Mix.env() == :test, do: [DataCase, NetworkGuard, Factory], else: [])
 
   @moduledoc """
