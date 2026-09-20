@@ -103,7 +103,7 @@ defmodule Trinity.Memory.Search do
         session_title: s.title,
         seq: m.seq,
         role: m.role,
-        inserted_at: m.inserted_at,
+        inserted_at: type(m.inserted_at, :utc_datetime_usec),
         persona_id: type(s.persona_id, Trinity.UUID)
       }
     )

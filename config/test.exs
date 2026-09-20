@@ -25,6 +25,8 @@ config :trinity, :tools,
     Trinity.Tools.FS.Grep,
     Trinity.Tools.Web.Fetch,
     Trinity.Tools.Web.Search,
+    # Slice 031: full-text search over past messages.
+    Trinity.Tools.SessionSearch,
     Trinity.Tools.Shell.Run
   ],
   toolsets: %{

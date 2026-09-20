@@ -10,8 +10,9 @@ defmodule Trinity.Tools do
   comparison of a session's declared surfaces with the calls its turns made
   (`surface_diff/1`, docs/07: a non-empty diff is a finding).
   """
+  # Slice 031: Memory, for the core tools that read it (session_search; 032's recall follows).
   use Boundary,
-    deps: [Trinity, Trinity.Permissions],
+    deps: [Trinity, Trinity.Permissions, Trinity.Memory],
     exports: [Tool, Context, Result, Registry, Runner, Schema, Catalog]
 
   alias Trinity.Sessions.Message
