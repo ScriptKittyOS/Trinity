@@ -51,9 +51,7 @@ defmodule TrinityWeb.ChatComponents do
         <div :if={@message.role == "assistant"} class="md">
           {Markdown.to_html(@message.content)}
         </div>
-        <div :if={@message.role != "assistant"} class="whitespace-pre-wrap break-words">
-          {@message.content}
-        </div>
+        <div :if={@message.role != "assistant"} class="whitespace-pre-wrap break-words" phx-no-format>{@message.content}</div>
         <div :if={calls = tool_calls(@message)} class="mt-2 flex flex-col gap-2">
           <.tool_card
             :for={call <- calls}
