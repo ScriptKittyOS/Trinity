@@ -103,6 +103,11 @@ defmodule Trinity.MixProject do
       # Slice 013: the chat's markdown renderer, behind TrinityWeb.Markdown. Chosen by the
       # measurement in the slice's NOTES.md; it brings a Rust NIF (mdex_native), precompiled.
       {:mdex, "~> 0.13"},
+      # Slice 013 (owner decision, 2026-09-20): the linux package builds mdex's NIF from
+      # source for musl (MDEX_NATIVE_BUILD=1 and TRINITY_NIF_TARGET in config/config.exs),
+      # because neither precompiled artifact loads in Burrito's musl ERTS (NOTES finding 13).
+      # rustler_precompiled needs Rustler present to run that build; build time only.
+      {:rustler, "~> 0.38", runtime: false},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.2.0"},

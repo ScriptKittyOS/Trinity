@@ -265,7 +265,14 @@ defmodule Trinity.Versions do
       pin: "~> 0.13",
       lock: "mdex",
       note:
-        "Markdown renderer for the chat (`TrinityWeb.Markdown`), streaming fragments completed by its `streaming: true` option, raw HTML omitted (`unsafe: false`) and the default sanitizer on top. Added at Slice 013 after the measurement in its NOTES.md: `earmark` 1.4.49 is retired on hex with an open XSS advisory (EEF-CVE-2026-48591), which the gate refuses. ⚠️ A Rust NIF (`mdex_native`, precompiled through `rustler_precompiled` for the four packaging targets): the first NIF in the bundle; the `package` workflow proves it on three operating systems, cited in Slice 013's PROOF.md."
+        "Markdown renderer for the chat (`TrinityWeb.Markdown`), streaming fragments completed by its `streaming: true` option, raw HTML omitted (`unsafe: false`) and the default sanitizer on top. Added at Slice 013 after the measurement in its NOTES.md: `earmark` 1.4.49 is retired on hex with an open XSS advisory (EEF-CVE-2026-48591), which the gate refuses. ⚠️ A Rust NIF (`mdex_native`): the first in the bundle. Measured at Slice 013 (NOTES finding 13): neither precompiled artifact loads in Burrito's musl ERTS on Linux, so the linux package builds it from source for musl with Zig as the linker (`rustler` below, `scripts/zig-cc-musl`, the three settings in config/config.exs); macOS and Windows load the precompiled artifact. The `--smoke` path prints whether it rendered, and the `package` workflow reads that line on every target."
+    },
+    %{
+      name: "rustler",
+      pin: "~> 0.38",
+      lock: "rustler",
+      note:
+        "Build time only (`runtime: false`): what `rustler_precompiled` needs to compile `mdex_native` from source when `MDEX_NATIVE_BUILD=1`, which the linux package sets (owner decision 2026-09-20, Slice 013 NOTES finding 14). Nothing in the tree calls it."
     }
   ]
 

@@ -11,6 +11,8 @@ defmodule TrinityWeb.Markdown do
   in-progress message uses; a finished message renders without it, once.
   """
 
+  require Logger
+
   # Sobelow reads `@sobelow_skip` from the source; the compiler would call it unused (the same
   # measure `Trinity.Paths` takes, slice 001 line 4).
   Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
@@ -36,10 +38,20 @@ defmodule TrinityWeb.Markdown do
     ]
 
     case MDEx.to_html(markdown, options) do
-      {:ok, html} -> Phoenix.HTML.raw(html)
-      # A parse failure is the renderer's, not the text's: show the text escaped rather than
-      # nothing, so a message is never blank on screen.
-      {:error, _} -> Phoenix.HTML.html_escape(markdown)
+      {:ok, html} ->
+        Phoenix.HTML.raw(html)
+
+      # A failure is the renderer's, not the text's: show the text escaped rather than nothing,
+      # so a message is never blank on screen, and say so once at :error, because the one
+      # failure seen so far was a NIF that did not load in a packaged binary (NOTES finding
+      # 13), which must never pass for a rendering choice.
+      {:error, reason} ->
+        unless :persistent_term.get({__MODULE__, :failed}, false) do
+          :persistent_term.put({__MODULE__, :failed}, true)
+          Logger.error("markdown renderer failed; showing escaped text: #{inspect(reason)}")
+        end
+
+        Phoenix.HTML.html_escape(markdown)
     end
   end
 end

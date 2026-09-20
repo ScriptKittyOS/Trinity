@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
+# The linker for a Rust NIF built for Burrito's musl ERTS (slice 013, NOTES.md finding 14).
+# Rust's own self-contained musl linking refuses a cdylib without crt-static ("unable to find
+# library -lgcc_s"), and a NIF linked by the host's gcc needs glibc's libgcc_s, which the musl
+# BEAM cannot resolve. Zig, already pinned for Burrito, links against musl and its own
+# compiler-rt, and the result needs libc.so alone, the same shape as the exqlite NIF Burrito
+# cross-compiles itself. Used through CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER.
+exec zig cc -target x86_64-linux-musl "$@"
