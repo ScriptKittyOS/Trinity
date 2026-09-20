@@ -98,6 +98,29 @@ defmodule Trinity.Paths do
   @spec database_path() :: String.t()
   def database_path, do: Path.join(ensure_data_dir(), "trinity.db")
 
+  @doc """
+  The receipts chain's own SQLite file, beside the primary (slice 024): its own file so it can
+  run `synchronous: :full` without slowing the primary, per `Trinity.Repo.Receipts`.
+  """
+  @spec receipts_database_path() :: String.t()
+  def receipts_database_path, do: Path.join(ensure_data_dir(), "receipts.db")
+
+  @doc """
+  The directory the receipt signing key and the key registry live in (slice 024): under the
+  data directory, not `priv/`, because `priv` is the packaged tree and a key made on this
+  machine is not the tree's to carry. Created with mode 0700 when absent.
+  """
+  # sobelow_skip reason: Traversal.FileModule, as ensure_data_dir/0 above: the path is the data
+  # directory plus a constant, never input.
+  @sobelow_skip ["Traversal.FileModule"]
+  @spec keys_dir() :: String.t()
+  def keys_dir do
+    dir = Path.join(ensure_data_dir(), "keys")
+    File.mkdir_p!(dir)
+    File.chmod!(dir, 0o700)
+    dir
+  end
+
   @spec home(getenv()) :: String.t()
   defp home(getenv) do
     getenv.("HOME") || getenv.("USERPROFILE") || "."

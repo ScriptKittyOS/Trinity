@@ -10,6 +10,7 @@
 fips_leg? = System.get_env("TRINITY_FIPS_LEG") == "1"
 ExUnit.start(exclude: [:live, :desktop, :eval] ++ if(fips_leg?, do: [], else: [:fips]))
 Ecto.Adapters.SQL.Sandbox.mode(Trinity.Repo, :manual)
+Ecto.Adapters.SQL.Sandbox.mode(Trinity.Repo.Receipts, :manual)
 
 # Slice 011: the Mox mock the registry's :mock provider points at.
 Mox.defmock(Trinity.LLM.ProviderMock, for: Trinity.LLM.Provider)

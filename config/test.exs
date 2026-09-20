@@ -92,9 +92,19 @@ if System.get_env("TRINITY_DB") == "postgres" do
     url: System.get_env("DATABASE_URL") || raise("TRINITY_DB=postgres needs DATABASE_URL"),
     pool_size: 10,
     pool: Ecto.Adapters.SQL.Sandbox
+
+  # Slice 024: the receipts Repo shares the Postgres database (its own migrations table).
+  config :trinity, Trinity.Repo.Receipts,
+    url: System.get_env("DATABASE_URL"),
+    pool_size: 10,
+    pool: Ecto.Adapters.SQL.Sandbox
 else
   config :trinity, Trinity.Repo,
     database: Path.expand("../trinity_test.db", __DIR__),
+    pool: Ecto.Adapters.SQL.Sandbox
+
+  config :trinity, Trinity.Repo.Receipts,
+    database: Path.expand("../trinity_test_receipts.db", __DIR__),
     pool: Ecto.Adapters.SQL.Sandbox
 end
 
@@ -130,3 +140,7 @@ config :phoenix_live_view,
 # Sort query params output of verified routes for robust url comparisons
 config :phoenix,
   sort_verified_routes_query_params: true
+
+# Slice 024: the receipt signing key and registry for the suite live under the project's
+# ignored tmp/, never in the data directory of the machine running the tests.
+config :trinity, :receipts, keys_dir: Path.expand("../tmp/test_keys", __DIR__)

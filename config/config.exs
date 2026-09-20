@@ -21,8 +21,16 @@ import Config
 config :ex_tauri, app_name: "Trinity", host: "localhost", port: 4000, version: "2.5.1"
 
 config :trinity,
-  ecto_repos: [Trinity.Repo],
+  # Slice 024: the receipts chain has its own Repo and file (docs/adr/0013, `Trinity.Repo.Receipts`);
+  # the migrator and the ecto tasks run over both.
+  ecto_repos: [Trinity.Repo, Trinity.Repo.Receipts],
   generators: [timestamp_type: :utc_datetime]
+
+# Slice 024: the receipts Repo keeps its migrations apart from the primary's, and on Postgres,
+# where both Repos share one database, its own schema_migrations table.
+config :trinity, Trinity.Repo.Receipts,
+  priv: "priv/repo_receipts",
+  migration_source: "receipts_schema_migrations"
 
 # Slice 010. The database adapter is chosen at compile time: SQLite is primary and the default,
 # Postgres is the CI-tested alternative behind TRINITY_DB=postgres (docs/adr/0002). An Ecto
@@ -95,6 +103,19 @@ if System.get_env("TRINITY_DB", "sqlite") == "sqlite" do
     foreign_keys: :on,
     busy_timeout: 5_000,
     cache_size: -64_000,
+    wal_auto_check_point: 1_000
+
+  # Slice 024: the receipts file runs `synchronous: :full`, one fsync per committed receipt,
+  # so the last signed receipt is durable across power loss. Measured at 024 G1 on this
+  # machine: 274 µs per row at one row per transaction under FULL against 20 µs under NORMAL,
+  # far under any effect rate; the primary keeps NORMAL.
+  config :trinity, Trinity.Repo.Receipts,
+    pool_size: 1,
+    journal_mode: :wal,
+    synchronous: :full,
+    foreign_keys: :on,
+    busy_timeout: 5_000,
+    cache_size: -16_000,
     wal_auto_check_point: 1_000
 end
 

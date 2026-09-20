@@ -29,6 +29,8 @@ defmodule Trinity.Application do
           # opened no database file; the reason names the holder's OS pid and mode.
           {Trinity.DataDir.Lock, dir: lock_dir(), mode: mode()},
           Trinity.Repo,
+          # Slice 024: the receipts chain's own file (ADR-0013, `Trinity.Repo.Receipts`).
+          Trinity.Repo.Receipts,
           {Ecto.Migrator,
            repos: Application.fetch_env!(:trinity, :ecto_repos), skip: skip_migrations?()},
           {DNSCluster, query: Application.get_env(:trinity, :dns_cluster_query) || :ignore},
