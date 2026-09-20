@@ -10,3 +10,7 @@
 #
 # format: <fingerprint><TAB><reason>
 2DBC9F9	Missing CSP on the browser pipeline. The scaffold ships no Content-Security-Policy, and setting one needs LiveView nonce handling, which belongs with the UI rather than the toolchain. Slice 013 owns it. Skipped rather than fixed blind: a CSP written without the UI it protects is a guess.
+35AB9EC	Slice 010, Trinity.DataDir.Lock.acquire/2: the directory is the application's own data directory from config or Trinity.Paths, never a request or a model output; the lock has to create it before the Repo does. Low confidence traversal by the tool's own label.
+55D5ADB	Slice 010, Trinity.DataDir.Lock read/1: reads <data_dir>/LOCK, a path this module composes from the data directory and a constant file name; no caller supplies it.
+21D88E2	Slice 010, Trinity.DataDir.Lock.release/2: removes <data_dir>/LOCK only when the file carries this process's own token; same composed path as the read.
+1C42814	Slice 010, Trinity.DataDir.Lock take_over/2: rewrites <data_dir>/LOCK after the recorded holder's pid is found dead; same composed path, same constant name.

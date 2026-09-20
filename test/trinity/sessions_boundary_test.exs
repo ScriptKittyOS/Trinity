@@ -25,26 +25,35 @@ defmodule Trinity.SessionsBoundaryTest do
   end
   """
 
-  test "a TrinityWeb module calling Store fails the compile; the same call through Sessions passes" do
-    path = "lib/trinity_web/zz_boundary_probe.ex"
-    on_exit(fn -> File.rm(path) end)
+  # Every compile is --force: mix decides what to recompile by mtime at one-second
+  # resolution, so a probe written, replaced or removed within a second of the last compile
+  # is invisible to an incremental build. Found by the gate, twice, in both directions (a
+  # lawful half compiled against the stale violation; a red half that never compiled the
+  # violation). Three forced compiles cost seconds and remove the class.
+  @red_path "lib/trinity_web/zz_boundary_violation.ex"
+  @green_path "lib/trinity_web/zz_boundary_lawful.ex"
 
-    File.write!(path, @violation)
+  test "a TrinityWeb module calling Store fails the compile; the same call through Sessions passes" do
+    on_exit(fn -> Enum.each([@red_path, @green_path], &File.rm/1) end)
+
+    File.write!(@red_path, @violation)
     {out_red, code_red} = compile()
     assert code_red != 0
     assert out_red =~ "forbidden reference to Trinity.Sessions.Store"
-    assert out_red =~ "zz_boundary_probe.ex"
+    assert out_red =~ "zz_boundary_violation.ex"
 
-    File.write!(path, @lawful)
+    File.rm!(@red_path)
+    File.write!(@green_path, @lawful)
     {out_green, code_green} = compile()
     assert code_green == 0, out_green
+    refute out_green =~ "forbidden reference"
 
-    File.rm!(path)
+    File.rm!(@green_path)
     {_, 0} = compile()
   end
 
   defp compile do
-    System.cmd("mix", ["compile", "--warnings-as-errors"],
+    System.cmd("mix", ["compile", "--warnings-as-errors", "--force"],
       env: [{"MIX_ENV", "test"}],
       stderr_to_stdout: true
     )
