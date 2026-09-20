@@ -218,7 +218,11 @@ defmodule Trinity.Sessions.Session do
 
   ## The turn
 
-  defp start_model_call(%State{id: id, session: session, task_sup: sup, turn: turn} = data) do
+  # The row is read again at every turn (slice 013): a model set between turns through
+  # `Trinity.Sessions.set_model/2` is the next turn's model, not the next incarnation's.
+  defp start_model_call(%State{id: id, task_sup: sup, turn: turn} = data) do
+    session = Store.get_session(id) || data.session
+    data = %{data | session: session}
     persona = session.persona_id && Store.get_persona(session.persona_id)
     request = Prompt.build(session, persona, Trinity.Sessions.history(id, limit: 500))
     ref = make_ref()
