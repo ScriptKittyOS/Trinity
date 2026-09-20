@@ -1,6 +1,6 @@
 # Proof for slice 012: Session process + agent loop
 
-Agent: Trinity · Coding Agent · Date: 2026-09-20 · Branch: slice/012-session-process-agent-loop · Final commit: <closing commit>
+Agent: Trinity · Coding Agent · Date: 2026-09-20 · Branch: slice/012-session-process-agent-loop · Final commit: `9b52f56` (filled by the commit after it)
 
 ## Summary
 One supervised `gen_statem` per conversation runs the turn loop: a user row, a model call in a Task, deltas
@@ -31,7 +31,7 @@ Result: 155 passed, 10 excluded
 |     84.39% | Trinity.Sessions.Session |
 |    100.00% | Trinity.Sessions.Caps, Sentinel, Events; Trinity.CorePolicy |
 ```
-`coverage.tsv` row: `012  60.82  <sha>  2026-09-20`. `trinity.coverage: 012 60.82% vs 011 51.57%: OK`.
+`coverage.tsv` row: `012  60.82  019d9cf  2026-09-20`. `trinity.coverage: 012 60.82% vs 011 51.57%: OK`.
 
 The seventeen tests of `test/trinity/sessions`, with timings from `--trace`:
 ```
@@ -133,5 +133,5 @@ $ git log --oneline main..HEAD
 be6e70d feat(s012): the session process and the agent loop
 019d9cf docs(s012): ADR-0009 decided at the checkpoint: no Jido at all
 6dffc53 docs(s012): G1 plan with the ADR-0009 checkpoint measured, and the slice opens
-<closing commit>
+9b52f56 feat(s012): complete slice 012 (session process and agent loop)
 ```
