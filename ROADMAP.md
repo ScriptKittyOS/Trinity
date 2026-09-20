@@ -45,10 +45,10 @@ A size given as `M or L` is conditional on a decision named in that slice's file
 | 040 | Skills registry + agentskills.io format + progressive disclosure | 4 Skills | M | 020 | planned |
 | 041 | Skill self-management with staged approval + scanner | 4 Skills | M | 040, 021 | planned |
 | 050 | Scheduler: Oban cron agent tasks with delivery targets | 5 Automation | M | 012 | planned |
-| 059 | MCP library spike (finalises ADR-0007) | 6 MCP | M | 020 | planned |
-| 060 | MCP client (2026-07-28 preferred, 2025-11-25 compat, MRTR, Tasks, OAuth client) | 6 MCP | M/L | 059, 021 | planned |
+| 059 | MCP capability gap against beam_mcp, and the server seam probe | 6 MCP | S/M | 020 | planned |
+| 060 | MCP client: Trinity's thin driver (2026-07-28 preferred, 2025-11-25 compat, MRTR, Tasks) | 6 MCP | L | 059, 021 | planned |
 | 061 | MCP server (stateless 2026-07-28 + compat, MRTR approvals, headless profile) | 6 MCP | M | 060, 024 | planned |
-| 062 | MCP authorization: RS + embedded AS + Enterprise Managed Authorization (ID-JAG) | 6 MCP | L | 061 | planned |
+| 062 | MCP authorization: OAuth client role, RS, embedded AS, Enterprise Managed Authorization (ID-JAG) | 6 MCP | L | 061 | planned |
 | 070 | Gateway core: adapter behaviour, routing, PubSub fan-out | 7 Gateways | M | 012 | planned |
 | 071 | Gateway: Telegram | 7 Gateways | S | 070 | planned |
 | 072 | Gateway: Discord (Nostrum) | 7 Gateways | S | 070 | planned |
@@ -110,3 +110,4 @@ After 012, multiple branches are independent. If running more than one coding ag
 | 2026-09-05 | Authority made an adapter behind a behaviour rather than a mode (ADR-0008, ADR-0010). ADR-0009 opened for the Jido question, decided at the 012 checkpoint. Slice 024 added: effect catalog, `TRINITY_AUTHORITY`, local receipts. Alignment appendices on 012, 020, 021, 022, 023, 030, 032, 040, 041. |
 | 2026-09-05 | Review pass before commit 1. Counts in the three entries above were typed, not derived, and none matches the tree; a decreasing count is impossible under insert-never-renumber. Derived this date: `find slices -name SLICE.md | wc -l` → **38**. Milestones are derived from the Milestones table, not from memory. From here, any count in this log names the command that produced it. Entries above are not rewritten. |
 | 2026-09-06 | Plan corrections, round 2. **Supersedes the slice count in the entry above:** that entry derived **38** on 2026-09-05, before slices 082, 083 and 084 were withdrawn and slice 034 was added. Re-derived this date, not adjusted by arithmetic: `find slices -name SLICE.md | wc -l` → **36**. The entry above is not rewritten. `scripts/plan_check.sh` now enforces this count, the acceptance-criteria numbering, the Definition-of-Done ranges, ROADMAP/SLICE.md agreement, and the absence of references to paths not in `git ls-files`. |
+| 2026-09-20 | The MCP phase replanned under owner decisions of 2026-09-08, recorded in ADR-0007 decisions 5 to 8: beam_mcp 0.8.0 is the server core; 059 measures the capability gap and probes the `:server` seam (S/M); 060 is Trinity's thin driver (L, the M/L condition decided); the OAuth client role moves from 060 to 062; 061 carries a named blocker on the MRTR wrapper; the four `M5 Always-on` headers on 059 to 062 read M5a Automates, as this file has since 2026-09-08. R14 re-scoped, R15 closed. Re-derived this date: `find slices -name SLICE.md \| wc -l` → **36**. |

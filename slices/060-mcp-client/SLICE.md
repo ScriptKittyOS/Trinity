@@ -3,22 +3,25 @@
 | Field | Value |
 |---|---|
 | Phase | 6 MCP |
-| Milestone | M5 Always-on |
-| Size | M/L |
+| Milestone | M5a Automates |
+| Size | L |
 | Depends on | 059, 021 |
 
 Supersedes the 2026-09-05 first draft of this slice, which targeted anubis_mcp at 2025-11-25 and planned
 sampling/elicitation callbacks (both deprecated in 2026-07-28).
 
-**Sized `M/L`, conditionally, and the condition is decided by slice 059.** M if 059 selects a library that ships a
-working client. L otherwise: a server-only library, or the own-minimal-server fallback, leaves this slice to build
-the MRTR retry loop, Tasks polling and the whole OAuth client role: PKCE, resource indicators, client metadata
-with dynamic-registration fallback, issuer checking and per-issuer credential storage. `docs/08-standards.md` says
-as much in its own words: the stateless server side is small and the client side is more work. A single number
-here would be a guess wearing an estimate's clothes.
+**Amended 2026-09-20 under ADR-0007 decision 7.** The size condition is decided: beam_mcp ships no client and
+will not, so this slice is L. The client is Trinity's own thin driver. The OAuth client role moves to slice 062,
+which owns authorization in every role; this driver consumes the tokens 062 obtains.
+
+**The thin-driver rule, which is a test (AC7).** The driver builds the outbound JSON-RPC request object and
+nothing else of the protocol. Decoding and validation call beam_mcp's public functions. Revision handling is
+limited to sending `server/discover` and reading `supportedVersions`, with the `initialize` path for 2025-11-25.
+If the driver needs its own revision negotiation, envelope vocabulary or schema validator, the slice stops and
+the question of a shared client package is raised on the beam_mcp side through the owner, instead of forking.
 
 ## Goal
-Connect to MCP servers (stdio and Streamable HTTP) with the library chosen in 059, one supervised client per
+Connect to MCP servers (stdio and Streamable HTTP) with Trinity's own driver over beam_mcp's public functions, one supervised client per
 configured server, preferring 2026-07-28 (`server/discover`, request-scoped `_meta`, MRTR, cacheable lists,
 Tasks extension) and falling back to 2025-11-25; expose their tools as runtime-registered tools that can never
 enter the effect catalog (M4); health, reconnect, UI.
@@ -38,10 +41,12 @@ enter the effect catalog (M4); health, reconnect, UI.
 - Tasks extension: long-running tools return a task handle; poll `tasks/get` under the Session's Task with timeout;
   `tasks/update` for client-to-server input when the server asks.
 - Results mapped to provenance-tagged content parts (M1), `untrusted` taint.
-- OAuth client role for protected servers: PRM discovery, AS metadata (RFC 8414 / OIDC), PKCE, RFC 8707 resource
-  indicator, CIMD first with DCR fallback, RFC 9207 `iss` check, per-issuer credential storage via `Trinity.Secrets`.
+- Token use for protected servers: the driver presents the bearer token that slice 062's client role obtained
+  and handles `401` with `WWW-Authenticate` by asking 062 for a token; it performs no OAuth flow of its own.
+- Order of work: stdio first (Port driven), Streamable HTTP second, both against beam_mcp's shipped transports
+  as the server under test.
 - Reconnect with backoff; health + tool list in `/mcp` UI.
-- Test servers in `test/support/`: a 2026-07-28 server and a 2025-11-25 server built with the chosen library.
+- Test servers in `test/support/`: a 2026-07-28 server and a 2025-11-25 server built with beam_mcp.
 **Out:** sampling, roots, logging (all deprecated); SSE transport; revisions older than 2025-11-25.
 
 ## Acceptance criteria
@@ -51,8 +56,10 @@ enter the effect catalog (M4); health, reconnect, UI.
 4. [auto] MRTR: test server returns `input_required` with a `requestState`; the Session surfaces the request; answering resumes; the retried call carries the `requestState` back byte-for-byte and completes. A retry with the `requestState` altered or omitted is rejected by the server (test).
 5. [auto] Tasks: a slow tool returns a handle; polling completes; cancel from the UI cancels the task (test).
 6. [auto] Server dies → tools unregistered → reconnect → re-registered (test with short backoff).
-7. [auto] OAuth: against a test AS (in-repo fake supporting CIMD + PKCE + resource indicator), the client obtains an
-   audience-bound token and the RS accepts it; wrong `iss` is rejected (tests).
+7. [auto] The thin-driver rule: a census over `lib/trinity/mcp/client/` finds no revision negotiation beyond
+   `server/discover` and `initialize`, no protocol object built other than the outbound request, and no schema
+   validator; decode and validation are calls into beam_mcp's public functions (test, with the population
+   command pasted).
 8. [manual] Manual: one real public 2026-07-28 server used end-to-end (GIF).
 
 ## Manual verification queue

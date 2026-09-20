@@ -3,11 +3,23 @@
 | Field | Value |
 |---|---|
 | Phase | 6 MCP |
-| Milestone | M5 Always-on |
+| Milestone | M5a Automates |
 | Size | L |
 | Depends on | 061 |
 
 Supersedes the 2026-09-05 first draft (RS only, AS "owner decision").
+
+**Amended 2026-09-20 under ADR-0007 decision 8.** This slice owns authorization in every role. The OAuth client
+role moves here from slice 060: PRM discovery, AS metadata (RFC 8414 and OIDC), PKCE, RFC 8707 resource
+indicators, CIMD first with DCR as the legacy fallback, RFC 9207 `iss` checking, per-issuer credential storage via
+`Trinity.Secrets`. The 060 driver consumes the tokens this role obtains. The resource server half lives above
+beam_mcp, whose will-not-implement entry 8 keeps OAuth out of the core; the `:authorize` and `:authorize_body`
+hooks are where the RS attaches.
+
+**Non-person identity, noted for a later amendment.** A deployment that requires it gives each Trinity instance
+an X.509 credential from the deployment's own PKI, and the boot receipt carries a sponsor field naming the
+accountable person. SPIFFE is an issuance path for that credential, not an identity model of its own. No
+acceptance criterion is added for it until the standards register carries the row that asks for it.
 
 ## Goal
 Make Trinity's MCP server enterprise-connectable per MCP 2026-07-28: (1) the **resource server** profile
@@ -25,7 +37,7 @@ Identity is not authority: OAuth/EMA answers *who is calling and with what scope
 the selected authority adapter answer *may this effect happen*. Every token decision is receipted.
 
 ## Scope
-**In:** the three components above as `Trinity.MCP.Auth.*` behind the `Trinity.MCP.Auth` behaviour (`Local`
+**In:** the OAuth client role described in the amendment above, as `Trinity.MCP.Auth.Client`; the three components above as `Trinity.MCP.Auth.*` behind the `Trinity.MCP.Auth` behaviour (`Local`
 loopback default unchanged; `Embedded` = RS + AS + EMA; `JWT`/`Introspection`/`TrustedHeaders` for external AS or
 gateway deployments); key management via `Trinity.Secrets` with JWKS publication and rotation; admin UI for IdPs,
 clients (CIMD URLs), scopes; conformance tests modelled on the spec's flows; docs page.
@@ -45,6 +57,9 @@ clients (CIMD URLs), scopes; conformance tests modelled on the spec's flows; doc
    flow; screenshots. If none is available on the developer machine, recorded as not measured.
 7. [auto] The library boundary: `Trinity.MCP.Auth.*` has no dependency on `Trinity.Sessions`/`Trinity.Tools` (boundary check),
    so it can be extracted as its own package (slice 123).
+8. [auto] Client role: against a test AS (in-repo fake supporting CIMD, PKCE and resource indicators), the client
+   obtains an audience-bound token and the RS accepts it; wrong `iss` is rejected; the 060 driver presents that
+   token without performing any flow of its own (tests).
 
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
@@ -52,7 +67,7 @@ than at review time.
 - **AC6**: Manual: one real MCP client that supports EMA (per the MCP client matrix at the time) connects through the fake IdP.
 
 ## Definition of Done
-- [ ] gate green · [ ] AC1–7 proven · [ ] docs/08 synced · [ ] ROADMAP → done · [ ] commit + tag
+- [ ] gate green · [ ] AC1–8 proven · [ ] docs/08 synced · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
 `feat(s062): complete slice 062 (MCP authorization: RS, embedded AS, EMA)` · tag `slice/062`

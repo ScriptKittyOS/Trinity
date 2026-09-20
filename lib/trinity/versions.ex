@@ -145,11 +145,11 @@ defmodule Trinity.Versions do
         "Provider layer (streaming, tools, structured output, usage). ⚠️ The pin was `~> 1.10` against a recorded latest of 1.10.0; the real latest was twelve minors ahead. Check event shapes against the current version at Slice 011, not against this file's prose. Added at Slice 011."
     },
     %{
-      name: "MCP library",
-      pin: "**decided by Slice 059**",
-      lock: nil,
+      name: "beam_mcp",
+      pin: "~> 0.8",
+      lock: "beam_mcp",
       note:
-        "Candidates verified 2026-09-05: **anubis_mcp** 2.0.x (hex updated 2026-08-07, **LGPL-3.0**, spec ≤ 2025-11-25); **fastest_mcp** 0.3.2 (2026-08-28, Apache-2.0, very new, ~400 total downloads); **gen_mcp** 2.0.0 (2026-07-30, server-only stateless + compat plug, MIT). ⚠️ None speaks 2024-11-05, which is obsolete and not a target. Undecided, so no lock key."
+        "MCP server core, Apache-2.0, ADR-0007 decision 5 (owner decision 2026-09-08, recorded 2026-09-20). 0.8.0 on hex.pm, standing before 1.0.0. Server side only: the client, MRTR and OAuth are Trinity's, above it. Added at Slice 059. The earlier candidate list (anubis_mcp, fastest_mcp, gen_mcp) is history."
     },
     %{
       name: "jido",
