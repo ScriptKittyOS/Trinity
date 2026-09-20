@@ -3,11 +3,26 @@
 | Field | Value |
 |---|---|
 | Phase | 6 MCP |
-| Milestone | M5 Always-on |
+| Milestone | M5a Automates |
 | Size | M |
 | Depends on | 060, 024 |
 
 Supersedes the 2026-09-05 first draft (bearer token from settings, anubis server).
+
+**Dependencies and blockers, added 2026-09-20 under ADR-0007 decision 6.** The design below is unchanged.
+- Blocked, for AC4 and AC7, on the MRTR wrapper (a sibling package wrapping `BeamMCP.Server` through the
+  `:server` option on `BeamMCP.Transport.HTTP`) or on the recorded refusal of that seam and the fallback it names.
+  beam_mcp's will-not-implement entry 12 keeps MRTR out of the core; the wrapper carries `requestState` verbatim
+  and decodes nothing; Trinity mints and validates the envelope.
+- Depends on `resultType` being stamped on `server/discover` by the core; at 0.8.0 only `tools/call` results
+  carry it. Recorded as a gap on the beam_mcp board; 059's FINDINGS names its status at the time.
+- `ttlMs` and `cacheScope` on every cacheable result shipped in beam_mcp 0.5.0 and are not a dependency.
+- Replay defence is Trinity's: a partition-local nonce cache keyed by expiry window, in the wrapper's host
+  callback, and the 024 membrane's idempotency key as the cross-partition backstop. The property is at-most-once
+  per partition plus idempotent effects, stated as such, with reds for replay inside the window, replay across
+  partitions, an expired envelope and one tampered byte.
+- `connectome://` resources and the `:observe` tool are shipped by the core. Whether Trinity exports them is a
+  G1 decision here, default off.
 
 ## Goal
 Trinity as an MCP server: a stateless Plug mounted at `/mcp` serving 2026-07-28 (`server/discover`, `_meta`
