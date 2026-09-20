@@ -125,6 +125,7 @@ touches the leg, whichever is first.
 | 35537793241 | fips | success | 3m19s |
 | 35538008648 | fips | success | 1m28s |
 | 35538136447 | fips | success | 2m03s |
+| 35538464458 | fips | success (the closing commit, 567507d) | 3m46s |
 
 The image build is under three minutes on the hosted runner (OTP from source with the unused applications left
 out), so the schedule-and-on-demand fallback SLICE.md names was not needed; the push to the registry under the
@@ -138,3 +139,13 @@ pull; a rerun of the failed job after `fips-image` finishes is the procedure, an
   from OTP are DER, 103 to 104 bytes, not the 96 the slice table names.
 - Upstream: Hex's TLS version list (finding 3); OTP's HelloRetryRequest handling (#8470, finding 4).
 - The ten-run minutes table (above).
+
+11. **A flake on the default leg at the close, owned by slice 021.** Run 35538464458, job `gate`, seed 306150:
+    `test/trinity/permissions/session_flow_test.exs:108` (AC5 deny) collected events up to `approval_wait` and
+    never saw the session resume; the same log shows `Trinity.Permissions.Gate` terminating on
+    `DBConnection.OwnershipError` ("cannot find ownership process"), which reads as an expiry timer from an
+    earlier test's request firing after that test's sandbox owner had exited, so the Gate crashed, restarted, and
+    the decision was lost. The `fips` and `postgres` jobs of the same run passed the test, and the rerun of the
+    job passed (264/265, then 265/265). Not touched here: it is 021's test isolation, and this slice's closing
+    commit changed records only. **Follow-up, `fix(s021)`**: the Gate's expiry timers, or the test's sandbox
+    allowance, need to outlive the test that armed them, or be cancelled on the owner's exit.

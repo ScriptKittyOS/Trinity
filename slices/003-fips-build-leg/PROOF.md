@@ -132,3 +132,8 @@ b74da2f fix(s003): the image's self-check matches enable_fips_mode/1's true
 ad8bc17 feat(s003): the FIPS image, the leg in the gate, the mode tests and the supports record
 7179cac docs(s003): G1 plan with the FIPS mechanism measured, and the slice opens
 ```
+
+## Closing correction, 2026-09-20
+Supersedes the header's "Final commit" placeholder: the closing commit is `567507d` (`feat(s003): complete slice
+003 (FIPS build leg)`), and this correction rides on the commit after it, which also names the CI run of the
+close in NOTES.md's minutes table.
