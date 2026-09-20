@@ -133,3 +133,8 @@ $ mix credo --strict --all                                                     â
   in a filtered view.
 - `Compactor` at 72 % coverage: the text-fallback branches are exercised live, not in the suite; a Mox
   provider test for the fallback is a small addition.
+
+10. **The postgres job caught a third test reading the init's idle** (run 35534378835: the indicator test, "both
+    sides are exactly equal"): the same race as finding 9, invisible on SQLite's timing and visible on the
+    slower pool. It waits for the final message now. Recorded as a pattern: after `live/2` mounts a session's
+    page, a test that waits on `{:state, :idle}` alone waits on nothing.
