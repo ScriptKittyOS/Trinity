@@ -18,9 +18,10 @@ defmodule Trinity.Effects.BootReceiptTest do
 
     assert is_binary(sig)
     assert r.subject["authority"] == "Trinity.Authority.Local"
-    assert r.subject["signer"]["algorithm"] == "ed25519"
-    assert r.subject["signer"]["key_id"] == Receipts.KeyCustody.selected().key_id
-    assert r.subject["fips"] == "not_supported"
+    selected = Receipts.KeyCustody.selected()
+    assert r.subject["signer"]["algorithm"] == Atom.to_string(selected.algorithm)
+    assert r.subject["signer"]["key_id"] == selected.key_id
+    assert r.subject["fips"] == Atom.to_string(:crypto.info_fips())
     assert r.meta["core_policy_hash"] == CorePolicy.hash()
     assert r.meta["canonicalization_version"] == 1
     body = JSON.decode!(r.signed_payload)

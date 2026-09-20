@@ -58,9 +58,9 @@ defmodule Trinity.Receipts.SignerTest do
   end
 
   describe "selection" do
-    test "outside FIPS mode the default is Ed25519, and in FIPS mode it would be P-384" do
-      assert :crypto.info_fips() != :enabled
-      assert {:ok, :ed25519} = KeyCustody.select()
+    test "outside FIPS mode the default is Ed25519; in FIPS mode (the fips leg) it is P-384" do
+      expected = if :crypto.info_fips() == :enabled, do: :p384, else: :ed25519
+      assert {:ok, ^expected} = KeyCustody.select()
     end
 
     test "a configured ML-DSA-87 is refused where the runtime lacks it, naming the algorithm" do
@@ -77,13 +77,17 @@ defmodule Trinity.Receipts.SignerTest do
   describe "custody" do
     test "boot generates the key once (0600), appends its registry row, and a second boot reuses it",
          %{dir: dir} do
-      assert {:ok, %{algorithm: :ed25519, key_id: key_id, key_path: path}} = KeyCustody.boot!(dir)
+      {:ok, expected} = KeyCustody.select()
+
+      assert {:ok, %{algorithm: ^expected, key_id: key_id, key_path: path}} =
+               KeyCustody.boot!(dir)
+
       assert File.exists?(path)
       assert File.stat!(path).mode |> Bitwise.band(0o777) == 0o600
       assert {:ok, [row]} = KeyRegistry.read(dir)
       assert row["key_id"] == key_id
-      assert row["algorithm"] == "ed25519"
-      assert row["scheme"] == "receipt_v2_ed25519"
+      assert row["algorithm"] == Atom.to_string(expected)
+      assert row["scheme"] == Signer.impl(expected).scheme()
       assert row["kid_scheme"] == "rfc7638"
       assert row["status"] == "active"
       assert key_id == Signer.thumbprint(row["jwk"])
