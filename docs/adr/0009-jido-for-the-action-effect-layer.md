@@ -1,5 +1,5 @@
 # ADR-0009 — Jido 2.0 for actions, directives and the effect boundary; decided by the Slice 012 design checkpoint
-Status: accepted · Date: 2026-09-05 · Owner decision on the version line recorded 2026-09-20
+Status: superseded by the decision appended 2026-09-20 (no Jido) · Date: 2026-09-05
 
 ## Context
 ADR/tech-stack v1 said "Jido not chosen". Reconsidered: Jido has a worked vocabulary for actions, directives and
@@ -34,3 +34,23 @@ may still return "actions and directives only".
 One consequence for the standards register rather than for a slice: another system in the same platform family
 runs on the same Jido line. That is a shared library, not a shared runtime, and it is not on the path a finding
 takes; the register carries the row and the argument, and no slice here does.
+
+## Decision, appended 2026-09-20 (later): no Jido at all
+
+The Slice 012 checkpoint ran on 2026-09-20 against `jido` 2.3.3, `jido_action` 2.3.2 and `jido_signal` 2.2.0,
+read from their Hex tarballs (the measurements and the commands are in `slices/012-*/NOTES.md`). Its findings:
+(a) M4 is assertable against `Jido.Action` and M3 only with a census, because `Jido.Exec.run/4` takes caps as
+call-site options; (b) `Jido.Agent` adds sensors, a scheduler, signal routing and worker pools the plan assigns
+elsewhere, and an `AgentServer` that executes tools through `Jido.Exec`, a second path beside
+`Trinity.Effects`; (c) `jido` is 29,820 lines with ten runtime dependencies, `jido_action` six. The one piece
+with value, `Jido.Action` as the shape a tool is written in, is a few dozen lines to write and the tree already
+carries `jsv` for JSON Schema validation through req_llm.
+
+**Owner decision, 2026-09-20, on those measurements: Trinity uses no Jido package.** This supersedes the
+provisional decision above and the earlier appended line recording "the runtime is Jido v2"; that line stands
+as written and this one is its correction. Consequences: slice 020 writes `Trinity.Tools.Tool` as Trinity's own
+behaviour (a module with a name, a JSON Schema for its parameters validated with `jsv`, `execute/2`, and the
+effect and risk declarations the security model needs), around the permission gate and the effect catalog
+rather than around a library's executor; the `jido` row leaves VERSIONS.md; the standards register's row on a
+shared library with a sister system is closed as not applicable; nothing in slice 012 changes, because it
+used none of it.

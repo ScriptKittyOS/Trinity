@@ -25,7 +25,7 @@ defmodule Trinity.Sessions.Message do
     field :tool_call_id, :string
     field :usage, :map
     field :provider_meta, :map, default: %{}
-    belongs_to :session, Trinity.Sessions.Session
+    belongs_to :session, Trinity.Sessions.SessionRow
     timestamps()
   end
 
@@ -46,6 +46,17 @@ defmodule Trinity.Sessions.Message do
     |> validate_change(:content, fn :content, content ->
       if String.trim(content) == "", do: [content: "cannot be blank"], else: []
     end)
+  end
+
+  @doc """
+  The one edit the append-only rule allows: a draft becoming final (or interrupted). Casts the
+  content, parts and usage of an existing row; never the role, seq or session.
+  """
+  @spec finalize_changeset(t(), map()) :: Ecto.Changeset.t()
+  def finalize_changeset(message, attrs) do
+    message
+    |> cast(attrs, [:content, :parts, :usage, :provider_meta])
+    |> validate_required([:content])
   end
 
   @doc false

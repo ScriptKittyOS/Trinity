@@ -11,9 +11,7 @@ defmodule Trinity.LLMTest do
   setup :verify_on_exit!
 
   setup do
-    Process.delete({Fake, :script})
-    Process.delete({Fake, :fail})
-    Process.delete({Fake, :calls})
+    Fake.clear()
     :ok
   end
 

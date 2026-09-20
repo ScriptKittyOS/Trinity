@@ -39,7 +39,10 @@ with adapter-specific `execute/1` guarded by `repo().__adapter__()`.
 | tool_call_id | string, nullable | |
 | usage | map, nullable | prompt/completion tokens, cost |
 | provider_meta | map | model, finish reason, latency |
-Append-only. Editing is a new message with `parts.supersedes`.
+Append-only. Editing is a new message with `parts.supersedes`. One edit is allowed and named (slice 012): an
+assistant row written as a draft during a turn (`parts.draft = true`, content updated every 500 ms or 2 KB) becomes
+final at the end of the turn (`draft = false`, plus `tool_calls`, `usage`, and `interrupted`, `error` or `cap` when the
+turn ended that way); the role, seq and session never change.
 
 ### messages_fts (Slice 031): SQLite `fts5(content, session_id UNINDEXED, message_id UNINDEXED)`; on Postgres a
 `tsvector` generated column on `messages`.

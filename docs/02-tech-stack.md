@@ -28,7 +28,9 @@ Versions live in `VERSIONS.md`. This file explains *why* each choice was made an
 ## Explicitly not chosen (and why)
 
 - **Umbrella apps**: isolation is enforced by `boundary` without the build/config overhead.
-- **Jido**: *revised 2026-09-05:* reconsidered rather than rejected. Whether it expresses the action, directive and
+- **Jido**: *decided 2026-09-20, ADR-0009:* not used, on the Slice 012 checkpoint's measurements (the agent runtime
+  duplicates PubSub, Oban and the gateways and adds a second tool executor; the action shape is a few dozen lines
+  with `jsv` already present). The earlier text of this bullet follows as written. *Revised 2026-09-05:* reconsidered rather than rejected. Whether it expresses the action, directive and
   effect layer better than plain OTP is ADR-0009, decided by measurement at the Slice 012 checkpoint.
 - **Mnesia**: split-brain and schema-management sharp edges; SQLite/CubDB are simpler for single-node.
 - **Ortex**: stalled since Nov 2024. Bumblebee/EXLA instead.

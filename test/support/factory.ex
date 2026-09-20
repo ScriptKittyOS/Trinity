@@ -12,14 +12,12 @@ defmodule Trinity.Factory do
     name = Map.get(attrs, :name, "persona-#{System.unique_integer([:positive])}")
 
     {:ok, persona} =
-      Sessions.create_persona(
-        Map.merge(%{name: name, soul: "test soul", model: "fake:model"}, attrs)
-      )
+      Sessions.create_persona(Map.merge(%{name: name, soul: "test soul", model: nil}, attrs))
 
     persona
   end
 
-  @spec session!(map()) :: Sessions.Session.t()
+  @spec session!(map()) :: Sessions.SessionRow.t()
   def session!(attrs \\ %{}) do
     attrs = Map.put_new_lazy(attrs, :persona_id, fn -> persona!().id end)
     {:ok, session} = Sessions.create_session(attrs)

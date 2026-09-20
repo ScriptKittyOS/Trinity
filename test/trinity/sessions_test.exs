@@ -93,10 +93,19 @@ defmodule Trinity.SessionsTest do
       newer = Factory.session!()
       Factory.message!(older.id)
       Factory.message!(newer.id)
-      assert Enum.map(Sessions.list_sessions(), & &1.id) == [newer.id, older.id]
+      mine = MapSet.new([newer.id, older.id])
+
+      assert Sessions.list_sessions() |> Enum.map(& &1.id) |> Enum.filter(&(&1 in mine)) == [
+               newer.id,
+               older.id
+             ]
+
       {:ok, archived} = Sessions.archive(older)
       assert archived.status == "archived"
-      assert Enum.map(Sessions.list_sessions(status: "active"), & &1.id) == [newer.id]
+
+      assert Sessions.list_sessions(status: "active")
+             |> Enum.map(& &1.id)
+             |> Enum.filter(&(&1 in mine)) == [newer.id]
     end
   end
 end

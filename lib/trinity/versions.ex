@@ -160,9 +160,10 @@ defmodule Trinity.Versions do
     },
     %{
       name: "jido",
-      pin: "~> 2.3 (pending ADR-0009)",
-      lock: "jido",
-      note: "Actions, directives and the effect boundary, if the Slice 012 checkpoint adopts it."
+      pin: "not used (ADR-0009, decided 2026-09-20)",
+      lock: nil,
+      note:
+        "Measured at the Slice 012 checkpoint and not adopted: the agent runtime duplicates PubSub, Oban and the gateways and adds a second tool executor; the action shape is written in-tree at Slice 020 with `jsv` for its schemas. The row stays so the decision is visible where a reader would look for the package."
     },
     %{name: "jason", pin: "~> 1.2", lock: "jason", note: ""},
     %{

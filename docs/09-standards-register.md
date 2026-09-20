@@ -61,7 +61,7 @@ document, a PROOF.md line) or `none`; the status; who decides the status. Status
 
 | Control | Where Trinity satisfies it | Evidence path | Status | Decider |
 |---|---|---|---|---|
-| Independence from other systems that share the Jido library | shared library, not shared runtime; not on the path a finding takes | ADR-0009 appended decision | `tree property` once 012 lands with the boundary tests | owner |
+| Independence from other systems that share the Jido library | not applicable: Trinity uses no Jido package (ADR-0009, decision appended 2026-09-20) | `mix deps.tree` shows no jido package | `tree property` | owner |
 | Standalone operation with no authority plane and no outbound connection | `TRINITY_AUTHORITY=local`, the standalone assertion | slice 024 AC2 | `:unknown` until 024 lands | owner |
 | Nothing fails open | signing unavailable denies; unknown tool denies; unknown effect denies; adapter unresolvable refuses to start | slice 024 AC5, ADR-0010 | `:unknown` until 024 lands | owner |
 

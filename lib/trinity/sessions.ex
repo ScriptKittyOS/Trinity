@@ -8,9 +8,12 @@ defmodule Trinity.Sessions do
   exports this module alone; `Trinity.Sessions.Store` and the schemas stay inside. Slice 012
   adds the session process on top of this API and changes nothing here.
   """
-  use Boundary, deps: [Trinity], exports: []
+  # Slice 012: Sessions reaches the LLM (docs/01: Sessions depends on LLM, Repo, PubSub).
+  use Boundary,
+    deps: [Trinity, Trinity.LLM],
+    exports: [Events, Message, Persona, SessionRow, Session, Caps]
 
-  alias Trinity.Sessions.{Message, Persona, Session, Store}
+  alias Trinity.Sessions.{Message, Persona, SessionRow, Store}
 
   @type session_id :: String.t()
 
@@ -23,15 +26,15 @@ defmodule Trinity.Sessions do
   def get_persona_by_name(name), do: Store.get_persona_by_name(name)
 
   @doc "Creates a session. `persona_id` is required; `origin` and `status` come from a closed vocabulary."
-  @spec create_session(map()) :: {:ok, Session.t()} | {:error, Ecto.Changeset.t()}
+  @spec create_session(map()) :: {:ok, SessionRow.t()} | {:error, Ecto.Changeset.t()}
   def create_session(attrs), do: Store.insert_session(attrs)
 
   @doc "The session with this id, or nil."
-  @spec get_session(session_id()) :: Session.t() | nil
+  @spec get_session(session_id()) :: SessionRow.t() | nil
   def get_session(id), do: Store.get_session(id)
 
   @doc "Sessions, most recently active first. Options: `status:`, `limit:` (default 50)."
-  @spec list_sessions(keyword()) :: [Session.t()]
+  @spec list_sessions(keyword()) :: [SessionRow.t()]
   def list_sessions(opts \\ []), do: Store.list_sessions(opts)
 
   @doc """
@@ -56,8 +59,8 @@ defmodule Trinity.Sessions do
   def history(session_id, opts \\ []), do: Store.history(session_id, opts)
 
   @doc "Marks a session archived."
-  @spec archive(Session.t()) :: {:ok, Session.t()} | {:error, Ecto.Changeset.t()}
-  def archive(%Session{} = session), do: Store.update_session(session, %{status: "archived"})
+  @spec archive(SessionRow.t()) :: {:ok, SessionRow.t()} | {:error, Ecto.Changeset.t()}
+  def archive(%SessionRow{} = session), do: Store.update_session(session, %{status: "archived"})
 
   @doc "The number of messages in a session."
   @spec message_count(session_id()) :: non_neg_integer()
@@ -66,4 +69,58 @@ defmodule Trinity.Sessions do
   @doc "Every `seq` in a session, ascending. The stress test's population."
   @spec seqs(session_id()) :: [pos_integer()]
   def seqs(session_id), do: Store.seqs(session_id)
+
+  ## The process (slice 012)
+
+  alias Trinity.Sessions.{Events, Session, Supervisor}
+
+  @doc "Starts the session's process, or returns the running one. The row must exist."
+  @spec start_session(session_id()) :: {:ok, pid()} | {:error, term()}
+  def start_session(session_id), do: Supervisor.start_session(session_id)
+
+  @doc "Idempotent: the running pid, or a fresh process rehydrated from the database."
+  @spec ensure_started(session_id()) :: {:ok, pid()} | {:error, term()}
+  def ensure_started(session_id) do
+    case whereis(session_id) do
+      nil -> start_session(session_id)
+      pid -> {:ok, pid}
+    end
+  end
+
+  @doc "The session's pid, if its process is running."
+  @spec whereis(session_id()) :: pid() | nil
+  def whereis(session_id) do
+    case Registry.lookup(Trinity.Registry, session_id) do
+      [{pid, _}] -> pid
+      [] -> nil
+    end
+  end
+
+  @doc "Persists the user's message and starts a turn; refuses while a turn is in flight."
+  @spec send_user_message(session_id(), String.t()) :: {:ok, Message.t()} | {:error, term()}
+  def send_user_message(session_id, content) do
+    with {:ok, pid} <- ensure_started(session_id), do: Session.send_user_message(pid, content)
+  end
+
+  @doc "Stops the turn in flight, persisting what arrived as interrupted."
+  @spec cancel_turn(session_id()) :: :ok | {:error, term()}
+  def cancel_turn(session_id) do
+    case whereis(session_id) do
+      nil -> {:error, :not_running}
+      pid -> Session.cancel_turn(pid)
+    end
+  end
+
+  @doc "The state name and a redacted view of the process's data."
+  @spec state(session_id()) :: map() | {:error, :not_running}
+  def state(session_id) do
+    case whereis(session_id) do
+      nil -> {:error, :not_running}
+      pid -> Session.state(pid)
+    end
+  end
+
+  @doc "Subscribes the caller to the session's events on `session:<id>`."
+  @spec subscribe(session_id()) :: :ok | {:error, term()}
+  def subscribe(session_id), do: Events.subscribe(session_id)
 end

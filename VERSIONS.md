@@ -91,7 +91,7 @@ never pin a version hex marks as retired or vulnerable.
 | `req` | ~> 0.5 | ✅ in `mix.lock` | HTTP client. |
 | `req_llm` | ~> 1.22 | ✅ in `mix.lock` | Provider layer (streaming, tools, structured output, usage). ⚠️ The pin was `~> 1.10` against a recorded latest of 1.10.0; the real latest was twelve minors ahead. Check event shapes against the current version at Slice 011, not against this file's prose. Added at Slice 011. |
 | `beam_mcp` | ~> 0.8 | 🔍 not yet a dependency | MCP server core, Apache-2.0, ADR-0007 decision 5 (owner decision 2026-09-08, recorded 2026-09-20). 0.8.0 on hex.pm, standing before 1.0.0. Server side only: the client, MRTR and OAuth are Trinity's, above it. Added at Slice 059. The earlier candidate list (anubis_mcp, fastest_mcp, gen_mcp) is history. |
-| `jido` | ~> 2.3 (pending ADR-0009) | 🔍 not yet a dependency | Actions, directives and the effect boundary, if the Slice 012 checkpoint adopts it. |
+| `jido` | not used (ADR-0009, decided 2026-09-20) | 🔍 not a single package | Measured at the Slice 012 checkpoint and not adopted: the agent runtime duplicates PubSub, Oban and the gateways and adds a second tool executor; the action shape is written in-tree at Slice 020 with `jsv` for its schemas. The row stays so the decision is visible where a reader would look for the package. |
 | `jason` | ~> 1.2 | ✅ in `mix.lock` |  |
 | `boundary` | ~> 0.10 | ✅ in `mix.lock` | Compile-time module dependency enforcement. Measured at Slice 000: it compiles and enforces on Elixir 1.20.4 / OTP 28, and it reports violations as **warnings**, so it enforces only while `--warnings-as-errors` is on the compile step. ⚠️ No release since 2024-09-25. |
 | `nimble_options` | ~> 1.1 | ✅ in `mix.lock` | Config validation for behaviours. |
