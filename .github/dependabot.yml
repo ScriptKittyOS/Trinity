@@ -1,29 +1,33 @@
 # SPDX-FileCopyrightText: Sudo Apt Holdings LLC
 # SPDX-License-Identifier: Apache-2.0
 #
-# Dependabot opens a pull request when a dependency has a security advisory or a newer
-# release. A pull request is not an upgrade: VERSIONS.md is the pin list, and a version
-# lands only after it is proposed in a slice's NOTES.md and approved (CLAUDE.md section 5).
-# The value here is the alert arriving as a diff with the gate run against it.
+# Dependabot opens a pull request only when a dependency has a security advisory. Version
+# bumps are not raised: VERSIONS.md is the pin list, and a version lands only after it is
+# proposed in a slice's NOTES.md and approved (CLAUDE.md section 5). On its first run, with
+# the limit above zero, it opened five version-bump pull requests inside two minutes; one of
+# them was merged by mistake. An open-pull-requests-limit of 0 keeps the security updates and
+# drops the rest. The value here is a security alert arriving as a diff with the gate run
+# against it.
 version: 2
 updates:
   - package-ecosystem: mix
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "chore(deps)"
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "chore(ci)"
   - package-ecosystem: cargo
     directory: /src-tauri
     schedule:
       interval: weekly
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "chore(deps)"

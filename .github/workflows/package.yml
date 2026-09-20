@@ -170,7 +170,7 @@ jobs:
       # --no-halt is what makes the exit mean anything. Burrito launches the release as
       # `-s elixir start_cli`, and the Elixir CLI halts when its command list is empty, so
       # without --no-halt the binary exits 0 on its own and `--smoke` proves nothing.
-      - name: Smoke test: boots, serves, exits by itself, leaves nothing behind
+      - name: "Smoke test: boots, serves, exits by itself, leaves nothing behind"
         if: runner.os != 'Windows'
         shell: bash
         run: |
