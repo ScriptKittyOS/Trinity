@@ -223,7 +223,7 @@ defmodule TrinityWeb.SessionLiveTest do
                "row seq #{row.seq} missing on the first page"
       end
 
-      assert length(Regex.scan(~r/id="message-[0-9a-f-]+" class=/, html)) == 4
+      assert length(Regex.scan(~r/id="message-[0-9a-f-]+" data-seq=/, html)) == 4
     end
   end
 
@@ -267,7 +267,8 @@ defmodule TrinityWeb.SessionLiveTest do
       on_exit(fn -> :telemetry.detach("ac7-#{id}") end)
 
       send_message(view, "go")
-      _ = wait_for(id, &match?({:state, :idle}, &1))
+      # The final message, not the first idle: the session's init broadcast one before the turn.
+      _ = wait_for(id, &match?({:assistant_message, _}, &1))
       html = render(view)
       renders = count(:rendered, 0)
       IO.puts("\nAC7: #{renders} renders of the page for 1,000 deltas")

@@ -127,6 +127,15 @@ the assistant row records it (`provider_meta.tool_surface`); `Trinity.Tools.surf
 the calls a turn made outside it. Sessions depends on Tools; Tools depends on Permissions and never on Sessions
 (the runner implements the seam's functions without naming the behaviour, which would close a cycle).
 
+**Compaction (Slice 023):** before a model call the Session estimates the request (`Trinity.Memory.Tokens`,
+bytes over three plus four per message, calibrated high) against the model's window (`context_tokens` on the
+registry entry, 32,768 when absent); over the soft threshold (70 %) it enters `compacting`, runs
+`Trinity.Memory.Compactor` in a Task (the structured call, with a plain-text fallback when the provider answers
+no object) and writes the compaction row itself; over the hard threshold (90 %) after that it forks: a child
+session with `parent_id`, the compaction first, the user's message second, the child's turn started, the parent
+closed with a row naming the child and `{:forked, child_id}` broadcast. Memory depends on LLM and the core,
+never on Sessions.
+
 **Effect path (Slice 024):** `Session → Permissions.decide → Effects.execute → Authority → tool.execute/2 (local) or a proposal (external adapter) → Receipts.append`. `Effects` is the only caller of `execute/2` for effectful tools; a census test enforces it. Reads emit query receipts.
 
 **The page (Slice 013):** `TrinityWeb.SessionLive.Show` subscribes to `session:<id>` on mount, calls

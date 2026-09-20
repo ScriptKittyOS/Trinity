@@ -103,7 +103,7 @@ defmodule Trinity.Sessions.UnitsTest do
   end
 
   describe "Events" do
-    test "the seven shapes and nothing else; broadcast refuses a foreign shape" do
+    test "the nine shapes and nothing else; broadcast refuses a foreign shape" do
       m = %Message{}
 
       for e <- [
@@ -113,9 +113,14 @@ defmodule Trinity.Sessions.UnitsTest do
             {:tool_call, %{id: "1", name: "t"}},
             {:state, :idle},
             {:turn_interrupted, m},
-            {:error, :x}
+            {:error, :x},
+            # Slice 023: a compaction row written, and the conversation continued in a child.
+            {:compaction, m},
+            {:forked, "01a0"}
           ],
           do: assert(Events.valid?(e), inspect(e))
+
+      refute Events.valid?({:forked, nil})
 
       refute Events.valid?({:assistant_delta, 1})
       refute Events.valid?({:chunk, "x"})

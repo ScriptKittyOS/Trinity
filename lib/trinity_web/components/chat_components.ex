@@ -23,7 +23,7 @@ defmodule TrinityWeb.ChatComponents do
 
   def message(%{message: %Message{role: "tool"}} = assigns) do
     ~H"""
-    <div id={@id} class="flex justify-start">
+    <div id={@id} data-seq={@message.seq} class="flex justify-start">
       <.tool_card
         name={@message.parts["tool"] || "tool"}
         status={if @message.parts["ok"], do: :ok, else: :error}
@@ -33,9 +33,22 @@ defmodule TrinityWeb.ChatComponents do
     """
   end
 
+  # Slice 023: a compaction row is a collapsible card, not a bubble.
+  def message(%{message: %Message{role: "system", parts: %{"compaction" => _}}} = assigns) do
+    ~H"""
+    <div id={@id} data-seq={@message.seq} class="flex justify-center">
+      <.compaction_card message={@message} />
+    </div>
+    """
+  end
+
   def message(assigns) do
     ~H"""
-    <div id={@id} class={["flex", (@message.role == "user" && "justify-end") || "justify-start"]}>
+    <div
+      id={@id}
+      data-seq={@message.seq}
+      class={["flex", (@message.role == "user" && "justify-end") || "justify-start"]}
+    >
       <div class={[
         "max-w-[min(48rem,90%)] rounded-panel px-4 py-3 text-ui",
         @message.role == "user" && "bg-primary/15 border border-primary/20",
@@ -205,6 +218,78 @@ defmodule TrinityWeb.ChatComponents do
         </select>
       </label>
     </form>
+    """
+  end
+
+  @doc """
+  A compaction row (slice 023): the range it covers, the four fields behind a disclosure, and
+  a link to the first row it summarised, which is still on the page.
+  """
+  attr :message, Message, required: true
+
+  def compaction_card(assigns) do
+    c = assigns.message.parts["compaction"]
+    assigns = assign(assigns, c: c, tainted: assigns.message.parts["taint"] == "untrusted")
+
+    ~H"""
+    <details class="group w-full max-w-[min(48rem,90%)] rounded-panel border border-secondary/40 bg-secondary/10 text-ui">
+      <summary class="flex cursor-pointer list-none items-center gap-2 px-4 py-2">
+        <.icon name="hero-archive-box-arrow-down-micro" class="size-4 text-secondary" />
+        <span class="font-semibold">{gettext("Compacted")}</span>
+        <span class="text-meta opacity-70">
+          {gettext("messages %{from} to %{to}, %{n} rows",
+            from: @c["from_seq"],
+            to: @c["to_seq"],
+            n: @c["rows"]
+          )}
+        </span>
+        <span :if={@tainted} class="rounded-pill bg-warning/20 px-1.5 text-meta text-warning">{gettext(
+          "untrusted sources"
+        )}</span>
+        <.icon
+          name="hero-chevron-down-micro"
+          class="ml-auto size-4 opacity-50 transition group-open:rotate-180"
+        />
+      </summary>
+      <div class="flex flex-col gap-2 border-t border-secondary/30 px-4 py-3">
+        <div class="md">
+          {Markdown.to_html(String.replace(@message.content, ~r/^Compacted summary.*\n\n/, ""))}
+        </div>
+        <a
+          href={"#compaction-origin-#{@message.id}"}
+          phx-click={JS.dispatch("trinity:scroll-to", detail: %{seq: @c["from_seq"]})}
+          class="text-meta text-secondary underline"
+        >
+          {gettext("View the original messages (from %{seq})", seq: @c["from_seq"])}
+        </a>
+      </div>
+    </details>
+    """
+  end
+
+  @doc "The context indicator (slice 023): the estimate of the next request against the model's window."
+  attr :used, :integer, required: true
+  attr :window, :integer, required: true
+
+  def context_indicator(assigns) do
+    pct = if assigns.window > 0, do: min(div(assigns.used * 100, assigns.window), 100), else: 0
+    assigns = assign(assigns, pct: pct)
+
+    ~H"""
+    <span
+      id="context"
+      data-used={@used}
+      data-window={@window}
+      title={gettext("Estimated tokens of the next request against the model's context window")}
+      class={[
+        "inline-flex items-center gap-1 rounded-pill px-2 py-0.5 font-mono text-meta",
+        @pct < 70 && "bg-base-300",
+        (@pct >= 70 and @pct < 90) && "bg-warning/20 text-warning",
+        @pct >= 90 && "bg-error/20 text-error"
+      ]}
+    >
+      {gettext("context")} {@used} / {@window}
+    </span>
     """
   end
 

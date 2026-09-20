@@ -6,8 +6,9 @@ defmodule Trinity.Sessions.Session do
 
   States: `idle`, `thinking` (a model call streaming in a Task), `tool_wait` (tool calls running
   in a Task), `approval_wait` (slice 021: calls the gate holds until the owner decides),
-  `compacting` (present for the machine's shape; nothing enters it until slice 023), `error` (a
-  failed turn, recorded, then back to `idle`).
+  `compacting` (slice 023: the history summarised in a Task before the model call, when the
+  request's estimate is over the model's soft threshold), `error` (a failed turn, recorded,
+  then back to `idle`).
 
   Rules this process keeps: every durable change is a row before it is a broadcast; the model
   and the tools run in Tasks under the session's own supervisor and talk back only by message;
@@ -22,6 +23,7 @@ defmodule Trinity.Sessions.Session do
 
   alias Trinity.Content.Part
   alias Trinity.LLM
+  alias Trinity.Memory.{Compactor, Tokens}
   alias Trinity.Sessions.{Caps, Events, Prompt, Sentinel, State, Store, ToolRunner}
 
   @coalesce_ms 50
@@ -143,7 +145,15 @@ defmodule Trinity.Sessions.Session do
       {:ok, message} ->
         Events.broadcast(id, {:user_message, message})
         data = %{data | turn: State.new_turn()}
-        {:next_state, :thinking, start_model_call(data), [{:reply, from, {:ok, message}}]}
+
+        case start_turn(data) do
+          {:forking, data} ->
+            {:next_state, next, data} = fork(data, Trinity.Sessions.history(id, limit: 500))
+            {:next_state, next, data, [{:reply, from, {:ok, message}}]}
+
+          {state, data} ->
+            {:next_state, state, data, [{:reply, from, {:ok, message}}]}
+        end
 
       {:error, reason} ->
         {:keep_state_and_data, [{:reply, from, {:error, reason}}]}
@@ -155,7 +165,7 @@ defmodule Trinity.Sessions.Session do
   end
 
   def handle_event({:call, from}, :cancel, state, %State{} = data)
-      when state in [:thinking, :tool_wait, :approval_wait] do
+      when state in [:thinking, :tool_wait, :approval_wait, :compacting] do
     kill_task(data)
     data = flush_deltas(data)
     data = persist_final(data, %{"interrupted" => true})
@@ -231,6 +241,37 @@ defmodule Trinity.Sessions.Session do
 
   def handle_event(:info, {:approval, _, _}, _state, _data), do: :keep_state_and_data
 
+  # Slice 023: the compaction row is written here, in the Session (a row, then a broadcast),
+  # from what the Task's model call answered; then the turn goes on, or forks past the hard
+  # threshold.
+  def handle_event(
+        :info,
+        {:compaction_done, ref, result},
+        :compacting,
+        %State{id: id, turn: %{ref: ref}} = data
+      ) do
+    case result do
+      {:ok, attrs} when is_map(attrs) ->
+        case Trinity.Sessions.append_message(id, attrs) do
+          {:ok, row} ->
+            Events.broadcast(id, {:compaction, row})
+            continue_after_compaction(data)
+
+          {:error, reason} ->
+            fail_turn(data, {:compaction_not_written, reason})
+        end
+
+      {:ok, :nothing} ->
+        continue_after_compaction(data)
+
+      {:error, {:already_compacted, _}} ->
+        continue_after_compaction(data)
+
+      {:error, reason} ->
+        fail_turn(data, {:compaction_failed, reason})
+    end
+  end
+
   # The Task died: a crash is an error turn, an ordinary exit after its message is nothing.
   def handle_event(
         :info,
@@ -238,7 +279,7 @@ defmodule Trinity.Sessions.Session do
         state,
         %State{turn: %{task: pid}} = data
       )
-      when state in [:thinking, :tool_wait] and reason != :normal do
+      when state in [:thinking, :tool_wait, :compacting] and reason != :normal do
     fail_turn(data, {:task_down, reason})
   end
 
@@ -254,16 +295,54 @@ defmodule Trinity.Sessions.Session do
 
   ## The turn
 
+  # Slice 023: the estimate of the request against the model's window decides between the
+  # model call (thinking) and a compaction first (compacting); the fork is decided after the
+  # compaction, on what remains.
+  defp start_turn(%State{} = data) do
+    {session, persona, history, request} = build_request(data)
+    window = Tokens.context_tokens(session.model || (persona && persona.model))
+    %{soft: soft, hard: hard} = Tokens.thresholds(window)
+    estimate = Tokens.estimate(request)
+
+    plan = Compactor.plan(history)
+
+    cond do
+      estimate > soft and plan != :nothing ->
+        {:compacting, start_compaction(%{data | session: session}, history, session.model)}
+
+      estimate > hard ->
+        # Nothing left to compact and still over the window: the fork, with what there is.
+        {:forking, %{data | session: session, turn: %{data.turn | held: []}}}
+
+      true ->
+        {:thinking, start_model_call(%{data | session: session}, request, history)}
+    end
+  end
+
   # The row is read again at every turn (slice 013): a model set between turns through
   # `Trinity.Sessions.set_model/2` is the next turn's model, not the next incarnation's.
-  defp start_model_call(%State{id: id, task_sup: sup, turn: turn} = data) do
+  defp build_request(%State{id: id} = data) do
     session = Store.get_session(id) || data.session
-    data = %{data | session: session}
     persona = session.persona_id && Store.get_persona(session.persona_id)
     # Slice 020: the declared surface of this turn, into the request and onto the row.
     tools = Trinity.Tools.to_llm_tools()
     history = Trinity.Sessions.history(id, limit: 500)
-    request = Prompt.build(session, persona, history, tools)
+    {session, persona, history, Prompt.build(session, persona, history, tools)}
+  end
+
+  defp start_compaction(%State{id: id, task_sup: sup, turn: turn} = data, history, model) do
+    ref = make_ref()
+    me = self()
+
+    %Task{pid: pid} =
+      Task.Supervisor.async_nolink(sup, fn ->
+        send(me, {:compaction_done, ref, Compactor.compact(id, history, model: model)})
+      end)
+
+    %{data | turn: %{turn | ref: ref, task: pid}}
+  end
+
+  defp start_model_call(%State{id: id, task_sup: sup, turn: turn} = data, request, history) do
     # Slice 022: what the model reads is what its answer inherits (docs/07, M1).
     taint = Part.max_taint([turn.taint | Enum.map(history, &Prompt.taint_of/1)])
     turn = %{turn | taint: taint}
@@ -289,6 +368,59 @@ defmodule Trinity.Sessions.Session do
             surface: Trinity.Tools.surface()
         }
     }
+  end
+
+  # After a compaction: under the hard threshold, the model call; over it, the fork (AC6).
+  defp continue_after_compaction(%State{} = data) do
+    {session, persona, history, request} = build_request(data)
+    window = Tokens.context_tokens(session.model || (persona && persona.model))
+    %{hard: hard} = Tokens.thresholds(window)
+
+    if Tokens.estimate(request) > hard do
+      fork(%{data | session: session}, history)
+    else
+      {:next_state, :thinking, start_model_call(%{data | session: session}, request, history)}
+    end
+  end
+
+  # A child session (parent_id) starts with the newest compaction and the user's message,
+  # and runs the turn; the parent closes its own with a row naming the child and says so.
+  defp fork(%State{id: id, session: session} = data, history) do
+    compaction = Compactor.latest(history)
+    last_user = history |> Enum.filter(&(&1.role == "user")) |> List.last()
+
+    with {:ok, child} <-
+           Trinity.Sessions.create_session(%{
+             persona_id: session.persona_id,
+             parent_id: id,
+             origin: session.origin,
+             model: session.model,
+             title: session.title
+           }),
+         {:ok, _} <-
+           if(compaction,
+             do:
+               Trinity.Sessions.append_message(child.id, %{
+                 role: "system",
+                 content: compaction.content,
+                 parts: compaction.parts
+               }),
+             else: {:ok, nil}
+           ),
+         {:ok, _} <-
+           Trinity.Sessions.append_message(id, %{
+             role: "assistant",
+             content:
+               "This conversation continues in a new session (#{child.id}): the context window was full.",
+             parts: %{"draft" => false, "forked_to" => child.id, "taint" => "trusted"}
+           }) do
+      # The child holds the message before anyone hears of the child.
+      if last_user, do: Trinity.Sessions.send_user_message(child.id, last_user.content)
+      Events.broadcast(id, {:forked, child.id})
+      {:next_state, :idle, %{data | turn: nil}}
+    else
+      {:error, reason} -> fail_turn(data, {:fork_failed, reason})
+    end
   end
 
   defp fold_event({:text_delta, s}, %State{turn: turn} = data) do
@@ -457,8 +589,14 @@ defmodule Trinity.Sessions.Session do
     data = %{data | turn: turn}
 
     case Caps.check(turn) do
-      :ok -> {:next_state, :thinking, start_model_call(data)}
-      {:cap, reason} -> cap_reached(data, reason)
+      :ok ->
+        case start_turn(data) do
+          {:forking, data} -> fork(data, Trinity.Sessions.history(data.id, limit: 500))
+          {state, data} -> {:next_state, state, data}
+        end
+
+      {:cap, reason} ->
+        cap_reached(data, reason)
     end
   end
 

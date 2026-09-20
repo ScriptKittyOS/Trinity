@@ -38,7 +38,14 @@ defmodule Trinity.DataCase do
   Sets up the sandbox based on the test tags.
   """
   def setup_sandbox(tags) do
-    pid = Ecto.Adapters.SQL.Sandbox.start_owner!(Trinity.Repo, shared: not tags[:async])
+    # Slice 023: a live eval holds the connection through several model calls; the sandbox's
+    # 120 s ownership timeout disconnected one mid-run, so a test may name its own.
+    opts = [shared: not tags[:async]]
+
+    opts =
+      if t = tags[:ownership_timeout], do: Keyword.put(opts, :ownership_timeout, t), else: opts
+
+    pid = Ecto.Adapters.SQL.Sandbox.start_owner!(Trinity.Repo, opts)
     on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
   end
 

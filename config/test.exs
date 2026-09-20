@@ -56,7 +56,10 @@ config :trinity, :llm,
       provider: :fake,
       model: "chat",
       caps: [:stream, :tools, :json],
-      price: %{input: 1.0, output: 2.0}
+      price: %{input: 1.0, output: 2.0},
+      # Slice 023: a small window so a long fake conversation crosses the thresholds (the fourteen
+      # tools' schemas alone are about 1,140 estimated tokens of every request).
+      context_tokens: 6_000
     },
     %{
       id: "fake:embed",

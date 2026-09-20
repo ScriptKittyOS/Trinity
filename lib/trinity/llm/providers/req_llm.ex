@@ -60,8 +60,13 @@ defmodule Trinity.LLM.Providers.ReqLLM do
     with {:ok, spec, call_opts} <- prepare(request, opts),
          {:ok, response} <-
            Mapping.wrap(ReqLLM.generate_object(spec, context(request), schema, call_opts)) do
-      {:ok, ReqLLM.Response.object(response),
-       Mapping.normalise_usage(ReqLLM.Response.usage(response))}
+      # Slice 023: a response with no object is a transient failure, not an object. Measured
+      # against openrouter:ling on one transcript: three identical calls, one object and two
+      # answers of thinking and text with no tool call; the retry around this takes the next.
+      case ReqLLM.Response.object(response) do
+        nil -> {:error, Error.transient(:no_object)}
+        object -> {:ok, object, Mapping.normalise_usage(ReqLLM.Response.usage(response))}
+      end
     end
   rescue
     e -> {:error, Mapping.classify(e)}

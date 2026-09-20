@@ -25,6 +25,7 @@ defmodule Trinity.LLM.Registry do
           required(:caps) => [atom() | {atom(), term()}],
           required(:price) => %{input: number(), output: number()},
           optional(:base_url) => String.t(),
+          optional(:context_tokens) => pos_integer(),
           optional(:api_key_env) => String.t()
         }
 
