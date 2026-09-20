@@ -85,7 +85,11 @@ fi
 
 # ---------------------------------------------------------------- 6
 section "6. No reference to a plan path absent from git ls-files"
-exists_prefix() { printf '%s\n' "$tracked" | grep -q "^$1"; }
+# `grep` without -q on purpose: under `set -o pipefail`, `grep -q` exits at the first match
+# and printf can take SIGPIPE writing the rest, and the pipeline then reports printf's 141 as
+# a miss. Measured at slice 003: 1 spurious FAIL in 30 runs on a clean tree (the ADR-0005
+# citation in slices/001). Reading the whole input has no early exit and no race.
+exists_prefix() { printf '%s\n' "$tracked" | grep "^$1" >/dev/null; }
 for f in $(git ls-files '*.md'); do
   # doc and slice path references
   grep -oE '(docs/adr/[0-9]{4}|docs/[0-9]{2}|slices/[0-9]{3}|templates/[A-Za-z-]+\.md)[A-Za-z0-9._-]*' "$f" 2>/dev/null | sort -u | while read -r ref; do
@@ -142,7 +146,7 @@ for c in $(git log --format=%H); do
     fail=1
   fi
   case " $unsigned_merge_exempt " in *" $c "*) continue ;; esac
-  printf '%s\n' "$body" | grep -q '^Signed-off-by: ' \
+  printf '%s\n' "$body" | grep '^Signed-off-by: ' >/dev/null \
     || report "FAIL commit $c: no Signed-off-by line ($(git log -1 --format=%s "$c"))"
 done
 
