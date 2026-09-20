@@ -78,7 +78,9 @@ config :trinity, :tools,
   toolsets: %{
     fs: ["fs_read", "fs_write", "fs_edit", "fs_list", "fs_glob", "fs_grep"],
     web: ["web_fetch", "web_search"],
-    shell: ["shell"]
+    shell: ["shell"],
+    # Slice 031: search over past conversations.
+    memory: ["session_search"]
   }
 
 # Slice 022: the filesystem roots beside the data directory (always a root) and the session's

@@ -33,7 +33,9 @@ config :trinity, :tools,
     core: ["echo", "sleep", "crash", "big", "write_note"],
     fs: ["fs_read", "fs_write", "fs_edit", "fs_list", "fs_glob", "fs_grep"],
     web: ["web_fetch", "web_search"],
-    shell: ["shell"]
+    shell: ["shell"],
+    # Slice 031: search over past conversations.
+    memory: ["session_search"]
   },
   timeout_ms: 2_000
 
