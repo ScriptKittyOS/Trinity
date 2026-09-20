@@ -69,3 +69,33 @@ Deviations from SLICE.md, stated before building: the five provider mappings are
 the NVIDIA endpoint are measured live, and PROOF.md says so per provider. `Trinity.LLM.Supervisor` from docs/01
 (rate limiters) is not built here: nothing in this slice needs a process, and a supervisor with no children
 would be a claim; 012 adds it when the Session needs one. Recorded as a follow-up.
+
+## Line 1, 2026-09-20: the dependencies, counted
+
+`req_llm ~> 1.22` resolved to 1.24.0 and `mox ~> 1.2` to 1.3.1. `mix.lock` went from 68 to 80 packages. The
+twelve that entered, with licence from hex.pm metadata (`curl -s https://hex.pm/api/packages/<name> | jq
+.meta.licenses`):
+
+| package | version | licence | why req_llm needs it |
+|---|---|---|---|
+| req_llm | 1.24.0 | Apache-2.0 | the provider layer |
+| llm_db | 2026.9.4 | Apache-2.0 | its model and price database, dated |
+| dotenvy | 1.2.1 | Apache-2.0 | reads `.env` for provider keys |
+| jsv | 0.23.0 | Apache-2.0 | JSON schema validation for structured output |
+| zoi | 0.18.7 | Apache-2.0 | its struct schemas |
+| splode | 0.3.2 | MIT | its error classes |
+| server_sent_events | 1.1.0 | MIT | SSE parsing for streaming |
+| websockex | 0.5.1 | MIT | a realtime transport Trinity does not use |
+| texture | 1.2.1 | Apache-2.0 | transitive |
+| toml | 0.7.0 | Apache-2.0 | transitive |
+| abnf_parsec | 2.1.0 | MIT | transitive (idna) |
+| idna | 7.1.0 | MIT | transitive |
+
+Plus `mox` 1.3.1 (Apache-2.0), test only. Every licence is Apache-2.0 or MIT. `mix hex.audit`: no retired or
+advisory packages. `mix deps.audit`: no vulnerabilities. `versions.verify`: OK, 80 locked, 46 pins. Binary size
+delta is measured at the next package run, not estimated here.
+
+One thing to know about `dotenvy`: req_llm's key lookup reads `.env` through it at startup. Trinity's `.env` is
+gitignored and holds the owner's keys, so in the default test run the keys may be present in the environment
+while the network guard still refuses every connection; the live tag is what opens the network, not the
+presence of a key. Line 10 routes every key through `Trinity.Config.secret/1` anyway.
