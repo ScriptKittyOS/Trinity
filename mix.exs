@@ -100,6 +100,9 @@ defmodule Trinity.MixProject do
       # Slice 011: the provider layer behind Trinity.LLM (docs/adr/0003). What it brings into
       # mix.lock is counted in the slice's NOTES.md, because the desktop binary carries it.
       {:req_llm, "~> 1.22"},
+      # Slice 013: the chat's markdown renderer, behind TrinityWeb.Markdown. Chosen by the
+      # measurement in the slice's NOTES.md; it brings a Rust NIF (mdex_native), precompiled.
+      {:mdex, "~> 0.13"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.2.0"},

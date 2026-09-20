@@ -255,10 +255,17 @@ defmodule Trinity.Versions do
     },
     %{
       name: "phoenix_streamdown",
-      pin: "**not pinned**",
+      pin: "not used (measured at Slice 013, 2026-09-20)",
       lock: nil,
       note:
-        "Streaming markdown renderer for LiveView. ⚠️ Pre-release, and this file's own rule forbids pinning an `-rc`; a beta is the same category. Verify at Slice 013; fallback: earmark or mdex with chunk buffering."
+        "Streaming markdown renderer for LiveView. Measured at Slice 013: 1.0.0-beta.4 (2026-05-03) was still the latest release with no stable behind it, and this file's own rule forbids a pre-release. It is 801 lines over `mdex`, whose own `streaming: true` option completes fragments; the rest is a rendering rule Slice 013 keeps anyway. The row stays so the decision is visible where a reader would look for the package."
+    },
+    %{
+      name: "mdex",
+      pin: "~> 0.13",
+      lock: "mdex",
+      note:
+        "Markdown renderer for the chat (`TrinityWeb.Markdown`), streaming fragments completed by its `streaming: true` option, raw HTML omitted (`unsafe: false`) and the default sanitizer on top. Added at Slice 013 after the measurement in its NOTES.md: `earmark` 1.4.49 is retired on hex with an open XSS advisory (EEF-CVE-2026-48591), which the gate refuses. ⚠️ A Rust NIF (`mdex_native`, precompiled through `rustler_precompiled` for the four packaging targets): the first NIF in the bundle; the `package` workflow proves it on three operating systems, cited in Slice 013's PROOF.md."
     }
   ]
 
