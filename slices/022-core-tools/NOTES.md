@@ -72,3 +72,52 @@ Deviations from SLICE.md, stated before building: tool names are the flat `fs_re
 or namespaced core name would read as dynamic); `<untrusted>` wrapping is the Part's rendering, not a string
 the tool returns (the M1 alignment says so); the search provider is Brave unless the owner names another;
 the shell is POSIX-only (above); `Web.Fetch` does no JavaScript and says so in its description.
+
+## Lines 1 to 9, 2026-09-20: what was built, and what building it found
+
+**Built.** As planned: `Content.Part`, `Tools.Untrusted`, `Result.parts`, the turn's taint on the Session and the
+assistant row, the prompt's `<untrusted>` rendering and rule; `Tool.escalate/2` and `available?/0`,
+`Permissions.effective_tier/2`; `Tools.FS` with the six tools and `FS.Placeholders`; `Web.Fetch`,
+`SearchProvider` (Brave, Fake), `Web.Search`; `Shell.Run` and `Shell.Dangerous`; the catalog's first entry
+(`shell`, `:exec`); the toolsets in config; the card's platform note; two scripts under `scripts/` that serve the
+chat on the test registry with scripted turns (the second is AC10's).
+
+**Found while building, each recorded rather than smoothed.**
+
+1. **A port's `env:` adds to the environment; it does not replace it.** The first shell version handed MuonTrap
+   the seven kept names and the child still saw every key (AC9 red: `TRINITY_TEST_SECRET_KEY=sk-…` in the
+   output). Every other name in Trinity's environment is now passed as `nil`, which unsets it.
+2. **`Req` retries a 500 three times by default**, seven seconds for a page that says no; `retry: false` on the
+   fetch, a tool call being one attempt.
+3. **`config/runtime.exs` runs after `config/test.exs`**, so the Brave default there overrode the test config's
+   fake and AC6's fake test hit "no search key". The runtime default is set for every environment but test.
+4. **The web tests use `Req`'s `plug:` option**, not a Bandit server on the loopback as SLICE.md said: a Plug
+   answers in-process and no socket is opened, which is stronger for "tests must not hit the network"; the
+   `NetworkGuard` chokepoint cannot see Req in any case (its stated limit).
+5. **sobelow's traversal check fires on every filesystem tool by construction**: a path that is the model's
+   argument is the tool's whole purpose. Each function carries a scoped skip whose reason names the actual
+   control (the roots after symlink resolution, the escalation, the gate).
+6. **Playwright's bundled ffmpeg has no GIF muxer and no filter graph**: the frames were extracted with it and
+   assembled with ImageMagick's `convert`; the GIF is 724 KB, 31 frames at four a second.
+7. **A fresh screenshot database has no tables under Mix**: `skip_migrations?/0` is true wherever Mix is loaded
+   (the 013 fix), so the serving scripts migrate by hand after the application starts.
+8. **`fs_list` on the project directory asks** in the AC10 run, because the session has no working directory
+   and the project is not a configured root: the approvals in the GIF are the design working, and the follow-up
+   is 033's project context, which gives a session a cwd.
+9. **Credo's nesting and `with` rules** reshaped `fs_read`, `fs_list` and `fs_grep` (a `case` and a helper each).
+
+```
+$ mix test test/trinity/tools/fs test/trinity/tools/web test/trinity/tools/shell test/trinity/tools/provenance_test.exs → 23 passed, 1 excluded (live)
+$ mix gate                                        → exit 0; 255 passed, 11 excluded; plan_check: PASS
+$ mix test --cover                                → 74.85% total (Shell.Run 100%, FS 91.67%, Fetch 81.94%, Part 80%)
+$ mix credo --strict --all                        → 1059 mods/funs, found no issues
+```
+
+## Follow-ups
+- A Windows shell runtime with a kill guarantee (job objects) is a slice of its own; until then the shell is
+  absent there and the card says so.
+- 033 gives a session a working directory (the project's), so `fs_list` and `fs_read` on it run without asking.
+- `blocked` parts: nothing writes one; 024's receipts and the sentinel decide when a part is blocked.
+- The live search test needs `BRAVE_SEARCH_API_KEY` in `.env`; the owner's manual queue.
+- `Web.Fetch` reads no PDF; a text extractor for it is a small later addition to the same tool.
+- `FS.restore/2` has no tool or UI; 034 (export, import, restore) is its natural surface.

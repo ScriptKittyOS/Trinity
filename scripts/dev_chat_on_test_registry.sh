@@ -17,6 +17,7 @@ endpoint = Application.get_env(:trinity, TrinityWeb.Endpoint) |> Keyword.put(:ch
 Application.put_env(:trinity, TrinityWeb.Endpoint, endpoint)
 Application.put_env(:trinity, :permissions, expiry_ms: 600_000, session_grant_ms: 3_600_000)
 {:ok, _} = Application.ensure_all_started(:trinity)
+Ecto.Migrator.run(Trinity.Repo, :up, all: true)
 call = [{:text_delta, "I will save that as a note. "}, {:sleep, 300}, {:tool_call_start, "c1", "write_note"}, {:tool_call_end, "c1", %{"path" => "/home/me/notes/today.md", "text" => "Buy oat milk, call the dentist, finish the slice."}}, {:usage, %{input_tokens: 12, output_tokens: 20}}, {:done, :tool_calls}]
 final = fn text -> Enum.flat_map(String.split(text), &[{:text_delta, &1 <> " "}, {:sleep, 40}]) ++ [{:usage, %{input_tokens: 40, output_tokens: 30}}, {:done, :stop}] end
 Trinity.LLM.Providers.Fake.scripts([
