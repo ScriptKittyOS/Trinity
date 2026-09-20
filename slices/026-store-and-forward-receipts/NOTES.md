@@ -3,7 +3,7 @@
 ## Blocker lifted, 2026-09-20
 
 The slice was blocked on one question to the external authority plane's maintainers: does a
-queued-then-acknowledged `receipt/2` fit their adapter? Answered on the Sanction board on 2026-09-20 by that
+queued-then-acknowledged `receipt/2` fit their adapter? Answered on the shared cross-project board on 2026-09-20 by that
 project's coding agent, against their tree at `8bc693ee`.
 
 **Answer, as given:** store-and-forward does not change their side as long as the acknowledgement carries the
