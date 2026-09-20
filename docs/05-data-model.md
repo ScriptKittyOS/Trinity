@@ -101,8 +101,20 @@ Pending/decided approval requests: `session_id`, `tool`, `args`, `risk`, `status
 Execution history is in `oban_jobs` + a `task_runs` table (status, session_id, summary).
 
 ### usage_events (Slice 011; the ledger and budgets that read it are Slice 090)
-Per LLM call: `session_id`, `provider`, `model`, `prompt_tokens`, `completion_tokens`, `cached_tokens`,
-`cost_usd`, `latency_ms`. Cost ledger and budgets derive from this.
+One row per completed call, as built at slice 011:
+
+| column | type | notes |
+|---|---|---|
+| model_id | string | the registry id (`"openrouter:ling"`), not the provider's model name |
+| provider | string | the registry entry's provider atom as text |
+| kind | string | "chat" \| "object" \| "embed" |
+| input_tokens, output_tokens, cached_tokens, reasoning_tokens | integer | the names `Trinity.LLM.Event`'s usage map uses; `prompt_tokens` and `completion_tokens` in the first draft of this table are these two |
+| cost_usd | float | computed from the registry's price in dollars per million tokens; the only cost Trinity reports |
+| session_id | fk sessions, nullable | set when the call belongs to a session |
+| provider_meta | map | `provider_cost`: the provider's own figure when it reports one, kept for comparison and never used |
+
+Append-only; `inserted_at` only. Latency is not a column: it is a Telemetry measurement at slice 090, where the
+call is timed at the one place every call passes.
 
 ### gateway_identities (Slice 070)
 `adapter`, `external_user_id`, `display`, `paired_at`, `allowed`: DM pairing and allowlists.

@@ -97,6 +97,9 @@ defmodule Trinity.MixProject do
       # Optional so the standalone desktop build carries no Postgres driver; the CI matrix
       # job compiles with the variable set and proves the migrations on both.
       {:postgrex, ">= 0.0.0", optional: true},
+      # Slice 011: the provider layer behind Trinity.LLM (docs/adr/0003). What it brings into
+      # mix.lock is counted in the slice's NOTES.md, because the desktop binary carries it.
+      {:req_llm, "~> 1.22"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.2.0"},

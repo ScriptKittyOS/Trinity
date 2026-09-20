@@ -7,6 +7,36 @@ import Config
 # The MIX_TEST_PARTITION environment variable can be used
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
+# Slice 011: the registry in tests is the scripted fake plus a Mox mock; the live tests set
+# their own entries from the environment at runtime.
+config :trinity, :llm,
+  default_model: "fake:chat",
+  providers: %{fake: Trinity.LLM.Providers.Fake, mock: Trinity.LLM.ProviderMock},
+  retry: [attempts: 3, base_ms: 1],
+  models: [
+    %{
+      id: "fake:chat",
+      provider: :fake,
+      model: "chat",
+      caps: [:stream, :tools, :json],
+      price: %{input: 1.0, output: 2.0}
+    },
+    %{
+      id: "fake:embed",
+      provider: :fake,
+      model: "embed",
+      caps: [:embed, {:embed_dim, 8}],
+      price: %{input: 0.5, output: 0.0}
+    },
+    %{
+      id: "mock:chat",
+      provider: :mock,
+      model: "chat",
+      caps: [:stream, :tools],
+      price: %{input: 0.0, output: 0.0}
+    }
+  ]
+
 # Slice 010: the data-dir lock takes a temporary directory in tests, so a test run never
 # contends with a running Trinity on the same machine, and two test runs at once do contend,
 # which is the property under test.
