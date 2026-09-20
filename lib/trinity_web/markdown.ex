@@ -21,10 +21,10 @@ defmodule TrinityWeb.Markdown do
   The HTML for a markdown string, safe to mark raw. `streaming: true` completes an unfinished
   fragment first.
   """
-  # sobelow flags every `raw/1` (XSS.Raw, low confidence). This is the one call in the tree,
-  # on HTML the renderer produced with raw input HTML omitted and the sanitizer applied, and
-  # `TrinityWeb.MarkdownTest` asserts a script tag and a javascript: href do not survive.
-  # Scoped to the function rather than .sobelow-skips, which keys on file and line.
+  # sobelow_skip reason: XSS.Raw fires on every `raw/1`, low confidence. This is the one call
+  # in the tree, on HTML the renderer produced with raw input HTML omitted and the sanitizer
+  # applied, and `TrinityWeb.MarkdownTest` asserts a script tag and a javascript: href do not
+  # survive. Scoped to the function rather than .sobelow-skips, which keys on file and line.
   @sobelow_skip ["XSS.Raw"]
   @spec to_html(String.t(), keyword()) :: Phoenix.HTML.safe()
   def to_html(markdown, opts \\ []) when is_binary(markdown) do
