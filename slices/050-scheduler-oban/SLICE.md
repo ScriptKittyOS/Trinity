@@ -23,6 +23,11 @@ Scheduled work as durable, retried, observable jobs rather than entries in a con
 - `Trinity.Scheduler.Workers.RunTask`: creates/uses a session with `origin: "cron"`, runs one turn with the prompt (+ skill hints), waits for completion via PubSub with timeout, records summary, delivers via `Trinity.Scheduler.Delivery` behaviour (`Desktop` impl now: notification list in UI; gateways add impls in 070).
 - Natural-language schedule helper: `Trinity.Scheduler.Parse.human("every weekday at 9am")` → cron (LLM-assisted with `generate_object`, validated by a cron parser).
 - Memory observer (032) becomes an Oban worker on `memory` queue; retry policy defined. *If 032 is not yet approved when this slice runs, skip this item here and do it in 032 (note in NOTES.md); AC6 is then waived.*
+- **Memory curator on the `maintenance` queue, added 2026-09-20.** A memory entry untouched for 30 days is
+  marked stale; one untouched for 90 days is archived; nothing is ever deleted by the curator. Archiving is an
+  `:artifact` effect that crosses the membrane like any other write and is receipted; the thresholds are
+  configuration with those defaults. Marking stale is a query receipt. If slice 024 is not yet approved when
+  this slice runs, the curator marks stale only and archiving waits for the membrane (note in NOTES.md).
 - UI: `/tasks` list, create/edit form, run history with links to the sessions.
 **Out:**
 - Oban Pro; multi-step workflows (modelled later via chained jobs if needed).

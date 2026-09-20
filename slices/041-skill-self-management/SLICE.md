@@ -20,7 +20,15 @@ Vision goal 4: "grows safely". A self-improving skills library is only safe if t
 **In:**
 - `skill_manage` tool with actions and args validated; risk `:write`; always routed through staging regardless of permission rules (design decision: skills are code-adjacent).
 - `Trinity.Skills.Staging`: writes proposals to `<data_dir>/pending/skills/<name>/<change_id>/`; `skill_changes` rows; diff generation; apply/reject; versioning (`skills.version++`, previous version archived under `<data_dir>/skills/.history/`).
+- **The proposer is a Task that only writes to the pending directory, added 2026-09-20.** It produces a diff
+  and a rationale into `pending/skills/<name>/<change_id>/` and never applies anything; applying is the gated
+  promotion below. A patch is preferred over a whole-file replace; a replace is tagged `:destructive` in the
+  `skill_changes` row and the approval card says so. A census asserts the proposer has no write path outside
+  the pending directory (planted write goes red).
 - `Trinity.Skills.Scanner`: heuristics (shell commands, network calls, credential patterns, "ignore previous instructions", external URLs, base64 blobs) → findings with severity; high severity blocks auto-approval even if a rule would allow.
+  The scanner runs on the pending directory, before promotion, never on the live registry alone. Any content a
+  heuristic excludes from further scanning (binary, oversized, unparseable) is reported as a low-severity finding
+  naming what was excluded and why; there is no silent drop (added 2026-09-20).
 - Approval UI: pending skill changes list, side-by-side diff, scanner findings, approve/reject with comment; reuses `Trinity.Permissions.Gate` topics so gateways (070) can approve too.
 - `/learn` command (UI + tool `learn(source)`): fetch/parse source (URL via Web.Fetch, local file via FS.Read, pasted text) → LLM distils into a lean SKILL.md + reference files → staged like any other change.
 - Auto-approve option per persona for low-severity changes (default off).
