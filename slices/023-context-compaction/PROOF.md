@@ -130,3 +130,8 @@ $ git log --oneline main..HEAD
 5989b73 feat(s023): token estimation, compaction with lineage, the compacting state and the fork, the UI and the eval harness
 352b51e docs(s023): G1 plan with the token and window facts measured, and the slice opens
 ```
+
+## Closing correction, 2026-09-20
+Supersedes the "Final commit" field in the header: the commit carrying this file is `32e8e44`
+(`feat(s023): complete slice 023 (context compaction and lineage)`); the `git log` block above lists the
+commits before it. The pull request, its merge commit (signed in its body) and the tag come after review.
