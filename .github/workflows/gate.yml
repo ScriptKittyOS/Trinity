@@ -51,3 +51,52 @@ jobs:
               echo "::error::a commit in this range has no Signed-off-by line"; exit 1; }
 
       - run: mix gate
+
+  # Slice 010 AC1 and AC2: the same migrations and the same suite on Postgres. A second job
+  # rather than a matrix entry so the required check keeps its context name, `gate`. This job
+  # is not required by the ruleset until it has run green on main once; then it is added.
+  # Tests tagged :sqlite read SQLite pragmas and are excluded here by tag, never by skip.
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: trinity
+          POSTGRES_PASSWORD: trinity
+          POSTGRES_DB: trinity_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U trinity"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      MIX_ENV: test
+      TRINITY_DB: postgres
+      DATABASE_URL: postgres://trinity:trinity@localhost:5432/trinity_test
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        with:
+          version-file: .tool-versions
+          version-type: strict
+
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-postgres-${{ hashFiles('mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-postgres-
+
+      - run: mix deps.get
+
+      # The adapter is chosen at compile time (config/config.exs); this proves the build
+      # under TRINITY_DB=postgres links the Postgres adapter and nothing SQLite.
+      - name: The compiled adapter is Postgres
+        run: mix run -e 'Ecto.Adapters.Postgres = Trinity.Repo.__adapter__()'
+
+      - run: mix ecto.reset
+      - run: mix test --exclude sqlite

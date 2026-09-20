@@ -85,7 +85,8 @@ never pin a version hex marks as retired or vulnerable.
 | `bandit` | ~> 1.5 | ✅ in `mix.lock` | HTTP server. |
 | `ecto_sql` | ~> 3.13 | ✅ in `mix.lock` |  |
 | `ecto_sqlite3` | >= 0.0.0 | ✅ in `mix.lock` | Primary DB. FTS5 available. |
-| `postgrex + pgvector` | optional, ~> 0.3 | 🔍 not a single package | Secondary DB path. Not in default deps; behind `TRINITY_DB=postgres`. Two packages, so no single lock key. |
+| `postgrex` | >= 0.0.0 (optional) | ✅ in `mix.lock` | Secondary DB driver, `optional: true` so the desktop build carries none of it; compiled in only under `TRINITY_DB=postgres`, which the CI job proves. Added at Slice 010. Was one row with pgvector; pgvector keeps its own row below. |
+| `pgvector` | optional, ~> 0.3 | 🔍 not yet a dependency | Vectors on the Postgres path. Not yet a dependency; Slice 032 decides. Split from the postgrex row at Slice 010. |
 | `oban` | ~> 2.24 | 🔍 not yet a dependency | Uses `Oban.Engines.Lite` on SQLite. ⚠️ Oban Pro Workflows/Smart engine are Postgres-only. Added at Slice 050. |
 | `req` | ~> 0.5 | ✅ in `mix.lock` | HTTP client. |
 | `req_llm` | ~> 1.22 | 🔍 not yet a dependency | Provider layer (streaming, tools, structured output, usage). ⚠️ The pin was `~> 1.10` against a recorded latest of 1.10.0; the real latest was twelve minors ahead. Check event shapes against the current version at Slice 011, not against this file's prose. Added at Slice 011. |

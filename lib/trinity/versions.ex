@@ -123,11 +123,18 @@ defmodule Trinity.Versions do
       note: "Primary DB. FTS5 available."
     },
     %{
-      name: "postgrex + pgvector",
-      pin: "optional, ~> 0.3",
-      lock: nil,
+      name: "postgrex",
+      pin: ">= 0.0.0 (optional)",
+      lock: "postgrex",
       note:
-        "Secondary DB path. Not in default deps; behind `TRINITY_DB=postgres`. Two packages, so no single lock key."
+        "Secondary DB driver, `optional: true` so the desktop build carries none of it; compiled in only under `TRINITY_DB=postgres`, which the CI job proves. Added at Slice 010. Was one row with pgvector; pgvector keeps its own row below."
+    },
+    %{
+      name: "pgvector",
+      pin: "optional, ~> 0.3",
+      lock: "pgvector",
+      note:
+        "Vectors on the Postgres path. Not yet a dependency; Slice 032 decides. Split from the postgrex row at Slice 010."
     },
     %{
       name: "oban",
