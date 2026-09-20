@@ -133,6 +133,15 @@ See `CONTRIBUTING.md` for how a change gets in, `SECURITY.md` for how to report 
 and `GOVERNANCE.md` and `MAINTAINERS.md` for who decides what. `CODE_OF_CONDUCT.md` applies in
 every project space.
 
+## Related projects
+
+[beam_mcp](https://github.com/ScriptKittyOS/beam_mcp) is a Model Context Protocol server core for
+the BEAM from the same organisation, on Hex as `beam_mcp`. Trinity does not depend on it today.
+Trinity's MCP layer (milestone M5a) is chosen by measurement in slice 059, where beam_mcp is one
+of the candidates for the server side; the client side and the authorization server are Trinity's
+own work whichever library is chosen. `docs/adr/0007-mcp-2026-07-28-target-and-library.md`
+records the protocol target and how the choice is made.
+
 ## License
 
 Apache-2.0. See `LICENSE` and `NOTICE`.
