@@ -109,6 +109,8 @@ defmodule Trinity.MixProject do
       # Slice 021: RFC 8785 canonical JSON under every approval fingerprint (docs/07). Chosen
       # by the measurement in the slice's NOTES.md; the RFC's vector is a test in the tree.
       {:jcs, "~> 0.2"},
+      # Slice 022: HTML to text for web_fetch (Trinity.Tools.Web.Fetch).
+      {:floki, "~> 0.38"},
       # Slice 013 (owner decision, 2026-09-20): the linux package builds mdex's NIF from
       # source for musl (MDEX_NATIVE_BUILD=1 and TRINITY_NIF_TARGET in config/config.exs),
       # because neither precompiled artifact loads in Burrito's musl ERTS (NOTES finding 13).
@@ -160,7 +162,19 @@ defmodule Trinity.MixProject do
       # `&Burrito.wrap/1` is a release step that runs under MIX_ENV=prod. Declared directly so
       # the module exists in the environment that calls it.
       {:burrito, "~> 1.6"}
-    ]
+    ] ++ posix_deps()
+  end
+
+  # Slice 022: the shell tool's process wrapper is a C port built with elixir_make (fork,
+  # exec, SIGTERM then SIGKILL, cgroups), and it does not build on Windows. Declared only on
+  # a Unix host, the way postgrex is declared only under TRINITY_DB=postgres: the lock keeps
+  # the entry, the Windows package never compiles it, and the shell tool answers
+  # available?/0 false there (slice 022 NOTES.md, the Windows decision).
+  defp posix_deps do
+    case :os.type() do
+      {:unix, _} -> [{:muontrap, "~> 2.0"}]
+      _ -> []
+    end
   end
 
   # Aliases are shortcuts or tasks specific to the current project.
