@@ -57,6 +57,11 @@
 - Merge: a pull request, merge-commit method only, `gate` green on the branch head (repository ruleset, no
   bypass). Tag: `slice/NNN` (annotated), pushed after the merge; tags are protected against update and
   deletion. Never rebase or force-push `main`; the ruleset refuses it anyway.
+- **The merge commit is signed off too.** GitHub writes it, so the sign-off goes in the body given to
+  `gh pr merge --merge --subject "Merge slice/NNN-…" --body "…Signed-off-by: Name <email>"`. Merging with a
+  subject alone produced an unsigned commit under a protected tag once (slice 013, `3db7a5f`), which
+  `scripts/plan_check.sh` rule 8 now names as its one exemption. Check `git log -1 --format=%B` on `main`
+  before tagging; a tag cannot be moved.
 - `mix.lock` is committed. Dependency changes are their own commit: `chore(sNNN): add req_llm ~> 1.10`.
 
 ## Definition of Done
