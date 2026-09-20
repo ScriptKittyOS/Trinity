@@ -76,3 +76,53 @@ pre-checks, so `decide/3` stays exactly once per execution attempt (020 AC7) and
 call; "allow once" is an approval row consumed at its one use, not a rule; a denial is bound to the fingerprint
 for the turn that asked and never outlives it; the persona layer reads `personas.settings["permissions"]`
 (`tool => decision`), the smallest shape 030 can grow.
+
+## Lines 1 to 8, 2026-09-20: what was built, and what building it found
+
+**Built.** As planned: `Permissions.Fingerprint`, the migration with `Rule` and `Approval` and `Store`,
+`Permissions` (the door: tiers, `decide/4`, requests, decisions, listings, topics), `Policy` with `Default` and
+`Layered`, `Gate`, the runner's `:ask` path, the Session's `approval_wait` with `awaiting` and `held` on the turn,
+`ApprovalComponents`, the card in the chat, `PermissionsLive`, the `write_note` test tool, the screenshot server
+script. `jcs ~> 0.2` (its own commit).
+
+**Found while building, each recorded rather than smoothed.**
+
+1. **`decide/3` became `decide/4`.** The persona's policy needs the persona row and the fingerprint needs the
+   working directory, and Permissions may not read Sessions (a cycle), so the runner passes both from the tool
+   context as `opts`. 020's mocks moved to the four-arity callback; the count of one call per execution stands.
+2. **The page hears each request twice.** The chat subscribes to the session's topic and to everyone's (for
+   the header count), and the Gate broadcasts on both, so the card doubled until the page ignored a second
+   arrival of the same id. LiveViewTest's duplicate-id check is what found it.
+3. **A test expiry of 400 ms raced the tests that decide by hand**, so the expiry in test config is 1,000 ms
+   and AC6 waits up to 1,500. Two runs of the three suites green.
+4. **The test-environment server for screenshots wrote into the test suite's database**: the next gate failed
+   four `usage_events` tests on rows nobody in the suite had written (012 found the same, its finding 6). The
+   script now names its own database file and the test one was reset; the script is in `scripts/` so the
+   owner's manual queue runs on the same thing the screenshots came from.
+5. **Plug.Static serves a stale gzip.** With code reloading off (the test environment, and production) the
+   endpoint serves `app.css.gz` beside `app.css`, and `mix assets.build` rewrites only the latter, so the page
+   showed the previous slice's stylesheet while the file on disk was new. The script says to remove the `.gz`
+   files; `mix assets.deploy` regenerates them for a release.
+6. **A table cell cannot truncate**: `truncate` on a `td` does nothing without `table-fixed` and a block child;
+   the audit page's arguments column pushed the decider off the screen until the table got fixed column widths
+   and a `div` per cell.
+7. **The hidden `id` field in the always-allow form** collided with the form element's own id (a LiveView
+   compile warning, an error under the gate); it is `approval_id`.
+8. **The `hero-hand-raised` icon did not render until the CSS was rebuilt**, which is finding 5 again from
+   the other side: a class used for the first time exists only after `mix assets.build`, and the gate builds
+   no assets (013 finding, unchanged).
+
+```
+$ mix test test/trinity/permissions test/trinity_web/live/approval_live_test.exs   → 29 passed
+$ mix gate                                                                          → exit 0; 233 passed, 10 excluded; plan_check: PASS
+$ mix test --cover                                                                  → 72.45% total (Gate 88.68%, Layered 82.14%, Store 95.83%, PermissionsLive 89.23%)
+$ mix credo --strict --all                                                          → 885 mods/funs, found no issues
+```
+
+## Follow-ups
+- `Policy.Default` has no test of its own (0% coverage): it is the allow-all a test may configure; a one-line
+  test or its removal at 022.
+- Gateway approvals (070) subscribe to the same topics; the card's four decisions map to four gateway replies.
+- 024 reads `approvals` for decision receipts; the `consumed_at` column is what a receipt for an execution cites.
+- The persona layer reads `settings["permissions"]`; 030's persona editor is where it gets a UI.
+- `/permissions` lists the newest 200 approvals; a filter by session and a page size are 090's activity view.
