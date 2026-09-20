@@ -45,12 +45,17 @@ defmodule Trinity.Sessions.Session do
   @spec cancel_turn(pid() | String.t()) :: :ok | {:error, :idle}
   def cancel_turn(ref), do: :gen_statem.call(target(ref), :cancel)
 
-  @doc "The state name and a redacted view of the data: no grants, approvals or pending calls hide here."
+  @doc """
+  The state name and a redacted view of the data: no grants, approvals or pending calls hide
+  here. `text` is the in-progress assistant text (slice 013 reads it when a page mounts
+  mid-stream); it is empty outside a turn.
+  """
   @spec state(pid() | String.t()) :: %{
           state: atom(),
           pending: [map()],
           turns: non_neg_integer(),
-          draft_id: String.t() | nil
+          draft_id: String.t() | nil,
+          text: String.t()
         }
   def state(ref), do: :gen_statem.call(target(ref), :state)
 
@@ -122,7 +127,8 @@ defmodule Trinity.Sessions.Session do
       state: state,
       pending: (turn && turn.pending) || [],
       turns: (turn && turn.turns) || 0,
-      draft_id: turn && turn.draft_id
+      draft_id: turn && turn.draft_id,
+      text: (turn && turn.text) || ""
     }
 
     {:keep_state_and_data, [{:reply, from, view}]}

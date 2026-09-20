@@ -62,6 +62,41 @@ defmodule Trinity.Sessions do
   @spec archive(SessionRow.t()) :: {:ok, SessionRow.t()} | {:error, Ecto.Changeset.t()}
   def archive(%SessionRow{} = session), do: Store.update_session(session, %{status: "archived"})
 
+  @default_persona_name "default"
+
+  @doc """
+  The persona new sessions belong to: the row named `default`, created on first use with no
+  soul (so the prompt keeps its fallback). Slice 013 adds it so the chat can open a session;
+  slice 030 seeds the SOUL into this same row.
+  """
+  @spec default_persona() :: Persona.t()
+  def default_persona do
+    case Store.get_persona_by_name(@default_persona_name) do
+      nil ->
+        case Store.insert_persona(%{name: @default_persona_name}) do
+          {:ok, persona} -> persona
+          # Two callers raced; the unique index let one through, and it is the row.
+          {:error, _} -> Store.get_persona_by_name(@default_persona_name)
+        end
+
+      persona ->
+        persona
+    end
+  end
+
+  @doc """
+  Sets the session's model to a registry id, or to nil for the registry default; refuses an id
+  the registry does not know. The running process reads the row at the start of each turn, so
+  the next turn uses it (slice 013, AC6).
+  """
+  @spec set_model(session_id(), String.t() | nil) :: {:ok, SessionRow.t()} | {:error, term()}
+  def set_model(session_id, model) do
+    with {:ok, _entry} <- Trinity.LLM.Registry.lookup(model),
+         %SessionRow{} = session <- Store.get_session(session_id) || {:error, :no_session} do
+      Store.update_session(session, %{model: model})
+    end
+  end
+
   @doc "The number of messages in a session."
   @spec message_count(session_id()) :: non_neg_integer()
   def message_count(session_id), do: Store.message_count(session_id)

@@ -41,6 +41,35 @@ if config_env() == :dev do
     http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 end
 
+# Slice 013. `TRINITY_FAKE_PROVIDER=1 mix phx.server` runs the chat on the scripted provider:
+# the registry becomes the fake's two entries and a fresh stream answers with its markdown
+# demo, so the UI can be exercised and screenshotted with no key and no egress. Development
+# only; the test registry is config/test.exs and production never reads this variable.
+if config_env() == :dev and System.get_env("TRINITY_FAKE_PROVIDER") in ["1", "true"] do
+  config :trinity, :llm,
+    default_model: "fake:chat",
+    providers: %{fake: Trinity.LLM.Providers.Fake},
+    retry: [attempts: 3, base_ms: 1],
+    models: [
+      %{
+        id: "fake:chat",
+        provider: :fake,
+        model: "chat",
+        caps: [:stream, :tools, :json],
+        price: %{input: 1.0, output: 2.0}
+      },
+      %{
+        id: "fake:slow",
+        provider: :fake,
+        model: "chat",
+        caps: [:stream, :tools, :json],
+        price: %{input: 1.0, output: 2.0}
+      }
+    ]
+
+  config :trinity, Trinity.LLM.Providers.Fake, script: :demo
+end
+
 if config_env() == :dev do
   # Reload browser tabs when matching files change.
   config :trinity, TrinityWeb.Endpoint,
