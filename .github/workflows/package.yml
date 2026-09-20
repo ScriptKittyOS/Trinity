@@ -246,7 +246,14 @@ jobs:
             [ -n "${PORT:-}" ] && break
             sleep 0.5
           done
-          test -n "${PORT:-}"
+          # No endpoint line in two minutes says nothing on its own either: runs 35512430836
+          # (slice/011), 35515556177 (slice/012) and 35521749862 all failed here on macOS and
+          # Windows with an empty step log. The log the binary wrote goes to stderr first.
+          if [ -z "${PORT:-}" ]; then
+            echo "no 'Running TrinityWeb.Endpoint' line in serve.log after 120 s" >&2
+            echo "--- serve.log ---" >&2; tail -60 serve.log >&2
+            exit 1
+          fi
           # Bounded. The first version of this loop had no limit and the Windows runner sat in
           # it until the run was cancelled by hand: a step that hangs reports nothing and
           # fails nothing, which is the same shape as a workflow that never fires.
