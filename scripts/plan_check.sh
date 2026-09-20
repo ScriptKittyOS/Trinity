@@ -126,6 +126,14 @@ fi
 
 section "8. Commit messages: no attribution trailers, every commit signed off"
 # Checks the history, not the hook. A bypassed or unconfigured hook still fails here.
+#
+# One named exception, and the reason it exists. The merge commit of slice 013 (pull request
+# #24) was made through `gh pr merge --merge --subject ...` with no `--body`, so GitHub wrote
+# the message and nobody signed it. It is on main under the protected tag slice/013 and cannot
+# be rewritten (CLAUDE.md section 4), so it is listed here by full sha, and only it. The rule
+# that prevents a second one is in docs/03: a merge commit's body carries the sign-off, given
+# to `gh pr merge --body`. Adding a sha to this list is a change to this file, in the open.
+unsigned_merge_exempt="3db7a5ff45773663e1ad31eb02e41655ce36e7b0"
 for c in $(git log --format=%H); do
   body=$(git log -1 --format=%B "$c")
   bad=$(printf '%s\n' "$body" | grep -nE '^(Co-Authored-By: Claude|Claude-Session:|🤖 Generated with)' || true)
@@ -133,6 +141,7 @@ for c in $(git log --format=%H); do
     printf '%s\n' "$bad" | while read -r l; do echo "FAIL commit $c: attribution trailer: $l"; done
     fail=1
   fi
+  case " $unsigned_merge_exempt " in *" $c "*) continue ;; esac
   printf '%s\n' "$body" | grep -q '^Signed-off-by: ' \
     || report "FAIL commit $c: no Signed-off-by line ($(git log -1 --format=%s "$c"))"
 done

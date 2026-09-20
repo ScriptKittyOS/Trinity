@@ -255,3 +255,12 @@ workflow's smoke step reading it on every target; `TrinityWeb.Markdown` logging 
     liveness read through `kill -0` and `tasklist` (`fix(s010)`, the commit before this record). Run **35523664194**: green
     on all three operating systems, `TRINITY_SMOKE_MARKDOWN=ok` on each, HTTP 200 in 1,526 ms (linux),
     1,680 ms (macOS) and 1,761 ms (windows) from launch. The first green `package` run since the slice/011 tag.
+
+## After approval, 2026-09-20
+
+17. **The merge commit of this slice is unsigned, and it is under a protected tag.** `gh pr merge --merge
+    --subject ...` with no `--body` let GitHub write the message; the slice/012 merge had carried the
+    sign-off in its `--body`. plan_check rule 8 reads the whole history, so every gate failed from that commit
+    on, and `main` cannot be rewritten. Resolution, in the open: rule 8 names `3db7a5ff…` as its one exemption
+    with this reason, docs/03 gains the rule that a merge commit's body carries the sign-off, and the next
+    merge is checked with `git log -1 --format=%B` before the tag. The mistake is mine and the record stays.
