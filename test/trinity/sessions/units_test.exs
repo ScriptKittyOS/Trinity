@@ -117,8 +117,10 @@ defmodule Trinity.Sessions.UnitsTest do
 
       refute Events.valid?({:assistant_delta, 1})
       refute Events.valid?({:chunk, "x"})
-      # apply/3 keeps the type checker from refusing the deliberately wrong shape at compile time.
-      assert_raise ArgumentError, fn -> apply(Events, :broadcast, ["s", {:chunk, "x"}]) end
+
+      # Built at runtime so the type checker cannot refuse the deliberately wrong shape at compile time.
+      wrong = List.to_tuple([:chunk, "x"])
+      assert_raise ArgumentError, fn -> Events.broadcast("s", wrong) end
     end
   end
 end
