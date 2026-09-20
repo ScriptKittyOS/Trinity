@@ -7,6 +7,9 @@ import Config
 # The MIX_TEST_PARTITION environment variable can be used
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
+# Slice 012: sessions hibernate and stop quickly in tests so AC8 is observable in seconds.
+config :trinity, :sessions, idle_hibernate_ms: 200, idle_stop_ms: 60_000
+
 # Slice 011: the registry in tests is the scripted fake plus a Mox mock; the live tests set
 # their own entries from the environment at runtime.
 config :trinity, :llm,

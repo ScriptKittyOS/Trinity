@@ -19,7 +19,7 @@ defmodule Trinity.Sessions.Persona do
     field :soul, :string
     field :model, :string
     field :settings, :map, default: %{}
-    has_many :sessions, Trinity.Sessions.Session
+    has_many :sessions, Trinity.Sessions.SessionRow
     timestamps()
   end
 

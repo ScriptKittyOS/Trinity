@@ -35,6 +35,9 @@ defmodule Trinity.Application do
           {Phoenix.PubSub, name: Trinity.PubSub},
           # Slice 011: streams to a pid run under this supervisor, never as bare tasks.
           {Task.Supervisor, name: Trinity.LLM.TaskSupervisor},
+          # Slice 012: one session process per conversation, found by id.
+          {Registry, keys: :unique, name: Trinity.Registry},
+          Trinity.Sessions.Supervisor,
           # Start to serve requests, typically the last entry
           TrinityWeb.Endpoint
         ] ++ Trinity.Smoke.children(Trinity.Smoke.argv())

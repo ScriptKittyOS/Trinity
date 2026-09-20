@@ -85,3 +85,68 @@ at 024 because AC9 names it; 024 extends its module list and adds the boot recei
 cap and a sentinel finding lives on the message's `provider_meta` until 024's receipts exist. `approval_wait`
 and `compacting` are states with no inbound transition at this slice, present so the machine's shape is
 complete and a test asserts they are unreachable rather than pretending they work.
+
+## Lines 1 to 14, 2026-09-20: what was built, and what building it found
+
+**Built.** `Trinity.Sessions.Events` (seven shapes, `valid?/1`, `broadcast/2` refusing any other);
+`Trinity.Sessions.State` (in-memory turn only; `new_turn/0` is what a reseed starts from);
+`Trinity.Sessions.Supervisor` (DynamicSupervisor, `:one_for_one`, 10 restarts a minute, `:transient` children so
+an idle stop is not a restart); `Trinity.Registry` (`:unique` by session id); `Trinity.Sessions.Prompt.build/3`
+(pure); `Trinity.Sessions.Session` (`gen_statem`, `handle_event_function` with `state_enter`, six states);
+`Trinity.Sessions.ToolRunner` (behaviour, `Stub` answering `{:error, :no_tools}`, implementation from config);
+`Trinity.Sessions.Caps` (three module attributes, `check/1` takes only the turn); `Trinity.Sessions.Sentinel`
+(three families, merge never removes, outcome only tightens); `Trinity.CorePolicy.hash/0` (SHA-256 over the
+object code of five named modules); the `Sessions` API (`start_session/1`, `ensure_started/1`, `whereis/1`,
+`send_user_message/2`, `cancel_turn/1`, `state/1`, `subscribe/1`); `Trinity.SessionCase` and a fake provider
+with global state and script sequences.
+
+**The turn, as built.** A user message is a row, then a broadcast, then `thinking`: the model call runs in a
+Task under a `Task.Supervisor` the Session starts and links (so it dies with the Session and its Tasks with it),
+talking back only by message. Deltas fold into a buffer flushed by a 50 ms timer (at most 20 broadcasts a
+second) and into a draft row written every 500 ms or 2 KB. At `{:llm_done, ref, {:ok, usage}}` the draft is
+finalised (the one edit docs/05 now names) or the row inserted, the sentinel runs over the text and the
+pending calls, and the message is broadcast; with pending tool calls and a finish of `:tool_calls` the Session
+enters `tool_wait`, runs every call through `ToolRunner` in a Task, writes a `tool` row per result, checks
+`Caps`, and starts the next turn. A Task crash or a provider error is an `error` turn: the partial text is the
+row, `parts.error` names the reason, `error` is entered and left at once for `idle`. Cancel kills the Task
+and persists the partial text as interrupted. Idle arms two generic timeouts, hibernate and stop, cancelled on
+leaving idle. Rehydrate marks a draft interrupted and broadcasts it, and never resumes.
+
+**Found while building, each recorded rather than smoothed.**
+
+1. **A name collision with an approved slice.** 010 named the Ecto schema `Trinity.Sessions.Session`, and
+   docs/01 gives that name to the process. The architecture wins: the schema is now `Trinity.Sessions.SessionRow`
+   (a fix commit referencing 010 inside this slice; its moduledoc says why the suffix). The `has_many :messages`
+   association then needed its foreign key named, because Ecto derives it from the new module name.
+2. **The fake provider's state was process-local**, and a session's Task is not on the test's `$callers` chain,
+   so scripts and failures set by a test were invisible to the turn and every test saw the default script, a tool
+   call, looping to the cap. The fake now keeps global state (a persistent term, cleared in setup; these tests
+   are not async) and takes a sequence of scripts consumed one per call.
+3. **The factory persona named a model that is not a registry id** (`"fake:model"`), so every turn was an
+   `unknown_model` error until the persona's model became nil (the registry default). Visible only by driving a
+   turn by hand outside ExUnit and reading the events.
+4. **`collect` stopped at the first `{:state, :idle}`**, the enter broadcast from init, before the turn began;
+   `start_drained/1` in the case template drains it.
+5. **A hibernating `gen_statem` reports `{:gen_statem, :loop_hibernate, 3}`** as its current function on this
+   OTP, not `{:erlang, :hibernate, 3}`; the test accepts either and also asserts an empty mailbox.
+6. **A row from a hand-driven probe (`mix run` on the test database) survived** outside the sandbox's rollback
+   and broke a 010 list test that assumed an empty table; the test now scopes to the rows it made, and the test
+   database was reset.
+7. **Outcomes live in `parts`, not `provider_meta`**: `interrupted`, `error`, `cap` and `tool_calls` are about the
+   message's shape; `provider_meta` keeps the sentinel's findings, the outcome and the finish reason.
+
+**Deviations from SLICE.md**, in addition to the three stated at G1: the per-session `Task.Supervisor` is started
+and linked by the Session rather than being a named child in the tree, so the tree's one name per session is
+the Session itself; `Trinity.Sessions.Supervisor` has no restart counter to read (DynamicSupervisor exposes
+none), so AC5 asserts the stronger thing, that every session's pid is the same after the run as before.
+
+```
+$ mix test test/trinity/sessions      → 17 passed (session, crash, many_sessions, units)
+$ mix gate                            → exit 0; 155 passed, 10 excluded; plan_check: PASS
+$ mix test --cover                    → 60.82% total (Session 84.39%, Caps, Sentinel, Events, CorePolicy 100%)
+```
+
+## Follow-ups
+- `approval_wait` and `compacting` have no inbound transition; 021 and 023 add them.
+- The recorded outcome of a cap or a sentinel hold moves to receipts at 024.
+- `Trinity.LLM.Supervisor` (rate limiters) still unbuilt; nothing needs it.

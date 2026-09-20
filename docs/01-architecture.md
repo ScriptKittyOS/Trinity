@@ -16,11 +16,13 @@ Trinity.Application
 ├── Trinity.Repo                                  # Ecto (SQLite primary). Slice 010
 ├── {Phoenix.PubSub, name: Trinity.PubSub}        # all fan-out. Slice 010
 ├── Trinity.Telemetry                             # metrics + cost ledger. Slice 090
-├── {Registry, keys: :unique, name: Trinity.Registry}
-├── Trinity.LLM.Supervisor                        # provider clients, rate limiters. Slice 011
-├── Trinity.Sessions.Supervisor (DynamicSupervisor) # one Trinity.Sessions.Session per conversation. Slice 012
-│     └── Trinity.Sessions.Session (gen_statem)   # states: idle → thinking → tool_wait → approval_wait → compacting
-│           └── Trinity.Sessions.TurnTaskSupervisor (Task.Supervisor, per session) # parallel tool calls
+├── {Registry, keys: :unique, name: Trinity.Registry}   # Slice 012, as built
+├── {Task.Supervisor, name: Trinity.LLM.TaskSupervisor}  # Slice 011, as built: stream_to/3 runs here.
+│                                                 # Trinity.LLM.Supervisor (rate limiters) is not built:
+│                                                 # nothing needs a process yet (011 NOTES, follow-up)
+├── Trinity.Sessions.Supervisor (DynamicSupervisor) # one Trinity.Sessions.Session per conversation. Slice 012, as built
+│     └── Trinity.Sessions.Session (gen_statem)   # states: idle → thinking → tool_wait → approval_wait → compacting → error
+│           └── Task.Supervisor (started by the Session, linked, unnamed) # the model call and the tool calls of one turn
 ├── Trinity.Tools.Supervisor                      # tool runtime (ports, browsers). Slice 020/022
 ├── Trinity.Permissions.Gate                      # approval requests + allowlist cache. Slice 021
 ├── Trinity.Receipts.Supervisor                   # Slice 024
@@ -126,7 +128,7 @@ Every state transition is persisted before it is broadcast. A crash between pers
 - Session state = `%Session.State{}` struct, rebuilt from DB on init; in-memory only for the active turn.
 - Never block a Session on I/O: LLM streaming, tool execution, embedding happen in Tasks; Session receives messages.
 - PubSub topics: `session:<id>` (turn events), `approvals:<id>`, `gateway:<adapter>`, `system`.
-- Backpressure: stream chunks are coalesced to ≤ 20 broadcasts/sec per session (Slice 013).
+- Backpressure: stream chunks are coalesced to ≤ 20 broadcasts/sec per session (built at Slice 012: a 50 ms timer in the Session, so 013 receives coalesced deltas).
 
 ## Directory layout
 
