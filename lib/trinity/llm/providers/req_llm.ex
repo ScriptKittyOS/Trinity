@@ -10,61 +10,61 @@ defmodule Trinity.LLM.Providers.ReqLLM do
   `:base_url`. Keys reach req_llm only as a per-request `:api_key` read through
   `Trinity.Config.secret/1`; a missing key is a permanent error before any request is made.
 
-  Streaming: req_llm's chunks are `:content` (text), `:thinking` (dropped), `:tool_call` (a
-  call opening, with `id` and `index` in its metadata, or a complete call with arguments) and
-  `:meta` (argument fragments keyed by index, the finish reason, usage). This module assembles
-  fragments per call and emits the seven `Trinity.LLM.Event` shapes and nothing else.
+  The half that talks lives here; the pure half (chunks into events, responses into results,
+  errors into `Trinity.LLM.Error`) is `Trinity.LLM.Providers.ReqLLM.Mapping`, tested without a
+  network.
   """
   @behaviour Trinity.LLM.Provider
 
   alias Trinity.Config
   alias Trinity.LLM.{Error, Request}
+  alias Trinity.LLM.Providers.ReqLLM.Mapping
 
   @impl true
   def stream(%Request{} = request, opts, emit) do
     with {:ok, spec, call_opts} <- prepare(request, opts) do
       case ReqLLM.stream_text(spec, context(request), call_opts) do
         {:ok, response} ->
-          state = Enum.reduce(response.stream, new_state(), &handle_chunk(&1, &2, emit))
-          usage = normalise_usage(ReqLLM.StreamResponse.usage(response))
-          state |> close_open_calls(emit)
+          state = Mapping.reduce(response.stream, emit)
+          usage = Mapping.normalise_usage(ReqLLM.StreamResponse.usage(response))
           emit.({:usage, usage})
           emit.({:done, state.finish || :stop})
           {:ok, usage}
 
         {:error, reason} ->
-          {:error, classify(reason)}
+          {:error, Mapping.classify(reason)}
       end
     end
   rescue
-    e -> {:error, classify(e)}
+    e -> {:error, Mapping.classify(e)}
   end
 
   @impl true
   def generate(%Request{} = request, opts) do
     with {:ok, spec, call_opts} <- prepare(request, opts),
-         {:ok, response} <- wrap(ReqLLM.generate_text(spec, context(request), call_opts)) do
+         {:ok, response} <- Mapping.wrap(ReqLLM.generate_text(spec, context(request), call_opts)) do
       {:ok,
        %{
          text: ReqLLM.Response.text(response) || "",
-         tool_calls: Enum.map(ReqLLM.Response.tool_calls(response), &tool_call/1),
-         usage: normalise_usage(ReqLLM.Response.usage(response)),
-         finish: finish(ReqLLM.Response.finish_reason(response))
+         tool_calls: Enum.map(ReqLLM.Response.tool_calls(response), &Mapping.tool_call/1),
+         usage: Mapping.normalise_usage(ReqLLM.Response.usage(response)),
+         finish: Mapping.finish(ReqLLM.Response.finish_reason(response))
        }}
     end
   rescue
-    e -> {:error, classify(e)}
+    e -> {:error, Mapping.classify(e)}
   end
 
   @impl true
   def generate_object(%Request{} = request, schema, opts) do
     with {:ok, spec, call_opts} <- prepare(request, opts),
          {:ok, response} <-
-           wrap(ReqLLM.generate_object(spec, context(request), schema, call_opts)) do
-      {:ok, ReqLLM.Response.object(response), normalise_usage(ReqLLM.Response.usage(response))}
+           Mapping.wrap(ReqLLM.generate_object(spec, context(request), schema, call_opts)) do
+      {:ok, ReqLLM.Response.object(response),
+       Mapping.normalise_usage(ReqLLM.Response.usage(response))}
     end
   rescue
-    e -> {:error, classify(e)}
+    e -> {:error, Mapping.classify(e)}
   end
 
   @impl true
@@ -77,14 +77,15 @@ defmodule Trinity.LLM.Providers.ReqLLM do
            |> Keyword.delete(:receive_timeout)
            |> Keyword.put(:total_timeout, receive_timeout())
            |> Keyword.put(:return_usage, true),
-         {:ok, %{embedding: vectors, usage: usage}} <- wrap(ReqLLM.embed(spec, texts, embed_opts)) do
+         {:ok, %{embedding: vectors, usage: usage}} <-
+           Mapping.wrap(ReqLLM.embed(spec, texts, embed_opts)) do
       vectors =
         if texts |> length() == 1 and is_list(hd(vectors)) == false, do: [vectors], else: vectors
 
-      {:ok, vectors, normalise_usage(usage)}
+      {:ok, vectors, Mapping.normalise_usage(usage)}
     end
   rescue
-    e -> {:error, classify(e)}
+    e -> {:error, Mapping.classify(e)}
   end
 
   @impl true
@@ -213,164 +214,4 @@ defmodule Trinity.LLM.Providers.ReqLLM do
 
   defp maybe_put(opts, _key, nil), do: opts
   defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)
-
-  ## Stream assembly
-
-  defp new_state, do: %{calls: %{}, order: [], finish: nil}
-
-  defp handle_chunk(%{type: :content, text: text}, state, emit)
-       when is_binary(text) and text != "" do
-    emit.({:text_delta, text})
-    state
-  end
-
-  defp handle_chunk(%{type: :tool_call, name: name, arguments: args, metadata: meta}, state, emit) do
-    id = call_id(meta, state)
-
-    state =
-      if Map.has_key?(state.calls, id), do: state, else: open_call(state, id, name, meta, emit)
-
-    if Map.get(meta, :expects_arg_fragments, false) or args == %{} do
-      state
-    else
-      close_call(state, id, args, emit)
-    end
-  end
-
-  defp handle_chunk(
-         %{type: :meta, metadata: %{tool_call_args: %{index: index, fragment: fragment}}},
-         state,
-         emit
-       ) do
-    case Enum.find(state.calls, fn {_id, call} -> call.index == index and call.open end) do
-      {id, call} ->
-        emit.({:tool_call_delta, id, fragment})
-        put_in(state.calls[id], %{call | fragments: [fragment | call.fragments]})
-
-      nil ->
-        state
-    end
-  end
-
-  defp handle_chunk(%{type: :meta, metadata: meta}, state, emit) do
-    state =
-      case Map.get(meta, :finish_reason) do
-        nil -> state
-        reason -> %{state | finish: finish(reason)}
-      end
-
-    if state.finish in [:tool_calls, :stop, :length],
-      do: close_open_calls(state, emit),
-      else: state
-  end
-
-  defp handle_chunk(_other, state, _emit), do: state
-
-  defp call_id(meta, state) do
-    case Map.get(meta, :id) do
-      id when is_binary(id) -> id
-      _ -> "call_#{map_size(state.calls) + 1}"
-    end
-  end
-
-  defp open_call(state, id, name, meta, emit) do
-    emit.({:tool_call_start, id, name})
-    call = %{name: name, index: Map.get(meta, :index), fragments: [], open: true}
-    %{state | calls: Map.put(state.calls, id, call), order: state.order ++ [id]}
-  end
-
-  defp close_call(state, id, args, emit) do
-    emit.({:tool_call_end, id, args})
-    put_in(state.calls[id].open, false)
-  end
-
-  defp close_open_calls(state, emit) do
-    Enum.reduce(state.order, state, fn id, acc ->
-      case acc.calls[id] do
-        %{open: true, fragments: fragments} ->
-          close_call(acc, id, decode_fragments(fragments), emit)
-
-        _ ->
-          acc
-      end
-    end)
-  end
-
-  # Fragments arrive in order and are kept reversed; an unparseable body is an empty map,
-  # which the consumer sees as a tool called with no arguments rather than a crash mid-stream.
-  defp decode_fragments(fragments) do
-    case Jason.decode(fragments |> Enum.reverse() |> IO.iodata_to_binary()) do
-      {:ok, map} when is_map(map) -> map
-      _ -> %{}
-    end
-  end
-
-  ## Results
-
-  defp tool_call(%{id: id, name: name, arguments: args}),
-    do: %{id: id, name: name, args: args || %{}}
-
-  defp tool_call(%{id: id, function: %{name: name, arguments: args}}),
-    do: %{id: id, name: name, args: args || %{}}
-
-  defp tool_call(other),
-    do: %{id: Map.get(other, :id, ""), name: Map.get(other, :name, ""), args: %{}}
-
-  defp finish(nil), do: :stop
-  defp finish(reason) when is_atom(reason), do: reason
-  defp finish("stop"), do: :stop
-  defp finish("length"), do: :length
-  defp finish("tool_calls"), do: :tool_calls
-  defp finish("content_filter"), do: :content_filter
-  # A reason the spec does not name is reported as :other, never minted into an atom.
-  defp finish(other) when is_binary(other), do: :other
-
-  defp normalise_usage(nil), do: %{}
-
-  defp normalise_usage(usage) when is_map(usage) do
-    %{
-      input_tokens: Map.get(usage, :input_tokens, 0) || 0,
-      output_tokens: Map.get(usage, :output_tokens, 0) || 0,
-      cached_tokens: Map.get(usage, :cached_tokens, 0) || 0,
-      reasoning_tokens: Map.get(usage, :reasoning_tokens, 0) || 0,
-      provider_cost: Map.get(usage, :total_cost)
-    }
-  end
-
-  ## Errors
-
-  defp wrap({:ok, _} = ok), do: ok
-  defp wrap({:error, reason}), do: {:error, classify(reason)}
-
-  # req_llm wraps failures: a stream error carries its cause, an API error its status and a
-  # retryable flag, and a class error a list of errors. The verdict is taken from the
-  # innermost thing that has one. Found by the live suite: an upstream 429 arrived inside a
-  # wrapper whose own status was nil and was called permanent.
-  defp classify(%Error{} = e), do: e
-  defp classify(%{status: status} = e) when is_integer(status), do: Error.from_status(status, e)
-  defp classify(%{retryable: true} = e), do: Error.transient(e)
-  defp classify(%Req.TransportError{} = e), do: Error.transient(e)
-  defp classify(%Mint.TransportError{} = e), do: Error.transient(e)
-
-  defp classify(%{__exception__: true} = e) do
-    case inner(e) do
-      nil -> if timeout?(e), do: Error.transient(e), else: Error.permanent(e)
-      inner -> %{classify(inner) | reason: e}
-    end
-  end
-
-  defp classify(other), do: Error.permanent(other)
-
-  defp inner(%{cause: %{__exception__: true} = c}), do: c
-  defp inner(%{errors: [%{__exception__: true} = c | _]}), do: c
-  defp inner(%{reason: %{__exception__: true} = c}), do: c
-  defp inner(_), do: nil
-
-  defp timeout?(%{cause: :timeout}), do: true
-  defp timeout?(%{reason: reason}) when reason in [:timeout, :econnrefused, :closed], do: true
-
-  defp timeout?(%{reason: reason}) when is_binary(reason),
-    do: reason =~ ~r/timeout|closed|refused/i
-
-  defp timeout?(_), do: false
 end
