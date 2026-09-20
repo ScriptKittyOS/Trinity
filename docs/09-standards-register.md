@@ -18,7 +18,7 @@ document, a PROOF.md line) or `none`; the status; who decides the status. Status
 
 | Control | Where Trinity satisfies it | Evidence path | Status | Decider |
 |---|---|---|---|---|
-| FIPS 140-3 validated cryptography in FIPS mode | OTP built with `--enable-fips` against a validated provider; `crypto:info_fips()` enabled; slice 024's signer selects an approved algorithm or denies | slice 003 (FIPS build leg), slice 024 AC8 | `:unknown` until 003 and 024 land | owner, then an assessor |
+| FIPS 140-3 validated cryptography in FIPS mode | OTP built with `--enable-fips` against a validated provider; `crypto:info_fips()` enabled; slice 024's signer selects an approved algorithm or denies | slice 003 (FIPS build leg), slice 024 AC8 | 003 landed 2026-09-20: the gate runs in the mode on every push (`fips` job, docs/fips-leg.md); the provider is the one the distribution ships and names, and the word validated is the certificate's, not this tree's; 024 AC8 still `:unknown` | owner, then an assessor |
 | CNSA 1.0 signature suite (ECDSA P-384, SHA-384) | slice 024 amendment 2, FIPS mode selection | slice 024 AC8 | `:unknown` until 024 lands | owner |
 | CNSA 2.0 readiness (ML-DSA-87) | slice 024 amendment 6, behind the same seam, compile-conditional on OpenSSL 3.5 or later; never default | none yet | `not claimed` | owner; the word validated waits on the CMVP listing of the provider that carries it |
 | FIPS 140-2 certificates on the Historical list from 2026-09-22 | not applicable: Trinity cites no 140-2 module | none | `real-world dependency` (deployment's modules) | deployment |

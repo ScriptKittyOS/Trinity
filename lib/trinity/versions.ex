@@ -102,6 +102,16 @@ defmodule Trinity.Versions do
       from: {:file, ".tool-versions", "zig 0.16.0"},
       note:
         "Measured at Slice 001 line 3: burrito 1.6.0 compares Zig for **equality**, not a range (`@zig_version_expected` in `deps/burrito/lib/burrito.ex`), and exits 1 on any other version. `zig version` reports 0.16.0, exit 0. Installed through the asdf zig plugin, added this slice. Corrected 2026-09-06: this row previously read `version required by Burrito | ✅ .tool-versions` and that file carried no zig line."
+    },
+    %{
+      name: "FIPS leg base image (UBI9)",
+      pin: "**sha256:9295c5c688f487fa5cf27a734fa55ecd57aeb7dc0904ba537da4f42dfa1d0acb**",
+      lock: nil,
+      from:
+        {:file, "ci/fips/Containerfile",
+         "registry.access.redhat.com/ubi9/ubi@sha256:9295c5c688f487fa5cf27a734fa55ecd57aeb7dc0904ba537da4f42dfa1d0acb"},
+      note:
+        "Added at Slice 003: the base of the FIPS build leg's image (docs/fips-leg.md), `registry.access.redhat.com/ubi9/ubi:latest` resolved by digest on 2026-09-20 (Red Hat Enterprise Linux release 9.8, `openssl-libs 3.5.8-1.el9_8`, `openssl-fips-provider-so 3.0.7-11.el9_8`). The image itself is OTP 28.5.0.5 built from source with `--enable-fips` against that OpenSSL, plus Elixir 1.20.4; the two archives are pinned by SHA-256 in the Containerfile and the image tag is `scripts/fips_image_tag.sh` over `.tool-versions` and the Containerfile. The FIPS provider the image runs is what the distribution ships and names; docs/fips-leg.md states what Trinity does and does not claim about it."
     }
   ]
 

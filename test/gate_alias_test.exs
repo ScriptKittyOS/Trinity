@@ -27,7 +27,7 @@ defmodule GateAliasTest do
 
     for required <- ~w(format credo sobelow hex.audit deps.audit trinity.version_form
                        trinity.names trinity.secrets.scan trinity.reuse test trinity.coverage) do
-      # Containment, not prefix: hex.audit runs as "cmd mix hex.audit" so it gets its own OS
+      # Containment, not prefix: hex.audit runs as "cmd env ERL_AFLAGS= mix hex.audit" so it gets its own OS
       # process and its own exit code. The property is that the gate runs it, not how it is spelled.
       assert Enum.any?(steps, &String.contains?(&1, required)),
              "the gate is missing the #{required} step. Steps: #{inspect(steps)}"

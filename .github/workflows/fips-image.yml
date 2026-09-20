@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Builds the FIPS leg's image (ci/fips/Containerfile, docs/fips-leg.md) and pushes it to the
+# repository's container registry under the tag scripts/fips_image_tag.sh derives from the
+# files that define it. It runs when one of those files changes and on demand; the gate's
+# `fips` job pulls the tag and never builds. A tag that already exists is not rebuilt: the
+# image is a function of its inputs, and OTP from source is the slow part.
+name: fips-image
+
+on:
+  push:
+    paths:
+      - .tool-versions
+      - ci/fips/Containerfile
+      - scripts/fips_image_tag.sh
+      - .github/workflows/fips-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: The tag, and the versions .tool-versions names
+        id: meta
+        run: |
+          echo "ref=$(scripts/fips_image_tag.sh --ref)" >> "$GITHUB_OUTPUT"
+          echo "otp=$(awk '$1 == "erlang" { print $2 }' .tool-versions)" >> "$GITHUB_OUTPUT"
+          echo "elixir=$(awk '$1 == "elixir" { print $2 }' .tool-versions | cut -d- -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to the registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Skip when this tag is already published
+        id: exists
+        run: |
+          if docker manifest inspect "${{ steps.meta.outputs.ref }}" >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ steps.meta.outputs.ref }} is already published; nothing to build"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        if: steps.exists.outputs.published == 'false'
+        run: |
+          docker build \
+            --build-arg "OTP_VERSION=${{ steps.meta.outputs.otp }}" \
+            --build-arg "ELIXIR_VERSION=${{ steps.meta.outputs.elixir }}" \
+            -t "${{ steps.meta.outputs.ref }}" \
+            -f ci/fips/Containerfile ci/fips
+
+      - name: Push
+        if: steps.exists.outputs.published == 'false'
+        run: |
+          docker push "${{ steps.meta.outputs.ref }}"
+          docker image inspect "${{ steps.meta.outputs.ref }}" --format '{{ index .RepoDigests 0 }}'

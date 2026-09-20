@@ -1,0 +1,60 @@
+1c1
+< fips_mode: :not_enabled
+---
+> fips_mode: :enabled
+36,58d35
+< ciphers: :blowfish_cbc
+< ciphers: :blowfish_cfb64
+< ciphers: :blowfish_ecb
+< ciphers: :blowfish_ofb64
+< ciphers: :chacha20
+< ciphers: :chacha20_poly1305
+< ciphers: :des_cbc
+< ciphers: :des_cfb
+< ciphers: :des_ecb
+< ciphers: :des_ede3_cbc
+< ciphers: :des_ede3_cfb
+< ciphers: :rc2_cbc
+< ciphers: :rc4
+< curves: :brainpoolP256r1
+< curves: :brainpoolP256t1
+< curves: :brainpoolP320r1
+< curves: :brainpoolP320t1
+< curves: :brainpoolP384r1
+< curves: :brainpoolP384t1
+< curves: :brainpoolP512r1
+< curves: :brainpoolP512t1
+< curves: :ed25519
+< curves: :ed448
+61d37
+< curves: :secp256k1
+65,71d40
+< curves: :x25519
+< curves: :x448
+< hashs: :blake2b
+< hashs: :blake2s
+< hashs: :md4
+< hashs: :md5
+< hashs: :ripemd160
+85d53
+< hashs: :sm3
+96,100d63
+< public_keys: :eddh
+< public_keys: :eddsa
+< public_keys: :mldsa44
+< public_keys: :mldsa65
+< public_keys: :mldsa87
+102,114d64
+< public_keys: :slh_dsa_sha2_128f
+< public_keys: :slh_dsa_sha2_128s
+< public_keys: :slh_dsa_sha2_192f
+< public_keys: :slh_dsa_sha2_192s
+< public_keys: :slh_dsa_sha2_256f
+< public_keys: :slh_dsa_sha2_256s
+< public_keys: :slh_dsa_shake_128f
+< public_keys: :slh_dsa_shake_128s
+< public_keys: :slh_dsa_shake_192f
+< public_keys: :slh_dsa_shake_192s
+< public_keys: :slh_dsa_shake_256f
+< public_keys: :slh_dsa_shake_256s
+< public_keys: :srp
