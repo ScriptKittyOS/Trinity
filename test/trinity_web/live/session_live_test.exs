@@ -156,8 +156,8 @@ defmodule TrinityWeb.SessionLiveTest do
       pid = Sessions.whereis(id)
       Process.exit(pid, :kill)
 
+      # The new incarnation enters idle (its first broadcast) and then rehydrates the draft.
       _ = wait_for(id, &match?({:turn_interrupted, _}, &1))
-      _ = wait_for(id, &match?({:state, :idle}, &1))
       assert Process.alive?(view.pid)
       html = render(view)
       assert has_element?(view, "#banner")
