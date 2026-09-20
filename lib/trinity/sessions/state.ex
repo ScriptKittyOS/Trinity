@@ -5,7 +5,8 @@ defmodule Trinity.Sessions.State do
   A Session's in-memory data, rebuilt from the database on init. Slice 012. Only the active turn
   lives here; everything durable is a row. A grant, an approval or a pending tool call never
   survives a restart, because none is written here from anywhere but the turn in flight, and a
-  fresh init starts with `turn` empty (AC9).
+  fresh init starts with `turn` empty (AC9). `awaiting` (slice 021) maps a pending approval's id
+  to the call it holds while the Session sits in `approval_wait`; the approval itself is a row.
   """
 
   alias Trinity.Sessions.SessionRow
@@ -26,7 +27,9 @@ defmodule Trinity.Sessions.State do
           tokens: non_neg_integer(),
           sentinel: [map()],
           coalesce_timer: reference() | nil,
-          surface: %{String.t() => String.t()}
+          surface: %{String.t() => String.t()},
+          awaiting: %{String.t() => map()},
+          held: [map()]
         }
 
   @type t :: %__MODULE__{
@@ -57,7 +60,9 @@ defmodule Trinity.Sessions.State do
       tokens: 0,
       sentinel: [],
       coalesce_timer: nil,
-      surface: %{}
+      surface: %{},
+      awaiting: %{},
+      held: []
     }
   end
 end

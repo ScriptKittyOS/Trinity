@@ -14,10 +14,14 @@ config :trinity, :tools,
     Trinity.TestTools.Echo,
     Trinity.TestTools.Sleep,
     Trinity.TestTools.Crash,
-    Trinity.TestTools.Big
+    Trinity.TestTools.Big,
+    Trinity.TestTools.WriteNote
   ],
-  toolsets: %{core: ["echo", "sleep", "crash", "big"]},
+  toolsets: %{core: ["echo", "sleep", "crash", "big", "write_note"]},
   timeout_ms: 2_000
+
+# Slice 021: requests expire fast enough for AC6 to watch, and a session grant lasts an hour.
+config :trinity, :permissions, expiry_ms: 1_000, session_grant_ms: 3_600_000
 
 # Slice 012: sessions hibernate and stop quickly in tests so AC8 is observable in seconds.
 config :trinity, :sessions, idle_hibernate_ms: 200, idle_stop_ms: 60_000

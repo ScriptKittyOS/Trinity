@@ -40,6 +40,8 @@ defmodule Trinity.Application do
           # Slice 020: the tool registry and the task supervisor tool calls run under, before
           # the sessions that call them.
           Trinity.Tools.Supervisor,
+          # Slice 021: approval requests and their decisions, with pending rows reloaded.
+          Trinity.Permissions.Gate,
           Trinity.Sessions.Supervisor,
           # Start to serve requests, typically the last entry
           TrinityWeb.Endpoint

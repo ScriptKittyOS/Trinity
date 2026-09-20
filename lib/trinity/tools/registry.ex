@@ -102,15 +102,23 @@ defmodule Trinity.Tools.Registry do
     config = Keyword.merge(Application.get_env(:trinity, :tools, []), opts)
     toolsets = Keyword.get(config, :toolsets, %{})
 
-    for module <- Keyword.get(config, :modules, []) do
-      case admit(module, :core, toolsets) do
-        {:ok, entry} ->
-          :ets.insert(table, {entry.name, entry})
+    entries =
+      for module <- Keyword.get(config, :modules, []) do
+        case admit(module, :core, toolsets) do
+          {:ok, entry} ->
+            :ets.insert(table, {entry.name, entry})
+            entry
 
-        {:error, reason} ->
-          raise ArgumentError, "tool #{inspect(module)} refused: #{inspect(reason)}"
+          {:error, reason} ->
+            raise ArgumentError, "tool #{inspect(module)} refused: #{inspect(reason)}"
+        end
       end
-    end
+
+    # Slice 021: the core tools' declared risks are the permission tiers, handed over here
+    # and nowhere else; a dynamic tool never reaches this line. Only the registry in the
+    # application tree writes them (a test's second registry would overwrite the table).
+    if table == @table,
+      do: Trinity.Permissions.put_core_tiers(Map.new(entries, &{&1.name, &1.risk}))
 
     {:ok, %{toolsets: toolsets}}
   end

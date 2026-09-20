@@ -11,7 +11,7 @@ SPDX-PackageDownloadLocation = "https://github.com/ScriptKittyOS/Trinity"
 # the gap is recorded rather than glossed.
 
 [[annotations]]
-path = ["mix.lock", "src-tauri/Cargo.lock", "**/*.md", "**/*.json", "**/*.tsv", "**/*.cff", "**/*.toml", ".tool-versions", ".gitignore", ".sobelow-skips", ".sobelow-skips.reasons", "priv/name_digests.txt", ".formatter.exs", "slices/**/proof/**"]
+path = ["mix.lock", "src-tauri/Cargo.lock", "**/*.md", "**/*.json", "**/*.tsv", "**/*.cff", "**/*.toml", ".tool-versions", ".gitignore", ".sobelow-skips", ".sobelow-skips.reasons", "priv/name_digests.txt", ".formatter.exs", "slices/**/proof/**", "test/support/*.txt"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Sudo Apt Holdings LLC"
 SPDX-License-Identifier = "Apache-2.0"

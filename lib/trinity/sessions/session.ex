@@ -5,8 +5,9 @@ defmodule Trinity.Sessions.Session do
   One conversation, one `gen_statem`. Slice 012.
 
   States: `idle`, `thinking` (a model call streaming in a Task), `tool_wait` (tool calls running
-  in a Task), `approval_wait` and `compacting` (present for the machine's shape; nothing enters
-  them until slices 021 and 023), `error` (a failed turn, recorded, then back to `idle`).
+  in a Task), `approval_wait` (slice 021: calls the gate holds until the owner decides),
+  `compacting` (present for the machine's shape; nothing enters it until slice 023), `error` (a
+  failed turn, recorded, then back to `idle`).
 
   Rules this process keeps: every durable change is a row before it is a broadcast; the model
   and the tools run in Tasks under the session's own supervisor and talk back only by message;
@@ -75,6 +76,8 @@ defmodule Trinity.Sessions.Session do
 
       session ->
         Process.flag(:trap_exit, true)
+        # Slice 021: the gate's decisions for this session's requests arrive here.
+        :ok = Trinity.Permissions.subscribe(session_id)
         {:ok, task_sup} = Task.Supervisor.start_link()
         data = %State{id: session_id, session: session, turn: nil, task_sup: task_sup}
         {:ok, :idle, data, [{:next_event, :internal, :rehydrate}]}
@@ -151,7 +154,7 @@ defmodule Trinity.Sessions.Session do
   end
 
   def handle_event({:call, from}, :cancel, state, %State{} = data)
-      when state in [:thinking, :tool_wait] do
+      when state in [:thinking, :tool_wait, :approval_wait] do
     kill_task(data)
     data = flush_deltas(data)
     data = persist_final(data, %{"interrupted" => true})
@@ -178,22 +181,54 @@ defmodule Trinity.Sessions.Session do
   def handle_event(:info, :coalesce, :thinking, data),
     do: {:keep_state, flush_deltas(%{data | turn: %{data.turn | coalesce_timer: nil}})}
 
-  # Tool results arrive from the tool Task.
+  # Tool results arrive from the tool Task. A result that asks for an approval (slice 021)
+  # holds its call: the row is the gate's, the Session waits in approval_wait, and the held
+  # calls run again once every decision is in.
   def handle_event(
         :info,
         {:tools_done, ref, results},
         :tool_wait,
         %State{turn: %{ref: ref}} = data
       ) do
-    data = record_tool_results(data, results)
-    turn = %{data.turn | pending: [], turns: data.turn.turns + 1}
-    data = %{data | turn: turn}
+    {held, done} =
+      Enum.split_with(results, &match?({_, {:error, {:approval_required, _}, _}}, &1))
 
-    case Caps.check(turn) do
-      :ok -> {:next_state, :thinking, start_model_call(data)}
-      {:cap, reason} -> cap_reached(data, reason)
+    data = record_tool_results(data, done)
+
+    case held do
+      [] ->
+        next_turn(data)
+
+      _ ->
+        awaiting =
+          Map.new(held, fn {call, {:error, {:approval_required, id}, _}} -> {id, call} end)
+
+        {:next_state, :approval_wait,
+         %{data | turn: %{data.turn | awaiting: awaiting, task: nil}}}
     end
   end
+
+  def handle_event(
+        :info,
+        {:approval, :decided, %{id: id}},
+        :approval_wait,
+        %State{turn: %{awaiting: awaiting}} = data
+      )
+      when is_map_key(awaiting, id) do
+    # A decided request is still a held call: whether it runs or is refused is the policy's
+    # answer at execution, where the fingerprint is re-derived.
+    {call, rest} = Map.pop(awaiting, id)
+    turn = %{data.turn | awaiting: rest, held: data.turn.held ++ [call]}
+    data = %{data | turn: turn}
+
+    if rest == %{} do
+      {:next_state, :tool_wait, start_tools(data, turn.held)}
+    else
+      {:keep_state, data}
+    end
+  end
+
+  def handle_event(:info, {:approval, _, _}, _state, _data), do: :keep_state_and_data
 
   # The Task died: a crash is an error turn, an ordinary exit after its message is nothing.
   def handle_event(
@@ -411,21 +446,44 @@ defmodule Trinity.Sessions.Session do
     end
   end
 
-  defp start_tools(%State{id: id, task_sup: sup, turn: turn} = data) do
+  # After the tool rows: the next model call, or the cap.
+  defp next_turn(%State{turn: turn} = data) do
+    turn = %{turn | pending: [], held: [], turns: turn.turns + 1}
+    data = %{data | turn: turn}
+
+    case Caps.check(turn) do
+      :ok -> {:next_state, :thinking, start_model_call(data)}
+      {:cap, reason} -> cap_reached(data, reason)
+    end
+  end
+
+  defp start_tools(%State{turn: turn} = data), do: start_tools(data, turn.pending)
+
+  defp start_tools(%State{id: id, session: session, task_sup: sup, turn: turn} = data, calls) do
     ref = make_ref()
     me = self()
-    calls = turn.pending
+    persona = session.persona_id && Store.get_persona(session.persona_id)
+    context = %{session_id: id, caller: id, persona: persona}
 
     # Slice 020: the turn's calls run at once through the runner in force.
     %Task{pid: pid} =
       Task.Supervisor.async_nolink(sup, fn ->
-        results = ToolRunner.run_all(calls, %{session_id: id, caller: id})
+        results = ToolRunner.run_all(calls, context)
         send(me, {:tools_done, ref, results})
       end)
 
     %{
       data
-      | turn: %{turn | ref: ref, task: pid, draft_id: nil, buffer: [], text: "", finish: nil}
+      | turn: %{
+          turn
+          | ref: ref,
+            task: pid,
+            held: [],
+            draft_id: nil,
+            buffer: [],
+            text: "",
+            finish: nil
+        }
     }
   end
 

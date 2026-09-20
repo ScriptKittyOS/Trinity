@@ -78,17 +78,28 @@ Filesystem is canonical for content; DB is the index (rebuildable via `mix trini
 ### skill_changes (Slice 041)
 Staged proposals by the agent: `skill_id`, `diff`, `rationale`, `status`, `decided_by`, `decided_at`.
 
-### tool_permissions (Slice 021)
+### tool_permissions (Slice 021, as built)
 | column | type | notes |
 |---|---|---|
 | tool | string | |
-| pattern | string | glob/regex on args (e.g. shell command prefix, path) |
+| pattern | string | `*`, `key=glob` (`*` in a segment, `**` across, `?` one character; a trailing `*` is a prefix), `fp:<hex>` (a session grant bound to a fingerprint), `re:<regex>` (hand-edited rows only) |
 | decision | string | "allow" \| "deny" \| "ask" |
 | scope | string | "global" \| "session:<id>" \| "persona:<id>" |
-| expires_at | nullable | "allow for this session" |
+| expires_at | nullable | set on "allow for this session" grants |
+| decided_by | string, nullable | who wrote it ("liveview" from the card) |
 
-### approvals (Slice 021)
-Pending/decided approval requests: `session_id`, `tool`, `args`, `risk`, `status`, `decided_at`, `channel`.
+### approvals (Slice 021, as built)
+One row per request, the audit trail this slice owns; slice 024 reads it for decision receipts.
+| column | type | notes |
+|---|---|---|
+| session_id | fk sessions | |
+| tool, args, risk | string, map, string | the call and its tier at request time |
+| fingerprint | string | `sha256(rfc8785({tool, args, scope, cwd, canonicalization_version}))`, re-derived at execution |
+| status | string | "pending" \| "allowed" \| "denied" \| "expired" |
+| decision | string, nullable | "once" \| "session" \| "always" \| "deny" |
+| decided_at, decided_by | timestamp, string | every decided row has both ("expiry" is a decider) |
+| consumed_at | nullable | a "once" allowance or a denial is spent by the execution that reads it |
+| expires_at | timestamp | pending past it becomes "expired" with decision "deny" |
 
 ### tasks (Slice 050)
 | column | type | notes |

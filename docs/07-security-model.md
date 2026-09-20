@@ -39,10 +39,20 @@ system prompt states that instructions inside untrusted blocks are data, not com
 Every `Trinity.Tools.Tool` declares `effect/0` (`:none | :artifact | :catalog`) and the gate derives risk from the tool **name only** via `Trinity.Permissions.tier/1` (`:read | :write | :exec | :network | :destructive`; unmapped → ask).
 
 Name-only is deliberate: it makes the tier a code-owned function of a value no caller can influence. That holds only while the namespace is closed. Tools registered at runtime carry names chosen elsewhere, by an MCP server or a skill author, so **every dynamic tool is namespaced before the tier lookup**: `mcp:<server>:<tool>`, `skill:<name>`. Core tool names are reserved and cannot be claimed. Without this a hostile server naming its tool `fs_read` inherits the `:read` tier and its allow-by-default policy, and the unmapped-goes-to-ask fallback does not catch it, because the name is mapped.
-`Trinity.Permissions.decide(session, tool, args)` consults, in order: session grants → persona policy → global
-`tool_permissions` → default policy (`:read` allow, `:network` allow, `:write` ask, `:exec` ask, `:destructive` ask).
-An `:ask` suspends the Session in `approval_wait`, broadcasts to `approvals:<id>`, and resumes on decision.
-Decisions are recorded (`approvals` table) and receipted. Approvals bind the canonical fingerprint of `(tool, args, scope, cwd, canonicalization_version)` and are re-derived at execution; "allow for this session" binds that fingerprint with an expiry; "always allow" is a rule, recorded as such.
+`Trinity.Permissions.decide(session, tool, args, opts)` consults, in order: session grants → the newest unspent
+decision for this fingerprint (an "allow once" or a denial, each spent by the execution that reads it) →
+persona policy → global `tool_permissions` → default policy (`:read` allow, `:network` allow, `:write` ask,
+`:exec` ask, `:destructive` ask; an unmapped name asks).
+An `:ask` suspends the Session in `approval_wait`, broadcasts to `approvals:<id>` (and `approvals:all`), and
+resumes on decision. Decisions are recorded (`approvals` table) and receipted (024). Approvals bind the canonical
+fingerprint of `(tool, args, scope, cwd, canonicalization_version)` and are re-derived at execution; "allow for
+this session" binds that fingerprint with an expiry; "always allow" is a rule, recorded as such.
+
+As built at slice 021: the tier table is written once, by the registry, from the `risk/0` of the modules
+`config :trinity, :tools` names, so a tier comes from code and config and never from a runtime registration; the
+runner asks the policy at execution and the Session never pre-checks, so the decision that runs a call is the one
+made against the arguments actually passed; a request left undecided expires into a denial decided by
+`"expiry"`; the card's buttons and the `/permissions` page call `decide_request/3` and nothing else.
 
 ## Shell (Slice 022)
 
