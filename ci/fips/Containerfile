@@ -23,10 +23,11 @@ ARG ELIXIR_SHA256=ea7ff98bc1ed76c663a5d034c863c6fd37e65c9c855b6bbf6ccb2034d80667
 # The toolchain OTP's configure needs, plus what the gate's steps call from the shell: git
 # (plan_check, the names and secrets census), python3 with PyYAML (plan_check rule 12), gcc
 # (exqlite compiles SQLite; mdex_native's precompiled artifact loads on glibc), procps-ng (the
-# shell tool's tests read `ps`). Kept in the image on purpose: it is a CI image, not a runtime.
+# shell tool's tests read `ps`), diffutils (the leg diffs the supports listing; UBI's base has no
+# `diff`, found on the leg's first run). Kept in the image on purpose: it is a CI image, not a runtime.
 RUN dnf -y install --setopt=install_weak_deps=False \
       gcc gcc-c++ make autoconf ncurses-devel openssl-devel \
-      tar gzip unzip git python3-pyyaml procps-ng which \
+      tar gzip unzip git diffutils python3-pyyaml procps-ng which \
     && dnf clean all
 
 # OTP from source. --enable-fips compiles the crypto NIF's FIPS support; --with-ssl points at
