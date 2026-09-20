@@ -167,3 +167,8 @@ $ git log --oneline main..HEAD
 6b4474c chore(s020): jsv ~> 0.23 becomes a direct dependency
 7214526 docs(s020): G1 plan, and the slice opens
 ```
+
+## Closing correction, 2026-09-20
+Supersedes the "Final commit" field in the header: the commit carrying this file is `d332171`
+(`feat(s020): complete slice 020 (tool protocol and registry)`); the `git log` block above lists the commits
+before it. The pull request, its merge commit (signed in its body, docs/03) and the tag come after review.
