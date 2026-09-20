@@ -126,8 +126,8 @@ never pin a version hex marks as retired or vulnerable.
 
 | Name | Pin | Verified | Note |
 |---|---|---|---|
-| `muontrap` | ~> 2.0 | 🔍 not yet a dependency | Shell tool. Linux cgroups optional. ⚠️ The pin was `~> 1.8`, which cannot resolve the current major. A major bump is an API review, not a version bump: re-read the child-kill guarantee against 2.0 before Slice 022. Added at Slice 022. |
-| `floki` | ~> 0.38 | 🔍 not yet a dependency | HTML parsing. Added at Slice 022. |
+| `muontrap` | ~> 2.0 | ✅ in `mix.lock` | The shell tool's process wrapper (`Trinity.Tools.Shell.Run`, Slice 022): a C port, SIGTERM then SIGKILL, the child dies with the port. Read against 2.0.0 at Slice 022: `cmd/3` takes `:timeout` (SIGTERM at expiry, `:timeout` as the status), `:delay_to_sigkill`, `:cd`, `:env`, optional cgroup v2 limits. ⚠️ POSIX only: declared in mix.exs on a Unix host alone; the shell tool is unavailable on Windows (NOTES.md, the Windows decision). |
+| `floki` | ~> 0.38 | ✅ in `mix.lock` | HTML to text for `web_fetch` (Slice 022): script, style, nav, header, footer and aside dropped, the body's text taken. |
 | `luerl (+ sandbox)` | latest | 🔍 not a single package | Slice 110 only. Two packages, so no single lock key. |
 | `burrito` | ~> 1.6 | ✅ in `mix.lock` | ⚠️ ERTS availability drives the OTP pin, and Slice 000 measured it: only the OTP 28 line is fetchable for macOS and Linux. Corrected 2026-09-05: this row previously read `~> 1.5 / 1.5.0 ✅`; that mark was not measured. Added at Slice 001. |
 | `ex_tauri` | ~> 0.2 | ✅ in `mix.lock` | ⚠️ Declares `otp_release: "~> 27.0"`, and Slice 000's probe refutes the reason it gives: OTP 28 macOS universal returns 200 and OTP 27 returns 404. Whether it runs on the pinned OTP is Slice 001's first measurement. ⚠️ 439 downloads all-time, so the ADR-0004 fallback matrix carries real weight. |

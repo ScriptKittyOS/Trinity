@@ -19,8 +19,31 @@ defmodule Trinity.Tools.RegistryTest do
   describe "AC1: a module plus one config line" do
     test "the four test tools are listed, in the core toolset, with schemas that build and digests" do
       names = Enum.map(Tools.list(), & &1.name)
-      assert names == ["big", "crash", "echo", "sleep", "write_note"]
-      assert Enum.map(Tools.list(toolset: :core), & &1.name) == names
+
+      assert names == [
+               "big",
+               "crash",
+               "echo",
+               "fs_edit",
+               "fs_glob",
+               "fs_grep",
+               "fs_list",
+               "fs_read",
+               "fs_write",
+               "shell",
+               "sleep",
+               "web_fetch",
+               "web_search",
+               "write_note"
+             ]
+
+      assert Enum.map(Tools.list(toolset: :core), & &1.name) == [
+               "big",
+               "crash",
+               "echo",
+               "sleep",
+               "write_note"
+             ]
 
       for entry <- Tools.list() do
         assert entry.kind == :core
@@ -31,7 +54,23 @@ defmodule Trinity.Tools.RegistryTest do
 
     test "to_llm_tools/0 carries name, description and parameters for each" do
       tools = Tools.to_llm_tools()
-      assert Enum.map(tools, & &1.name) == ["big", "crash", "echo", "sleep", "write_note"]
+
+      assert Enum.map(tools, & &1.name) == [
+               "big",
+               "crash",
+               "echo",
+               "fs_edit",
+               "fs_glob",
+               "fs_grep",
+               "fs_list",
+               "fs_read",
+               "fs_write",
+               "shell",
+               "sleep",
+               "web_fetch",
+               "web_search",
+               "write_note"
+             ]
 
       for t <- tools do
         assert is_binary(t.description) and t.description != ""

@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 defmodule Trinity.Effects.Catalog do
   @moduledoc """
-  The effect catalog, resolved at compile time (docs/07, M4). Slice 020 opens it empty.
+  The effect catalog, resolved at compile time (docs/07, M4). Slice 020 opened it empty;
+  slice 022 lists the shell, an external effect under local authority (its alignment note).
 
   Every tool whose `effect/0` is `:catalog` (an external effect: send, spend, a provider
   mutation) is listed here by name with its risk tier, in a module attribute and nowhere
@@ -12,7 +13,7 @@ defmodule Trinity.Effects.Catalog do
   membrane read it.
   """
 
-  @catalog []
+  @catalog [{"shell", :exec}]
 
   @doc "Every catalog tool as `{name, tier}`."
   @spec all() :: [{String.t(), atom()}]

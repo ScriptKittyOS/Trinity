@@ -20,6 +20,7 @@ defmodule Trinity.Sessions.Session do
 
   require Logger
 
+  alias Trinity.Content.Part
   alias Trinity.LLM
   alias Trinity.Sessions.{Caps, Events, Prompt, Sentinel, State, Store, ToolRunner}
 
@@ -261,7 +262,11 @@ defmodule Trinity.Sessions.Session do
     persona = session.persona_id && Store.get_persona(session.persona_id)
     # Slice 020: the declared surface of this turn, into the request and onto the row.
     tools = Trinity.Tools.to_llm_tools()
-    request = Prompt.build(session, persona, Trinity.Sessions.history(id, limit: 500), tools)
+    history = Trinity.Sessions.history(id, limit: 500)
+    request = Prompt.build(session, persona, history, tools)
+    # Slice 022: what the model reads is what its answer inherits (docs/07, M1).
+    taint = Part.max_taint([turn.taint | Enum.map(history, &Prompt.taint_of/1)])
+    turn = %{turn | taint: taint}
     ref = make_ref()
     me = self()
 
@@ -387,7 +392,7 @@ defmodule Trinity.Sessions.Session do
     calls = Enum.map(turn.pending, &%{"id" => &1.id, "name" => &1.name, "args" => &1.args})
 
     parts =
-      %{"draft" => false, "tool_calls" => calls}
+      %{"draft" => false, "tool_calls" => calls, "taint" => Atom.to_string(turn.taint)}
       |> Map.merge(extra)
 
     meta = %{
@@ -490,40 +495,45 @@ defmodule Trinity.Sessions.Session do
   # One `tool` row per answer: the text the model reads, and in `parts` the tool's name, whether
   # it succeeded, the result's shape (slice 020: content, truncated, meta) and the definition
   # digest of the tool that answered.
-  defp record_tool_results(%State{id: id} = data, results) do
-    Enum.each(results, fn {call, result} ->
-      {content, ok?, parts} =
-        case result do
-          {:ok, %Trinity.Tools.Result{} = r, meta} ->
-            {tool_text(r), true,
-             %{
-               "tool_result" => %{
-                 "content" => r.content,
-                 "truncated" => r.truncated?,
-                 "meta" => r.meta,
-                 "artifacts" => r.artifacts
-               },
-               "tool_definition_digest" => meta["tool_definition_digest"]
-             }}
+  defp record_tool_results(%State{id: id, turn: turn} = data, results) do
+    taints =
+      Enum.map(results, fn {call, result} ->
+        {content, ok?, parts} =
+          case result do
+            {:ok, %Trinity.Tools.Result{} = r, meta} ->
+              {tool_text(r), true,
+               %{
+                 "tool_result" => %{
+                   "content" => r.content,
+                   "truncated" => r.truncated?,
+                   "meta" => r.meta,
+                   "artifacts" => r.artifacts
+                 },
+                 "content_parts" => Enum.map(r.parts, &Part.to_map/1),
+                 "taint" => Atom.to_string(Part.max_taint(r.parts)),
+                 "tool_definition_digest" => meta["tool_definition_digest"]
+               }}
 
-          {:error, reason, meta} ->
-            {"error: #{error_text(reason)}", false,
-             %{
-               "tool_result" => %{"error" => error_text(reason)},
-               "tool_definition_digest" => meta["tool_definition_digest"]
-             }}
-        end
+            {:error, reason, meta} ->
+              {"error: #{error_text(reason)}", false,
+               %{
+                 "tool_result" => %{"error" => error_text(reason)},
+                 "tool_definition_digest" => meta["tool_definition_digest"]
+               }}
+          end
 
-      {:ok, _} =
-        Trinity.Sessions.append_message(id, %{
-          role: "tool",
-          content: content,
-          tool_call_id: call.id,
-          parts: Map.merge(%{"tool" => call.name, "ok" => ok?}, parts)
-        })
-    end)
+        {:ok, _} =
+          Trinity.Sessions.append_message(id, %{
+            role: "tool",
+            content: content,
+            tool_call_id: call.id,
+            parts: Map.merge(%{"tool" => call.name, "ok" => ok?}, parts)
+          })
 
-    data
+        Prompt.taint_of(%{role: "tool", parts: parts})
+      end)
+
+    %{data | turn: %{turn | taint: Part.max_taint([turn.taint | taints])}}
   end
 
   defp tool_text(%Trinity.Tools.Result{} = r) do

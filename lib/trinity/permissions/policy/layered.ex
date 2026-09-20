@@ -12,7 +12,7 @@ defmodule Trinity.Permissions.Policy.Layered do
   3. The persona's policy: `settings["permissions"]`, tool name to decision.
   4. Global rules: `tool_permissions` rows scoped `global`, an argument glob each.
   5. The default by tier (`config :trinity, :permissions, default:`), `:ask` for an unmapped
-     name.
+     name; the tier is the name's raised by the tool's escalation when that is higher.
 
   The fingerprint is re-derived here from the arguments actually passed (M2): a grant bound
   to other arguments does not match, and the call asks again.
@@ -33,7 +33,7 @@ defmodule Trinity.Permissions.Policy.Layered do
          :next <- decided_approval(session_id, fp, now),
          :next <- persona(Keyword.get(opts, :persona), tool),
          :next <- global_rules(tool, args, fp, now) do
-      default(tool)
+      default(tool, Keyword.get(opts, :escalate))
     end
   end
 
@@ -82,12 +82,14 @@ defmodule Trinity.Permissions.Policy.Layered do
     end
   end
 
-  defp default(tool) do
+  # The default by tier, the name's raised by the tool's escalation (slice 022): a read outside
+  # the roots and a dangerous command reach here as `:ask` and `:destructive`, never lower.
+  defp default(tool, escalation) do
     defaults =
       Application.get_env(:trinity, :permissions, [])
       |> Keyword.get(:default, @default)
 
-    case Permissions.tier(tool) do
+    case Permissions.effective_tier(tool, escalation) do
       :ask -> :ask
       tier -> Map.get(defaults, tier, :ask)
     end
