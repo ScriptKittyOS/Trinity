@@ -130,3 +130,55 @@ $ mix test test/trinity/data_dir      → 10 passed
 One thing seen and left as it is: `mix test` halts the VM without running `terminate/2`, so the test lock
 file survives a run and is taken over as stale at the next (its pid is dead). Correct behaviour, and the
 reason the stale path has a test.
+
+## Lines 5 to 9, 2026-09-20: migrations, UUIDv7, the Sessions context, factories, the stress test
+
+**UUIDv7** (`Trinity.UUID`): an `Ecto.Type` of underlying type `:uuid` delegating cast, dump and load to
+`Ecto.UUID`, with `autogenerate/0` minting v7. Ecto refuses `autogenerate: {m, f, a}` on id types, which is how
+the type shape was arrived at; the schemas declare `@primary_key {:id, Trinity.UUID, autogenerate: true}` and
+`@foreign_key_type Trinity.UUID`. `rand_a` carries the low twelve bits of `:erlang.unique_integer([:monotonic])`,
+so ids minted within one millisecond sort in mint order up to 4096 per millisecond; `rand_b` is random on every
+call so uniqueness never depends on the counter. Tests: form, version, variant, timestamp, 1000 in order, 5000
+from 50 processes unique.
+
+**Migrations**: `personas` (name unique), `sessions`, `messages` with the unique index on `(session_id, seq)`,
+`:binary_id` columns (text on SQLite, uuid on Postgres), `utc_datetime_usec` timestamps. `MIX_ENV=test mix
+ecto.reset` and `MIX_ENV=dev mix ecto.reset` both apply them; the Postgres half is CI's (line 3's job runs
+`ecto.reset` on every push).
+
+**`append_message/2`** is one transaction: the session row is read (and on a Postgres build locked `FOR
+UPDATE`), `max(seq) + 1` is assigned, the row inserted, the session touched. The lock is compiled in or out
+from the adapter at build time rather than branched at runtime: the type checker refuses a runtime branch on a
+compile-time constant (`Repo.__adapter__()` is a literal per build), so each build carries one definition and
+the CI matrix compiles both. `seq` is never cast from the caller.
+
+**Boundary (AC5)**: `Trinity.Sessions` is a sub-boundary exporting only its API module; `Trinity` exports the
+sub-boundary so `TrinityWeb` may call the context and nothing inside it. Test: a `TrinityWeb` module calling
+`Store` is written to `lib/trinity_web/`, `mix compile --warnings-as-errors` fails naming the reference, the same
+module calling `Sessions` compiles, the probe is removed. The first version of that test failed on the lawful
+half: a top-level boundary cannot list a nested one as a dep, and the fix was exporting the sub-boundary from
+its parent, which is the documented shape.
+
+**Stress (AC2)**, inside the sandbox: 20 writers, 200 appends each, 5 sessions, gapless, integrity `ok`, 0.6 s.
+The `-wal` size printed there is 0 and is not a measurement: the sandbox rolls the test back and nothing reaches
+the WAL. Outside the sandbox (`scripts/stress_010.exs` on the dev database, this machine, SQLite 3.53.4):
+
+```
+$ MIX_ENV=dev mix ecto.reset && MIX_ENV=dev mix run scripts/stress_010.exs
+stress_010: appends=4000 errors=0 wall_ms=1327 appends_per_s=3012.1 integrity=ok wal_bytes=4152992 gapless=true sqlite=3.53.4
+$ MIX_ENV=dev mix run scripts/stress_010.exs        (second run, same database)
+stress_010: appends=4000 errors=0 wall_ms=1169 appends_per_s=3420.3 integrity=ok wal_bytes=4152992 gapless=true sqlite=3.53.4
+```
+
+4,152,992 bytes is 1,014 pages of 4 KiB: the WAL sits at the 1,000-page `wal_auto_check_point` and the
+checkpoint keeps it there. No stall was seen. The threshold stays at 1000 pages; a reason to raise it would be
+a measured stall, and there is none. About 3,000 appends per second with one transaction per append is the
+number 024's checkpoint window starts from.
+
+```
+$ mix compile --warnings-as-errors --force   → Generated trinity app
+$ mix test                                    → 105 passed
+$ mix credo --strict                          → found no issues
+$ ./scripts/plan_check.sh                     → PASS
+$ mix trinity.names                           → OK over 199 tracked files
+```
