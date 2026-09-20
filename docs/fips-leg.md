@@ -106,8 +106,14 @@ OpenSSL was a 3.0 line; as of 9.8 it is not.
 
 ## Reds on the leg, by test name
 
-Filled at G3 from the leg's first run: every red is fixed here when the fault is the test's, or listed with the
-slice that owns it when the fault is a removed algorithm. No skip tag exists for this.
+None on 2026-09-20: `mix gate` on the leg, run 35538136447, 268 passed and 12 excluded (the same twelve the
+default leg excludes by tag), exit 0. No test in the tree reached a removed algorithm. This is a fact about the
+tree that day; a later slice that adds one sees it here, on the leg, as a red to fix or to list below with its
+owner. No skip tag exists for this: `git grep -n '@tag :skip\|@moduletag :skip' test/` prints nothing.
+
+| test | owning slice | why it is red on the leg | status |
+|---|---|---|---|
+| (none) | | | |
 
 ## Reproducing the image and the leg on a machine
 

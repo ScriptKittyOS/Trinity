@@ -61,3 +61,80 @@ Deviations stated before any code: (a) the leg is a second job rather than a mat
 name, as SLICE.md's own precedent (`postgres`) did; (b) FIPS mode is entered by Red Hat's environment variable
 rather than by the host, because the runner cannot be a FIPS host; both halves (the provider list and the
 `notsup`) are asserted by the tests in line 4 so the mechanism is measured on every run.
+
+## Findings, 2026-09-20, in the order they were met
+
+1. **`ERL_FLAGS` does not enter the mode; `ERL_AFLAGS` with the application loaded first does.** OTP's
+   `crypto:on_load/0` reads `fips_mode` only when `application:get_env(crypto, fips_mode)` is defined, which it is
+   not before `application:load(crypto)`; the NIF loads on the first `:crypto` call, which under `elixir` comes
+   before Mix loads the applications. Measured on the image with `elixir -e`: `ERL_FLAGS="-crypto fips_mode true"`
+   leaves `crypto:info_fips()` at `not_enabled` and prints OTP's warning; `ERL_AFLAGS="-crypto fips_mode true
+   -eval application:load(crypto)"` gives `enabled`. Red Hat's `OPENSSL_FORCE_FIPS_MODE=1` alone gives
+   `not_enabled` in OTP's report, and is not needed once OTP loads the provider itself. **Supersedes G1
+   deviation (b)**: the mechanism is OTP's own configuration, not the distribution's variable.
+2. **The image's self-check matched the wrong atom.** `crypto:enable_fips_mode(true)` returns `true`, not `ok`;
+   the first local build and the first `fips-image` run (35536968071) failed at the check after a complete
+   build. `fix(s003)` at `b74da2f`.
+3. **Hex cannot reach hex.pm in the mode** (docs/fips-leg.md finding 1): Hex 2.5.1 hardcodes TLS 1.0 and 1.1
+   beside 1.2. `HEX_OFFLINE=1` was tried and does not serve `hex.audit`: neither `deps.get` on a complete lock nor
+   an online `hex.audit` leaves registry entries an offline audit can read (measured, runs 3 and 4 in the
+   container). The gate alias's `hex.audit` step now runs with `ERL_AFLAGS` cleared; a default leg does not set
+   it, so nothing changes there.
+4. **OTP's TLS 1.3 client fails a HelloRetryRequest, and the mode makes that common** (docs/fips-leg.md finding
+   2, erlang/otp #8470): `rustler_precompiled` could not download mdex's NIF at compile time. The leg compiles
+   dependencies with the mode off. Both workarounds were measured in the mode against
+   `release-assets.githubusercontent.com` and `repo.hex.pm`: `middlebox_comp_mode: false`, or
+   `supported_groups: [:secp256r1, :secp384r1, :secp521r1]`. **Follow-up for slice 002 (the TLS floor)**:
+   Trinity's own clients in a FIPS deployment need one of these, or they fail against every server that retries.
+5. **UBI's base has no `diff`** (run 35537134655). `diffutils` added to the image.
+6. **`git ls-files` in the container read an empty tree** (run 35537462271): the checkout action's safe.directory
+   entry lives under a HOME it removes afterwards. One `git config --global --add safe.directory` step before
+   anything reads the tree.
+7. **`plan_check.sh` flaked on a clean tree**: `printf | grep -q` under `set -o pipefail`, 1 spurious FAIL in 30
+   runs (the ADR-0005 citation in slice 001's file), 0 in 60 after reading the whole input. Fixed as
+   `fix(s000)` at `f9c5eed`; found because a local run failed and the next three passed. The push that carried
+   the safe.directory fix went out on a `plan_check | tail -1` pipeline whose exit was `tail`'s, the mistake the
+   gate alias's comment describes; recorded here so it is not repeated.
+8. **Red Hat's page and the image disagree on the provider's build hash** (docs/fips-leg.md, the provider
+   section): the page lists `3.0.7-395c1a240fbfffd8` under certificate #4857 for 9.8; the image reports
+   `3.0.7-cda111b5812c30d4` from `openssl-fips-provider-so-3.0.7-11.el9_8`. Stated, not resolved; owner: the
+   deployment's assessor.
+9. **This OTP lists ML-DSA and SLH-DSA with the mode off** (`docs/fips-leg/supports-default.txt`: `mldsa44`,
+   `mldsa65`, `mldsa87`, twelve `slh_dsa_*`), because UBI 9.8 links OpenSSL 3.5.8. Slice 024's amendment 6 can be
+   measured on this image in non-FIPS mode; recorded here for 024's G1.
+10. **No test in the tree reaches a removed algorithm.** The gate in the mode: 268 passed, 12 excluded, exit 0
+    (in the image on this machine, run 5, 33.5 s wall; on the leg, run 35538136447). AC4's list of reds by test
+    name is therefore empty as a fact about the tree on this date, not as a property of the leg.
+
+## Runner minutes
+
+Durations of the `image` and `fips` jobs on this branch, from `gh run view <id> --json jobs` (latest attempt of
+each run; reruns replace the earlier attempt's times), derived 2026-09-20 after run 35538136447. Fewer than the
+ten runs SLICE.md asks for exist at this line; the closing correction in PROOF.md extends the table with the
+runs the close itself produces, and the ten-run figure is filled by the first `fix` or the next slice that
+touches the leg, whichever is first.
+
+| run | job | result | duration |
+|---|---|---|---|
+| 35536968071 | image | failure (finding 2) | 2m51s |
+| 35537134611 | image | success | 2m55s |
+| 35537462269 | image | success | 3m03s |
+| 35536967968 | fips | failure (image not yet published) | 0m10s |
+| 35537134655 | fips | failure (finding 5), rerun | 1m58s |
+| 35537462271 | fips | failure (finding 6), rerun | 1m54s |
+| 35537793241 | fips | success | 3m19s |
+| 35538008648 | fips | success | 1m28s |
+| 35538136447 | fips | success | 2m03s |
+
+The image build is under three minutes on the hosted runner (OTP from source with the unused applications left
+out), so the schedule-and-on-demand fallback SLICE.md names was not needed; the push to the registry under the
+job's `packages: write` succeeded on the first complete build (finding 2 was the check, not the push). On a push
+that changes the Containerfile, the `fips` job of the same push starts before the image lands and fails at the
+pull; a rerun of the failed job after `fips-image` finishes is the procedure, and it happened twice here.
+
+## Follow-ups
+- Slice 002 (the TLS floor): set `supported_groups` or `middlebox_comp_mode` for Trinity's clients (finding 4).
+- Slice 024: amendment 6 (ML-DSA-87) is measurable on this image with the mode off (finding 9); P-384 signatures
+  from OTP are DER, 103 to 104 bytes, not the 96 the slice table names.
+- Upstream: Hex's TLS version list (finding 3); OTP's HelloRetryRequest handling (#8470, finding 4).
+- The ten-run minutes table (above).
