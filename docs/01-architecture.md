@@ -115,6 +115,16 @@ Every state transition is persisted before it is broadcast. A crash between pers
 
 **Effect path (Slice 024):** `Session → Permissions.decide → Effects.execute → Authority → tool.execute/2 (local) or a proposal (external adapter) → Receipts.append`. `Effects` is the only caller of `execute/2` for effectful tools; a census test enforces it. Reads emit query receipts.
 
+**The page (Slice 013):** `TrinityWeb.SessionLive.Show` subscribes to `session:<id>` on mount, calls
+`Trinity.Sessions.ensure_started/1`, loads the history from the database into a LiveView stream and the turn in
+flight from `Trinity.Sessions.state/1` (the state name and the draft text), and drops the delta broadcasts that
+were already queued when that reply arrived, because the reply's text contains them. Completed messages render
+once through `TrinityWeb.Markdown` (mdex); the in-progress text is one assign replaced per coalesced delta. Tool
+rows are written without an event of their own, so the page reads what the database has past its last seen
+`seq` whenever a final or interrupted message arrives. A user message's send goes through `Trinity.Sessions`,
+never to the process directly. The `Trinity.LLM.Providers.Fake` provider lives in `lib/` and runs the chat in
+development under `TRINITY_FAKE_PROVIDER=1`.
+
 ## Storage
 
 - Primary: **SQLite** via `ecto_sqlite3`, single file under the OS data dir, WAL mode, one writer (the Repo pool
@@ -134,7 +144,8 @@ Every state transition is persisted before it is broadcast. A crash between pers
 
 ```
 lib/trinity/                 core contexts (one dir per context)
-lib/trinity_web/             Phoenix
+lib/trinity_web/             Phoenix: live/session_live (the chat, 013), components/chat_components.ex
+                             (the component vocabulary), markdown.ex (the one renderer), plugs/ (the CSP)
 priv/repo/migrations/
 priv/skills/               bundled skills (SKILL.md)
 priv/personas/             default SOUL.md

@@ -27,6 +27,26 @@
   previous slice fails until a NOTES.md justification names the reason. The rule as originally written stored no
   baseline, so nothing could check it, which is the pattern CLAUDE.md §8 forbids.
 
+## UI (decided at slice 013)
+
+- Tokens live in `assets/css/app.css` and nothing else names a colour, a radius or a font: two daisyUI themes
+  (`dark`, the default; `light`) carry the palette as `base-100/200/300`, `primary` (teal), `secondary` (violet),
+  `accent` (amber) and the four status colours; a Tailwind `@theme` block carries the font stack (`font-sans`,
+  `font-mono`), the two chat text sizes (`text-ui`, `text-meta`) and the radii (`rounded-panel`, `rounded-field`,
+  `rounded-pill`). A later surface uses these classes; it does not add a hex value.
+- The component vocabulary is `TrinityWeb.ChatComponents`: `message`, `tool_card`, `draft`, `composer`,
+  `model_picker`, `status_pill`, `banner`, `local_time`. The approval card (021), memory panel (030), skills list
+  (040), tasks (050), gateways (070), activity and cost (090) and settings (100) extend this module or add a
+  sibling with the same tokens; none restyles a bubble.
+- Every page renders inside `Layouts.app` (a 3 rem top bar with the brand, the page's `:bar` slot and the theme
+  toggle, over a main region that fills the viewport). Times are rendered as UTC by the server and rewritten in
+  the viewer's zone by the `LocalTime` hook.
+- Model output reaches the DOM through `TrinityWeb.Markdown.to_html/2` and no other path; `raw/1` appears once in
+  the tree, there.
+- Every browser response carries the Content-Security-Policy `TrinityWeb.Plugs.ContentSecurityPolicy` sets; an
+  inline script needs the request's nonce (`@csp_nonce`), and there is one, the theme script in the root layout.
+- The chat runs without a key in development: `TRINITY_FAKE_PROVIDER=1 mix phx.server`.
+
 ## Git
 
 - `main` is always green (gate passes) and always releasable.

@@ -9,7 +9,7 @@
 # exactly that. Re-run mix sobelow --mark-skip-all and rekey this file when it happens.
 #
 # format: <fingerprint><TAB><reason>
-2DBC9F9	Missing CSP on the browser pipeline. The scaffold ships no Content-Security-Policy, and setting one needs LiveView nonce handling, which belongs with the UI rather than the toolchain. Slice 013 owns it. Skipped rather than fixed blind: a CSP written without the UI it protects is a guess.
+1DC4768	Slice 013, the browser pipeline: the policy IS set, by TrinityWeb.Plugs.ContentSecurityPolicy with a nonce per request, placed before put_secure_browser_headers. sobelow recognises only a header map given to put_secure_browser_headers, so it keeps reporting the pipeline. test/trinity_web/plugs/content_security_policy_test.exs asserts the header and the nonce on every browser response. Rekeyed from 2DBC9F9 (router.ex:12, slice 000, "slice 013 owns it") when the plug moved the line to 14.
 35AB9EC	Slice 010, Trinity.DataDir.Lock.acquire/2: the directory is the application's own data directory from config or Trinity.Paths, never a request or a model output; the lock has to create it before the Repo does. Low confidence traversal by the tool's own label.
 55D5ADB	Slice 010, Trinity.DataDir.Lock read/1: reads <data_dir>/LOCK, a path this module composes from the data directory and a constant file name; no caller supplies it.
 21D88E2	Slice 010, Trinity.DataDir.Lock.release/2: removes <data_dir>/LOCK only when the file carries this process's own token; same composed path as the read.

@@ -84,6 +84,15 @@ defmodule Trinity.Sessions do
     end
   end
 
+  @doc "Sets the session's title (the chat uses the first message's opening line)."
+  @spec set_title(session_id(), String.t()) :: {:ok, SessionRow.t()} | {:error, term()}
+  def set_title(session_id, title) do
+    case Store.get_session(session_id) do
+      nil -> {:error, :no_session}
+      session -> Store.update_session(session, %{title: title})
+    end
+  end
+
   @doc """
   Sets the session's model to a registry id, or to nil for the registry default; refuses an id
   the registry does not know. The running process reads the row at the start of each turn, so
