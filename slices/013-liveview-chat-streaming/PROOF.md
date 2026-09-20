@@ -222,3 +222,8 @@ last: the data-directory lock refusing the launch after the smoke run (NOTES.md 
 `TRINITY_SMOKE_MARKDOWN=ok` on each (the NIF built from source for musl on Linux, precompiled on the other two),
 `HTTP 200` from the packaged binary in 1,526 ms, 1,680 ms and 1,761 ms from launch. R24's lift condition is met.
 The final commit and the pull request are named in the closing correction.
+
+## Closing correction, 2026-09-20
+Supersedes the closing correction above it: the branch grew past `8cc90b7` while the package workflow was
+brought green (commits `68c00a6` to `ff2b316`, listed by `git log --oneline main..HEAD` on pull request #24). The
+ROADMAP row stays `done`; the pull request is #24; the merge commit and the tag come after the owner's review.
