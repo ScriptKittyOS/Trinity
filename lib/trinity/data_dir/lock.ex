@@ -56,19 +56,21 @@ defmodule Trinity.DataDir.Lock do
 
     with :ok <- File.mkdir_p(dir),
          {:error, :eexist} <- write_exclusive(path, holder) do
-      case read(path) do
-        {:ok, %{pid: pid} = existing} ->
-          if alive?(pid), do: {:error, {:held, existing}}, else: take_over(path, holder)
-
-        # Unreadable or half-written: refuse. A file we cannot read is a holder we cannot name.
-        {:error, reason} ->
-          {:error,
-           {:held, %{pid: 0, mode: :unknown, token: "unreadable: #{inspect(reason)}", at: ""}}}
-      end
+      contend(path, holder, read(path))
     else
       {:ok, holder} -> {:ok, holder}
       {:error, reason} -> {:error, {:unwritable, reason}}
     end
+  end
+
+  # The file exists. A live holder is refused by name; a dead one is taken over; a file that
+  # cannot be read is a holder that cannot be named, and is refused.
+  defp contend(path, holder, {:ok, %{pid: pid} = existing}) do
+    if alive?(pid), do: {:error, {:held, existing}}, else: take_over(path, holder)
+  end
+
+  defp contend(_path, _holder, {:error, reason}) do
+    {:error, {:held, %{pid: 0, mode: :unknown, token: "unreadable: #{inspect(reason)}", at: ""}}}
   end
 
   @doc "Releases the lock file if this process's token wrote it. Idempotent."
