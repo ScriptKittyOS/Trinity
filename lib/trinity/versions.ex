@@ -268,6 +268,13 @@ defmodule Trinity.Versions do
         "Markdown renderer for the chat (`TrinityWeb.Markdown`), streaming fragments completed by its `streaming: true` option, raw HTML omitted (`unsafe: false`) and the default sanitizer on top. Added at Slice 013 after the measurement in its NOTES.md: `earmark` 1.4.49 is retired on hex with an open XSS advisory (EEF-CVE-2026-48591), which the gate refuses. ⚠️ A Rust NIF (`mdex_native`): the first in the bundle. Measured at Slice 013 (NOTES finding 13): neither precompiled artifact loads in Burrito's musl ERTS on Linux, so the linux package builds it from source for musl with Zig as the linker (`rustler` below, `scripts/zig-cc-musl`, the three settings in config/config.exs); macOS and Windows load the precompiled artifact. The `--smoke` path prints whether it rendered, and the `package` workflow reads that line on every target."
     },
     %{
+      name: "jsv",
+      pin: "~> 0.23",
+      lock: "jsv",
+      note:
+        "JSON Schema (2020-12) validation of tool arguments in `Trinity.Tools.Schema`, with `cast: false` so a malformed call is refused and never repaired (docs/07). Was transitive through req_llm; direct since Slice 020 because a module of ours calls it (ADR-0009: Trinity's own tool behaviour, jsv for its schemas)."
+    },
+    %{
       name: "rustler",
       pin: "~> 0.38",
       lock: "rustler",
