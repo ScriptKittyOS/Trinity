@@ -43,3 +43,25 @@ Manual verification queue: none. Every criterion is `[auto]`.
 Deviations from SLICE.md, stated before building: line 3 adds `postgrex` as `optional: true` rather than a
 default dependency, so the standalone desktop build carries no Postgres driver; line 5 writes the UUIDv7
 generator in-tree rather than adding `uniq`, and proposes nothing new for VERSIONS.md.
+
+## Line 1, 2026-09-20: plan_check rule 12, red then green
+
+Planted the exact defect PR #7 fixed (the quotes removed from the step name at
+`.github/workflows/package.yml:173`, working tree only, reverted after):
+
+```
+$ ./scripts/plan_check.sh | grep -E '== 12|FAIL .github|plan_check:'
+== 12. Every workflow and Dependabot file parses as YAML ==
+FAIL .github/workflows/package.yml: not parseable as YAML:   in ".github/workflows/package.yml", line 173, column 25
+plan_check: FAIL
+exit=1
+
+$ git checkout -- .github/workflows/package.yml && ./scripts/plan_check.sh | grep -E '== 12|FAIL|plan_check:'
+== 12. Every workflow and Dependabot file parses as YAML ==
+plan_check: PASS
+exit=0
+```
+
+The population is `git ls-files '.github/*.yml' '.github/*.yaml' '.github/**/*.yml' '.github/**/*.yaml'`, three
+files today. The parser is Python's yaml module (6.0.1 here, present on the ubuntu runner); its absence is a
+FAIL, not a skip.
