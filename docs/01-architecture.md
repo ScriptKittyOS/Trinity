@@ -26,7 +26,8 @@ Trinity.Application
 ├── Trinity.Tools.Supervisor                      # Slice 020, as built: Trinity.Tools.TaskSupervisor (every tool
 │     │                                         # call of a turn runs under it) and Trinity.Tools.Registry
 │     │                                         # (GenServer over ETS). 022 adds the stateful runtimes beside them
-├── Trinity.Permissions.Gate                      # approval requests + allowlist cache. Slice 021
+├── Trinity.Permissions.Gate                      # Slice 021, as built: approval requests (rows, then broadcasts),
+│                                                 # decisions, expiries; pending rows reloaded with their timers
 ├── Trinity.Receipts.Supervisor                   # Slice 024
 │     └── Trinity.Receipts.ChainWriter (one per chain_scope, :unique in Trinity.Registry; ADR-0013)
 │           # serialises append per scope. prev_hash -> receipt_hash is a read-then-write, so

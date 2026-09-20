@@ -275,6 +275,13 @@ defmodule Trinity.Versions do
         "JSON Schema (2020-12) validation of tool arguments in `Trinity.Tools.Schema`, with `cast: false` so a malformed call is refused and never repaired (docs/07). Was transitive through req_llm; direct since Slice 020 because a module of ours calls it (ADR-0009: Trinity's own tool behaviour, jsv for its schemas)."
     },
     %{
+      name: "jcs",
+      pin: "~> 0.2",
+      lock: "jcs",
+      note:
+        "RFC 8785 canonical JSON, under every approval fingerprint (`Trinity.Permissions.Fingerprint`, Slice 021) and, at 024, under the receipts' signed payload. Chosen at Slice 021: it matches the RFC's own example vector byte for byte on this OTP, and `test/trinity/permissions/fingerprint_test.exs` keeps that vector so a release that stops matching fails the gate. ⚠️ Pre-1.0, released 2025-03-31 with nothing since (R11's trigger). The alternative, `rfc8785` 1.0.0, refuses OTP 28 and waits on the OTP pin."
+    },
+    %{
       name: "rustler",
       pin: "~> 0.38",
       lock: "rustler",

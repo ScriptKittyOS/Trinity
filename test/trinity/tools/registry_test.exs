@@ -19,7 +19,7 @@ defmodule Trinity.Tools.RegistryTest do
   describe "AC1: a module plus one config line" do
     test "the four test tools are listed, in the core toolset, with schemas that build and digests" do
       names = Enum.map(Tools.list(), & &1.name)
-      assert names == ["big", "crash", "echo", "sleep"]
+      assert names == ["big", "crash", "echo", "sleep", "write_note"]
       assert Enum.map(Tools.list(toolset: :core), & &1.name) == names
 
       for entry <- Tools.list() do
@@ -31,7 +31,7 @@ defmodule Trinity.Tools.RegistryTest do
 
     test "to_llm_tools/0 carries name, description and parameters for each" do
       tools = Tools.to_llm_tools()
-      assert Enum.map(tools, & &1.name) == ["big", "crash", "echo", "sleep"]
+      assert Enum.map(tools, & &1.name) == ["big", "crash", "echo", "sleep", "write_note"]
 
       for t <- tools do
         assert is_binary(t.description) and t.description != ""
@@ -66,7 +66,8 @@ defmodule Trinity.Tools.RegistryTest do
       assert {:ok, %{module: TestTools.Echo}} = Tools.lookup("echo")
       assert {:ok, _} = Tools.register(TestTools.DynamicEcho)
       assert Trinity.Permissions.tier("mcp:fake:echo") == :ask
-      assert Trinity.Permissions.tier("echo") == :ask, "no core name is mapped at this slice"
+      # Slice 021: a core tool's declared risk is its tier, handed over by the registry.
+      assert Trinity.Permissions.tier("echo") == :read
     end
 
     test "a runtime registration claiming :catalog is refused by name" do

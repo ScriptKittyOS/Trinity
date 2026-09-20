@@ -25,6 +25,8 @@ defmodule TrinityWeb.Router do
     live_session :chat do
       live "/", SessionLive.Index, :index
       live "/s/:id", SessionLive.Show, :show
+      # Slice 021: the approvals audit and the rules.
+      live "/permissions", PermissionsLive, :index
     end
   end
 

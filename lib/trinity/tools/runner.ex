@@ -74,14 +74,26 @@ defmodule Trinity.Tools.Runner do
   defp execute(%{name: name, args: args}, ctx) do
     with {:ok, entry} <- Registry.lookup(name),
          {:ok, args} <- validate(entry, args),
-         :allow <- Permissions.decide(ctx.session_id, name, args),
+         :allow <-
+           Permissions.decide(ctx.session_id, name, args, persona: ctx.persona, cwd: ctx.cwd),
          {:ok, %Result{} = result} <- call_tool(entry, args, ctx) do
       {:ok, Result.cap(result), meta(name)}
     else
       {:error, reason} -> {:error, reason, meta(name)}
       :deny -> {:error, :denied, meta(name)}
-      :ask -> {:error, :approval_required, meta(name)}
+      :ask -> {:error, ask(ctx, name, args), meta(name)}
       other -> {:error, {:bad_return, other}, meta(name)}
+    end
+  end
+
+  # An :ask with a session to ask becomes a pending approval (a row, then a broadcast) the
+  # Session waits on; without a session there is nobody to ask, and the call is refused.
+  defp ask(%Context{session_id: nil}, _name, _args), do: :approval_required
+
+  defp ask(%Context{session_id: sid, cwd: cwd}, name, args) do
+    case Permissions.request_approval(sid, name, args, cwd: cwd) do
+      {:ok, approval} -> {:approval_required, approval.id}
+      {:error, reason} -> {:request_failed, reason}
     end
   end
 

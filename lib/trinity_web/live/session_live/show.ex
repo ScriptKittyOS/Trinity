@@ -18,9 +18,12 @@ defmodule TrinityWeb.SessionLive.Show do
   """
   use TrinityWeb, :live_view
 
+  import TrinityWeb.ApprovalComponents
   import TrinityWeb.ChatComponents
 
   alias Trinity.LLM
+  alias Trinity.Permissions
+  alias Trinity.Permissions.Approval
   alias Trinity.Sessions
   alias Trinity.Sessions.Message
 
@@ -48,7 +51,10 @@ defmodule TrinityWeb.SessionLive.Show do
             last_seq: 0,
             last_user_message: nil,
             models: LLM.models(),
-            default_model: LLM.default_model()
+            default_model: LLM.default_model(),
+            approvals: [],
+            patterns: %{},
+            pending_count: 0
           )
           |> stream_configure(:messages, dom_id: &"message-#{&1.id}")
           |> stream(:messages, [])
@@ -62,6 +68,9 @@ defmodule TrinityWeb.SessionLive.Show do
   defp connect(%{assigns: %{session: session}} = socket) do
     id = session.id
     :ok = Sessions.subscribe(id)
+    # Slice 021: this session's requests, and the count of everyone's for the header.
+    :ok = Permissions.subscribe(id)
+    :ok = Permissions.subscribe(:all)
 
     {status, text} =
       case Sessions.ensure_started(id) do
@@ -85,6 +94,10 @@ defmodule TrinityWeb.SessionLive.Show do
 
     socket
     |> assign(status: status, draft: text, last_seq: last_seq)
+    |> assign(
+      approvals: Permissions.pending(id),
+      pending_count: length(Permissions.pending(:all))
+    )
     |> assign(
       last_user_message: done |> Enum.filter(&(&1.role == "user")) |> List.last() |> content()
     )
@@ -142,6 +155,34 @@ defmodule TrinityWeb.SessionLive.Show do
   def handle_event("new_session", _params, socket),
     do: {:noreply, TrinityWeb.SessionLive.Index.new_session(socket)}
 
+  # Slice 021: a button is a request for a decision; the record is the gate's.
+  def handle_event("approval_decide", %{"id" => id, "decision" => decision}, socket)
+      when decision in ["once", "session", "always", "deny"] do
+    opts =
+      if decision == "always",
+        do: [pattern: Map.get(socket.assigns.patterns, id) || suggested(socket, id)],
+        else: []
+
+    case Permissions.decide_request(id, String.to_existing_atom(decision), opts) do
+      {:ok, _} ->
+        {:noreply, socket}
+
+      {:error, reason} ->
+        {:noreply,
+         put_flash(socket, :error, gettext("Not decided: %{reason}", reason: inspect(reason)))}
+    end
+  end
+
+  def handle_event("approval_pattern", %{"approval_id" => id, "pattern" => pattern}, socket),
+    do: {:noreply, assign(socket, patterns: Map.put(socket.assigns.patterns, id, pattern))}
+
+  defp suggested(socket, id) do
+    case Enum.find(socket.assigns.approvals, &(&1.id == id)) do
+      nil -> "*"
+      approval -> suggest_pattern(approval)
+    end
+  end
+
   defp send_message(socket, content) do
     id = socket.assigns.session.id
 
@@ -178,7 +219,30 @@ defmodule TrinityWeb.SessionLive.Show do
     {:noreply, apply_event(event, socket)}
   end
 
+  def handle_info({:approval, kind, %Approval{} = approval}, socket) do
+    socket =
+      if approval.session_id == socket.assigns.session.id,
+        do: apply_approval(kind, approval, socket),
+        else: socket
+
+    {:noreply, assign(socket, pending_count: length(Permissions.pending(:all)))}
+  end
+
   def handle_info(_other, socket), do: {:noreply, socket}
+
+  # The page hears each request twice (the session's topic and everyone's); one card.
+  defp apply_approval(:requested, approval, socket) do
+    if Enum.any?(socket.assigns.approvals, &(&1.id == approval.id)),
+      do: socket,
+      else: assign(socket, approvals: socket.assigns.approvals ++ [approval])
+  end
+
+  defp apply_approval(:decided, approval, socket) do
+    assign(socket,
+      approvals: Enum.reject(socket.assigns.approvals, &(&1.id == approval.id)),
+      patterns: Map.delete(socket.assigns.patterns, approval.id)
+    )
+  end
 
   defp apply_event({:user_message, %Message{} = m}, socket) do
     socket
@@ -243,6 +307,7 @@ defmodule TrinityWeb.SessionLive.Show do
         <span class="min-w-0 truncate">{@session.title || gettext("Untitled session")}</span>
         <.status_pill status={@status} />
         <.model_picker models={@models} value={@session.model} default={@default_model} />
+        <.pending_indicator count={@pending_count} />
       </:bar>
       <div id="chat" phx-hook="Shortcuts" class="mx-auto flex h-full max-w-4xl flex-col">
         <div
@@ -261,6 +326,7 @@ defmodule TrinityWeb.SessionLive.Show do
           />
         </div>
         <div class="flex flex-col gap-2 border-t border-base-300 bg-base-100/60 px-4 py-3">
+          <.approval_card :for={a <- @approvals} approval={a} pattern={Map.get(@patterns, a.id)} />
           <.banner kind={@banner} />
           <.composer status={@status} disabled={@status != :idle} />
         </div>

@@ -156,7 +156,7 @@ defmodule Trinity.Tools.RunnerTest do
     on_exit(fn -> Application.delete_env(:trinity, :permissions_policy) end)
 
     Trinity.Permissions.PolicyMock
-    |> expect(:decide, 2, fn ^id, name, %{"text" => _} when name == "echo" -> :allow end)
+    |> expect(:decide, 2, fn ^id, name, %{"text" => _}, _opts when name == "echo" -> :allow end)
 
     tool_turn([{"c1", "echo", %{"text" => "a"}}, {"c2", "echo", %{"text" => "b"}}])
     {_events, _elapsed, history} = run_turn(id)
@@ -166,7 +166,7 @@ defmodule Trinity.Tools.RunnerTest do
   test "a denied call is an error row and execute/2 is not reached", %{id: id} do
     Application.put_env(:trinity, :permissions_policy, Trinity.Permissions.PolicyMock)
     on_exit(fn -> Application.delete_env(:trinity, :permissions_policy) end)
-    expect(Trinity.Permissions.PolicyMock, :decide, fn _, "crash", _ -> :deny end)
+    expect(Trinity.Permissions.PolicyMock, :decide, fn _, "crash", _, _ -> :deny end)
     tool_turn([{"c1", "crash", %{}}])
     {_events, _elapsed, history} = run_turn(id)
     [row] = tool_rows(history)
@@ -179,7 +179,15 @@ defmodule Trinity.Tools.RunnerTest do
     {_events, _elapsed, history} = run_turn(id)
     first = Enum.at(history, 1)
     assert first.provider_meta["tool_surface"] == Tools.surface()
-    assert Map.keys(first.provider_meta["tool_surface"]) == ["big", "crash", "echo", "sleep"]
+
+    assert Map.keys(first.provider_meta["tool_surface"]) == [
+             "big",
+             "crash",
+             "echo",
+             "sleep",
+             "write_note"
+           ]
+
     assert Tools.surface_diff(history) == [%{seq: 2, name: "get_weather", reason: :undeclared}]
   end
 end
