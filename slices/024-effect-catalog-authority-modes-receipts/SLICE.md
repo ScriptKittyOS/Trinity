@@ -142,5 +142,10 @@ receipt metadata, and the signed bytes carry `seq`, `chain_scope`, `prev_hash`, 
 - AC8's FIPS half cannot run on the developer machine (`crypto:info_fips()` returns `not_supported` there); it
   runs on slice 003's leg. If 003 has not landed when this slice reaches G3, the FIPS half is recorded as not
   measured, by name, and the slice does not close.
+- OTP's `notsup` in FIPS mode covers verification of EdDSA as well as signing (answer from the external
+  plane's maintainers, 2026-09-20, matching OTP's own `pkey.c`). A FIPS build therefore cannot verify an Ed25519
+  chain written before the deployment entered FIPS mode. The standalone verifier (AC7) must run on a stock
+  OTP as well as a FIPS one, and the FIPS-leg test for AC7 asserts that an Ed25519 chain is reported as
+  `verification unavailable on this build` (a named outcome), never as invalid.
 - P-384 signs slower than Ed25519 through OpenSSL and has no dedicated assembly path; the checkpoint window
   (amendment 5) absorbs it for query receipts, and the per-receipt cost for the other kinds is measured at G1.

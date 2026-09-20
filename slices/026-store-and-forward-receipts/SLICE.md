@@ -12,6 +12,10 @@ Added 2026-09-20. Blocked until the external authority plane's maintainers answe
 `receipt/2` fits their adapter; that question is routed through the owner and this slice does not open before the
 answer is recorded in NOTES.md. Opening it changes ADR-0008's contract and needs an appended decision there.
 
+**Answered the same day; see NOTES.md.** The queue carries the plane's envelope unmodified and never re-signs it;
+a reconciliation row on the plane's side is wanted and is requested at G1. The slice is no longer blocked on an
+external answer; it waits on 024 as its dependency says.
+
 ## Goal
 `receipt/2` gains a queued-then-acknowledged mode so that the local authority and an external adapter behave
 identically when the machine is offline: receipts are appended locally with a hybrid logical clock on every row,
