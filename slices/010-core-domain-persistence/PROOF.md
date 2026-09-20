@@ -1,6 +1,6 @@
 # Proof for slice 010: Core domain + persistence
 
-Agent: Trinity · Coding Agent · Date: 2026-09-20 · Branch: slice/010-core-domain-persistence · Final commit: the closing commit of this branch (its sha is in the merge)
+Agent: Trinity · Coding Agent · Date: 2026-09-20 · Branch: slice/010-core-domain-persistence · Final commit: `332e881` (the PROOF sha line was filled in by the commit after it, which is the only way a file can name the commit that carries it)
 
 ## Summary
 The Repo is one writer with every pragma named; `Trinity.Repo.Receipts` is a declared, unstarted slot for slice
@@ -141,5 +141,5 @@ a45db66 fix(s010): Trinity exports Paths; the boundary refused the application's
 0b38a68 feat(s010): one-connection write pool, every pragma named, the receipts repo slot
 17850ce feat(s010): plan_check rule 12 parses every workflow and Dependabot file
 7b2fb39 docs(s010): G1 plan, and the slice opens
-<closing commit>
+332e881 feat(s010): complete slice 010 (core domain and persistence)
 ```
