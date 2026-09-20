@@ -34,7 +34,8 @@ defmodule TrinityWeb.CompactionLiveTest do
     |> form("#composer", %{"content" => "a message with enough words to move the estimate"})
     |> render_submit()
 
-    _ = collect(id, &match?({:state, :idle}, &1), 5_000)
+    # The final message, not the first idle: the init's idle is already in this mailbox (NOTES 9).
+    _ = collect(id, &match?({:assistant_message, _}, &1), 5_000)
     [after_used] = Regex.run(~r/data-used="(\d+)"/, render(view), capture: :all_but_first)
     assert String.to_integer(after_used) > before
     assert render(view) =~ "context #{after_used} / 6000"
