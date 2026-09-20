@@ -8,6 +8,11 @@ config :trinity, Trinity.Repo,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true
 
+# Slice 024: the receipts chain's own file.
+config :trinity, Trinity.Repo.Receipts,
+  database: Path.expand("../trinity_dev_receipts.db", __DIR__),
+  stacktrace: true
+
 # For development, we disable any cache and enable
 # debugging and code reloading.
 #

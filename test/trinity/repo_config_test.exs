@@ -44,10 +44,29 @@ defmodule Trinity.RepoConfigTest do
     end
   end
 
-  describe "the receipts repo slot" do
-    test "is declared, uses the same adapter, and is not running" do
+  describe "the receipts repo" do
+    # Slice 010 asserted the slot was declared and not running; slice 024 starts it. The
+    # 010 assertion is superseded here, not kept beside a contradicting one.
+    test "is running on the same adapter, in its own file, with synchronous full and one connection" do
       assert Trinity.Repo.Receipts.__adapter__() == Trinity.Repo.__adapter__()
-      assert Process.whereis(Trinity.Repo.Receipts) == nil
+      assert is_pid(Process.whereis(Trinity.Repo.Receipts))
+      assert Trinity.Repo.Receipts.config()[:database] != Trinity.Repo.config()[:database]
+      assert Trinity.Repo.Receipts.config()[:pool_size] == 1
+      assert %{rows: [["wal"]]} = Trinity.Repo.Receipts.query!("PRAGMA journal_mode")
+      # 2 is FULL.
+      assert %{rows: [[2]]} = Trinity.Repo.Receipts.query!("PRAGMA synchronous")
+    end
+
+    test "its migrations are its own: the receipts tables exist there and not in the primary" do
+      assert %{rows: [[1]]} =
+               Trinity.Repo.Receipts.query!(
+                 "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'receipts'"
+               )
+
+      assert %{rows: [[0]]} =
+               Trinity.Repo.query!(
+                 "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'receipts'"
+               )
     end
   end
 end

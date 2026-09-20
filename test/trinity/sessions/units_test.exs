@@ -53,7 +53,9 @@ defmodule Trinity.Sessions.UnitsTest do
 
   describe "CorePolicy.hash/0" do
     test "is a 64-hex sha-256 over the named modules, stable across calls" do
-      assert CorePolicy.modules() == [
+      # Slice 012's five lead the list; slice 024 appends the modules that decide whether an
+      # effect happens (test/trinity/effects/boot_receipt_test.exs asserts those by name).
+      assert Enum.take(CorePolicy.modules(), 5) == [
                Trinity.Sessions.Session,
                Caps,
                Trinity.Sessions.ToolRunner,

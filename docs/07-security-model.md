@@ -128,6 +128,34 @@ is not public (loopback, private, link-local) to `:ask`.
   configurable and the default is the safe one. A capped request is not silently dropped: the requester is told
   the decision must be made on the desktop, and the refusal is receipted like any other.
 
+## Effects and receipts (Slice 024, as built)
+
+The runner in force is `Trinity.Effects.Runner`. For every validated call it asks the gate once and writes a
+decision receipt before anything runs; a decision that cannot be receipted (no approved signer) refuses the call,
+reads included, and the alarm `:trinity_receipts_signer` sounds with a telemetry event. An `effect: :none` call
+then runs directly and leaves a query receipt (chained, unsigned, checkpointed every 100 rows, 5 s after the
+first uncovered row, on shutdown and on rehydrate); every other call becomes a `Trinity.Authority.Staged` and
+crosses `Trinity.Effects.execute/2`, which denies with a receipt, in this order, when: the decision is not
+`:allow`; the effect class is not admitted, or a `:catalog` tool is absent from `Trinity.Tools.Catalog`; the
+fingerprint re-derived over the arguments it holds is not the one the decision bound (M2); an effect receipt
+already names this session and call id (the idempotency key, read from the chain); the authority in force refuses.
+Then the admission receipt is signed and written, `Trinity.Authority.Local.execute/3` runs the tool's `execute/2`
+(the only such caller for effectful tools; a census over `git ls-files` with a planted bypass holds it), and the
+outcome receipt follows with the result's digest.
+
+The signature is over DSSE's PAE of a payload type and the canonical body, the type carrying the scheme
+(`trinity/receipt/receipt_v2_ed25519`), so a signature made for a receipt cannot be presented as anything else the
+same key signs. `key_id` is the RFC 7638 thumbprint of the public key and sits inside the signed body; the
+registry row binds one algorithm to it and the verifier takes the algorithm from there, refusing a scheme whose
+family is not the row's before any signature check, and refusing schemes the caller did not allow. The key is a
+0600 file under the data directory's `keys/`, read on every sign and never cached, so a key removed mid-run is a
+signer unavailable at the next receipt. What a file-backed key establishes: that the chain was not altered after
+the fact by anything lacking read access to that file, and nothing more. Selection is once, at boot: P-384 when
+`crypto:info_fips/0` is `enabled` (proven on the `fips` leg), Ed25519 otherwise, ML-DSA-87 by configuration
+where the runtime carries it; the boot receipt names the choice and the authority in force, with the core policy
+hash in unsigned metadata (the R21 default). `bin/verify_receipt.exs` verifies an export with `elixir` alone,
+from an empty directory, with the exit vocabulary 0, 1, 2, 5, 6.
+
 ## Data at rest
 
 - SQLite file under the OS data dir with 0600 perms. Optional at-rest encryption is a later slice (SQLCipher via exqlite build flag), noted rather than planned.

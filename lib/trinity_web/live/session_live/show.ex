@@ -340,6 +340,14 @@ defmodule TrinityWeb.SessionLive.Show do
         <.model_picker models={@models} value={@session.model} default={@default_model} />
         <.context_indicator used={@context_used} window={@context_window} />
         <.pending_indicator count={@pending_count} />
+        <.link
+          id="receipts-link"
+          navigate={~p"/s/#{@session.id}/receipts"}
+          class="text-meta opacity-70 hover:opacity-100"
+          title={gettext("This session's receipts")}
+        >
+          {gettext("receipts")}
+        </.link>
       </:bar>
       <div id="chat" phx-hook="Shortcuts" class="mx-auto flex h-full max-w-4xl flex-col">
         <div

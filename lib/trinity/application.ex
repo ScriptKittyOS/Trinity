@@ -28,7 +28,12 @@ defmodule Trinity.Application do
           # Slice 010: one node per data directory. Before the Repo, so a refused boot has
           # opened no database file; the reason names the holder's OS pid and mode.
           {Trinity.DataDir.Lock, dir: lock_dir(), mode: mode()},
+          # Slice 024 (ADR-0010): the authority is selected once, here, before anything that
+          # could act; a refused selection stops the boot with its reason.
+          Trinity.Authority.Selection,
           Trinity.Repo,
+          # Slice 024: the receipts chain's own file (ADR-0013, `Trinity.Repo.Receipts`).
+          Trinity.Repo.Receipts,
           {Ecto.Migrator,
            repos: Application.fetch_env!(:trinity, :ecto_repos), skip: skip_migrations?()},
           {DNSCluster, query: Application.get_env(:trinity, :dns_cluster_query) || :ignore},
@@ -37,6 +42,11 @@ defmodule Trinity.Application do
           {Task.Supervisor, name: Trinity.LLM.TaskSupervisor},
           # Slice 012: one session process per conversation, found by id.
           {Registry, keys: :unique, name: Trinity.Registry},
+          # Slice 024: the signer and its key, the chain writers, the boot receipt. Before the
+          # tools and the sessions, which receipt through it.
+          Trinity.Receipts.Supervisor,
+          # Slice 024: the boot receipt, once the signer and the authority are known.
+          Trinity.Effects.Boot,
           # Slice 020: the tool registry and the task supervisor tool calls run under, before
           # the sessions that call them.
           Trinity.Tools.Supervisor,

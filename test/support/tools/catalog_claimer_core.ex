@@ -3,7 +3,7 @@
 defmodule Trinity.TestTools.CatalogClaimerCore do
   @moduledoc """
   Slice 020, the census plant for the config path (AC8): a core-shaped name claiming
-  `:catalog` while absent from `Trinity.Effects.Catalog`. A config line naming it must fail
+  `:catalog` while absent from `Trinity.Tools.Catalog`. A config line naming it must fail
   the registry's start by name.
   """
   @behaviour Trinity.Tools.Tool

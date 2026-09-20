@@ -143,13 +143,32 @@ call is timed at the one place every call passes.
 | receipt_hash | binary | over the canonical signed bytes |
 | signed_payload | map | RFC 8785 canonical JSON. Field set is a legal-review question before Slice 024 |
 | signature | binary | through the signer seam: Ed25519 by default, ECDSA P-384 in FIPS mode, ML-DSA-87 opt-in (slice 024 amendments 1 to 6) |
-| key_id | string | inside the signed bytes; resolves in `priv/keys/registry.json`, whose row names the algorithm; the verifier reads the algorithm from there and nowhere else |
+| key_id | string | inside the signed bytes; resolves in the key registry (as built: `<data dir>/keys/registry.json`, not `priv/`), whose row names the algorithm; the verifier reads the algorithm from there and nowhere else |
 | kind | string | "decision" \| "effect" \| "query" \| "boot" \| "cap" |
 | subject | map | refs to the session, tool call, approval or effect this receipts |
 Append-only. Never updated, never deleted. Signing unavailable means the effect is denied, not that an unsigned
 row is written. The signed bytes carry a scheme string naming the family (`receipt_v2_ed25519`, `receipt_v2_p384`,
 `receipt_v2_mldsa87`); a chain never mixes families. Effect, decision, boot and cap receipts are signed one by one;
 query receipts are hash-chained and checkpointed (the tail is signed every N rows, every T seconds, and on shutdown).
+
+As built at slice 024, in its own database (`Trinity.Repo.Receipts`, `receipts.db`, `synchronous: :full`): `id`,
+`chain_scope`, `seq`, `prev_hash` (hex), `receipt_hash` (hex: SHA-256 over the DSSE PAE of
+`trinity/receipt/<scheme>` and the body), `scheme`, `kind`, `signed_payload` (**text**: the RFC 8785 body, whose
+keys are `scheme, seq, chain_scope, prev_hash, kind, subject, decision, fingerprint, at, key_id`), `signature`
+(binary; null for query rows), `key_id`, `subject` (map), `subject_ref` (string: `effect:<session>:<call>`,
+`decision:…`, `query:…`, `boot:<node>`; the idempotency lookup), `meta` (map, unsigned: `core_policy_hash`,
+`canonicalization_version`, `authority`, `tool_definition_digest`), `inserted_at`. Unique `(chain_scope, seq)`
+and `receipt_hash`. Chain scopes: `session:<id>` and `boot`.
+
+### receipt_checkpoints (Slice 024)
+| column | type | notes |
+|---|---|---|
+| chain_scope, first_seq, last_seq | string, integer, integer | the query rows this checkpoint covers; unique `(chain_scope, last_seq)` |
+| boot_receipt_hash | string | which boot wrote it (RFC 5848's reboot session id, by role) |
+| tail_hash | string | the `receipt_hash` at `last_seq` |
+| scheme, signed_payload, signature, key_id | | signed like a receipt, over the PAE of `trinity/checkpoint/<scheme>` and the canonical body |
+| reason | string | "count" \| "time" \| "shutdown" \| "rehydrate" \| "manual" |
+A row, never a write onto a receipt: `receipts` stays append-only and a checkpoint states its own coverage.
 
 ### mcp_servers (Slice 060)
 `name`, `transport`, `command_or_url`, `env_refs`, `enabled`, `effect_default ∈ {none, artifact}`, per-tool

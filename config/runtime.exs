@@ -112,10 +112,18 @@ if config_env() == :prod do
   # capacity. A Postgres build sets its own size below.
   config :trinity, Trinity.Repo, database: database_path
 
+  # Slice 024: the receipts file beside it, the same way.
+  config :trinity, Trinity.Repo.Receipts,
+    database: System.get_env("RECEIPTS_DATABASE_PATH") || Trinity.Paths.receipts_database_path()
+
   if System.get_env("TRINITY_DB") == "postgres" do
     config :trinity, Trinity.Repo,
       url: System.get_env("DATABASE_URL") || raise("TRINITY_DB=postgres needs DATABASE_URL"),
       pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10")
+
+    config :trinity, Trinity.Repo.Receipts,
+      url: System.get_env("DATABASE_URL"),
+      pool_size: 2
   end
 
   # The secret key base is used to sign/encrypt cookies and other secrets.

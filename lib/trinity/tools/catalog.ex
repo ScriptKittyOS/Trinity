@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Sudo Apt Holdings LLC
 # SPDX-License-Identifier: Apache-2.0
-defmodule Trinity.Effects.Catalog do
+defmodule Trinity.Tools.Catalog do
   @moduledoc """
   The effect catalog, resolved at compile time (docs/07, M4). Slice 020 opened it empty;
   slice 022 lists the shell, an external effect under local authority (its alignment note).
@@ -11,6 +11,11 @@ defmodule Trinity.Effects.Catalog do
   list and refuses a runtime registration claiming `:catalog` outright; the census test
   (slice 020 AC8) walks the tree and asserts no other path admits one. Slice 024 makes the
   membrane read it.
+
+  Named `Trinity.Effects.Catalog` by SLICE.md 020 and 024 and moved here at 024: the tool
+  registry reads it and `Trinity.Effects` depends on `Trinity.Tools`, so the boundary
+  compiler refuses the catalog inside Effects; it lives with the tools whose effect classes
+  it lists, and the membrane reads it from here (024 NOTES.md, deviation e).
   """
 
   @catalog [{"shell", :exec}]

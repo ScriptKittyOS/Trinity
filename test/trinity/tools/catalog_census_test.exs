@@ -3,7 +3,7 @@
 defmodule Trinity.Tools.CatalogCensusTest do
   @moduledoc """
   Slice 020 AC8: the effect catalog is derived from the tree, and no path other than the
-  module attribute in `Trinity.Effects.Catalog` admits a `:catalog` tool.
+  module attribute in `Trinity.Tools.Catalog` admits a `:catalog` tool.
 
   The population is every module loaded from this application's `.beam` files (and the
   test support ones) that implements `Trinity.Tools.Tool`: derived, not listed by hand. The
@@ -13,9 +13,9 @@ defmodule Trinity.Tools.CatalogCensusTest do
   """
   use ExUnit.Case, async: false
 
-  alias Trinity.Effects.Catalog
   alias Trinity.TestTools.{CatalogClaimer, CatalogClaimerCore}
   alias Trinity.Tools
+  alias Trinity.Tools.Catalog
   alias Trinity.Tools.Registry
 
   defp tool_modules do

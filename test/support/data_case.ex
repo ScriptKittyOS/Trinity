@@ -46,7 +46,14 @@ defmodule Trinity.DataCase do
       if t = tags[:ownership_timeout], do: Keyword.put(opts, :ownership_timeout, t), else: opts
 
     pid = Ecto.Adapters.SQL.Sandbox.start_owner!(Trinity.Repo, opts)
-    on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
+    # Slice 024: the receipts Repo under the same ownership, so a chain writer started by a
+    # test writes inside the test's sandbox and the rows go with it.
+    rpid = Ecto.Adapters.SQL.Sandbox.start_owner!(Trinity.Repo.Receipts, opts)
+
+    on_exit(fn ->
+      Ecto.Adapters.SQL.Sandbox.stop_owner(rpid)
+      Ecto.Adapters.SQL.Sandbox.stop_owner(pid)
+    end)
   end
 
   @doc """

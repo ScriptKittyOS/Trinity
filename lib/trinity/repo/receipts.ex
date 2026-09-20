@@ -2,14 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 defmodule Trinity.Repo.Receipts do
   @moduledoc """
-  The slot for a second database file, reserved at slice 010 and unused until slice 024.
+  The receipts chain's own database: reserved at slice 010, configured and started at slice
+  024 (docs/adr/0013).
 
-  Declared so that the receipts chain can live in its own SQLite file with its own
-  `synchronous` setting (`:full`, if an auditor wants the last committed receipt durable
-  across power loss) without moving the primary database later. Not started by the
-  application, not in `:ecto_repos`, and no migration targets it at this slice. Slice 024
-  configures and starts it; until then any call here fails because the repo is not running,
-  which is the intended state.
+  Its own SQLite file (`receipts.db` beside the primary; `Trinity.Paths.receipts_database_path/0`)
+  with `synchronous: :full`, so the last committed receipt survives power loss, without
+  slowing the primary; its own migrations under `priv/repo_receipts`; on Postgres the same
+  database as the primary with its own `receipts_schema_migrations` table. `Trinity.Receipts`
+  is the only context that reads and writes here, and `Trinity.Receipts.ChainWriter` the only
+  process that inserts (the census test).
   """
 
   use Ecto.Repo,
