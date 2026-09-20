@@ -17,8 +17,11 @@ defmodule Trinity.Authority.SelectionTest do
   end
 
   test "an absent module is refused as not loaded, by name" do
-    assert {:error, {:not_loaded, Trinity.NoSuchAuthority}} = Selection.select("Trinity.NoSuchAuthority")
-    assert {:error, {:not_loaded, Trinity.NoSuchAuthority}} = Selection.select("Elixir.Trinity.NoSuchAuthority")
+    assert {:error, {:not_loaded, Trinity.NoSuchAuthority}} =
+             Selection.select("Trinity.NoSuchAuthority")
+
+    assert {:error, {:not_loaded, Trinity.NoSuchAuthority}} =
+             Selection.select("Elixir.Trinity.NoSuchAuthority")
   end
 
   test "a present module missing a callback is refused naming the callback" do
@@ -35,9 +38,11 @@ defmodule Trinity.Authority.SelectionTest do
     System.put_env(Selection.env(), "Trinity.TestAuthority.Partial")
     on_exit(fn -> System.delete_env(Selection.env()) end)
 
-    assert_raise RuntimeError, ~r/TRINITY_AUTHORITY refused: module Trinity.TestAuthority.Partial does not implement execute\/3/, fn ->
-      Selection.boot!()
-    end
+    assert_raise RuntimeError,
+                 ~r/TRINITY_AUTHORITY refused: module Trinity.TestAuthority.Partial does not implement execute\/3/,
+                 fn ->
+                   Selection.boot!()
+                 end
 
     assert Selection.selected() == before
 
@@ -63,7 +68,9 @@ defmodule Trinity.Authority.SelectionTest do
       for {mod, _} <- :code.all_loaded(),
           mod != Trinity.Authority.Local,
           not String.starts_with?(Atom.to_string(mod), "Elixir.Trinity.TestAuthority."),
-          Trinity.Authority in List.flatten(Keyword.get_values(mod.module_info(:attributes), :behaviour)),
+          Trinity.Authority in List.flatten(
+            Keyword.get_values(mod.module_info(:attributes), :behaviour)
+          ),
           do: mod
 
     assert loaded_adapters == []

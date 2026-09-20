@@ -3,8 +3,9 @@
 defmodule Trinity.Sessions.ToolRunner do
   @moduledoc """
   The seam through which a Session runs a tool call. Slice 012 shipped the stub; slice 020's
-  `Trinity.Tools.Runner` is the implementation in force (config); slice 024 routes effectful
-  calls through the membrane. The Session depends on this behaviour and never on the runtime.
+  `Trinity.Tools.Runner` was the implementation in force; slice 024's `Trinity.Effects.Runner`
+  is, routing effectful calls through the membrane and receipting every decision. The
+  Session depends on this behaviour and never on the runtime.
   """
 
   @type call :: %{id: String.t(), name: String.t(), args: map()}
@@ -21,9 +22,9 @@ defmodule Trinity.Sessions.ToolRunner do
   """
   @callback run_all([call()], context :: map()) :: [{call(), result()}]
 
-  @doc "The implementation in force, from config; `Trinity.Tools.Runner` by default (slice 020)."
+  @doc "The implementation in force, from config; `Trinity.Effects.Runner` by default (slice 024)."
   @spec impl() :: module()
-  def impl, do: Application.get_env(:trinity, :tool_runner, Trinity.Tools.Runner)
+  def impl, do: Application.get_env(:trinity, :tool_runner, Trinity.Effects.Runner)
 
   @doc "Runs one call through the implementation in force."
   @spec run(call(), map()) :: result()

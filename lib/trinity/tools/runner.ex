@@ -7,16 +7,22 @@ defmodule Trinity.Tools.Runner do
 
   All the turn's calls run at once, each in its own task under `Trinity.Tools.TaskSupervisor`
   with its tool's timeout; the Session waits for the set. One call: look the name up, validate
-  the arguments against the schema (refused, never repaired), ask `Trinity.Permissions.decide/3`
-  exactly once, run `execute/2`, cap the result. A crash is an error result, a timeout an error
+  the arguments against the schema (refused, never repaired), hand the entry and the
+  arguments to the executor, cap the result. A crash is an error result, a timeout an error
   result, an unknown name an error result: the model reads each, and the session goes on.
   Nothing here writes a row; the Session records what comes back, with the tool's definition
   digest beside it.
 
-  The contract is `Trinity.Sessions.ToolRunner`'s (`run/2`, `run_all/2`), which the Session
-  calls and which names this module as its default implementation. It is not declared with
-  `@behaviour` here: Sessions depends on Tools (the declared surface), so a reference the
-  other way would be a cycle `boundary` refuses; `Trinity.Tools.RunnerTest` asserts the two
+  Slice 024: the executor is a function argument (`run_all/3`), because the membrane lives
+  in `Trinity.Effects`, which depends on this boundary, and a reference the other way would
+  be a cycle `boundary` refuses. `Trinity.Effects.Runner` is the seam's implementation in
+  force and passes its executor in; the default executor here, `execute_direct/3`, decides
+  through the gate and runs `execute/2` for `effect: :none` tools only, refusing an
+  effectful tool by name (the census in test/trinity/effects/census_test.exs holds that this
+  guard and `Trinity.Authority.Local` are the only two callers of `execute/2`).
+
+  The contract is `Trinity.Sessions.ToolRunner`'s (`run/2`, `run_all/2`). It is not declared
+  with `@behaviour` here for the reason above; `Trinity.Tools.RunnerTest` asserts the two
   functions exist with the seam's arities instead.
   """
 
@@ -32,21 +38,29 @@ defmodule Trinity.Tools.Runner do
     Application.get_env(:trinity, :tools, []) |> Keyword.get(:timeout_ms, @default_timeout)
   end
 
-  @doc "One call (the seam's `run/2`)."
+  @type executor :: (Registry.entry(), map(), Context.t() -> {:ok, Result.t()} | {:error, term()})
+
+  @doc "One call (the seam's `run/2`), with the default executor."
   @spec run(map(), map()) :: {:ok, Result.t(), map()} | {:error, term(), map()}
   def run(call, context) do
     [{_call, outcome}] = run_all([call], context)
     outcome
   end
 
-  @doc "Every call of a turn, at once, answered in the order given (the seam's `run_all/2`)."
+  @doc "Every call of a turn, at once, answered in the order given (the seam's `run_all/2`), with the default executor."
   @spec run_all([map()], map()) :: [{map(), {:ok, Result.t(), map()} | {:error, term(), map()}}]
-  def run_all(calls, context) when is_list(calls) do
+  def run_all(calls, context) when is_list(calls), do: run_all(calls, context, &execute_direct/3)
+
+  @doc "The same, with the executor that runs a validated call (slice 024: the membrane's runner passes its own)."
+  @spec run_all([map()], map(), executor()) :: [
+          {map(), {:ok, Result.t(), map()} | {:error, term(), map()}}
+        ]
+  def run_all(calls, context, executor) when is_list(calls) and is_function(executor, 3) do
     ctx = to_context(context)
     longest = calls |> Enum.map(&timeout_of/1) |> Enum.max(fn -> default_timeout() end)
 
     Trinity.Tools.TaskSupervisor
-    |> Task.Supervisor.async_stream_nolink(calls, &{&1, run_one(&1, ctx)},
+    |> Task.Supervisor.async_stream_nolink(calls, &{&1, run_one(&1, ctx, executor)},
       max_concurrency: max(length(calls), 1),
       timeout: longest + @grace,
       on_timeout: :kill_task,
@@ -61,8 +75,8 @@ defmodule Trinity.Tools.Runner do
 
   # One call, with its own timeout inside the task so a slow tool is a timeout error for that
   # call rather than a killed task for the set.
-  defp run_one(call, ctx) do
-    task = Task.async(fn -> execute(call, ctx) end)
+  defp run_one(call, ctx, executor) do
+    task = Task.async(fn -> execute(call, ctx, executor) end)
 
     case Task.yield(task, timeout_of(call)) || Task.shutdown(task, :brutal_kill) do
       {:ok, outcome} -> outcome
@@ -71,35 +85,61 @@ defmodule Trinity.Tools.Runner do
     end
   end
 
-  defp execute(%{name: name, args: args}, ctx) do
+  defp execute(%{name: name, args: args} = call, ctx, executor) do
+    ctx = %{ctx | call_id: Map.get(call, :id)}
+
     with {:ok, entry} <- Registry.lookup(name),
          {:ok, args} <- validate(entry, args),
-         :allow <-
-           Permissions.decide(ctx.session_id, name, args,
-             persona: ctx.persona,
-             cwd: ctx.cwd,
-             escalate: escalation(entry, args, ctx)
-           ),
-         {:ok, %Result{} = result} <- call_tool(entry, args, ctx) do
+         {:ok, %Result{} = result} <- executor.(entry, args, ctx) do
       {:ok, Result.cap(result), meta(name)}
     else
       {:error, reason} -> {:error, reason, meta(name)}
-      :deny -> {:error, :denied, meta(name)}
-      :ask -> {:error, ask(ctx, name, args), meta(name)}
       other -> {:error, {:bad_return, other}, meta(name)}
+    end
+  end
+
+  @doc """
+  The default executor: the gate's decision, then `execute/2` for an `effect: :none` tool.
+  An effectful tool is refused here by name; only the membrane runs those.
+  """
+  @spec execute_direct(Registry.entry(), map(), Context.t()) ::
+          {:ok, Result.t()} | {:error, term()}
+  def execute_direct(entry, args, ctx) do
+    case decide(entry, args, ctx) do
+      {:allow, _fp} -> call_tool(entry, args, ctx)
+      {:deny, _fp} -> {:error, :denied}
+      {:ask, reason, _fp} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  The gate's decision for a validated call, asked exactly once, with the fingerprint the
+  decision bound: `{:allow, fp}`, `{:deny, fp}`, or `{:ask, reason, fp}` where the reason is
+  `{:approval_required, id}` (a pending approval the Session waits on), `:approval_required`
+  (no session to ask) or `{:request_failed, why}`.
+  """
+  @spec decide(Registry.entry(), map(), Context.t()) ::
+          {:allow, String.t()} | {:deny, String.t()} | {:ask, term(), String.t()}
+  def decide(%{name: name} = entry, args, ctx) do
+    fp = Permissions.fingerprint(ctx.session_id, name, args, ctx.cwd)
+
+    case Permissions.decide(ctx.session_id, name, args,
+           persona: ctx.persona,
+           cwd: ctx.cwd,
+           escalate: escalation(entry, args, ctx)
+         ) do
+      :allow -> {:allow, fp}
+      :deny -> {:deny, fp}
+      :ask -> {:ask, ask(ctx, entry, args), fp}
     end
   end
 
   # An :ask with a session to ask becomes a pending approval (a row, then a broadcast) the
   # Session waits on; without a session there is nobody to ask, and the call is refused.
-  defp ask(%Context{session_id: nil}, _name, _args), do: :approval_required
+  defp ask(%Context{session_id: nil}, _entry, _args), do: :approval_required
 
-  defp ask(%Context{session_id: sid, cwd: cwd} = ctx, name, args) do
-    risk =
-      case Registry.lookup(name) do
-        {:ok, entry} -> Permissions.effective_tier(name, escalation(entry, args, ctx))
-        _ -> :ask
-      end
+  defp ask(%Context{session_id: sid, cwd: cwd} = ctx, %{name: name} = entry, args) do
+    risk = Permissions.effective_tier(name, escalation(entry, args, ctx))
 
     case Permissions.request_approval(sid, name, args, cwd: cwd, risk: risk) do
       {:ok, approval} -> {:approval_required, approval.id}
@@ -107,8 +147,9 @@ defmodule Trinity.Tools.Runner do
     end
   end
 
-  # The tool's own reading of its arguments (slice 022): a tier it raises the call to, or nil.
-  defp escalation(%{module: module}, args, ctx) do
+  @doc "The tool's own reading of its arguments (slice 022): a tier it raises the call to, or nil."
+  @spec escalation(Registry.entry(), map(), Context.t()) :: Permissions.tier() | nil
+  def escalation(%{module: module}, args, ctx) do
     if function_exported?(module, :escalate, 2), do: module.escalate(args, ctx), else: nil
   end
 
@@ -119,11 +160,20 @@ defmodule Trinity.Tools.Runner do
     end
   end
 
-  defp call_tool(%{module: module}, args, ctx) do
+  @doc """
+  Runs a validated, allowed `effect: :none` call directly. An effectful entry is refused by
+  name: this is one of the two callers of `execute/2` the census allows, and the guard is
+  what keeps it a caller for reads only.
+  """
+  @spec call_tool(Registry.entry(), map(), Context.t()) :: {:ok, Result.t()} | {:error, term()}
+  def call_tool(%{effect: :none, module: module}, args, ctx) do
     module.execute(args, ctx)
   rescue
     e -> {:error, {:crash, {e, __STACKTRACE__}}}
   end
+
+  def call_tool(%{name: name}, _args, _ctx),
+    do: {:error, {:effectful_tool_outside_membrane, name}}
 
   defp timeout_of(%{name: name}) do
     with {:ok, %{module: m}} <- Registry.lookup(name),

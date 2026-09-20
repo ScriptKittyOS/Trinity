@@ -53,7 +53,12 @@ defmodule Trinity.Tools.UnitsTest do
     Code.ensure_loaded!(Tools.Runner)
     assert function_exported?(Tools.Runner, :run, 2)
     assert function_exported?(Tools.Runner, :run_all, 2)
-    assert Trinity.Sessions.ToolRunner.impl() == Tools.Runner
+    # Slice 024: the implementation in force is the membrane's runner, which delegates the
+    # lookup, validation and concurrency to Tools.Runner and supplies the executor.
+    assert Trinity.Sessions.ToolRunner.impl() == Trinity.Effects.Runner
+    Code.ensure_loaded!(Trinity.Effects.Runner)
+    assert function_exported?(Trinity.Effects.Runner, :run, 2)
+    assert function_exported?(Trinity.Effects.Runner, :run_all, 2)
   end
 
   describe "surface_diff/1" do
