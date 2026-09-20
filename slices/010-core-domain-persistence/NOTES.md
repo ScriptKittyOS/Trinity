@@ -94,3 +94,39 @@ $ mix credo --strict                                 → found no issues
 
 ## Follow-ups
 - A read-only replica repo over the same file, when 012 or 013 measures read latency behind the single writer.
+
+## Line 3, 2026-09-20: the Postgres branch, proven in CI on this branch
+
+Run 35509095238 on `5a9ec9b`, job `postgres` (postgres:17 service, `TRINITY_DB=postgres`, `DATABASE_URL` from
+the job env), lines from its log:
+
+```
+mix run -e 'Ecto.Adapters.Postgres = Trinity.Repo.__adapter__()'     (exit 0: the compiled adapter is Postgres)
+The database for Trinity.Repo has been dropped
+The database for Trinity.Repo has been created
+Excluding tags: [:sqlite]
+Result: 72 passed, 7 excluded
+```
+
+The seven excluded are the SQLite pragma read-backs (`@moduletag :sqlite`), excluded by tag on that job and
+never skipped. Job `gate` on the same run: success. The job is not yet a required check on the ruleset; it is
+added after its first green run on `main`, which this slice's merge will be.
+
+No local Postgres was used: the machine has a server on 5432 whose password this seat does not have and did
+not guess. AC1 names CI as the proof for this half.
+
+## Line 4, 2026-09-20: the data-dir lock
+
+`Trinity.DataDir.Lock`: `<data_dir>/LOCK` created with `:exclusive`, carrying OS pid, mode, a per-boot token and
+the time; a supervised child placed before `Trinity.Repo`; refusal names the holder's pid and mode and touches
+no database file. Liveness through `/proc/<pid>` on Linux; elsewhere a held file is treated as held (the safe
+direction) and the message names the pid to remove by hand. A malformed file is held, never taken over.
+Test env points the lock at a temporary directory keyed by `MIX_TEST_PARTITION`.
+
+```
+$ mix test test/trinity/data_dir      → 10 passed
+```
+
+One thing seen and left as it is: `mix test` halts the VM without running `terminate/2`, so the test lock
+file survives a run and is taken over as stale at the next (its pid is dead). Correct behaviour, and the
+reason the stale path has a test.
