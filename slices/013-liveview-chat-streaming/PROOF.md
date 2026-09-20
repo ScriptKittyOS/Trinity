@@ -178,3 +178,8 @@ ce4b1f4 test(s013): a model set between turns is not the next turn's model (red)
 482b9e6 chore(s013): add mdex ~> 0.13
 454a12e docs(s013): G1 plan with the renderer measured, and the slice opens
 ```
+
+## Closing correction, 2026-09-20
+Supersedes the "Final commit" field in the header: the commit carrying this file is `8cc90b7`
+(`feat(s013): complete slice 013 (LiveView chat UI with streaming)`), and the `git log` block above lists the
+commits before it. The `package` workflow run and the pull request are named in a later correction once they exist.
