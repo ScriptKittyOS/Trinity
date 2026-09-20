@@ -214,3 +214,11 @@ artifact on each, so the renderer's NIF loads on all three operating systems; bo
 exactly as the slice/011 and slice/012 tag runs did before this slice, with an empty log (the port loop timing
 out). The step now prints `serve.log` on that path too (`fix(s001)`), and run 35522642934 was dispatched to read
 it; its result is the next correction.
+
+## Correction, 2026-09-20: the package run, green on three operating systems
+Supersedes the previous correction's last sentence. Run 35522642934 printed the macOS and Windows failure at
+last: the data-directory lock refusing the launch after the smoke run (NOTES.md finding 16, `fix(s010)`). Run
+**35523664194**, on the tree with that fix: **linux x86_64, macOS aarch64 and windows x86_64 all green**,
+`TRINITY_SMOKE_MARKDOWN=ok` on each (the NIF built from source for musl on Linux, precompiled on the other two),
+`HTTP 200` from the packaged binary in 1,526 ms, 1,680 ms and 1,761 ms from launch. R24's lift condition is met.
+The final commit and the pull request are named in the closing correction.

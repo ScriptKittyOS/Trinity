@@ -245,3 +245,13 @@ workflow's smoke step reading it on every target; `TrinityWeb.Markdown` logging 
     file named --smoke", exit 1). The render now happens inside `Application.start/2`, in `children/1`, and the
     Task prints and halts at once as before. Three fresh-install smoke runs: `ok`, exit 0; with the gnu artifact
     swapped into the payload: `failed:%MDEx.DecodeError{}`, exit 3.
+
+16. **The macOS and Windows serve failures were the data-directory lock.** Run 35522642934 printed the reason
+    the older runs had hidden: "is held by OS pid ... in desktop mode; refusing to start" on the launch after
+    the smoke run. Slice 010 read liveness on Linux alone and treated any file as held elsewhere, and the smoke
+    path halts without `terminate/2`, so the file it left refused every second launch on both platforms. Tried
+    first: `System.stop/1` in the smoke path so the lock's terminate runs; it is asynchronous, and `Kernel.CLI`'s
+    "No file named --smoke" (finding 15) won two runs in three. Kept: `System.halt/1` as slice 001 had it, and
+    liveness read through `kill -0` and `tasklist` (`fix(s010)`, the commit before this record). Run **35523664194**: green
+    on all three operating systems, `TRINITY_SMOKE_MARKDOWN=ok` on each, HTTP 200 in 1,526 ms (linux),
+    1,680 ms (macOS) and 1,761 ms (windows) from launch. The first green `package` run since the slice/011 tag.
