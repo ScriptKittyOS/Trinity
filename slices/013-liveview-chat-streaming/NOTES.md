@@ -109,3 +109,83 @@ above). The fake provider moves into `lib/` so dev can run it (the slice asks fo
 module compiled in dev). Two small changes land in 012's modules (`start_model_call` re-reads the row; `state/1`
 carries the draft text), each a `fix(s012)`-style line inside this slice's commits, because AC5 and AC6 cannot be
 met without them. The CSP arrives here because the slice-000 skip named 013 as its owner.
+
+## Lines 1 to 14, 2026-09-20: what was built, and what building it found
+
+**Built.** `mdex ~> 0.13` (its own commit); `TrinityWeb.Markdown` (one `to_html/2`, the tree's only `raw/1`);
+the tokens in `assets/css/app.css` (two daisyUI themes, dark the default, a `@theme` block for fonts, the two
+chat text sizes and the radii) with the UI section in docs/03; `TrinityWeb.ChatComponents` (`message`,
+`tool_card`, `draft`, `composer`, `model_picker`, `status_pill`, `banner`, `local_time`); `Layouts.app` as the
+shell (top bar with the brand, a `:bar` slot, the theme toggle); `SessionLive.Index` and `SessionLive.Show`;
+four hooks in `assets/js/hooks.js`; `TrinityWeb.Plugs.ContentSecurityPolicy`; `Sessions.default_persona/0`,
+`set_model/2`, `set_title/2`; `Session.state/1` with `text`; the Session re-reading its row per turn; the fake
+provider in `lib/` with `last_request/0`, a `:demo` script and the `TRINITY_FAKE_PROVIDER=1` flag.
+
+**Found while building, each recorded rather than smoothed.**
+
+1. **`earmark` is refused by the gate, not just unattractive.** The measurement meant to compare render cost
+   found the package retired on hex with an open XSS advisory before a line of it ran (`mix hex.audit` in the
+   scratch project). SLICE.md's fallback pair was really one candidate.
+2. **A stream container cannot hold the in-progress message.** The draft sat in a sibling below the
+   `phx-update="stream"` list, which put it at the bottom of the viewport with a gap above it in the first
+   screenshot. One scroll region now wraps the stream container and the draft.
+3. **The formatter reflowed a `whitespace-pre-wrap` element** across three lines, and the newline rendered as a
+   blank line above every user message; caught in a screenshot, fixed with `phx-no-format` (its own commit).
+4. **Tool rows have no event.** 012 broadcasts `tool_call` at the start of a call and nothing when the row is
+   written, so a page would never show a tool result until a reload. The page reads the rows past its last seen
+   `seq` on every final or interrupted message; no new event shape, so `Events` is untouched.
+5. **A new incarnation says idle before it says interrupted.** With `state_enter`, the enter broadcast for `idle`
+   precedes the internal rehydrate event, so a test waiting for `turn_interrupted` and then `state idle` waited
+   five seconds for a message that had already passed. The kill test waits for the second only.
+6. **The Show page's status pill and the draft's pill shared an id**, which LiveViewTest refuses (duplicate id);
+   the component takes an `id` now.
+7. **sobelow does not see a policy set by a plug.** It recognises only a header map given to
+   `put_secure_browser_headers`, so the CSP finding stays reported with the plug in place; the skip is rekeyed
+   (the plug moved the pipeline's line) with the reason naming the test that asserts the header.
+8. **`@sobelow_skip` on a function is an unused attribute to the compiler**, which `--warnings-as-errors` turns
+   into a gate failure; `Trinity.Paths` had met the same at 001 and registers the attribute as persisted, and
+   `TrinityWeb.Markdown` does the same.
+9. **The dev database was behind on migrations** (011's `usage_events`), so the first `mix phx.server` answered
+   503 with `PendingMigrationError`; `mix ecto.migrate` and a restart.
+10. **One uncaptured failure in eleven runs** of `mix test test/trinity_web` (the run right after commit
+    `e33f5bc`: 20/21, the failing test's name lost to a `tail`); ten later runs of the same directory and six
+    of `test/trinity_web/live` alone were green, the gate run was green. Recorded so a recurrence in CI has a
+    place to land; the output goes here when it does.
+
+**Deviations from SLICE.md**, in addition to the four stated at G1: the screenshots for AC1, AC3 and AC4 were
+taken here, from the dev server driven by a headless chromium (`playwright-core` in a scratch directory, the
+browser from the machine's playwright cache), rather than left entirely to the owner; the manual queue stands,
+and the owner's own run is the one that counts. `Ctrl/Cmd+K` and `Esc` reach the server as two pushed events
+from one hook rather than `phx-window-keydown` bindings, so ordinary typing never round-trips. The `LocalTime`
+hook rewrites server-rendered UTC times in the viewer's zone, which the slice did not ask for and a desktop app
+cannot do without.
+
+```
+$ mix test test/trinity_web              → 21 passed (markdown, csp, index, AC2 to AC7)
+$ mix gate                               → exit 0; 176 passed, 10 excluded; plan_check: PASS
+$ mix test --cover                       → 64.50% total (Show 81.58%, Index 91.67%, ChatComponents 67.74%, Markdown 80.00%, CSP 100%)
+$ mix credo --strict --all               → 596 mods/funs, found no issues
+$ mix sobelow --exit --skip              → exit 0, no finding
+```
+
+## Follow-ups
+- Slice 100 decides the font the packaged app ships (Ubuntu under UFL 1.0 or Comfortaa under OFL 1.1, each with
+  its licence file and REUSE row); until then the stack falls through to the system font.
+- The `package` workflow run on this branch's `mix.lock` change is the first proof of a NIF in the bundle (R24);
+  100's cross-target build re-proves it per target.
+- A tool result has no event of its own (finding 4); 020 may add one to `Events` when tools are real, or keep the
+  catch-up read, which costs one query per final message.
+- Syntax highlighting in code blocks: `mdex_native` ships a `lumis` variant; not taken here (a larger artifact for
+  a nicety), open for 022 when tool output makes code blocks common.
+- `CoreComponents` is the generator's file at 17% coverage; the chat does not use its `input`, `table` or `list`.
+  A later slice that needs them styles them with the tokens or removes them.
+
+## Corrections, 2026-09-20, after the gate on the final tree
+
+11. **The gate refused the inline sobelow skip once its file was tracked.** `test/sobelow_skips_test.exs` reads
+    `git ls-files`, so the first green gate (markdown.ex untracked) could not see the `@sobelow_skip` whose
+    comment block said the reason without the `# sobelow_skip reason:` marker the enforcer looks for. Fixed in
+    `080c543`; distinct from finding 10, whose one failure was in `test/trinity_web` and stays uncaptured.
+
+Supersedes the coverage line in the block above: `mix test --cover` on the final code tree (`080c543`) reports
+**64.41%** total, the value `coverage.tsv` carries; 64.50% was the tree two commits earlier.
