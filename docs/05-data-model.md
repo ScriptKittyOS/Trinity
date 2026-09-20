@@ -115,12 +115,14 @@ Per LLM call: `session_id`, `provider`, `model`, `prompt_tokens`, `completion_to
 | prev_hash | binary | the previous receipt's `receipt_hash`; null only for the first in a scope |
 | receipt_hash | binary | over the canonical signed bytes |
 | signed_payload | map | RFC 8785 canonical JSON. Field set is a legal-review question before Slice 024 |
-| signature | binary | Ed25519 |
-| key_id | string | resolves in `priv/keys/registry.json` |
+| signature | binary | through the signer seam: Ed25519 by default, ECDSA P-384 in FIPS mode, ML-DSA-87 opt-in (slice 024 amendments 1 to 6) |
+| key_id | string | inside the signed bytes; resolves in `priv/keys/registry.json`, whose row names the algorithm; the verifier reads the algorithm from there and nowhere else |
 | kind | string | "decision" \| "effect" \| "query" \| "boot" \| "cap" |
 | subject | map | refs to the session, tool call, approval or effect this receipts |
 Append-only. Never updated, never deleted. Signing unavailable means the effect is denied, not that an unsigned
-row is written.
+row is written. The signed bytes carry a scheme string naming the family (`receipt_v2_ed25519`, `receipt_v2_p384`,
+`receipt_v2_mldsa87`); a chain never mixes families. Effect, decision, boot and cap receipts are signed one by one;
+query receipts are hash-chained and checkpointed (the tail is signed every N rows, every T seconds, and on shutdown).
 
 ### mcp_servers (Slice 060)
 `name`, `transport`, `command_or_url`, `env_refs`, `enabled`, `effect_default ∈ {none, artifact}`, per-tool

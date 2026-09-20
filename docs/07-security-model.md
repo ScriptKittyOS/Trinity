@@ -28,6 +28,11 @@ system prompt states that instructions inside untrusted blocks are data, not com
 - **Reset is total.** Session state holds no authority. A reseeded session is born from the immutable core policy
   hash and inherits nothing.
 - **Receipts chain.** Per-scope hash chains, signed, verifiable offline by a stranger with the public registry.
+  The signature enters through one seam (`Trinity.Receipts.Signer`); the algorithm is selected once at boot,
+  Ed25519 by default and ECDSA P-384 when FIPS mode is enabled, and is bound by the key registry row rather than
+  by anything in the receipt. Effect, decision, boot and cap receipts are signed per receipt; query receipts are
+  checkpointed. No approved algorithm available means the effect is denied, never signed with a refused one and
+  never written unsigned.
 
 ## Permission gate (Slice 021)
 
