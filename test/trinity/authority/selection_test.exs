@@ -75,8 +75,13 @@ defmodule Trinity.Authority.SelectionTest do
 
     assert loaded_adapters == []
 
-    # Outbound connections: every TCP port with a peer is owned by a database connection
-    # (the Postgres job's pool; none under SQLite). Listening sockets have no peer.
+    # Outbound connections: every TCP port with a peer whose owner belongs to this
+    # application is a database connection (the Postgres job's pool; none under SQLite).
+    # Listening sockets have no peer. Owners outside the application are the tooling that
+    # shares the suite's VM: on the hosted runners Mix's Hex client holds a TLS connection to
+    # hex.pm (Cloudflare addresses on port 443, opened before the application started, no
+    # Trinity ancestor), which this machine's warm registry cache never opens. Found on run
+    # 35542784455; not Trinity's connection, and the census asks about Trinity's.
     peers =
       for port <- Port.list(),
           {:name, ~c"tcp_inet"} <- [Port.info(port, :name)],
@@ -84,9 +89,11 @@ defmodule Trinity.Authority.SelectionTest do
           {:connected, pid} <- [Port.info(port, :connected)],
           do: {port, peer, describe(pid)}
 
-    for {port, peer, %{initial_call: call} = who} <- peers do
+    trinity_peers = Enum.filter(peers, fn {_, _, %{app: app}} -> app == {:ok, :trinity} end)
+
+    for {port, peer, %{initial_call: call} = who} <- trinity_peers do
       assert call in [{DBConnection.Connection, :init, 1}, {Postgrex.Protocol, :init, 1}],
-             "an outbound connection not owned by the database: #{inspect(port)} to #{inspect(peer)} owned by #{inspect(who)}"
+             "an outbound connection of this application not owned by the database: #{inspect(port)} to #{inspect(peer)} owned by #{inspect(who)}"
     end
   end
 
@@ -101,7 +108,7 @@ defmodule Trinity.Authority.SelectionTest do
       initial_call: Keyword.get(d, :"$initial_call"),
       ancestors: Keyword.get(d, :"$ancestors"),
       registered: Process.info(pid, :registered_name),
-      links: Process.info(pid, :links)
+      app: :application.get_application(pid)
     }
   end
 end
