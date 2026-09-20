@@ -171,3 +171,8 @@ $ git log --oneline main..HEAD
 b45d7fc chore(s022): add floki ~> 0.38 and muontrap ~> 2.0 (POSIX only)
 0c37b3c docs(s022): G1 plan with the two pre-slice decisions, and the slice opens
 ```
+
+## Closing correction, 2026-09-20
+Supersedes the "Final commit" field in the header: the commit carrying this file is `16d61ec`
+(`feat(s022): complete slice 022 (core tools: fs, web, shell)`); the `git log` block above lists the commits
+before it. The pull request, its merge commit (signed in its body) and the tag come after review.
