@@ -72,3 +72,64 @@ the prompt builder reads it. The compaction is a `system` row rendered into the 
 message in the list, because the providers take one system text and a mid-list system message is not portable.
 The fork carries the user's message into the child rather than answering it in the parent, so the child is
 where the conversation continues from its first turn.
+
+## Lines 1 to 7, 2026-09-20: what was built, and what building it found
+
+**Built.** As planned, with the corrections below: `Trinity.Memory` (boundary), `Memory.Tokens`,
+`Memory.Compactor`, the Session's `start_turn` (compacting, then thinking or the fork), the `{:compaction, row}`
+and `{:forked, id}` events, the prompt's folding, the context indicator, the compaction card, the redirect, the
+eval harness with its table, `scripts/dev_chat_compaction.sh`; the fake's `object/1` and `object_delay/1`.
+
+**Found while building, each recorded rather than smoothed.**
+
+1. **The estimate was low by a wide margin.** Against openrouter:ling's own count for the structured
+   compaction call, four bytes a token gave 287 where the provider counted 848 on one run and 540 on another
+   (the call's schema and the tool definition are part of what the provider counts); against nvidia:nemotron,
+   353 where it counted 885 and 919. The estimate is now three bytes a token, which errs high (an early
+   compaction is the cheap mistake), and the constant the provider adds for a structured call is outside the
+   estimate by design: the model call the Session sizes is the chat call, not the compaction's.
+2. **openrouter:ling answers no object one time in three**, on the same transcript: thinking and text and no
+   tool call (`{:ok, nil}` from the provider layer, three identical calls in a row). The provider now turns a
+   missing object into a transient error the existing retry covers; when the retries are exhausted, the
+   compactor falls back to a plain generation asked for JSON and parses it; when that is not JSON, the text is
+   the summary. An object with every field empty (seen once) takes the same fallback.
+3. **The free tier ran out.** OpenRouter's free-models-per-day limit was reached during the measurement
+   (HTTP 429), so the eval table is from nvidia:nemotron, picked with `TRINITY_EVAL_MODEL`; the same harness
+   ran on ling before the limit with 6 of 6, 6 of 6 and an empty object on the third conversation.
+4. **The sandbox's ownership timeout disconnected the eval mid-run** (120 s; nemotron takes about 40 s per
+   compaction with the fallback); `DataCase` takes an `ownership_timeout` tag, the eval sets 30 minutes.
+5. **The tool surface is a third of a small window**: the fourteen tools' schemas estimate at 1,521 tokens, so
+   the test registry's window is 6,000 rather than the 3,000 first tried, and the crash test's message is sized
+   between the thresholds with the tools counted.
+6. **A compaction that cannot help forks at once**: a single message over the hard threshold with nothing
+   older to summarise (`plan/2` says `:nothing`) goes straight to the fork rather than to the model call; the
+   test's message is preceded by ten short turns so the fork carries a compaction.
+7. **The fork's child must hold the message before the broadcast**: the page navigated on `{:forked, id}` and
+   read the child before the parent had appended to it. The order is child first, broadcast second.
+8. **The compaction's first instruction lost the city.** With "keep every concrete fact" nemotron's summary of
+   the Lisbon trip named no Lisbon and no flight number (16 of 18, 0.889); with "every proper noun, number,
+   date, code, path and identifier ... verbatim in the facts list" it kept 17 of 18 (0.944); the one missing
+   is "budget of 1200 euros", present as "1200 euro budget", which the substring check does not accept. The
+   check is strict on purpose and the phrase is recorded.
+9. **Two tests that had waited for the first `{:state, :idle}` after mount read the init's**: the page's
+   `live/2` starts the session and its init broadcasts idle before the turn; one waited for the final message
+   instead, the other was the crash test's threshold arithmetic after finding 1.
+
+```
+$ mix test test/trinity/memory test/trinity_web/live/compaction_live_test.exs   → 9 passed
+$ TRINITY_LIVE=1 TRINITY_EVAL_MODEL=nvidia:nemotron mix test --only eval test/evals/compaction → 1 passed, 0.944
+$ mix gate                                                                     → exit 0; 264 passed, 12 excluded; plan_check: PASS
+$ mix test --cover                                                             → 75.39% total (Session 87.31%, Tokens 85.71%, Compactor 72.13%)
+$ mix credo --strict --all                                                     → 1120 mods/funs, found no issues
+```
+
+## Follow-ups
+- The owner writes `context_tokens` for `openrouter:ling` and `nvidia:nemotron` into `config/llm.exs` from the
+  providers' pages; until then both run on the 32,768 floor and compact early.
+- The estimate's constant for a structured call (the schema) is not modelled; 090's cost ledger can compare the
+  estimate with every recorded `usage` row and report the drift.
+- Compaction emits no candidate memories yet; 032 consumes the compaction rows' `facts`.
+- The "view the original" link scrolls within the page; when 031's search lands, the covered range can open
+  in a filtered view.
+- `Compactor` at 72 % coverage: the text-fallback branches are exercised live, not in the suite; a Mox
+  provider test for the fallback is a small addition.
