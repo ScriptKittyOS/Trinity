@@ -204,3 +204,13 @@ The packaged chat against `openrouter:ling` renders the answer as markdown with 
 log: `proof/ac1-final-openrouter-packaged.png`. `VERSIONS.md` gained the `rustler` row (build time only);
 `versions.verify`: 84 locked packages, 48 pins. Gate on this tree: exit 0, 177 tests. The `package` run on the
 final tree is named in the next correction.
+
+## Correction, 2026-09-20: the package run on the decided tree
+Supersedes "the `package` run on the final tree is named in the next correction" above. Run **35521749862**
+(dispatched on `22cd58c`'s tree, the musl NIF build): **linux x86_64 green end to end**, the NIF compiled from
+source in the job, the smoke step reading `TRINITY_SMOKE_MARKDOWN=ok`, the serve step HTTP 200. **macOS
+aarch64 and windows x86_64: the smoke step passed on both**, `TRINITY_SMOKE_MARKDOWN=ok` from the precompiled
+artifact on each, so the renderer's NIF loads on all three operating systems; both then failed the serve step
+exactly as the slice/011 and slice/012 tag runs did before this slice, with an empty log (the port loop timing
+out). The step now prints `serve.log` on that path too (`fix(s001)`), and run 35522642934 was dispatched to read
+it; its result is the next correction.

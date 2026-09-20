@@ -14,9 +14,12 @@ defmodule Trinity.DataDir.Lock do
 
   The file is created with `:exclusive`, so two boots racing for it cannot both win. It
   carries the holder's OS pid, mode (`desktop` or `headless`), a per-boot token and the time.
-  A file whose pid is no longer alive is stale and is taken over; on platforms where
-  liveness cannot be read this module treats the file as held, so the only way past a
-  dead holder there is removing the file by hand, which is the safe direction.
+  A file whose pid is no longer alive is stale and is taken over. Liveness is read from
+  `/proc` on Linux, `kill -0` on the other Unixes and `tasklist` on Windows (slice 013:
+  slice 010 read it on Linux alone and treated any file as held elsewhere, and the packaged
+  binary's second launch on macOS and Windows then refused to start after a clean first run,
+  package runs 35512430836 through 35522642934). When the check itself fails the file is
+  treated as held, which is the safe direction; the message names the pid to remove by hand.
 
   The lock file is not the database and is never inside a transaction; it says nothing
   about the integrity of the data, only about who may open it.
@@ -163,13 +166,34 @@ defmodule Trinity.DataDir.Lock do
 
   defp token, do: Base.url_encode64(:crypto.strong_rand_bytes(9), padding: false)
 
-  # Liveness of an OS pid. Linux answers through /proc; anywhere else this says "alive", so a
-  # stale file from a crashed holder is refused rather than silently taken over. That is
-  # the safe direction and the message names the pid to remove it by hand.
+  # Liveness of an OS pid. Linux answers through /proc; the other Unixes through `kill -0`
+  # (exit 0: exists; 1: gone, or another user's, which this per-user directory does not
+  # expect); Windows through `tasklist`, which prints the pid on a match and an INFO line
+  # otherwise. A check that cannot run says "alive", so a file is refused rather than taken
+  # over on doubt.
   defp alive?(pid) do
     case :os.type() do
       {:unix, :linux} -> File.dir?("/proc/#{pid}")
-      _ -> true
+      {:unix, _} -> alive_by_kill?(pid)
+      {:win32, _} -> alive_by_tasklist?(pid)
     end
+  end
+
+  defp alive_by_kill?(pid) do
+    case System.cmd("kill", ["-0", Integer.to_string(pid)], stderr_to_stdout: true) do
+      {_, 0} -> true
+      {_, _} -> false
+    end
+  rescue
+    _ -> true
+  end
+
+  defp alive_by_tasklist?(pid) do
+    case System.cmd("tasklist", ["/FI", "PID eq #{pid}", "/NH"], stderr_to_stdout: true) do
+      {out, 0} -> String.contains?(out, " #{pid} ")
+      {_, _} -> true
+    end
+  rescue
+    _ -> true
   end
 end
