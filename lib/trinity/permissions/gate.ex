@@ -10,6 +10,8 @@ defmodule Trinity.Permissions.Gate do
   """
   use GenServer
 
+  require Logger
+
   alias Trinity.Permissions
   alias Trinity.Permissions.{Approval, Store}
 
@@ -40,10 +42,28 @@ defmodule Trinity.Permissions.Gate do
 
   ## GenServer
 
+  # The pending rows are reloaded after init returns, and a database that cannot answer (no
+  # table yet: the postgres CI job boots the application before it migrates, run 35528824468)
+  # is a warning, not a boot failure: the chat starts, and a request made before the table
+  # exists fails on its own insert with a reason.
   @impl true
-  def init(_opts) do
-    timers = Map.new(Store.pending(), fn a -> {a.id, arm(a)} end)
-    {:ok, %{timers: timers}}
+  def init(_opts), do: {:ok, %{timers: %{}}, {:continue, :reload}}
+
+  @impl true
+  def handle_continue(:reload, state) do
+    timers =
+      try do
+        Map.new(Store.pending(), fn a -> {a.id, arm(a)} end)
+      rescue
+        e ->
+          Logger.warning(
+            "permissions gate: pending approvals not reloaded: #{Exception.message(e)}"
+          )
+
+          %{}
+      end
+
+    {:noreply, %{state | timers: timers}}
   end
 
   @impl true

@@ -165,3 +165,9 @@ c3125f8 docs(s021): G1 plan with the canonicalisation measured, and the slice op
 Supersedes the "Final commit" field in the header: the commit carrying this file is `a32d705`
 (`feat(s021): complete slice 021 (permission gate and approval UI)`); the `git log` block above lists the
 commits before it. The pull request, its merge commit (signed in its body) and the tag come after review.
+
+## Correction, 2026-09-20: the postgres job
+The `postgres` check failed on the closing tree (run 35528824468): the Gate's `init/1` read the `approvals`
+table in a job that boots the application before migrating (NOTES.md finding 9). Fixed in the commit after this
+record: the reload is a `handle_continue` that rescues into a warning. The `gate` job was green on the same tree.
+The run that closes this is named in the next correction.

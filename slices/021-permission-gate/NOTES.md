@@ -126,3 +126,10 @@ $ mix credo --strict --all                                                      
 - 024 reads `approvals` for decision receipts; the `consumed_at` column is what a receipt for an execution cites.
 - The persona layer reads `settings["permissions"]`; 030's persona editor is where it gets a UI.
 - `/permissions` lists the newest 200 approvals; a filter by session and a page size are 090's activity view.
+
+9. **The Gate took the application down when its table was missing.** The postgres job boots the application
+   (`mix run -e 'Ecto.Adapters.Postgres = Trinity.Repo.__adapter__()'`) before it migrates, and `init/1` read
+   `approvals` there: run 35528824468, `relation "approvals" does not exist`, the `gate` job green beside it.
+   The reload moved to a `handle_continue` that rescues and warns; a Gate that cannot read its table at boot
+   starts empty rather than stopping the chat, and a request made before the table exists fails on its own
+   insert with a reason. Found by CI, not here: this machine has no Postgres.
