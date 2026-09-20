@@ -106,6 +106,9 @@ defmodule Trinity.MixProject do
       # Slice 020: JSON Schema validation of tool arguments (Trinity.Tools.Schema). Already in
       # the lock through req_llm; direct because a module of ours calls it (ADR-0009).
       {:jsv, "~> 0.23"},
+      # Slice 021: RFC 8785 canonical JSON under every approval fingerprint (docs/07). Chosen
+      # by the measurement in the slice's NOTES.md; the RFC's vector is a test in the tree.
+      {:jcs, "~> 0.2"},
       # Slice 013 (owner decision, 2026-09-20): the linux package builds mdex's NIF from
       # source for musl (MDEX_NATIVE_BUILD=1 and TRINITY_NIF_TARGET in config/config.exs),
       # because neither precompiled artifact loads in Burrito's musl ERTS (NOTES finding 13).
