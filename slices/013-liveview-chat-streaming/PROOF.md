@@ -183,3 +183,24 @@ ce4b1f4 test(s013): a model set between turns is not the next turn's model (red)
 Supersedes the "Final commit" field in the header: the commit carrying this file is `8cc90b7`
 (`feat(s013): complete slice 013 (LiveView chat UI with streaming)`), and the `git log` block above lists the
 commits before it. The `package` workflow run and the pull request are named in a later correction once they exist.
+
+## Correction, 2026-09-20: the packaged binary, after the owner's decision
+Supersedes the "Versions touched" paragraph's last sentence and adds to AC1 and AC8. The `package` workflow,
+dispatched by hand (runs 35518054546 and 35519205973), found three things (NOTES.md findings 12 to 15): the
+packaged binary never ran a migration (`fix(s010)`), the mdex NIF does not load in Burrito's musl ERTS, and a
+musl build of it linked through Zig does. The owner chose to keep mdex with that build. Measured here on a fresh
+install (`rm -rf ~/.local/share/.burrito`, a fresh `DATABASE_PATH`) of the linux binary built exactly as the
+workflow builds it:
+```
+$ readelf -d _build/prod/lib/mdex_native/priv/native/mdex_native_nif.so | grep NEEDED
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so]
+$ ./burrito_out/desktop_linux_x86_64 --no-halt --smoke      (three runs)
+TRINITY_SMOKE_PORT=44875
+TRINITY_SMOKE_MARKDOWN=ok                                    exit 0, each run
+$ (the gnu artifact copied over the NIF in the extracted payload)
+TRINITY_SMOKE_MARKDOWN=failed:%MDEx.DecodeError{document: #MDEx.Document(0 nodes)<>, error: nil}   exit 3
+```
+The packaged chat against `openrouter:ling` renders the answer as markdown with no `on_load` warning in the
+log: `proof/ac1-final-openrouter-packaged.png`. `VERSIONS.md` gained the `rustler` row (build time only);
+`versions.verify`: 84 locked packages, 48 pins. Gate on this tree: exit 0, 177 tests. The `package` run on the
+final tree is named in the next correction.

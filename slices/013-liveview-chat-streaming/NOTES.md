@@ -231,3 +231,17 @@ measurement redone. My recommendation is (a): the measurement above is the proof
 dependency and thirty seconds of the linux job, and (b) rewrites the renderer against a parser whose author
 retired its sibling. Until the owner decides, the pull request stays open with the migration fix on it; the
 required checks (`gate`, `postgres`) are green on every commit.
+
+## The decision, 2026-09-20: (a), keep mdex and build its NIF for musl
+
+Owner's words: "go with a and continue". Built in one commit: `rustler ~> 0.38` at build time; the three
+compile-time settings in `config/config.exs` (`MDEX_NATIVE_BUILD=1`, `TRINITY_NIF_TARGET`, the Zig linker
+`scripts/zig-cc-musl`), set by the package workflow's linux job alone; the musl target named in
+`rust-toolchain.toml`; `Trinity.Smoke` printing `TRINITY_SMOKE_MARKDOWN=ok` (exit 3 otherwise) and the
+workflow's smoke step reading it on every target; `TrinityWeb.Markdown` logging once at `:error` on a fallback.
+
+15. **The smoke Task lost a race it had always been winning.** Rendering one line inside the Task before the
+    halt took long enough for `Kernel.CLI` to reach the plain argument `--smoke` and treat it as a file ("No
+    file named --smoke", exit 1). The render now happens inside `Application.start/2`, in `children/1`, and the
+    Task prints and halts at once as before. Three fresh-install smoke runs: `ok`, exit 0; with the gnu artifact
+    swapped into the payload: `failed:%MDEx.DecodeError{}`, exit 3.
