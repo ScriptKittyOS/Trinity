@@ -64,7 +64,9 @@ defmodule Trinity.MixProject do
   def application do
     [
       mod: {Trinity.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      # Slice 024: :sasl for :alarm_handler, the OTP alarm a signer that cannot sign raises
+      # (Trinity.Receipts.Alarm), so the failure sounds outside the receipt stream.
+      extra_applications: [:logger, :runtime_tools, :sasl]
     ]
   end
 

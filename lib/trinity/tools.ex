@@ -12,7 +12,7 @@ defmodule Trinity.Tools do
   """
   use Boundary,
     deps: [Trinity, Trinity.Permissions],
-    exports: [Tool, Context, Result, Registry, Runner, Schema]
+    exports: [Tool, Context, Result, Registry, Runner, Schema, Catalog]
 
   alias Trinity.Sessions.Message
   alias Trinity.Tools.Registry

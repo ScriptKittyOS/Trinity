@@ -10,7 +10,7 @@ defmodule Trinity.Tools.Registry do
   (`mcp:<server>:<tool>`, `skill:<name>`) so the permission tier, a function of the name
   alone, can never be borrowed from a core tool; and their `effect/0` may be `:none` or
   `:artifact` only, because the `:catalog` set is the compile-time attribute in
-  `Trinity.Effects.Catalog` and nothing at runtime may enter it (docs/07).
+  `Trinity.Tools.Catalog` and nothing at runtime may enter it (docs/07).
 
   Every entry carries the tool's definition digest (SHA-256 over name, description and
   schema), which each tool call record and each turn's declared surface cite.
@@ -19,7 +19,7 @@ defmodule Trinity.Tools.Registry do
 
   require Logger
 
-  alias Trinity.Effects.Catalog
+  alias Trinity.Tools.Catalog
   alias Trinity.Tools.{Schema, Tool}
 
   @table __MODULE__

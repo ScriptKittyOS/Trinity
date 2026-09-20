@@ -13,7 +13,13 @@ defmodule Trinity.Receipts.SignerTest do
   setup do
     dir = Path.join(System.tmp_dir!(), "trinity-keys-#{System.unique_integer([:positive])}")
     File.mkdir_p!(dir)
-    on_exit(fn -> File.rm_rf!(dir) end)
+
+    # `boot!/1` on a temp dir replaces the suite's selection; put the suite's back after.
+    on_exit(fn ->
+      File.rm_rf!(dir)
+      {:ok, _} = KeyCustody.boot!()
+    end)
+
     {:ok, dir: dir}
   end
 

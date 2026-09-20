@@ -12,7 +12,7 @@ defmodule Trinity.Tools.Tool do
 
   `effect/0` is part of the behaviour (docs/07): `:none` is a read, `:artifact` a local
   write, `:catalog` an external effect. A `:catalog` tool exists only in
-  `Trinity.Effects.Catalog`'s module attribute; a runtime registration claiming it is refused.
+  `Trinity.Tools.Catalog`'s module attribute; a runtime registration claiming it is refused.
   """
 
   alias Trinity.Tools.{Context, Result}

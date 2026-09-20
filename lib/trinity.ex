@@ -8,14 +8,17 @@ defmodule Trinity do
   # use them), and the Sessions sub-boundary: a context TrinityWeb may call (docs/01). Slice
   # 013 exports the schemas the chat renders, `Sessions.Message` and `Sessions.SessionRow`,
   # which the Sessions boundary exports itself; Store stays inside. Slice 020 exports the
-  # Tools and Permissions sub-boundaries and `Effects.Catalog`, a plain module of this
-  # boundary the tool registry reads (Effects becomes its own boundary at 024).
+  # Tools and Permissions sub-boundaries and, until 024, `Effects.Catalog` (now
+  # `Tools.Catalog`, exported by Tools). Slice 024 exports Repo.Receipts (the Receipts
+  # boundary writes it), CorePolicy (the boot receipt reads it) and the Receipts, Authority
+  # and Effects sub-boundaries.
   use Boundary,
     deps: [],
     exports:
       [
         Paths,
         Repo,
+        Repo.Receipts,
         UUID,
         Config,
         Sessions,
@@ -29,7 +32,10 @@ defmodule Trinity do
         Permissions,
         Permissions.Approval,
         Permissions.Rule,
-        Effects.Catalog,
+        Effects,
+        CorePolicy,
+        Receipts,
+        Authority,
         Content.Part
       ] ++
         if(Mix.env() == :test, do: [DataCase, NetworkGuard, Factory], else: [])
