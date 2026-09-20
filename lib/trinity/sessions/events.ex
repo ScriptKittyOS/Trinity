@@ -2,9 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 defmodule Trinity.Sessions.Events do
   @moduledoc """
-  The seven event shapes a Session broadcasts on `session:<id>`, and nothing else. Slice 012.
-  Slice 013's UI and slice 070's gateways subscribe here. `broadcast/2` refuses a shape that is
-  not one of the seven, so a new event is a change to this file first.
+  The event shapes a Session broadcasts on `session:<id>`, and nothing else. Slice 012 named
+  seven; slice 023 added `compaction` (a compaction row written) and `forked` (the conversation
+  continues in a child session). Slice 013's UI and slice 070's gateways subscribe here.
+  `broadcast/2` refuses a shape that is not one of these, so a new event is a change to this
+  file first.
   """
 
   alias Trinity.Sessions.Message
@@ -17,12 +19,14 @@ defmodule Trinity.Sessions.Events do
           | {:state, atom()}
           | {:turn_interrupted, Message.t()}
           | {:error, term()}
+          | {:compaction, Message.t()}
+          | {:forked, String.t()}
 
   @doc "The PubSub topic for a session."
   @spec topic(String.t()) :: String.t()
   def topic(session_id), do: "session:" <> session_id
 
-  @doc "True for exactly the seven shapes."
+  @doc "True for exactly the nine shapes."
   @spec valid?(term()) :: boolean()
   def valid?({:user_message, %Message{}}), do: true
   def valid?({:assistant_delta, s}) when is_binary(s), do: true
@@ -31,9 +35,11 @@ defmodule Trinity.Sessions.Events do
   def valid?({:state, s}) when is_atom(s), do: true
   def valid?({:turn_interrupted, %Message{}}), do: true
   def valid?({:error, _}), do: true
+  def valid?({:compaction, %Message{}}), do: true
+  def valid?({:forked, id}) when is_binary(id), do: true
   def valid?(_), do: false
 
-  @doc "Broadcasts one event; raises on a shape that is not one of the seven."
+  @doc "Broadcasts one event; raises on a shape that is not one of the nine."
   @spec broadcast(String.t(), t()) :: :ok
   def broadcast(session_id, event) do
     if valid?(event) do

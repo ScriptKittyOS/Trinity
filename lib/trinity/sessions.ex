@@ -10,9 +10,10 @@ defmodule Trinity.Sessions do
   """
   # Slice 012: Sessions reaches the LLM (docs/01: Sessions depends on LLM, Repo, PubSub).
   # Slice 020: and the tool runtime, for the declared surface and the runner in force.
+  # Slice 023: and Memory, for the estimate and the compaction before a model call.
   use Boundary,
-    deps: [Trinity, Trinity.LLM, Trinity.Tools],
-    exports: [Events, Message, Persona, SessionRow, Session, Caps]
+    deps: [Trinity, Trinity.LLM, Trinity.Tools, Trinity.Memory],
+    exports: [Events, Message, Persona, SessionRow, Session, Caps, Prompt]
 
   alias Trinity.Sessions.{Message, Persona, SessionRow, Store}
 

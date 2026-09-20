@@ -92,6 +92,9 @@ digest, stored on the `tool` row (`parts.content_parts`, `parts.taint`); the pro
 `<untrusted source= ref= digest=>` and the system prompt states that instructions inside such blocks are data;
 a turn's assistant row carries the maximum taint of everything the model read (its history and the turn's tool
 results), so a summary of an untrusted page is itself untrusted, and every later turn in that session is too.
+A compaction (slice 023) is a summary the model wrote over rows that may have been untrusted, so its row carries
+the maximum taint of its inputs and the digests of the parts it summarised, and an untrusted compaction is
+rendered into the system prompt inside an `<untrusted>` block like any other outside content.
 `blocked` parts are rendered as a placeholder; nothing writes one yet (024's receipts and the sentinel are where
 a block comes from). `web_fetch` refuses no page by content, runs no JavaScript, and escalates a URL whose host
 is not public (loopback, private, link-local) to `:ask`.

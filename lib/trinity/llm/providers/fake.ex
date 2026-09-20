@@ -86,7 +86,7 @@ defmodule Trinity.LLM.Providers.Fake do
   @doc "Forgets scripts, pending failures, the call count and the last request."
   @spec clear() :: :ok
   def clear do
-    for key <- [:scripts, :fail, :calls, :last_request],
+    for key <- [:scripts, :fail, :calls, :last_request, :object_delay, :object],
         do: :persistent_term.erase({__MODULE__, key})
 
     :ok
@@ -132,21 +132,37 @@ defmodule Trinity.LLM.Providers.Fake do
     end
   end
 
+  @doc "Makes every following `generate_object/3` call sleep `ms` first (slice 023's crash test lands its kill in `compacting`)."
+  @spec object_delay(non_neg_integer()) :: :ok
+  def object_delay(ms), do: :persistent_term.put({__MODULE__, :object_delay}, ms)
+
+  @doc "The object every following `generate_object/3` call answers (a demo's compaction, say); `clear/0` forgets it."
+  @spec object(map()) :: :ok
+  def object(map) when is_map(map), do: :persistent_term.put({__MODULE__, :object}, map)
+
   @impl true
   def generate_object(_request, schema, _opts) do
+    Process.sleep(:persistent_term.get({__MODULE__, :object_delay}, 0))
+
     with :ok <- maybe_fail() do
       object =
-        schema
-        |> Map.get("properties", %{})
-        |> Map.new(fn
-          {k, %{"type" => "integer"}} -> {k, 42}
-          {k, %{"type" => "number"}} -> {k, 4.2}
-          {k, %{"type" => "boolean"}} -> {k, true}
-          {k, _} -> {k, "fake"}
-        end)
+        :persistent_term.get({__MODULE__, :object}, nil) ||
+          fake_object(schema)
 
       {:ok, object, %{input_tokens: 8, output_tokens: 4}}
     end
+  end
+
+  defp fake_object(schema) do
+    schema
+    |> Map.get("properties", %{})
+    |> Map.new(fn
+      {k, %{"type" => "integer"}} -> {k, 42}
+      {k, %{"type" => "number"}} -> {k, 4.2}
+      {k, %{"type" => "boolean"}} -> {k, true}
+      {k, %{"type" => "array"}} -> {k, ["fake"]}
+      {k, _} -> {k, "fake"}
+    end)
   end
 
   @impl true

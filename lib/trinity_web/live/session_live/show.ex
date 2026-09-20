@@ -22,6 +22,7 @@ defmodule TrinityWeb.SessionLive.Show do
   import TrinityWeb.ChatComponents
 
   alias Trinity.LLM
+  alias Trinity.Memory.Tokens
   alias Trinity.Permissions
   alias Trinity.Permissions.Approval
   alias Trinity.Sessions
@@ -54,7 +55,9 @@ defmodule TrinityWeb.SessionLive.Show do
             default_model: LLM.default_model(),
             approvals: [],
             patterns: %{},
-            pending_count: 0
+            pending_count: 0,
+            context_used: 0,
+            context_window: Tokens.context_tokens(session.model)
           )
           |> stream_configure(:messages, dom_id: &"message-#{&1.id}")
           |> stream(:messages, [])
@@ -98,10 +101,26 @@ defmodule TrinityWeb.SessionLive.Show do
       approvals: Permissions.pending(id),
       pending_count: length(Permissions.pending(:all))
     )
+    |> assign_context(rows)
     |> assign(
       last_user_message: done |> Enum.filter(&(&1.role == "user")) |> List.last() |> content()
     )
     |> stream(:messages, done)
+  end
+
+  # Slice 023: the estimate of the next request, from the rows the page holds.
+  defp assign_context(socket, rows) do
+    session = socket.assigns.session
+    request = Trinity.Sessions.Prompt.build(session, nil, rows, Trinity.Tools.to_llm_tools())
+
+    assign(socket,
+      context_used: Tokens.estimate(request),
+      context_window: Tokens.context_tokens(session.model)
+    )
+  end
+
+  defp refresh_context(socket) do
+    assign_context(socket, Sessions.history(socket.assigns.session.id, limit: 500))
   end
 
   defp drain_deltas(id) do
@@ -144,7 +163,7 @@ defmodule TrinityWeb.SessionLive.Show do
   def handle_event("set_model", %{"model" => model}, socket) do
     case Sessions.set_model(socket.assigns.session.id, model) do
       {:ok, session} ->
-        {:noreply, assign(socket, session: session)}
+        {:noreply, socket |> assign(session: session) |> refresh_context()}
 
       {:error, reason} ->
         {:noreply,
@@ -261,6 +280,18 @@ defmodule TrinityWeb.SessionLive.Show do
     |> catch_up()
     |> insert(m)
     |> assign(draft: "", tool_calls: [])
+    |> refresh_context()
+  end
+
+  # Slice 023: a compaction row is a card in the stream, and the conversation may move on.
+  defp apply_event({:compaction, %Message{} = m}, socket) do
+    socket |> insert(m) |> refresh_context()
+  end
+
+  defp apply_event({:forked, child_id}, socket) do
+    socket
+    |> put_flash(:info, gettext("The context window was full; the conversation continues here."))
+    |> push_navigate(to: ~p"/s/#{child_id}")
   end
 
   defp apply_event({:turn_interrupted, %Message{} = m}, socket) do
@@ -307,6 +338,7 @@ defmodule TrinityWeb.SessionLive.Show do
         <span class="min-w-0 truncate">{@session.title || gettext("Untitled session")}</span>
         <.status_pill status={@status} />
         <.model_picker models={@models} value={@session.model} default={@default_model} />
+        <.context_indicator used={@context_used} window={@context_window} />
         <.pending_indicator count={@pending_count} />
       </:bar>
       <div id="chat" phx-hook="Shortcuts" class="mx-auto flex h-full max-w-4xl flex-col">

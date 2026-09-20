@@ -51,6 +51,11 @@ export const Shortcuts = {
 // The message list follows new content unless the reader has scrolled up to read.
 export const ScrollToBottom = {
   mounted() {
+    // A compaction card's "view the original" dispatches trinity:scroll-to with a seq (slice 023).
+    window.addEventListener("trinity:scroll-to", (e) => {
+      const target = this.el.querySelector(`[data-seq="${e.detail.seq}"]`)
+      if (target) { this.pinned = false; target.scrollIntoView({behavior: "smooth", block: "center"}) }
+    })
     this.pinned = true
     this.el.addEventListener("scroll", () => {
       const gap = this.el.scrollHeight - this.el.scrollTop - this.el.clientHeight

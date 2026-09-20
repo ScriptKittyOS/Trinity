@@ -3,7 +3,8 @@
 # docs/03: the default run excludes :live (real providers, opt-in with `mix test --only live`
 # and TRINITY_LIVE=1) and :desktop (needs the Tauri shell). Slice 011 made this explicit; until
 # then a :live test would have run in the default suite and been refused by the network guard.
-ExUnit.start(exclude: [:live, :desktop])
+# Slice 023: :eval (the compaction eval harness, and the suites later slices add) is opt-in too.
+ExUnit.start(exclude: [:live, :desktop, :eval])
 Ecto.Adapters.SQL.Sandbox.mode(Trinity.Repo, :manual)
 
 # Slice 011: the Mox mock the registry's :mock provider points at.
