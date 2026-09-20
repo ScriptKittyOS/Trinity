@@ -189,3 +189,45 @@ $ mix sobelow --exit --skip              → exit 0, no finding
 
 Supersedes the coverage line in the block above: `mix test --cover` on the final code tree (`080c543`) reports
 **64.41%** total, the value `coverage.tsv` carries; 64.50% was the tree two commits earlier.
+
+## The package workflow, 2026-09-20, after the pull request opened
+
+The `package` workflow did not fire on the push (its `paths` filter did not match a new branch), so it was
+dispatched by hand: run 35518054546, then 35519205973 with the serve step taught to print `serve.log` on any
+non-200 (a `fix(s001)` line: the first run printed "HTTP 500" and nothing else). Three findings, each
+reproduced here on a fresh install of the locally built linux binary (`rm -rf ~/.local/share/.burrito`, a fresh
+`DATABASE_PATH`), which is the only kind of local run that means anything: Burrito reuses an extracted payload
+keyed by name and version, so the first local run of the new binary executed the payload from 2026-09-06 and
+answered 200 for the old home page.
+
+12. **The packaged binary never ran a migration** (`fix(s010)`, commit `1f677b0`). `skip_migrations?/0` keyed on
+    `RELEASE_NAME`, which `bin/desktop` exports and the Burrito wrapper does not (it starts `erlexec` directly),
+    so every table was missing and `/`, the first page to read one, answered 500 on all three operating
+    systems. Now "skip under Mix". Measured after: four migrations logged, `/` 200 three times.
+13. **The mdex NIF does not load in the Linux bundle.** Burrito's Linux ERTS is a musl build (`make_triplet/1`
+    appends `-musl`; `beam.smp`'s interpreter is a musl libc), and both precompiled artifacts fail in it: the
+    gnu one and the musl one (`TARGET_ABI=musl`) each NEED `libgcc_s.so.1`, which resolves to the host's glibc
+    copy and dies on `_dl_find_object: symbol not found`. `TrinityWeb.Markdown` then falls back to escaped text,
+    so the chat works but shows `**bold**` literally (the screenshot from that run is kept out of `proof/`).
+    R24 fired; its lift condition is not met by the precompiled route.
+14. **A source build for musl with Zig as the linker loads and renders.** `rustup target add
+    x86_64-unknown-linux-musl`, then `cargo build --release --target x86_64-unknown-linux-musl
+    --no-default-features --features nif_version_2_15` with `CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER` set
+    to a two-line `zig cc -target x86_64-linux-musl` wrapper (Zig 0.16.0 is already pinned for Burrito): 23 s,
+    NEEDED `libc.so` only, the same shape as the exqlite NIF Burrito itself cross-compiles. Swapped into the
+    extracted payload, the packaged chat renders the real provider's answer as markdown, no `on_load` warning
+    (screenshot `proof/ac1-final-openrouter-packaged.png`). Rust's own self-contained musl linking refused
+    (`unable to find library -lgcc_s`), and the crate's `.cargo/config.toml` turns `crt-static` off for musl.
+
+**Open decision for the owner, before this slice closes.** Two ways to a packaged Linux binary that renders:
+(a) keep `mdex` and build its NIF from source in the linux packaging job: `rustler` joins the tree as a
+build-time dependency, the job installs the musl Rust target and links through Zig, `MDEX_NATIVE_BUILD=1` and
+`config :mdex_native, MDExNative.Native, target: "x86_64-unknown-linux-musl"` for that build only; macOS and
+Windows keep the precompiled artifacts, unproven there because the `package` workflow has failed at "Serves
+HTTP 200" on both since the slice/011 tag run (35512430836), before this slice, and now prints why; or (b) a
+pure-Elixir renderer: `earmark_parser` 1.4.46 (the AST half of earmark, not retired, no advisory as of today's
+`hex.audit`) with Trinity's own HTML emitter and fragment completion, no NIF anywhere, the renderer's
+measurement redone. My recommendation is (a): the measurement above is the proof, the cost is one build-time
+dependency and thirty seconds of the linux job, and (b) rewrites the renderer against a parser whose author
+retired its sibling. Until the owner decides, the pull request stays open with the migration fix on it; the
+required checks (`gate`, `postgres`) are green on every commit.
