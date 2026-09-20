@@ -113,7 +113,8 @@ defmodule Trinity.Receipts.SignerTest do
       assert {:ok, [^row, ^compromised]} = KeyRegistry.append(dir, compromised)
       {:ok, rows} = KeyRegistry.read(dir)
       assert KeyRegistry.lookup(rows, key_id)["status"] == "compromised"
-      assert KeyRegistry.active_for(rows, :ed25519) == nil
+      {:ok, alg} = KeyCustody.select()
+      assert KeyRegistry.active_for(rows, alg) == nil
     end
 
     test "a key file whose id is not in the registry refuses to boot, naming the id", %{dir: dir} do

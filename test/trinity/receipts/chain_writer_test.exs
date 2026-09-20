@@ -201,7 +201,11 @@ defmodule Trinity.Receipts.ChainWriterTest do
         ref = Process.monitor(pid)
         Process.exit(pid, :kill)
         assert_receive {:DOWN, ^ref, :process, ^pid, :killed}
-        assert ChainWriter.whereis(scope) == nil
+        # The registry drops the name a moment after the DOWN; wait for that, not for luck.
+        assert Enum.any?(1..50, fn _ ->
+                 ChainWriter.whereis(scope) == nil || (Process.sleep(10) && false)
+               end)
+
         assert Receipts.checkpoints(scope) == []
         {:ok, _} = Receipts.ensure_writer(scope)
         # The rehydrate checkpoint is written in the writer's continue, before this append is
