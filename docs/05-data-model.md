@@ -1,6 +1,6 @@
 # 05: Data model
 
-All tables have `id` (UUIDv7 as binary_id, sortable), `inserted_at`, `updated_at` (utc_datetime_usec).
+All tables have `id` (UUIDv7 as binary_id, sortable, minted by `Trinity.UUID` since slice 010), `inserted_at`, `updated_at` (utc_datetime_usec).
 SQLite is primary; every migration must also run on Postgres in the CI matrix. Use Ecto types that map on both
 (`:binary_id`, `:map` → JSON text on SQLite, `:utc_datetime_usec`). Vector columns and FTS tables are created
 with adapter-specific `execute/1` guarded by `repo().__adapter__()`.

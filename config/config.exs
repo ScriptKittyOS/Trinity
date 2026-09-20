@@ -24,6 +24,37 @@ config :trinity,
   ecto_repos: [Trinity.Repo],
   generators: [timestamp_type: :utc_datetime]
 
+# Slice 010. The database adapter is chosen at compile time: SQLite is primary and the default,
+# Postgres is the CI-tested alternative behind TRINITY_DB=postgres (docs/adr/0002). An Ecto
+# adapter is fixed in `use Ecto.Repo`, so switching means recompiling, and this file says so
+# rather than pretending a runtime variable could do it.
+config :trinity,
+       :db_adapter,
+       (case System.get_env("TRINITY_DB", "sqlite") do
+          "sqlite" -> Ecto.Adapters.SQLite3
+          "postgres" -> Ecto.Adapters.Postgres
+          other -> raise "TRINITY_DB must be sqlite or postgres, got #{inspect(other)}"
+        end)
+
+# Slice 010, every environment, SQLite only (the Postgres adapter ignores keys it does not
+# know, and the CI matrix proves that). One writer: the pool has exactly one connection, so the
+# single-writer rule SQLite imposes is the pool's shape rather than a hope. Each pragma is named
+# here rather than inherited from the adapter's default, so a default change upstream is a diff
+# here and not a silent behaviour change. `synchronous: :normal` under WAL can lose the last
+# transaction on power loss and cannot corrupt; the receipts file (slice 024, its own Repo
+# below) decides its own setting. `wal_auto_check_point` is in pages; the 010 stress test
+# reports the -wal size after its run so the value can be set from a measurement.
+if System.get_env("TRINITY_DB", "sqlite") == "sqlite" do
+  config :trinity, Trinity.Repo,
+    pool_size: 1,
+    journal_mode: :wal,
+    synchronous: :normal,
+    foreign_keys: :on,
+    busy_timeout: 5_000,
+    cache_size: -64_000,
+    wal_auto_check_point: 1_000
+end
+
 # Configure the endpoint
 config :trinity, TrinityWeb.Endpoint,
   url: [host: "localhost"],

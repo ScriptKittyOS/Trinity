@@ -25,6 +25,9 @@ defmodule Trinity.Application do
       desktop_children() ++
         [
           TrinityWeb.Telemetry,
+          # Slice 010: one node per data directory. Before the Repo, so a refused boot has
+          # opened no database file; the reason names the holder's OS pid and mode.
+          {Trinity.DataDir.Lock, dir: lock_dir(), mode: mode()},
           Trinity.Repo,
           {Ecto.Migrator,
            repos: Application.fetch_env!(:trinity, :ecto_repos), skip: skip_migrations?()},
@@ -62,6 +65,22 @@ defmodule Trinity.Application do
   @doc false
   @spec desktop_children() :: [module()]
   def desktop_children, do: @desktop_children
+
+  # The lock lives in the data directory the database defaults to. A deployment that points
+  # DATABASE_PATH elsewhere still locks the data directory, which is the thing two instances
+  # would otherwise share; the test environment points it at a temporary directory.
+  defp lock_dir do
+    Application.get_env(:trinity, Trinity.DataDir.Lock, [])[:dir] ||
+      Trinity.Paths.ensure_data_dir()
+  end
+
+  # `desktop` unless the process says otherwise; slice 061's headless release sets it.
+  defp mode do
+    case System.get_env("TRINITY_MODE", "desktop") do
+      "headless" -> :headless
+      _ -> :desktop
+    end
+  end
 
   defp skip_migrations? do
     # By default, sqlite migrations are run when using a release

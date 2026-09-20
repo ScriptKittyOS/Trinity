@@ -202,6 +202,21 @@ case "$branch" in
     ;;
 esac
 
+section "12. Every workflow and Dependabot file parses as YAML"
+# Found at slice 010 G1, from PR #7: an em dash replaced by a bare colon inside a step name made
+# .github/workflows/package.yml unparseable. GitHub reported a run named after the file path with
+# zero jobs, Dependabot's updater failed on the same file, and the gate stayed green because
+# nothing in it reads those files. The ubuntu runner and the developer machine both carry the
+# Python YAML module; if it is absent the rule says so and fails rather than passing quietly.
+if ! python3 -c 'import yaml' >/dev/null 2>&1; then
+  report "FAIL rule 12: python3 with the yaml module is required to parse the workflow files, and it is absent"
+else
+  for f in $(git ls-files '.github/*.yml' '.github/*.yaml' '.github/**/*.yml' '.github/**/*.yaml' | sort -u); do
+    err=$(python3 -c 'import sys, yaml; yaml.safe_load(open(sys.argv[1]))' "$f" 2>&1 >/dev/null | tail -1)
+    [ -n "$err" ] && report "FAIL $f: not parseable as YAML: $err"
+  done
+fi
+
 printf '\n'
 if [ "$fail" -eq 0 ]; then echo "plan_check: PASS"; else echo "plan_check: FAIL"; fi
 exit "$fail"
