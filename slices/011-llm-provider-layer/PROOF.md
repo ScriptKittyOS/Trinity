@@ -1,6 +1,6 @@
 # Proof for slice 011: LLM provider layer
 
-Agent: Trinity · Coding Agent · Date: 2026-09-20 · Branch: slice/011-llm-provider-layer · Final commit: <closing commit>
+Agent: Trinity · Coding Agent · Date: 2026-09-20 · Branch: slice/011-llm-provider-layer · Final commit: `49005dc` (filled by the commit after it)
 
 ## Summary
 `Trinity.LLM` is the one door to a model: a registry id names the provider module, transient errors retry with
@@ -31,7 +31,7 @@ Result: 138 passed, 10 excluded
 |     86.11% | Trinity.LLM.Providers.ReqLLM.Mapping |
 |      0.00% | Trinity.LLM.Providers.ReqLLM         |   (the half that talks; the live suite covers it)
 ```
-`coverage.tsv` row: `011  51.57  <sha>  2026-09-20`. `trinity.coverage: 011 51.57% vs 010 44.88%: OK`.
+`coverage.tsv` row: `011  51.57  ec5334a  2026-09-20`. `trinity.coverage: 011 51.57% vs 010 44.88%: OK`.
 
 ## Acceptance criteria evidence
 
@@ -151,5 +151,5 @@ d53bfec feat(s011): the adapter's pure half is a module with recorded-chunk test
 ec5334a feat(s011): the provider layer: behaviour, events, registry, req_llm adapter, retry, usage rows, fake and live suites
 73caeb5 feat(s011): req_llm 1.24.0 and mox, with what they bring counted and licensed
 b9cbcf2 docs(s011): G1 plan, and the slice opens
-<closing commit>
+49005dc feat(s011): complete slice 011 (LLM provider layer)
 ```
