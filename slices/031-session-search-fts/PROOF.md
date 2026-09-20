@@ -116,3 +116,7 @@ b8e6704 feat(s031): the session_search tool, a core read; Tools may depend on Me
 24dfa2a feat(s031): the FTS5 table and triggers (tsvector on Postgres), Trinity.Memory.Search, the reindex task
 602d6ee docs(s031): G1 plan with FTS5 and the porter limit measured, and the slice opens
 ```
+
+## Closing correction, 2026-09-20
+Supersedes the header's "Final commit" placeholder: the closing commit is `d642688` (`feat(s031): complete
+slice 031 (session search, FTS5)`), and this correction rides on the commit after it.
