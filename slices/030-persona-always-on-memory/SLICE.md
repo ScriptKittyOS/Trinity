@@ -21,6 +21,11 @@ Vision goal 3, first half. A small always-on tier with a budget that consolidate
 - `Trinity.Memory` context (always-on part): `memories` table (`tier`, `scope`, `key`, `body`); `Trinity.Memory.AlwaysOn.snapshot/1` renders a deterministic block for the prompt (sorted, sized).
 - `memory` tool: `add(tier, key, body)`, `replace(key, body)`, `remove(key)`, `list()`: risk `:write` with a persona-level default rule "allow" (memory writes are low risk but auditable); every change logged.
 - Budget: per persona (default 8 KB total for profile + always_on). When exceeded, `Trinity.Memory.Consolidator` asks the LLM to merge/condense entries into a proposal; the proposal is applied automatically if under budget, else queued for user review (UI list).
+- **Per-tier token budgets, added 2026-09-20.** The prompt builder holds a token budget per tier, starting at
+  800 for the stable tier, 300 for the context tier and 200 to 500 for the volatile tier; these are starting
+  values to be replaced by measurement at G1 and recorded in NOTES.md with the command. Every truncation the
+  builder performs writes a query receipt naming the tier and the count of tokens dropped, so a silent clip is
+  impossible and the receipt stream shows where the budget binds. Starting values are configuration, not code.
 - Prompt builder ordering: stable (SOUL, tool guidance) → context (skills index placeholder) → volatile (memory snapshot, time, session facts), mirroring the caching-friendly tiering.
 - UI: persona editor (SOUL markdown), memory panel (profile / always-on lists with inline edit and delete), consolidation review.
 **Out:**
