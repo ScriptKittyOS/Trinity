@@ -239,6 +239,15 @@ defmodule Trinity.Sessions.Session do
     end
   end
 
+  # A decision that arrives while the tools are still running: the gate broadcasts the request
+  # from inside the runner, before the runner returns, so the owner can decide before this
+  # process has entered approval_wait. Postponed, gen_statem redelivers it on the next state
+  # change, where the clause above takes it. Found at slice 024 (the decision receipt widened
+  # the window from microseconds to a fsync) and seen once by chance at slice 003's close
+  # (its NOTES finding 11): a fix to slice 021's design, not to this slice's.
+  def handle_event(:info, {:approval, :decided, _}, :tool_wait, _data),
+    do: {:keep_state_and_data, [:postpone]}
+
   def handle_event(:info, {:approval, _, _}, _state, _data), do: :keep_state_and_data
 
   # Slice 023: the compaction row is written here, in the Session (a row, then a broadcast),
