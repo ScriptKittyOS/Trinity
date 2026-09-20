@@ -66,5 +66,5 @@ RUN mix local.hex --force && mix local.rebar --force
 # entering FIPS mode is possible. Which mode a container runs in is the leg's decision, made
 # by OPENSSL_FORCE_FIPS_MODE and `-crypto fips_mode true` at run time, never here.
 RUN erl -noshell -eval \
-      'true = maps:get(fips_provider_available, crypto:info()), ok = crypto:enable_fips_mode(true), enabled = crypto:info_fips(), io:format("~p~n", [crypto:info()]), halt().' \
+      'true = maps:get(fips_provider_available, crypto:info()), true = crypto:enable_fips_mode(true), enabled = crypto:info_fips(), io:format("~p~n", [crypto:info()]), halt().' \
     && elixir --version
