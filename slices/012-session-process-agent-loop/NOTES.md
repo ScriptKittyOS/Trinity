@@ -11,12 +11,14 @@ Packages read from their Hex tarballs in a scratch directory, never added to the
 | (b) what `Jido.Agent` adds over the `gen_statem` | Sensors, a cron scheduler, signal routing, worker pools, and an `AgentServer` executing `RunInstruction` directives through `Jido.Exec`: a second execution path for tools beside `Trinity.Effects`, the bypass shape 024's census flags. Nothing the Session's six states, persist-before-broadcast rule or rehydrate need | `ls jido/lib/jido` (sensor, scheduler, agent_server, pod); `grep -n 'defmodule ' jido/lib/jido/agent/directive.ex` (Emit, Spawn, SpawnAgent, AdoptChild, StopChild, StartSensor, StopSensor, Schedule, RunInstruction, Stop, Error) |
 | (c) dependency weight | `jido`: 29,820 lines, ten runtime dependencies (`jido_action`, `jido_signal`, `poolboy`, `crontab`, `time_zone_info`, `telemetry_metrics`, `nimble_options`, `splode`, `telemetry`; `jido_signal` adds `msgpax`, `memento`, `fuse`, `uniq`, `phoenix_pubsub`, `zoi`). `jido_action`: six (`jason`, `nimble_options`, `telemetry`, `zoi`, `splode`, `multigraph`), two of which the tree carries already | `find lib -name '*.ex' \| xargs cat \| wc -l`; `grep '{:' mix.exs` in each |
 
-**Outcome: actions only**, one of the three the ADR permits. `jido_action` enters at slice 020 as the base of the
-tool behaviour (schema, `run/2`, lifecycle hooks), with a census at 024 that `Trinity.Effects` is `Jido.Exec`'s
-only caller for effectful tools. `jido` (the agent runtime) is not adopted: the Session stays an OTP
-`gen_statem`, PubSub is the broadcast, Oban (050) is the scheduler, gateways (070) are the sensors. Slice 012
-adds no Jido dependency; nothing in it is an action. Recorded as an appended decision on ADR-0009 in this
-slice's docs commit, with the VERSIONS row moved from `jido` to `jido_action`. The owner may veto at G1.
+**Recommended at G1: actions only.** **Owner decision at G1, 2026-09-20: no Jido at all.** The one piece with
+value, `Jido.Action` as the shape a tool is written in, is a few dozen lines to write and `jsv` (JSON Schema
+validation) is already in the tree through req_llm; six dependencies and a census for that gain is a poor
+trade, and the runtime was never a candidate on these numbers. Recorded as an appended decision on ADR-0009
+(superseding the provisional decision and the "runtime is Jido v2" line, which stands as written), in
+docs/02, in slice 020's spec (`Trinity.Tools.Tool` is Trinity's own behaviour) and in the standards register.
+The `jido` VERSIONS row stays, marked not used, so a reader finds the decision where the package would be.
+Slice 012 is unchanged: it used none of it.
 
 ## G1 plan, 2026-09-20
 

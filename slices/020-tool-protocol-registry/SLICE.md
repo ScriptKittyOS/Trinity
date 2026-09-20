@@ -78,5 +78,7 @@ If that changes during the slice, the criterion is retagged and this section is 
   digests) and each run records observed calls; `Trinity.Tools.surface_diff/1` is a query, and a non-empty diff is
   a finding surfaced in the UI.
 - **Tool-definition hash:** every tool call record carries `tool_definition_digest`.
-- If ADR-0009 adopts Jido, `Trinity.Tools.Tool` is a thin wrapper over `Jido.Action`; the rules above are unchanged.
+- ADR-0009 (decision appended 2026-09-20): no Jido. `Trinity.Tools.Tool` is Trinity's own behaviour: a name, a JSON
+  Schema for its parameters validated with `jsv` (already in the tree through req_llm), `execute/2`, and the effect
+  and risk declarations; the rules above are unchanged.
 - The census is AC8 in the list above.
