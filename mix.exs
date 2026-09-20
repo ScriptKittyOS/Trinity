@@ -222,7 +222,14 @@ defmodule Trinity.MixProject do
         # `cmd` runs it as its own OS process: Hex's tasks are not reliably resolvable from
         # inside an alias after another task has run, and a separate process also gives this
         # step its own exit code rather than one shared with the alias.
-        "cmd mix hex.audit",
+        #
+        # Slice 003: the process runs with ERL_AFLAGS cleared, so that on the FIPS leg this one
+        # step runs outside FIPS mode. Hex 2.5.1 offers TLS 1.0 and 1.1 beside 1.2 (its
+        # lib/hex/http/ssl.ex hardcodes the three) and ssl in the mode refuses the set with
+        # insufficient_crypto_support, so the audit cannot reach hex.pm in the mode; the audit
+        # is a registry lookup, not a property the leg measures (docs/fips-leg.md, finding 1).
+        # Elsewhere the variable is unset and clearing it changes nothing.
+        "cmd env ERL_AFLAGS= mix hex.audit",
         "deps.audit",
         "versions.verify",
         "versions.gen --check",

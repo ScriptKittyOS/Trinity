@@ -194,3 +194,12 @@ extracted to `~/.local/share/.burrito/<name>_erts-<v>_<app v>` for as long as th
 so a local run of a new binary at the same version runs the old code until that directory is removed; and the
 Burrito wrapper starts `erlexec` directly, so `RELEASE_NAME` is unset in the packaged app (the migrator no
 longer keys on it).
+
+## FIPS mode (slice 003)
+
+The desktop bundle above does not run in FIPS mode: its ERTS is Burrito's prebuilt one, and whether Burrito can
+wrap an ERTS built with `--enable-fips` is slice 100's question. What the tree proves about the mode it proves
+on the gate's `fips` job: OTP built from source with `--enable-fips` against a UBI9 container's OpenSSL, the
+whole gate run with the mode on, and the algorithms the mode removes listed in the tree. `docs/fips-leg.md` has
+the image, how the mode is entered, the diff, and the findings (two of them about reaching hex.pm and GitHub
+from inside the mode).

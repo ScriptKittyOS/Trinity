@@ -100,3 +100,85 @@ jobs:
 
       - run: mix ecto.reset
       - run: mix test --exclude sqlite
+
+  # Slice 003: the same gate on an OTP built from source with --enable-fips, in FIPS mode,
+  # against the FIPS provider of a UBI9 container (docs/fips-leg.md). A second job rather than
+  # a matrix entry, as `postgres` is, so `gate` keeps its context name. The image is built by
+  # fips-image.yml and pulled here by the tag scripts/fips_image_tag.sh derives from the
+  # files that define it; this job never builds it.
+  fips-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.tag.outputs.ref }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - id: tag
+        run: echo "ref=$(scripts/fips_image_tag.sh --ref)" >> "$GITHUB_OUTPUT"
+
+  fips:
+    needs: fips-tag
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.fips-tag.outputs.ref }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      MIX_ENV: test
+      TRINITY_DB: sqlite
+      # test/test_helper.exs includes the :fips tests under this, and test/fips/mode_test.exs
+      # asserts the runtime agrees, so a leg that failed to enter the mode is red, not quiet.
+      TRINITY_FIPS_LEG: "1"
+      # FIPS mode is entered by OTP's own configuration, read by the crypto NIF when it loads,
+      # which needs the crypto application loaded first; ERL_AFLAGS is prepended to every
+      # erl command line, so every `mix` and `elixir` here runs in the mode. Measured at G1:
+      # ERL_FLAGS alone leaves the mode off (the NIF loads before the application does).
+      ERL_AFLAGS: "-crypto fips_mode true -eval application:load(crypto)"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            deps
+            _build
+          key: fips-mix-${{ needs.fips-tag.outputs.ref }}-${{ hashFiles('mix.lock') }}
+          restore-keys: fips-mix-${{ needs.fips-tag.outputs.ref }}-
+
+      # The one step outside the mode. The fetch, because Hex's client offers TLS 1.0 and 1.1
+      # beside 1.2 and ssl in the mode refuses the set (insufficient_crypto_support); the
+      # dependency compile, because rustler_precompiled downloads mdex's NIF at compile time
+      # and OTP's TLS 1.3 client in the mode fails that host's HelloRetryRequest
+      # (erlang/otp#8470). docs/fips-leg.md findings 1 and 2; neither is what the leg
+      # measures. The gate's own hex.audit step clears ERL_AFLAGS for the same reason (mix.exs).
+      - name: Fetch and compile dependencies (FIPS mode off)
+        env:
+          ERL_AFLAGS: "-eval application:load(crypto)"
+        run: |
+          mix deps.get
+          mix deps.compile
+
+      # AC1, before anything else runs: the runtime is in the mode and names the provider.
+      - name: The runtime is in FIPS mode
+        run: |
+          erl -noshell -eval 'enabled = crypto:info_fips(), io:format("~p~n", [crypto:info()]), halt().'
+
+      # AC3, the default half: the listing with the mode off equals the committed file; the
+      # mode-on half is test/fips/mode_test.exs, inside the suite.
+      - name: crypto:supports/0 with the mode off matches docs/fips-leg/supports-default.txt
+        env:
+          ERL_AFLAGS: "-eval application:load(crypto)"
+        run: elixir scripts/crypto_supports.exs | diff - docs/fips-leg/supports-default.txt
+
+      - run: ./scripts/plan_check.sh
+
+      - name: DCO sign-off present on every commit
+        run: |
+          git log --format=%B ${{ github.event.pull_request.base.sha || 'HEAD~1' }}..HEAD 2>/dev/null \
+            | grep -q '^Signed-off-by: ' || {
+              echo "::error::a commit in this range has no Signed-off-by line"; exit 1; }
+
+      - run: mix gate
