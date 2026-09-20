@@ -252,6 +252,13 @@ jobs:
           echo "HTTP $code on port $PORT"
           echo "COLD_START_MS=$elapsed" | tee -a "$GITHUB_ENV"
           echo "### ${{ matrix.name }}: cold start to first HTTP 200: **${elapsed} ms**" >> "$GITHUB_STEP_SUMMARY"
+          # A non-200 says nothing on its own: run 35518054546 (slice 013) printed "HTTP 500"
+          # and nothing else, and the log that would have named the exception was never
+          # read. The body and the tail of serve.log go to stderr before the step fails.
+          if [ "$code" != "200" ]; then
+            echo "--- body of GET / ---" >&2; curl -sS "http://127.0.0.1:$PORT/" | head -c 2000 >&2; echo >&2
+            echo "--- serve.log ---" >&2; tail -60 serve.log >&2
+          fi
           test "$code" = "200"
           # Stopping it, and Windows needs its own verb. `kill` from Git-bash does not stop a
           # native Windows process, so the backgrounded .exe outlived the step and the job hung
