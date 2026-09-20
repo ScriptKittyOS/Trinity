@@ -1,4 +1,4 @@
-# 07 — Security model
+# 07: Security model
 
 ## Trust boundaries
 
@@ -61,7 +61,7 @@ Decisions are recorded (`approvals` table) and receipted. Approvals bind the can
 ## Sandbox (Slice 110)
 
 - Luerl with reduction limits, no `os`/`io`/`require`, no filesystem; explicit host functions only.
-- Native/shell code is never "sandboxed" by the BEAM — the UI says so plainly when approving `:exec`.
+- Native/shell code is never "sandboxed" by the BEAM: the UI says so plainly when approving `:exec`.
 
 ## Secrets
 
@@ -83,4 +83,4 @@ Decisions are recorded (`approvals` table) and receipted. Approvals bind the can
 
 ## Data at rest
 
-- SQLite file under the OS data dir with 0600 perms. Optional at-rest encryption is a later slice (SQLCipher via exqlite build flag) — noted, not planned.
+- SQLite file under the OS data dir with 0600 perms. Optional at-rest encryption is a later slice (SQLCipher via exqlite build flag), noted rather than planned.

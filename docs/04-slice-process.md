@@ -1,4 +1,4 @@
-# 04 — Slice process
+# 04: Slice process
 
 A slice is the unit of planning, work, proof, review, and history. It is small enough to review in one sitting
 and large enough to be worth a tag.

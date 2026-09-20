@@ -6,7 +6,7 @@ defmodule VersionFormTest do
 
   @moduledoc """
   There is no exemption list. The pattern is case-sensitive on word boundaries, which is what
-  excludes lower-case library version strings — not a list of allowed sites.
+  excludes lower-case library version strings, not a list of allowed sites.
   """
 
   test "the skip list holds exactly one entry: the enforcer's own source" do

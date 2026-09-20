@@ -1,4 +1,4 @@
-# Slice 031 — Session search (FTS5)
+# Slice 031: Session search (FTS5)
 
 | Field | Value |
 |---|---|
@@ -40,14 +40,14 @@ equivalent; `Trinity.Memory.Search.messages/2`; a `session_search` tool; a searc
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
-- **AC4** — Tool returns ≤ `limit` hits with snippets; agent can answer "what did we decide about X last week" using it (manual GIF).
-- **AC5** — Search page renders results and deep-links (screenshot).
+- **AC4**: Tool returns ≤ `limit` hits with snippets; agent can answer "what did we decide about X last week" using it (manual GIF).
+- **AC5**: Search page renders results and deep-links (screenshot).
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–5 proven · [ ] docs/05 synced · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s031): complete slice 031 — session search (FTS5)` · tag `slice/031`
+`feat(s031): complete slice 031 (session search, FTS5)` · tag `slice/031`
 
 ## Risks / open questions
-- FTS5 must be compiled into the bundled SQLite (exqlite default builds include it — verify in the Burrito binary during 100).
+- FTS5 must be compiled into the bundled SQLite (exqlite default builds include it: verify in the Burrito binary during 100).

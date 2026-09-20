@@ -13,13 +13,13 @@ defmodule Mix.Tasks.Versions.Verify do
 
   **Absence is not disagreement.** Most pinned packages arrive at a later slice and are marked
   🔍 in `VERSIONS.md` until then; requiring them now would fail the gate for work nobody has
-  done. A pin that is not a version requirement at all — `not pinned`, `optional, ~> 0.3`,
-  `(transitive via LiveView test)` — is documentation, and there is nothing to satisfy.
+  done. A pin that is not a version requirement at all (`not pinned`, `optional, ~> 0.3`,
+  `(transitive via LiveView test)`) is documentation, and there is nothing to satisfy.
 
   It also reports any **direct dependency in `mix.exs` with no row in `Trinity.Versions`**,
   without which the pin list can silently fall behind the project it describes.
 
-  It does **not** parse `VERSIONS.md` — finding M6. That file is generated from the pin list.
+  It does **not** parse `VERSIONS.md`: finding M6. That file is generated from the pin list.
   """
 
   use Boundary, classify_to: Trinity
@@ -40,7 +40,7 @@ defmodule Mix.Tasks.Versions.Verify do
 
     if problems == [] do
       Mix.shell().info(
-        "versions.verify: OK — #{map_size(locked)} locked packages, none disagreeing with #{length(pins)} pins"
+        "versions.verify: OK. #{map_size(locked)} locked packages, none disagreeing with #{length(pins)} pins"
       )
     else
       Enum.each(problems, &Mix.shell().error("FAIL #{&1}"))

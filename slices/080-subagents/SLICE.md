@@ -1,4 +1,4 @@
-# Slice 080 — Subagents + delegation
+# Slice 080: Subagents + delegation
 
 | Field | Value |
 |---|---|
@@ -10,7 +10,7 @@
 ## Goal
 A `delegate` tool that spawns supervised child sessions (subagents) with a scoped brief, restricted toolsets,
 their own token budget and timeout, optional parallel fan-out, and returns a structured result to the parent
-without polluting the parent's context — with live visibility of the subagent tree in the UI and the ability to
+without polluting the parent's context, with live visibility of the subagent tree in the UI and the ability to
 cancel a branch.
 
 ## Why
@@ -24,7 +24,7 @@ Zero-context-cost delegation, done with OTP processes and message passing rather
 - Context isolation: child gets persona + brief + explicitly passed context snippets only.
 - UI: subagent tree panel in the session view (status, tokens, cancel); child sessions browsable.
 **Out:**
-- Cross-node subagents (distributed Erlang) — noted as a follow-up; design keeps pids opaque.
+- Cross-node subagents (distributed Erlang): noted as a follow-up; design keeps pids opaque.
 
 ## Acceptance criteria
 1. [auto] Parent delegates a brief; child completes with FakeProvider; parent receives a `tool` message containing the child's structured result; parent's history does not include the child's messages (test).
@@ -38,10 +38,10 @@ Zero-context-cost delegation, done with OTP processes and message passing rather
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
-- **AC7** — UI screenshot of the tree during a run.
+- **AC7**: UI screenshot of the tree during a run.
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–7 proven · [ ] docs/01 synced · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s080): complete slice 080 — subagents and delegation` · tag `slice/080`
+`feat(s080): complete slice 080 (subagents and delegation)` · tag `slice/080`

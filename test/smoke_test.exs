@@ -6,7 +6,7 @@ defmodule SmokeTest do
   own exit call", so `halt` is injected and the test asserts it was called. Committed failing
   against a `run/2` that reports the port and returns.
 
-  The end-to-end half of this — the real binary, `ps` before and after — is AC7 and lives in
+  The end-to-end half of this (the real binary, `ps` before and after) is AC7 and lives in
   PROOF.md. A unit test cannot prove a process died; it can prove this code asked it to.
   """
   use ExUnit.Case, async: false

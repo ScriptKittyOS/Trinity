@@ -1,4 +1,4 @@
-# Slice 041 — Skill self-management with staged approval + scanner
+# Slice 041: Skill self-management with staged approval + scanner
 
 | Field | Value |
 |---|---|
@@ -9,7 +9,7 @@
 
 ## Goal
 The agent can propose new skills and edits to existing ones (`skill_manage` tool: create/patch/write_file/
-remove_file/delete) — staged as `skill_changes` with diff and rationale, scanned for dangerous content, shown in an
+remove_file/delete): staged as `skill_changes` with diff and rationale, scanned for dangerous content, shown in an
 approval UI, and applied to the filesystem only on approval. Plus a `/learn` flow that distils a document/URL into
 a knowledge skill (SKILL.md + `references/`).
 
@@ -50,17 +50,17 @@ Vision goal 4: "grows safely". A self-improving skills library is only safe if t
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
-- **AC6** — `/learn` with a local markdown file produces a staged knowledge skill with a `references/` file and a SKILL.md under ~200 lines (live/eval tag;….
-- **AC7** — UI screenshots: pending list, diff view, findings.
+- **AC6**: `/learn` with a local markdown file produces a staged knowledge skill with a `references/` file and a SKILL.md under ~200 lines (live/eval tag;….
+- **AC7**: UI screenshots: pending list, diff view, findings.
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–8 proven · [ ] docs/07 synced · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s041): complete slice 041 — skill self-management with approval` · tag `slice/041`
+`feat(s041): complete slice 041 (skill self-management with approval)` · tag `slice/041`
 
 ## Risks / open questions
-- Diff quality for binary/reference files — treat non-text as replace-whole with a size note.
+- Diff quality for binary/reference files: treat non-text as replace-whole with a size note.
 
 ## Platform alignment (appended 2026-09-05)
 - **Promotion is a gated artifact effect:** approve/reject of a staged change goes through

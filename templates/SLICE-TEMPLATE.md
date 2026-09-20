@@ -1,4 +1,4 @@
-# Slice NNN — <Title>
+# Slice NNN: <Title>
 
 | Field | Value |
 |---|---|
@@ -50,7 +50,7 @@ at review time. One line each: what they do, and what a pass looks like.
 - [ ] Final commit + tag
 
 ## Commit & tag
-`feat(sNNN): complete slice NNN — <title>` · tag `slice/NNN`
+`feat(sNNN): complete slice NNN (<title>)` · tag `slice/NNN`
 
 ## Risks / open questions
 - …

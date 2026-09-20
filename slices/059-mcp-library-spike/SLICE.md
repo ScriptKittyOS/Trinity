@@ -1,4 +1,4 @@
-# Slice 059 — MCP library spike (finalises ADR-0007)
+# Slice 059: MCP library spike (finalises ADR-0007)
 
 | Field | Value |
 |---|---|
@@ -53,4 +53,4 @@ If that changes during the slice, the criterion is retagged and this section is 
 - [ ] `mix gate` green · [ ] AC1–3 proven · [ ] docs/ADR/VERSIONS updated if affected · [ ] ROADMAP status → done · [ ] final commit + tag
 
 ## Commit & tag
-`feat(s059): complete slice 059 — MCP library spike` · tag `slice/059`
+`feat(s059): complete slice 059 (MCP library spike)` · tag `slice/059`

@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Strips assistant attribution trailers from every commit message.
+# Strips attribution trailers from every commit message.
 #
 # House rule: commits carry the owner's name and nothing else. Tooling that
 # appends its own attribution is stripped here rather than caught in review,
@@ -30,7 +30,7 @@ rm -f "$tmp"
 # message is true, and nothing else did either.
 #
 # **It warns and never blocks**, deliberately. A message legitimately names paths it does not
-# touch — the file a fix refers to, a path being explained, a command being quoted — so a
+# touch (the file a fix refers to, a path being explained, a command being quoted), so a
 # blocking version would be wrong far more often than right. This exists to put the claim and
 # the diff in front of the author at the moment of writing, not to arbitrate.
 #
@@ -66,12 +66,12 @@ for tok in $(tr -c 'A-Za-z0-9_./-' ' ' < "$msg_file"); do
 done
 
 if [ -n "$missing" ]; then
-  echo "commit-msg: WARNING — the message names paths that exist nowhere in the tree:" >&2
+  echo "commit-msg: WARNING: the message names paths that exist nowhere in the tree:" >&2
   for m in $missing; do echo "              $m" >&2; done
 fi
 
 if [ -n "$unstaged" ]; then
-  echo "commit-msg: NOTE — the message names paths this commit does not touch:" >&2
+  echo "commit-msg: NOTE: the message names paths this commit does not touch:" >&2
   for m in $unstaged; do echo "              $m" >&2; done
   echo "            Fine when the message refers to a file; wrong when it claims to have" >&2
   echo "            changed one. This is the noisy tier and it is meant to be read, not obeyed." >&2

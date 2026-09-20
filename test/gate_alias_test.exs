@@ -40,7 +40,7 @@ defmodule GateAliasTest do
     assert List.last(steps) =~ "plan_check.sh",
            "the gate's last step is #{inspect(List.last(steps))}. scripts/plan_check.sh runs " <>
              "inside `mix gate` so that a green gate cannot coexist with a failing plan " <>
-             "check — which happened three times in slice 001, twice reaching the remote, " <>
+             "check, which happened three times in slice 001, twice reaching the remote, " <>
              "because two commands printed two exit codes and only one was read."
 
     assert Enum.count(steps, &(&1 =~ "plan_check.sh")) == 1,

@@ -10,7 +10,7 @@ defmodule DesktopChildrenTest do
 
     * the dependency is available in every environment, so the packaged binary carries the
       heartbeat. If someone re-adds `only: :dev` the release loses its shutdown mechanism and
-      nothing else notices — finding F1's failure mode, shipped.
+      nothing else notices: finding F1's failure mode, shipped.
     * the child is excluded from `:test` at compile time, not by asking whether the module
       happens to be loaded. A `Code.ensure_loaded?/1` guard returns the same empty list whether
       the exclusion was intended or the dependency vanished.

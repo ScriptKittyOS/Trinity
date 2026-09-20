@@ -16,7 +16,7 @@ Project spaces, and anywhere someone is representing the project.
 
 ## Reporting
 
-Email **security@scriptkittyos.com** — the same address, because there is one maintainer and a
+Email **security@scriptkittyos.com**: the same address, because there is one maintainer and a
 second address would be theatre. Reports are read by that maintainer. If your report concerns
 the maintainer, say so in the subject; there is no independent body today, and pretending
 otherwise would be worse than admitting it.

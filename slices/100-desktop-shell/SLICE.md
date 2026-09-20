@@ -1,4 +1,4 @@
-# Slice 100 — Desktop shell: native window, tray, notifications, keychain
+# Slice 100: Desktop shell: native window, tray, notifications, keychain
 
 | Field | Value |
 |---|---|
@@ -52,21 +52,21 @@ the OS keychain, launch-at-login, single-instance behaviour, and graceful shutdo
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
-- **AC1** — Packaged build launches to the chat window with no dev tooling on the machine (fresh user account or VM): macOS + Windows screenshots (Linux if….
-- **AC2** — Tray menu actions work (screenshots); pending-approval count updates live.
-- **AC3** — An approval requested while the window is hidden produces an OS notification; clicking it focuses the window on the approval card (GIF).
-- **AC4** — Global hotkey shows/hides the window (GIF).
-- **AC5** — Keychain: a provider key entered in Settings is retrievable after restart and absent from the DB file (`strings trinity.db | grep` returns….
-- **AC7** — Quit during a streaming turn → draft persisted as interrupted; on relaunch the banner shows (manual).
-- **AC8** — Second launch focuses the first instance (manual).
-- **AC11** — First launch with no configuration reaches a working first turn through the setup path, on a fresh account (manual, screenshots).
+- **AC1**: Packaged build launches to the chat window with no dev tooling on the machine (fresh user account or VM): macOS + Windows screenshots (Linux if….
+- **AC2**: Tray menu actions work (screenshots); pending-approval count updates live.
+- **AC3**: An approval requested while the window is hidden produces an OS notification; clicking it focuses the window on the approval card (GIF).
+- **AC4**: Global hotkey shows/hides the window (GIF).
+- **AC5**: Keychain: a provider key entered in Settings is retrievable after restart and absent from the DB file (`strings trinity.db | grep` returns….
+- **AC7**: Quit during a streaming turn → draft persisted as interrupted; on relaunch the banner shows (manual).
+- **AC8**: Second launch focuses the first instance (manual).
+- **AC11**: First launch with no configuration reaches a working first turn through the setup path, on a fresh account (manual, screenshots).
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–11 proven · [ ] docs/packaging.md, docs/07 synced · [ ] ADR-0004 status accepted · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s100): complete slice 100 — desktop shell` · tag `slice/100`
+`feat(s100): complete slice 100 (desktop shell)` · tag `slice/100`
 
 ## Risks / open questions
 - Keychain access from the BEAM: prefer the Tauri bridge (Rust side does the OS work) so no NIF is needed.
-- Windows: if the ex_tauri path was replaced in 001, the bridge protocol must be reimplemented in the chosen shell — budget time.
+- Windows: if the ex_tauri path was replaced in 001, the bridge protocol must be reimplemented in the chosen shell; budget time.

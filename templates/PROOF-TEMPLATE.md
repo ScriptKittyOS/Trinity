@@ -1,4 +1,4 @@
-# PROOF — Slice NNN — <Title>
+# Proof for slice NNN: <Title>
 
 Agent: <model/version> · Date: YYYY-MM-DD · Branch: slice/NNN-… · Final commit: <sha>
 
@@ -8,7 +8,7 @@ What was built, what was hard, what was deferred (link NOTES.md follow-ups).
 ## Gate
 ```
 $ mix gate
-<trimmed output — must end in success>
+<trimmed output; must end in success>
 ```
 
 ## Tests
@@ -19,14 +19,14 @@ $ mix test --cover
 
 ## Acceptance criteria evidence
 
-### AC1 — <text of criterion>
+### AC1: <text of criterion>
 ```
 $ <command>
 <output>
 ```
 Notes: …
 
-### AC2 — …
+### AC2: ...
 
 ## Manual verification for the reviewer (if anything cannot be proven in CI)
 Steps the human should run, expected result.

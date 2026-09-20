@@ -1,4 +1,4 @@
-# 03 — Conventions
+# 03: Conventions
 
 ## Code
 
@@ -16,7 +16,7 @@
 ## Tests
 
 - Unit tests for pure modules; process tests for GenServers/gen_statem (start under a test supervisor, send
-  messages, assert state via public API — not `:sys.get_state` except in recovery tests).
+  messages, assert state via public API, not `:sys.get_state` except in recovery tests).
 - LiveView tests use `Phoenix.LiveViewTest`; prefer `element/3` with text filters.
 - All external I/O behind behaviours, mocked with Mox. `test/support/mocks.ex` defines them.
 - Tagged tests: `@tag :live` (real providers, opt-in), `@tag :desktop` (needs Tauri), `@tag :slow`.
@@ -33,8 +33,10 @@
 - Branch per slice: `slice/NNN-short-name`. Delete after merge.
 - Conventional Commits with the slice id as scope: `feat(s022): …`, `fix(s022): …`, `test(s022): …`, `docs(s022): …`,
   `chore(s000): …`, `refactor(s012): …`.
-- Final slice commit message: `feat(sNNN): complete slice NNN — <title>`.
-- Merge: `git merge --no-ff`. Tag: `slice/NNN` (annotated). Never rebase or force-push `main`.
+- Final slice commit message: `feat(sNNN): complete slice NNN (<title>)`.
+- Merge: a pull request, merge-commit method only, `gate` green on the branch head (repository ruleset, no
+  bypass). Tag: `slice/NNN` (annotated), pushed after the merge; tags are protected against update and
+  deletion. Never rebase or force-push `main`; the ruleset refuses it anyway.
 - `mix.lock` is committed. Dependency changes are their own commit: `chore(sNNN): add req_llm ~> 1.10`.
 
 ## Definition of Done

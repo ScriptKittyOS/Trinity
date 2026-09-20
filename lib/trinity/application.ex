@@ -4,7 +4,7 @@ defmodule Trinity.Application do
   # The application supervises processes from both boundaries, so it is its own top-level
   # boundary rather than a member of Trinity. Without this, starting the endpoint reads as
   # Trinity depending on TrinityWeb, which docs/01 forbids.
-  # Trinity.Smoke is its own top-level boundary — it is the `--smoke` boot path and has to ask
+  # Trinity.Smoke is its own top-level boundary: it is the `--smoke` boot path and has to ask
   # TrinityWeb.Endpoint what port it bound, which Trinity (deps: []) may not do. Adding it here
   # is what lets the child list mention it.
   use Boundary, top_level?: true, deps: [Trinity, TrinityWeb, Trinity.Smoke], exports: []

@@ -1,4 +1,4 @@
-# Slice 070 — Gateway core: adapter behaviour, routing, PubSub fan-out
+# Slice 070: Gateway core: adapter behaviour, routing, PubSub fan-out
 
 | Field | Value |
 |---|---|
@@ -32,8 +32,8 @@ Vision goal 2. Gateways are PubSub subscribers in the same node, not a separate 
 - Real platforms (071, 072), voice transcription (follow-up), media uploads beyond images.
 
 ## Design notes
-- Adapters never call the LLM or Sessions directly — only Router.
-- Session linking: a gateway conversation can attach to an existing desktop session via `/attach <session_id>` — both surfaces then see the same stream (this is the demo).
+- Adapters never call the LLM or Sessions directly: only Router.
+- Session linking: a gateway conversation can attach to an existing desktop session via `/attach <session_id>`: both surfaces then see the same stream (this is the demo).
 
 ## Deliverables
 - `lib/trinity/gateways/{adapter,router,pairing,commands,format,console}.ex`, `lib/trinity/gateways.ex`, migration (`gateway_identities`), UI, tests.
@@ -55,11 +55,11 @@ Vision goal 2. Gateways are PubSub subscribers in the same node, not a separate 
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
-- **AC2** — Unpaired identity receives only a pairing prompt; after entering the code shown in the UI, the next message is processed (test + screenshot).
-- **AC9** — `/gateways` UI screenshot.
+- **AC2**: Unpaired identity receives only a pairing prompt; after entering the code shown in the UI, the next message is processed (test + screenshot).
+- **AC9**: `/gateways` UI screenshot.
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–9 proven · [ ] docs/01, docs/07 synced · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s070): complete slice 070 — gateway core` · tag `slice/070`
+`feat(s070): complete slice 070 (gateway core)` · tag `slice/070`

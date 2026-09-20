@@ -4,7 +4,7 @@ defmodule Mix.Tasks.Versions.Gen do
   @shortdoc "Regenerates VERSIONS.md's tables from Trinity.Versions and mix.lock"
 
   @moduledoc """
-  Writes the generated block in `VERSIONS.md` from `Trinity.Versions` — finding M6's one-way
+  Writes the generated block in `VERSIONS.md` from `Trinity.Versions`: finding M6's one-way
   data flow, so the prose cannot drift from the checked data.
 
   ## The verification mark is derived
@@ -12,7 +12,7 @@ defmodule Mix.Tasks.Versions.Gen do
   A row is marked ✅ when its package is present in `mix.lock`, read through
   `Mix.Dep.Lock.read/0`, and 🔍 when it is absent. Toolchain rows are marked from
   `.tool-versions` instead, since they are not hex packages. **Nothing is marked by hand**, so
-  the mark cannot outlive the fact it asserts — which is what finding B3 caught twice.
+  the mark cannot outlive the fact it asserts, which is what finding B3 caught twice.
 
   `--check` regenerates in memory and fails if the file differs, which is how the gate asserts
   the tables match the data without parsing the markdown.
@@ -57,10 +57,10 @@ defmodule Mix.Tasks.Versions.Gen do
 
   A `:toolchain` row is never a hex package, so it is marked from its own `:from`:
 
-    * `{:file, path, needle}` — ✅ naming that file when the file carries the pin, ❌ when it
+    * `{:file, path, needle}`: ✅ naming that file when the file carries the pin, ❌ when it
       does not. Before Slice 001 line 3 this clause was the constant `✅ \`.tool-versions\``
       for every toolchain row, which marked Rust and Zig against a file carrying neither.
-    * `{:command, cmd}` — 📐 naming the command. Never ✅: nothing at this sha verifies it, and
+    * `{:command, cmd}`: 📐 naming the command. Never ✅: nothing at this sha verifies it, and
       a mark that says otherwise is the claim finding B3 caught.
   """
   @spec mark(map(), :toolchain | :deps, MapSet.t(String.t())) :: String.t()

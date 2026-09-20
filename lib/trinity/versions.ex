@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 defmodule Trinity.Versions do
   @moduledoc """
-  The machine-readable pin list — finding M6's single source of truth.
+  The machine-readable pin list: finding M6's single source of truth.
 
   `VERSIONS.md`'s tables are generated from this module by `mix versions.gen`, so the prose
   cannot drift from the checked data, and `mix versions.verify` compares it against `mix.lock`.
@@ -16,7 +16,7 @@ defmodule Trinity.Versions do
   rows carry ✅ on `.tool-versions` and `elixir --version` instead, since they are not hex
   packages.
 
-  That replaces the old meaning — "someone ran `curl` against hex.pm on some date" — which is
+  That replaces the old meaning, "someone ran `curl` against hex.pm on some date", which is
   precisely the unverifiable claim finding B3 caught wrong twice, on the two packages the OTP
   pin rested on.
 
@@ -29,10 +29,10 @@ defmodule Trinity.Versions do
   including Rust and Zig, which that file did not carry. Each toolchain row now states its
   `:from`:
 
-    * `{:file, path, needle}` — the pin lives in a file in the tree. `mix versions.gen` reads
+    * `{:file, path, needle}`: the pin lives in a file in the tree. `mix versions.gen` reads
       that file and marks the row from what it finds, so a row naming a file that stops
       carrying its pin fails the gate rather than keeping a stale ✅.
-    * `{:command, cmd}` — no file in the tree carries this pin, and only running `cmd` can
+    * `{:command, cmd}`: no file in the tree carries this pin, and only running `cmd` can
       answer. Marked 📐, never ✅, because nothing at this sha verifies it; the measurement
       lives in the slice's PROOF.md with its exit code.
 
@@ -77,7 +77,7 @@ defmodule Trinity.Versions do
       lock: nil,
       from: {:command, "asdf --version"},
       note:
-        "`.tool-versions` committed in Slice 000. `mise` is absent on the build machine; measured at Slice 000 G1 with `which mise asdf`. asdf cannot pin itself, so this row is a command, not a file. ⚠️ Measured at Slice 001 line 3: asdf does **not** fail on a tool it has no plugin for — a `rust 1.92.0` line is omitted from `asdf current` and `asdf install` still exits 0. A pin file entry is only a pin where a plugin exists."
+        "`.tool-versions` committed in Slice 000. `mise` is absent on the build machine; measured at Slice 000 G1 with `which mise asdf`. asdf cannot pin itself, so this row is a command, not a file. ⚠️ Measured at Slice 001 line 3: asdf does **not** fail on a tool it has no plugin for, a `rust 1.92.0` line is omitted from `asdf current` and `asdf install` still exits 0. A pin file entry is only a pin where a plugin exists."
     },
     %{
       name: "Rust",
@@ -85,7 +85,7 @@ defmodule Trinity.Versions do
       lock: nil,
       from: {:file, "rust-toolchain.toml", "1.92.0"},
       note:
-        "Measured at Slice 001 line 3: `rustc --version` reports 1.92.0 (ded5c06cf 2025-12-08), exit 0. Pinned in `rust-toolchain.toml`, **not** `.tool-versions` — `asdf` here has no rust plugin and silently ignores a rust line, whereas `rustup show active-toolchain` reports this file as an override. See NOTES.md deviation D1. Corrected 2026-09-06: this row previously read `Rust + Tauri CLI | stable | ✅ .tool-versions`, which named a file carrying neither."
+        "Measured at Slice 001 line 3: `rustc --version` reports 1.92.0 (ded5c06cf 2025-12-08), exit 0. Pinned in `rust-toolchain.toml`, **not** `.tool-versions`: `asdf` here has no rust plugin and silently ignores a rust line, whereas `rustup show active-toolchain` reports this file as an override. See NOTES.md deviation D1. Corrected 2026-09-06: this row previously read `Rust + Tauri CLI | stable | ✅ .tool-versions`, which named a file carrying neither."
     },
     %{
       name: "Tauri CLI",
@@ -179,7 +179,7 @@ defmodule Trinity.Versions do
       pin: "latest stable",
       lock: nil,
       note:
-        "Local embeddings. EXLA binary size matters for desktop — measure in 032. Two packages, so no single lock key."
+        "Local embeddings. EXLA binary size matters for desktop: measure in 032. Two packages, so no single lock key."
     },
     %{
       name: "bumblebee",
@@ -355,7 +355,7 @@ defmodule Trinity.Versions do
   def tables do
     [
       %{
-        title: "Toolchain — each row names its own pin file or command",
+        title: "Toolchain: each row names its own pin file or command",
         kind: :toolchain,
         rows: @toolchain
       },

@@ -13,7 +13,7 @@ use std::time::Duration;
 
 // Flipped to false when the app is quitting. The channel threads stop sending
 // heartbeats once this is false, which lets the sidecar detect heartbeat loss
-// and shut itself down gracefully — the only graceful path on Windows, where
+// and shut itself down gracefully: the only graceful path on Windows, where
 // there is no SIGTERM to deliver.
 static HEARTBEAT_ACTIVE: AtomicBool = AtomicBool::new(true);
 
@@ -104,7 +104,7 @@ fn kill_sidecar(app: &tauri::AppHandle) {
                     {
                         // No SIGTERM on Windows. The heartbeat was stopped above,
                         // so the sidecar's ShutdownManager times out (1500ms by
-                        // default) and exits gracefully on its own — give it time
+                        // default) and exits gracefully on its own; give it time
                         // to do so before falling through to the hard kill.
                         std::thread::sleep(Duration::from_millis(2000));
                     }
@@ -225,7 +225,7 @@ fn resolve_port() -> u16 {
 }
 
 // Phoenix releases sign session cookies with SECRET_KEY_BASE. Respect one if
-// provided; otherwise generate a per-launch secret — sessions reset between
+// provided; otherwise generate a per-launch secret: sessions reset between
 // launches, which is fine for a local desktop app.
 fn secret_key_base() -> String {
     if let Ok(secret) = std::env::var("SECRET_KEY_BASE") {
@@ -263,7 +263,7 @@ fn secret_key_base() -> String {
 fn start_server(app: &tauri::AppHandle, port: u16) {
     // PORT and SECRET_KEY_BASE are always injected: every server needs a port,
     // and SECRET_KEY_BASE is a random per-launch secret (inert if unused). The
-    // remaining pairs come from `config :ex_tauri, :sidecar_env` — the Phoenix
+    // remaining pairs come from `config :ex_tauri, :sidecar_env`: the Phoenix
     // defaults (PHX_SERVER/PHX_HOST) unless overridden for another framework.
     let env: std::collections::HashMap<String, String> = std::collections::HashMap::from([
         ("PORT".to_string(), port.to_string()),
@@ -321,7 +321,7 @@ fn check_server_started(port: u16) {
 }
 
 // Points the window at the port actually in use. When the OS assigned a free
-// port (production), the compile-time URL in tauri.conf.json is wrong — and
+// port (production), the compile-time URL in tauri.conf.json is wrong, and
 // even in dev this reload recovers the webview if it raced the server boot.
 fn navigate_main_window(app: &tauri::AppHandle, port: u16) {
     if let Some(window) = app.get_webview_window("main") {
@@ -334,7 +334,7 @@ fn navigate_main_window(app: &tauri::AppHandle, port: u16) {
 
 // The sidecar channel carries heartbeats (liveness), commands from Elixir
 // (ExTauri.Desktop: notifications, tray, ...), and native events back to
-// Elixir — all as newline-delimited JSON over the ShutdownManager socket.
+// Elixir: all as newline-delimited JSON over the ShutdownManager socket.
 fn start_channel(app: tauri::AppHandle) {
     println!("Starting sidecar channel (heartbeat + desktop commands)...");
 
@@ -343,7 +343,7 @@ fn start_channel(app: tauri::AppHandle) {
 
         // Outer loop: (re)establish the connection. The sidecar's listener can
         // come up late (slow boot) or be recreated, so a dropped connection must
-        // reconnect rather than end the heartbeat — otherwise the backend would
+        // reconnect rather than end the heartbeat: otherwise the backend would
         // see the heartbeat stop and shut itself down. Everything exits once
         // HEARTBEAT_ACTIVE is cleared (the app is quitting): stopping the
         // heartbeat is what tells the sidecar to shut down gracefully.
@@ -390,7 +390,7 @@ fn start_channel(app: tauri::AppHandle) {
             }
 
             // Writer (this thread): drain the queue onto the socket. A failed
-            // write means the connection dropped — clean up and reconnect.
+            // write means the connection dropped; clean up and reconnect.
             let mut stream = stream;
             for message in rx.iter() {
                 if writeln!(stream, "{}", message).is_err() {

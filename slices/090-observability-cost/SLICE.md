@@ -1,4 +1,4 @@
-# Slice 090 — Observability: telemetry, cost ledger, LiveDashboard
+# Slice 090: Observability: telemetry, cost ledger, LiveDashboard
 
 | Field | Value |
 |---|---|
@@ -15,7 +15,7 @@ structured logs with redaction; optional OpenTelemetry export.
 ## Scope
 **In:**
 - `Trinity.Telemetry` events catalogue documented in `docs/telemetry.md`; `:telemetry` handlers → `usage_events`, metrics (Telemetry.Metrics), and a ring buffer for the Activity page.
-- Cost ledger: `Trinity.Telemetry.Costs` — totals by day/session/persona/model from `usage_events`; budgets in settings; when exceeded: warn in UI, optionally block new turns (setting).
+- Cost ledger: `Trinity.Telemetry.Costs`: totals by day/session/persona/model from `usage_events`; budgets in settings; when exceeded: warn in UI, optionally block new turns (setting).
 - LiveDashboard mounted (dev always; prod behind setting) with custom pages: sessions (pids, state, memory), tools latency, LLM latency/tokens.
 - Activity page: recent events stream, filter by session/type.
 - Log redaction: a `Logger` filter that masks API keys and truncates prompts at `:info`.
@@ -33,12 +33,12 @@ structured logs with redaction; optional OpenTelemetry export.
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
-- **AC2** — Cost totals match the sum of `usage_events` for a seeded dataset; budget exceeded triggers the warning event and, when set, blocks a new turn with….
-- **AC3** — LiveDashboard custom page lists live sessions with their gen_statem state (screenshot).
-- **AC6** — Activity page screenshot.
+- **AC2**: Cost totals match the sum of `usage_events` for a seeded dataset; budget exceeded triggers the warning event and, when set, blocks a new turn with….
+- **AC3**: LiveDashboard custom page lists live sessions with their gen_statem state (screenshot).
+- **AC6**: Activity page screenshot.
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–6 proven · [ ] docs/telemetry.md · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s090): complete slice 090 — observability and cost ledger` · tag `slice/090`
+`feat(s090): complete slice 090 (observability and cost ledger)` · tag `slice/090`

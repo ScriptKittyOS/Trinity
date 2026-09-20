@@ -1,4 +1,4 @@
-# Slice 024 — Effect catalog, authority selection, local receipts
+# Slice 024: Effect catalog, authority selection, local receipts
 
 | Field | Value |
 |---|---|
@@ -22,7 +22,7 @@ property, and "Trinity keeps no executor for delegated effects" is unfalsifiable
 - `Trinity.Effects` boundary: the only module that invokes a tool's `execute/2` for `effect != :none`; revalidates
   policy decision, approval fingerprint (M2), idempotency key, scope, and authority mode before executing; denies
   and receipts on any mismatch. A census test asserts no other caller of `execute/2` exists for effectful tools
-  (plant a bypass module in test; census must flag it — the F6 pattern).
+  (plant a bypass module in test; census must flag it: the F6 pattern).
 - `Trinity.Effects.Catalog` compile-time module attribute; `Trinity.CorePolicy.hash/0` = digest over the policy,
   catalog and gate modules' object code, recorded in the boot receipt.
 - `Trinity.Authority` behaviour: `stage/2`, `decide/3`, `execute/3`, `receipt/2`; the `Local` implementation;
@@ -73,7 +73,7 @@ If that changes during the slice, the criterion is retagged and this section is 
 - [ ] gate green · [ ] AC1–7 proven · [ ] docs/01, docs/05, docs/07 synced · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s024): complete slice 024 — effect catalog, authority selection, local receipts` · tag `slice/024`
+`feat(s024): complete slice 024 (effect catalog, authority selection, local receipts)` · tag `slice/024`
 
 ## Legal review (before G1)
 The `signed_payload` field set goes to the owner for legal review before this slice starts (R21). Default design

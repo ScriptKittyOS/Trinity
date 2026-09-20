@@ -10,13 +10,26 @@
 name: package
 
 # Corrected 2026-09-06, before this workflow had ever run. The push trigger was
-# `branches: [main]`, so the one branch whose evidence depends on it — the slice branch — was
+# `branches: [main]`, so the one branch whose evidence depends on it, the slice branch, was
 # the one branch it ignored, and pushing slice 001 produced no package run at all. Slice
 # branches are where a packaging change is proven; main is where it has already been proven.
+#
+# Narrowed 2026-09-19. Between 2026-09-05 and 2026-09-07 this matrix ran 31 times on every
+# push, 1 600 runner-minutes, most of them Windows and macOS, for a packaging path that
+# slice 001 had already proven. It now runs when a slice or release tag is pushed, on a
+# change to something packaging actually depends on, or by hand. A slice that touches
+# packaging asks for the run with `workflow_dispatch` and cites the run id in its proof.
 on:
   push:
-    branches: [main, 'slice/**']
-  pull_request:
+    tags: ['slice/**', 'v*']
+    paths:
+      - mix.exs
+      - mix.lock
+      - config/**
+      - src-tauri/**
+      - rust-toolchain.toml
+      - .tool-versions
+      - .github/workflows/package.yml
   workflow_dispatch:
 
 jobs:
@@ -41,9 +54,9 @@ jobs:
             artifact: desktop_windows_x86_64.exe
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: erlef/setup-beam@v1
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
         with:
           version-file: .tool-versions
           version-type: strict
@@ -56,12 +69,12 @@ jobs:
         shell: bash
         run: echo "version=$(awk '$1=="zig"{print $2}' .tool-versions)" >> "$GITHUB_OUTPUT"
 
-      - uses: mlugg/setup-zig@v2
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
           version: ${{ steps.zig.outputs.version }}
 
       # The Rust version is not written here either: rustup reads rust-toolchain.toml, which
-      # is the pin (see NOTES.md D1 — asdf has no rust plugin and ignores a rust line).
+      # is the pin (see NOTES.md D1: asdf has no rust plugin and ignores a rust line).
       - name: Rust toolchain from rust-toolchain.toml
         shell: bash
         run: rustup show active-toolchain
@@ -103,7 +116,7 @@ jobs:
           #   * daisyui (https://github.com/saadeghi/daisyui.git - v5.5.20)
           #     lock mismatch: the dependency is out of date
           #
-          # A second `mix deps.get` under MIX_ENV=prod did NOT fix it — it reported "All
+          # A second `mix deps.get` under MIX_ENV=prod did NOT fix it: it reported "All
           # dependencies have been fetched" and the release refused anyway, so the checkout on
           # disk is what Mix disagrees with, not the environment. Both offenders are git
           # `sparse` deps carrying `app: false, compile: false`; they exist for the asset build
@@ -139,7 +152,7 @@ jobs:
 
       # Item 2 of the G4 decision. `src-tauri/` exists from slice 001's ex_tauri.install, so
       # the shell is buildable in CI. This compiles the Rust window; it does not run it, and
-      # no job here claims a window opened — a runner has no desktop session.
+      # no job here claims a window opened: a runner has no desktop session.
       - name: Build the Tauri shell
         shell: bash
         run: cargo build --manifest-path src-tauri/Cargo.toml --locked
@@ -157,14 +170,14 @@ jobs:
       # --no-halt is what makes the exit mean anything. Burrito launches the release as
       # `-s elixir start_cli`, and the Elixir CLI halts when its command list is empty, so
       # without --no-halt the binary exits 0 on its own and `--smoke` proves nothing.
-      - name: Smoke — boots, serves, exits by itself, leaves nothing behind
+      - name: Smoke test: boots, serves, exits by itself, leaves nothing behind
         if: runner.os != 'Windows'
         shell: bash
         run: |
           set -euo pipefail
           # Match OUR processes, not the machine's. The first version of this step diffed the
           # whole `ps -eo pid,ppid,comm` table and failed on macOS because the runner's own
-          # daemons churn between the two samples — mdworker_shared exiting, CloudTelemetry
+          # daemons churn between the two samples: mdworker_shared exiting, CloudTelemetry
           # starting, and the `ps` process itself differing. The artifact had launched, served
           # and exited cleanly; the assertion was wrong, not the binary. "No process of ours
           # remains" is the claim AC7 actually makes.
@@ -179,7 +192,7 @@ jobs:
           echo "--- ours, after ----"; cat ps-after.txt
           diff ps-before.txt ps-after.txt
 
-      - name: Smoke — Windows
+      - name: Smoke test on Windows
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -222,7 +235,7 @@ jobs:
           done
           test -n "${PORT:-}"
           # Bounded. The first version of this loop had no limit and the Windows runner sat in
-          # it until the run was cancelled by hand — a step that hangs reports nothing and
+          # it until the run was cancelled by hand: a step that hangs reports nothing and
           # fails nothing, which is the same shape as a workflow that never fires.
           ok=0
           for _ in $(seq 1 600); do
@@ -238,11 +251,11 @@ jobs:
           code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/")
           echo "HTTP $code on port $PORT"
           echo "COLD_START_MS=$elapsed" | tee -a "$GITHUB_ENV"
-          echo "### ${{ matrix.name }} — cold start to first HTTP 200: **${elapsed} ms**" >> "$GITHUB_STEP_SUMMARY"
+          echo "### ${{ matrix.name }}: cold start to first HTTP 200: **${elapsed} ms**" >> "$GITHUB_STEP_SUMMARY"
           test "$code" = "200"
           # Stopping it, and Windows needs its own verb. `kill` from Git-bash does not stop a
           # native Windows process, so the backgrounded .exe outlived the step and the job hung
-          # long past the bounded loops above — run 34078281292, cancelled by hand. `taskkill
+          # long past the bounded loops above: run 34078281292, cancelled by hand. `taskkill
           # /T` takes the wrapper and its BEAM together, which on Windows is also the only
           # thing that clears finding F1's orphan.
           if [ "${{ runner.os }}" = "Windows" ]; then
@@ -251,19 +264,19 @@ jobs:
           else
             CHILD=$(pgrep -P "$PID" 2>/dev/null || true)
             kill "$PID" || true
-            # The wrapper does not forward termination to the BEAM it launched — finding F1,
+            # The wrapper does not forward termination to the BEAM it launched: finding F1,
             # re-measured at G4 as an orphan still serving 200 past 7.6 s. Kill the child
             # explicitly or the runner leaves it behind.
             [ -n "$CHILD" ] && kill "$CHILD" 2>/dev/null || true
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ matrix.artifact }}
           path: burrito_out/${{ matrix.artifact }}
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: launch-log-${{ matrix.target }}
@@ -272,14 +285,14 @@ jobs:
             serve.log
           if-no-files-found: warn
 
-      # Line 10. Each job states, in its own summary, which of the two things it did — and
+      # Line 10. Each job states, in its own summary, which of the two things it did, and
       # every job here did the second one.
       - name: State what this job did not prove
         if: always()
         shell: bash
         run: |
           {
-            echo "## ${{ matrix.name }} — what this run does and does not establish"
+            echo "## ${{ matrix.name }}: what this run does and does not establish"
             echo
             echo "**Established:** the artifact builds on ${{ matrix.os }}; it launches and"
             echo "reaches serving; under \`--no-halt --smoke\` it exits by itself and the"
@@ -291,7 +304,7 @@ jobs:
             echo
             echo "**Not established, and not claimed:** the shell was **built, never run.**"
             echo "No native window was opened. This job smoked the **sidecar alone, with no"
-            echo "display** — it did not run the shell under \`xvfb-run\` and it did not use a"
+            echo "display**: it did not run the shell under \`xvfb-run\` and it did not use a"
             echo "desktop session, because this runner has none. No screenshot exists here;"
             echo "the only screenshot of a real window in this project is the owner's, on"
             echo "Linux, at slices/001-packaging-spike/proof/. First **paint** was not"

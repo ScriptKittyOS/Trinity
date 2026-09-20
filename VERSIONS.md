@@ -1,4 +1,4 @@
-# VERSIONS — verified stack
+# VERSIONS: the verified stack
 
 **Rule:** the coding agent uses these versions. Newer versions are proposed in a slice's `NOTES.md`, approved by
 the human, then recorded here with a new "verified" date. `mix versions.verify` (Slice 000) diffs `mix.lock`
@@ -29,7 +29,7 @@ A ✅ means that command was run and its answer is in the row, with the date. No
 | ✅ `.tool-versions` | a toolchain component, marked from the pin file rather than from hex |
 
 **This replaces the old legend**, under which ✅ meant "someone ran `curl` against hex.pm on the
-date in the row". That mark could not be re-derived and outlived the fact twice — finding B3
+date in the row". That mark could not be re-derived and outlived the fact twice: finding B3
 caught two false ✅ marks on the two packages the OTP pin rested on. A mark a command produces
 cannot go stale without the command saying so, and `mix versions.gen --check` is a gate step.
 
@@ -64,14 +64,14 @@ never pin a version hex marks as retired or vulnerable.
        $ mix versions.verify          # asserts every pin is satisfied by mix.lock
      Marks last derived: 2026-09-06. -->
 
-### Toolchain — each row names its own pin file or command
+### Toolchain: each row names its own pin file or command
 
 | Name | Pin | Verified | Note |
 |---|---|---|---|
 | `Erlang/OTP` | **28.5.0.5** | ✅ `.tool-versions` | Measured at Slice 000, not read from a README: Burrito 1.6.0's ERTS resolver names one artifact source per target, and 28.5.0.5 is the newest OTP returning 200 on all four (macOS universal, Linux x86_64, Linux aarch64, Windows). 28.5.0.6 is released but its macOS and Linux artifacts are unbuilt (404). OTP 29 is 404 on macOS and both Linux arches. ⚠️ Windows tracks OTP releases immediately while the other three lag a third-party CDN's build queue, so re-probe at every phase boundary. See ADR-0005's second correction. |
 | `Elixir` | **1.20.4-otp-28** | ✅ `.tool-versions` | Confirmed at Slice 000: `elixir --version` reports Elixir 1.20.4 on Erlang/OTP 28, erts-16.4.0.5. Built-in type checker is part of the gate. `boundary` 0.10.4 compiles and enforces on this pair, measured at Slice 000 (H7). |
-| `asdf` | v0.18.0 | 📐 `asdf --version` | `.tool-versions` committed in Slice 000. `mise` is absent on the build machine; measured at Slice 000 G1 with `which mise asdf`. asdf cannot pin itself, so this row is a command, not a file. ⚠️ Measured at Slice 001 line 3: asdf does **not** fail on a tool it has no plugin for — a `rust 1.92.0` line is omitted from `asdf current` and `asdf install` still exits 0. A pin file entry is only a pin where a plugin exists. |
-| `Rust` | **1.92.0** | ✅ `rust-toolchain.toml` | Measured at Slice 001 line 3: `rustc --version` reports 1.92.0 (ded5c06cf 2025-12-08), exit 0. Pinned in `rust-toolchain.toml`, **not** `.tool-versions` — `asdf` here has no rust plugin and silently ignores a rust line, whereas `rustup show active-toolchain` reports this file as an override. See NOTES.md deviation D1. Corrected 2026-09-06: this row previously read `Rust + Tauri CLI | stable | ✅ .tool-versions`, which named a file carrying neither. |
+| `asdf` | v0.18.0 | 📐 `asdf --version` | `.tool-versions` committed in Slice 000. `mise` is absent on the build machine; measured at Slice 000 G1 with `which mise asdf`. asdf cannot pin itself, so this row is a command, not a file. ⚠️ Measured at Slice 001 line 3: asdf does **not** fail on a tool it has no plugin for, a `rust 1.92.0` line is omitted from `asdf current` and `asdf install` still exits 0. A pin file entry is only a pin where a plugin exists. |
+| `Rust` | **1.92.0** | ✅ `rust-toolchain.toml` | Measured at Slice 001 line 3: `rustc --version` reports 1.92.0 (ded5c06cf 2025-12-08), exit 0. Pinned in `rust-toolchain.toml`, **not** `.tool-versions`: `asdf` here has no rust plugin and silently ignores a rust line, whereas `rustup show active-toolchain` reports this file as an override. See NOTES.md deviation D1. Corrected 2026-09-06: this row previously read `Rust + Tauri CLI | stable | ✅ .tool-versions`, which named a file carrying neither. |
 | `Tauri CLI` | **2.11.4** | 📐 `_build/_tauri/bin/cargo-tauri tauri --version` | Measured at Slice 001 line 3. Not on `PATH` and not pinned by any file in the tree: `ex_tauri` provisions it with `cargo install tauri-cli --version ^2 --root .` inside `_build/_tauri`, which is gitignored, so `cargo tauri --version` exits 101 on a fresh machine. 📐 rather than ✅ because nothing at this sha verifies it. The `^2` floats; 2.11.4 is what it resolved to on 2026-09-06. |
 | `Zig` | **0.16.0** | ✅ `.tool-versions` | Measured at Slice 001 line 3: burrito 1.6.0 compares Zig for **equality**, not a range (`@zig_version_expected` in `deps/burrito/lib/burrito.ex`), and exits 1 on any other version. `zig version` reports 0.16.0, exit 0. Installed through the asdf zig plugin, added this slice. Corrected 2026-09-06: this row previously read `version required by Burrito | ✅ .tool-versions` and that file carried no zig line. |
 
@@ -116,7 +116,7 @@ never pin a version hex marks as retired or vulnerable.
 
 | Name | Pin | Verified | Note |
 |---|---|---|---|
-| `nx, exla` | latest stable | 🔍 not a single package | Local embeddings. EXLA binary size matters for desktop — measure in 032. Two packages, so no single lock key. |
+| `nx, exla` | latest stable | 🔍 not a single package | Local embeddings. EXLA binary size matters for desktop: measure in 032. Two packages, so no single lock key. |
 | `bumblebee` | ~> 0.7 | 🔍 not yet a dependency | `all-MiniLM-L6-v2` embeddings; Whisper later. Added at Slice 032. |
 | `sqlite_vec` | ~> 0.1 | 🔍 not yet a dependency | Vectors in SQLite. Verify the loadable extension works inside the Burrito bundle (Slice 032). ⚠️ Pre-1.0, no release in roughly 22 months, 6,938 downloads all-time. R11's trigger already fires. Decide the fallback before Slice 032 starts. |
 | `hnswlib` | ~> 0.1.7 | 🔍 not yet a dependency | ⚠️ Pre-1.0. Optional accelerator; not on the critical path. |

@@ -11,7 +11,7 @@ stated rather than dressed up: the review queue is the project's real critical p
 
 Anything that changes architecture, stack, data model or process gets an ADR in `docs/adr/`,
 with a status of `proposed`, `accepted`, or `superseded by ADR-XXXX`. Decisions are recorded
-before they are implemented, and corrections are **appended** — an ADR is never rewritten to
+before they are implemented, and corrections are **appended**: an ADR is never rewritten to
 look as though it had always been right.
 
 ## Becoming a committer

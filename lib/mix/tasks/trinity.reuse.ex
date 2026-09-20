@@ -9,7 +9,7 @@ defmodule Mix.Tasks.Trinity.Reuse do
   **This check covers none of the name check.** They are separate rows in the gate and separate
   lines in PROOF.md; neither is ever reported as evidence for the other.
 
-  Files that cannot carry a comment — images, lockfiles, generated vendor assets — are covered
+  Files that cannot carry a comment (images, lockfiles, generated vendor assets) are covered
   by `REUSE.toml` instead and are listed there rather than being silently skipped here.
   """
 
@@ -43,9 +43,7 @@ defmodule Mix.Tasks.Trinity.Reuse do
       do: Mix.raise("REUSE.toml is missing (ADR-0012 decision 1).")
 
     if missing == [] do
-      Mix.shell().info(
-        "trinity.reuse: OK — every commentable tracked file carries an SPDX header"
-      )
+      Mix.shell().info("trinity.reuse: OK. Every commentable tracked file carries an SPDX header")
     else
       Enum.each(missing, &Mix.shell().error("FAIL #{&1}: no #{@spdx}"))
       Mix.raise("trinity.reuse: #{length(missing)} file(s) without an SPDX header")

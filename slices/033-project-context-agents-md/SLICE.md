@@ -1,4 +1,4 @@
-# Slice 033 — Project context: AGENTS.md
+# Slice 033: Project context: AGENTS.md
 
 | Field | Value |
 |---|---|
@@ -41,4 +41,4 @@ If that changes during the slice, the criterion is retagged and this section is 
 - [ ] `mix gate` green · [ ] AC1–3 proven · [ ] docs/ADR/VERSIONS updated if affected · [ ] ROADMAP status → done · [ ] final commit + tag
 
 ## Commit & tag
-`feat(s033): complete slice 033 — AGENTS.md project context` · tag `slice/033`
+`feat(s033): complete slice 033 (AGENTS.md project context)` · tag `slice/033`

@@ -4,8 +4,8 @@ defmodule Mix.Tasks.Trinity.Coverage do
   @shortdoc "Fails if line coverage dropped more than three points against the previous slice"
 
   @moduledoc """
-  Reads `coverage.tsv` at the repo root — one row per slice, columns `slice_id`, `percent`,
-  `sha`, `date` — and compares the last two rows.
+  Reads `coverage.tsv` at the repo root: one row per slice, columns `slice_id`, `percent`,
+  `sha`, `date`, and compares the last two rows.
 
   `docs/03-conventions.md` sets the rule: a drop of more than three points fails until a
   `NOTES.md` justification names the reason. Slice 000 writes the first row, so it is the
@@ -61,7 +61,7 @@ defmodule Mix.Tasks.Trinity.Coverage do
 
         case compare(prev, pct) do
           :ok ->
-            Mix.shell().info("trinity.coverage: #{id} #{pct}% vs #{prev_id} #{prev}% — OK")
+            Mix.shell().info("trinity.coverage: #{id} #{pct}% vs #{prev_id} #{prev}%: OK")
 
           {:error, drop} ->
             Mix.raise(

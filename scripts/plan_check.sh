@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # SPDX-FileCopyrightText: Sudo Apt Holdings LLC
 # SPDX-License-Identifier: Apache-2.0
-# plan_check.sh — enforces the plan-consistency rules that were previously prose.
+# plan_check.sh: enforces the plan-consistency rules that were previously prose.
 #
 # Every rule below was a finding that closed on a hand check and stayed broken.
 # Populations derive from `git ls-files`; nothing here is a hand list.
 #
-# Scope note for check 6: it validates references to PLAN artifacts only —
+# Scope note for check 6: it validates references to PLAN artifacts only:
 # docs/, docs/adr/, slices/, templates/ and the root records. Paths under
 # lib/, test/, priv/, config/, .github/ and tauri/ are deliberately excluded:
 # they name code this plan has not built yet, so their absence is expected and
@@ -124,7 +124,7 @@ if git grep -nIE '\bSCR-[0-9]+\b' -- '*.md' 'scripts/*' >/dev/null 2>&1; then
   fail=1
 fi
 
-section "8. Commit messages: no assistant attribution, every commit signed off"
+section "8. Commit messages: no attribution trailers, every commit signed off"
 # Checks the history, not the hook. A bypassed or unconfigured hook still fails here.
 for c in $(git log --format=%H); do
   body=$(git log -1 --format=%B "$c")
@@ -184,7 +184,7 @@ case "$branch" in
       st=$(roadmap_status "$sid")
       case "$st" in
         # `approved` added at slice 001 G4. The lifecycle is ready -> in_progress -> done ->
-        # approved, and docs/04 has the owner set `approved` at G4 — which happens while the
+        # approved, and docs/04 has the owner set `approved` at G4, which happens while the
         # slice branch still exists, because CLAUDE.md section 4 puts the status change in the
         # branch's own commit and the merge comes after. Without this the landing commit
         # cannot pass its own gate, which is where it was found.

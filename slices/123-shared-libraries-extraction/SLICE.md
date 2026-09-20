@@ -1,4 +1,4 @@
-# Slice 123 — Extract the shared components as Hex packages
+# Slice 123: Extract the shared components as Hex packages
 
 | Field | Value |
 |---|---|
@@ -52,4 +52,4 @@ If that changes during the slice, the criterion is retagged and this section is 
   need revisiting against the naming policy before anything is published.
 
 ## Commit & tag
-`feat(s123): complete slice 123 — shared libraries extracted` · tag `slice/123`
+`feat(s123): complete slice 123 (shared libraries extracted)` · tag `slice/123`

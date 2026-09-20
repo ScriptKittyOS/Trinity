@@ -1,4 +1,4 @@
-# Slice 060 — MCP client (2026-07-28 preferred, 2025-11-25 compat)
+# Slice 060: MCP client (2026-07-28 preferred, 2025-11-25 compat)
 
 | Field | Value |
 |---|---|
@@ -12,7 +12,7 @@ sampling/elicitation callbacks (both deprecated in 2026-07-28).
 
 **Sized `M/L`, conditionally, and the condition is decided by slice 059.** M if 059 selects a library that ships a
 working client. L otherwise: a server-only library, or the own-minimal-server fallback, leaves this slice to build
-the MRTR retry loop, Tasks polling and the whole OAuth client role — PKCE, resource indicators, client metadata
+the MRTR retry loop, Tasks polling and the whole OAuth client role: PKCE, resource indicators, client metadata
 with dynamic-registration fallback, issuer checking and per-issuer credential storage. `docs/08-standards.md` says
 as much in its own words: the stateless server side is small and the client side is more work. A single number
 here would be a guess wearing an estimate's clothes.
@@ -58,10 +58,10 @@ enter the effect catalog (M4); health, reconnect, UI.
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
-- **AC8** — Manual: one real public 2026-07-28 server used end-to-end (GIF).
+- **AC8**: Manual: one real public 2026-07-28 server used end-to-end (GIF).
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–8 proven · [ ] docs/01, docs/08 synced · [ ] VERSIONS ✅ · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s060): complete slice 060 — MCP client` · tag `slice/060`
+`feat(s060): complete slice 060 (MCP client)` · tag `slice/060`

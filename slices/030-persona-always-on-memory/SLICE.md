@@ -1,4 +1,4 @@
-# Slice 030 — Persona (SOUL) + always-on memory tier
+# Slice 030: Persona (SOUL) + always-on memory tier
 
 | Field | Value |
 |---|---|
@@ -19,12 +19,12 @@ Vision goal 3, first half. A small always-on tier with a budget that consolidate
 **In:**
 - `Trinity.Personas` context: CRUD, `priv/personas/default/SOUL.md` seeded on first run; `sessions.persona_id`; persona picker in UI; `/personality`-style quick edits stored as persona settings.
 - `Trinity.Memory` context (always-on part): `memories` table (`tier`, `scope`, `key`, `body`); `Trinity.Memory.AlwaysOn.snapshot/1` renders a deterministic block for the prompt (sorted, sized).
-- `memory` tool: `add(tier, key, body)`, `replace(key, body)`, `remove(key)`, `list()` — risk `:write` with a persona-level default rule "allow" (memory writes are low risk but auditable); every change logged.
+- `memory` tool: `add(tier, key, body)`, `replace(key, body)`, `remove(key)`, `list()`: risk `:write` with a persona-level default rule "allow" (memory writes are low risk but auditable); every change logged.
 - Budget: per persona (default 8 KB total for profile + always_on). When exceeded, `Trinity.Memory.Consolidator` asks the LLM to merge/condense entries into a proposal; the proposal is applied automatically if under budget, else queued for user review (UI list).
-- Prompt builder ordering: stable (SOUL, tool guidance) → context (skills index placeholder) → volatile (memory snapshot, time, session facts) — mirroring the caching-friendly tiering.
+- Prompt builder ordering: stable (SOUL, tool guidance) → context (skills index placeholder) → volatile (memory snapshot, time, session facts), mirroring the caching-friendly tiering.
 - UI: persona editor (SOUL markdown), memory panel (profile / always-on lists with inline edit and delete), consolidation review.
 **Out:**
-- Semantic/retrievable memory (032), FTS (031), project-scoped memory files (`AGENTS.md`-style — noted as follow-up).
+- Semantic/retrievable memory (032), FTS (031), project-scoped memory files (`AGENTS.md`-style: noted as follow-up).
 
 ## Design notes
 - Snapshot is computed once per session start and on explicit refresh; the Session stores it in state so mid-session edits do not silently change behaviour (documented UX: "takes effect next session or on refresh").
@@ -47,13 +47,13 @@ Vision goal 3, first half. A small always-on tier with a budget that consolidate
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
-- **AC5** — UI: edit SOUL, add/delete memory entries (screenshots); changes persist.
+- **AC5**: UI: edit SOUL, add/delete memory entries (screenshots); changes persist.
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–7 proven · [ ] docs/05 synced · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s030): complete slice 030 — persona and always-on memory` · tag `slice/030`
+`feat(s030): complete slice 030 (persona and always-on memory)` · tag `slice/030`
 
 ## Risks / open questions
 - Auto-applying consolidation may surprise users; default to "auto if under budget, else review" and make it configurable.

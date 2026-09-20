@@ -4,7 +4,7 @@ defmodule SobelowSkipsTest do
   use ExUnit.Case, async: true
 
   @moduledoc """
-  Measured at slice 000: sobelow's skip file does NOT accept a trailing comment — appending one
+  Measured at slice 000: sobelow's skip file does NOT accept a trailing comment; appending one
   changes the line, the fingerprint stops matching and the finding reappears. So reasons live in
   `.sobelow-skips.reasons`, keyed by fingerprint, and this test makes a reasonless skip fail the
   gate.
@@ -65,7 +65,7 @@ defmodule SobelowSkipsTest do
       for path <- sources(),
           {line, idx} <- File.read!(path) |> String.split("\n") |> Enum.with_index(),
           # An attribute DEFINITION, anchored at the start of the line. `String.contains?`
-          # matched this file's own moduledoc and assertion strings on the first run — the
+          # matched this file's own moduledoc and assertion strings on the first run: the
           # check was wrong about what a skip is, so the check is what changed.
           Regex.match?(~r/^\s*@sobelow_skip\s+\[/, line),
           do: {path, idx}

@@ -1,9 +1,9 @@
-# Slice 081 — A2A v1.0 Agent Card and task intake (optional)
+# Slice 081: A2A v1.0 Agent Card and task intake (optional)
 
 | Field | Value |
 |---|---|
 | Phase | 8 Orchestration |
-| Milestone | — (optional, post-M6) |
+| Milestone | none (optional, post-M6) |
 | Size | M |
 | Depends on | 080, 061 |
 
@@ -41,4 +41,4 @@ If that changes during the slice, the criterion is retagged and this section is 
 - [ ] `mix gate` green · [ ] AC1–3 proven · [ ] docs/ADR/VERSIONS updated if affected · [ ] ROADMAP status → done · [ ] final commit + tag
 
 ## Commit & tag
-`feat(s081): complete slice 081 — A2A agent card` · tag `slice/081`
+`feat(s081): complete slice 081 (A2A agent card)` · tag `slice/081`

@@ -1,6 +1,6 @@
-# 05 — Data model
+# 05: Data model
 
-All tables have `id` (UUIDv7 as binary_id — sortable), `inserted_at`, `updated_at` (utc_datetime_usec).
+All tables have `id` (UUIDv7 as binary_id, sortable), `inserted_at`, `updated_at` (utc_datetime_usec).
 SQLite is primary; every migration must also run on Postgres in the CI matrix. Use Ecto types that map on both
 (`:binary_id`, `:map` → JSON text on SQLite, `:utc_datetime_usec`). Vector columns and FTS tables are created
 with adapter-specific `execute/1` guarded by `repo().__adapter__()`.
@@ -41,7 +41,7 @@ with adapter-specific `execute/1` guarded by `repo().__adapter__()`.
 | provider_meta | map | model, finish reason, latency |
 Append-only. Editing is a new message with `parts.supersedes`.
 
-### messages_fts (Slice 031) — SQLite `fts5(content, session_id UNINDEXED, message_id UNINDEXED)`; on Postgres a
+### messages_fts (Slice 031): SQLite `fts5(content, session_id UNINDEXED, message_id UNINDEXED)`; on Postgres a
 `tsvector` generated column on `messages`.
 
 ### memories (Slice 030/032)
@@ -55,7 +55,7 @@ Append-only. Editing is a new message with `parts.supersedes`.
 | source_message_id | fk, nullable | provenance |
 | confidence | float | agent-assigned |
 | last_used_at | utc_datetime_usec | for decay/pruning |
-Invariant: total bytes of `always_on` + `profile` for a persona ≤ configurable budget (default 8 KB) — enforced by
+Invariant: total bytes of `always_on` + `profile` for a persona ≤ configurable budget (default 8 KB), enforced by
 `Trinity.Memory.Budget`, which triggers consolidation instead of silent truncation.
 
 ### skills (Slice 040)
@@ -105,7 +105,7 @@ Per LLM call: `session_id`, `provider`, `model`, `prompt_tokens`, `completion_to
 `cost_usd`, `latency_ms`. Cost ledger and budgets derive from this.
 
 ### gateway_identities (Slice 070)
-`adapter`, `external_user_id`, `display`, `paired_at`, `allowed` — DM pairing and allowlists.
+`adapter`, `external_user_id`, `display`, `paired_at`, `allowed`: DM pairing and allowlists.
 
 ### receipts (Slice 024)
 | column | type | notes |

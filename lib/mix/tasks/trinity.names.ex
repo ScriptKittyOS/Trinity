@@ -9,7 +9,7 @@ defmodule Mix.Tasks.Trinity.Names do
   ## Zero-permitted-site names
 
   Matched by **salted digest**, never by a plaintext pattern, because a pattern file spelling
-  them would itself be a hit — this module included. `priv/name_digests.txt` carries the salt
+  them would itself be a hit: this module included. `priv/name_digests.txt` carries the salt
   and the digests only; the generator that produces it lives outside this repository.
 
   Tokenisation, applied identically to file contents and to file paths: downcase, split on
@@ -24,7 +24,7 @@ defmodule Mix.Tasks.Trinity.Names do
 
   The four platform names are matched in plain text and are allowed only inside one approved
   section of `README.md`. That section is located **by its heading text**, never by line
-  number — measured at slice 000, a generator run moved it from lines 46–62 to 72–88, and a
+  number: measured at slice 000, a generator run moved it from lines 46–62 to 72–88, and a
   hard-coded range would then have been reading the wrong sixteen lines.
   """
 
@@ -34,11 +34,11 @@ defmodule Mix.Tasks.Trinity.Names do
   @digests_path "priv/name_digests.txt"
   @permitted_file "README.md"
   @permitted_begin "## Connecting Trinity to the platform"
-  @permitted_end "## Principles baked into this plan"
+  @permitted_end "## Contributing, security and governance"
   @platform_names ~w(requisition ultraviolet sanction)
 
   # The plain-text set has to be spelled somewhere in order to be matched, so this module is
-  # the single path the PLATFORM-NAME scan skips — the same structural exemption enforcer 2
+  # the single path the PLATFORM-NAME scan skips: the same structural exemption enforcer 2
   # carries, and for the same reason. `test/trinity_names_test.exs` asserts it holds exactly
   # one entry so it cannot quietly grow.
   #

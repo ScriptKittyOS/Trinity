@@ -1,4 +1,4 @@
-# Slice 072 — Gateway: Discord (Nostrum)
+# Slice 072: Gateway: Discord (Nostrum)
 
 | Field | Value |
 |---|---|
@@ -26,13 +26,13 @@ attachments in/out, slash commands registered with Discord, cron delivery target
 ## Manual verification queue
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
-- **AC1** — Manual/live proof: mention the bot in a channel → threaded streamed reply (screenshots).
-- **AC2** — Button approvals round-trip (screenshot).
-- **AC3** — Slash commands `/new`, `/model` work and are registered (screenshot of Discord command list).
-- **AC6** — Cron delivery to a channel (manual proof).
+- **AC1**: Manual/live proof: mention the bot in a channel → threaded streamed reply (screenshots).
+- **AC2**: Button approvals round-trip (screenshot).
+- **AC3**: Slash commands `/new`, `/model` work and are registered (screenshot of Discord command list).
+- **AC6**: Cron delivery to a channel (manual proof).
 
 ## Definition of Done
 - [ ] gate green · [ ] AC1–6 proven · [ ] VERSIONS (nostrum ✅) · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s072): complete slice 072 — Discord gateway` · tag `slice/072`
+`feat(s072): complete slice 072 (Discord gateway)` · tag `slice/072`
