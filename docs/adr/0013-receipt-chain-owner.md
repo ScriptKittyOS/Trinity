@@ -39,3 +39,8 @@ guarantee is "exactly one path", and only a test over the tree can hold that.
 - Verification is unchanged and stays offline: a verifier walks a scope by `seq` and recomputes the hashes.
 - The receipt path costs one process hop per catalogued effect. That is the price of an unforked chain, and it is
   paid on effects, not on reads.
+- As built at slice 024: the writer is a temporary child of `Trinity.Receipts.WriterSupervisor`, started on demand
+  and started again by the next append after a crash; a tail whose hash does not recompute, or a checkpoint whose
+  tail is not in the chain or whose signature fails, stops it with the reason instead of letting it write. Query
+  receipts are covered by rows in `receipt_checkpoints` (never by a write onto a receipt), so `receipts` stays
+  append-only; the chain lives in its own database, `Trinity.Repo.Receipts`, with `synchronous: :full`.

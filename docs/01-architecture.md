@@ -28,12 +28,20 @@ Trinity.Application
 │     │                                         # (GenServer over ETS). 022 adds the stateful runtimes beside them
 ├── Trinity.Permissions.Gate                      # Slice 021, as built: approval requests (rows, then broadcasts),
 │                                                 # decisions, expiries; pending rows reloaded with their timers
-├── Trinity.Receipts.Supervisor                   # Slice 024
-│     └── Trinity.Receipts.ChainWriter (one per chain_scope, :unique in Trinity.Registry; ADR-0013)
-│           # serialises append per scope. prev_hash -> receipt_hash is a read-then-write, so
-│           # concurrent sessions would otherwise race: SQLite's single writer serialises the
-│           # INSERT but does not guarantee each row read the correct predecessor.
-├── Trinity.Authority                             # the selected implementation, resolved once at boot. Slice 024
+├── Trinity.Authority.Selection                   # Slice 024, as built: a transient Task right after the data
+│                                                 # directory lock; reads TRINITY_AUTHORITY once, refuses the boot
+│                                                 # by name (ADR-0010). Placed early in the list, before the Repo.
+├── Trinity.Repo.Receipts                         # Slice 024, as built: the receipts chain's own SQLite file,
+│                                                 # synchronous full (ADR-0013), its own migrations
+├── Trinity.Receipts.Supervisor                   # Slice 024, as built: KeyCustody.boot!/1 in its init (the
+│     │                                         # signer and its key, once), then
+│     └── Trinity.Receipts.WriterSupervisor (DynamicSupervisor)
+│           └── Trinity.Receipts.ChainWriter (one per chain_scope, :unique in Trinity.Registry, temporary; ADR-0013)
+│                 # serialises append per scope. prev_hash -> receipt_hash is a read-then-write, so
+│                 # concurrent sessions would otherwise race: SQLite's single writer serialises the
+│                 # INSERT but does not guarantee each row read the correct predecessor.
+├── Trinity.Effects.Boot                          # Slice 024, as built: a transient Task writing the boot receipt
+│                                                 # once the signer and the authority are known
 ├── Trinity.Memory.Supervisor                     # Nx.Serving for embeddings, retrieval. Slice 032
 ├── Trinity.Skills.Registry                       # hot-loaded skills index. Slice 040
 ├── Oban                                        # cron + durable jobs. Slice 050
@@ -46,8 +54,9 @@ Trinity.Application
 ```
 
 `Trinity.Effects` is a module rather than a process: it is the membrane every effectful call passes through, and
-holds no state of its own. `Trinity.Authority` appears in the tree because the selection is resolved once at boot
-and must not be re-resolvable afterwards.
+holds no state of its own. `Trinity.Authority` is a behaviour with the selection resolved once at boot by the
+`Selection` child and must not be re-resolvable afterwards; as built at slice 024 the selected module is read
+from `:persistent_term` by `Trinity.Authority.impl/0`.
 
 Restart strategies: `Trinity.Sessions.Supervisor` is `:one_for_one` with `max_restarts: 10, max_seconds: 60`
 per session; a Session that crashes rehydrates from the DB (`Trinity.Sessions.rehydrate/1`) and re-enters `idle`.
@@ -65,11 +74,11 @@ without anything failing.
 |---|---|---|
 | `Trinity.Sessions` | Session process, turn loop, message log | LLM, Tools, **Effects**, Permissions, Memory, Skills, Repo, PubSub |
 | `Trinity.LLM` | Provider behaviour, req_llm adapter, model registry, streaming, usage | Repo (usage), Telemetry |
-| `Trinity.Tools` | Tool behaviour, registry, execution runtime, core tools | Permissions, Sandbox, Repo |
+| `Trinity.Tools` | Tool behaviour, registry, execution runtime, core tools, and (as built at 024) the compile-time effect catalog `Trinity.Tools.Catalog`, because the registry reads it and Effects depends on Tools | Permissions, Sandbox, Repo |
 | `Trinity.Permissions` | Policy, tier/1 (name-only), fingerprint-bound approvals, override adjudication | Repo, PubSub |
-| `Trinity.Effects` | The membrane; compile-time effect catalog; query receipts for reads | **Tools**, Permissions, Authority, Receipts, Repo |
-| `Trinity.Authority` | Behaviour; `Local` implementation; selection at boot; adapter responses | Receipts, Repo |
-| `Trinity.Receipts` | Local chain (one supervised writer per scope, ADR-0013), Ed25519 signer, key registry | Repo |
+| `Trinity.Effects` | The membrane; the runner in force (`Effects.Runner`, the executor `Tools.Runner` takes as a function); decision and query receipts; the boot receipt | **Tools**, Permissions, Authority, Receipts, Repo |
+| `Trinity.Authority` | Behaviour; `Local` implementation (the one caller of `execute/2` for effectful tools); selection at boot; `Staged` | Receipts, Repo |
+| `Trinity.Receipts` | Local chain (one supervised writer per scope, ADR-0013), the signer seam (Ed25519, P-384, ML-DSA-87), key custody and the registry, checkpoints, the verifier, the alarm | Repo (`Repo.Receipts`) |
 | `Trinity.Memory` | Always-on tier, episodic FTS, semantic store, retrieval, compaction | LLM (summaries/embeddings), Repo |
 | `Trinity.Skills` | SKILL.md parsing, registry, loader, manager, scanner | Repo, Permissions, **Effects**, **Receipts**, Sandbox |
 | `Trinity.Scheduler` | Oban workers for agent tasks, delivery | Sessions, Gateways, **Repo** |
@@ -136,7 +145,7 @@ session with `parent_id`, the compaction first, the user's message second, the c
 closed with a row naming the child and `{:forked, child_id}` broadcast. Memory depends on LLM and the core,
 never on Sessions.
 
-**Effect path (Slice 024):** `Session → Permissions.decide → Effects.execute → Authority → tool.execute/2 (local) or a proposal (external adapter) → Receipts.append`. `Effects` is the only caller of `execute/2` for effectful tools; a census test enforces it. Reads emit query receipts.
+**Effect path (Slice 024, as built):** `Session → ToolRunner seam → Effects.Runner (executor) → Tools.Runner.decide (the gate, once) → decision receipt → Effects.execute (the membrane: decision, effect class and catalog, fingerprint re-derived, idempotency by session and call id) → Authority.stage → decide → admission receipt → Authority.Local.execute → tool.execute/2 → outcome receipt`. `Authority.Local` is the only caller of `execute/2` for effectful tools; `Tools.Runner.call_tool/3` runs `effect: :none` tools directly and refuses the rest by name; a census over `git ls-files` with a planted bypass holds both. Reads emit query receipts, chained unsigned and checkpointed. A decision that cannot be receipted (no signer) refuses the call, reads included.
 
 **The page (Slice 013):** `TrinityWeb.SessionLive.Show` subscribes to `session:<id>` on mount, calls
 `Trinity.Sessions.ensure_started/1`, loads the history from the database into a LiveView stream and the turn in
