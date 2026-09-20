@@ -35,6 +35,10 @@ defmodule Trinity do
         Effects,
         CorePolicy,
         Receipts,
+        Receipts.Receipt,
+        Receipts.Checkpoint,
+        Receipts.Verifier,
+        Receipts.KeyCustody,
         Authority,
         Content.Part
       ] ++

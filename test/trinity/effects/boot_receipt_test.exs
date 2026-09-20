@@ -13,7 +13,9 @@ defmodule Trinity.Effects.BootReceiptTest do
   alias Trinity.{CorePolicy, Receipts}
 
   test "the boot receipt of this run: scope boot, signed, the authority, the signer and the policy hash" do
-    assert %Receipts.Receipt{kind: "boot", chain_scope: "boot", signature: sig} = r = Receipts.boot_receipt()
+    assert %Receipts.Receipt{kind: "boot", chain_scope: "boot", signature: sig} =
+             r = Receipts.boot_receipt()
+
     assert is_binary(sig)
     assert r.subject["authority"] == "Trinity.Authority.Local"
     assert r.subject["signer"]["algorithm"] == "ed25519"
@@ -33,7 +35,13 @@ defmodule Trinity.Effects.BootReceiptTest do
   end
 
   test "the list covers the modules that decide" do
-    for m <- [Trinity.Permissions.Policy.Layered, Trinity.Tools.Catalog, Trinity.Effects, Trinity.Authority.Local, Trinity.Receipts.KeyCustody],
+    for m <- [
+          Trinity.Permissions.Policy.Layered,
+          Trinity.Tools.Catalog,
+          Trinity.Effects,
+          Trinity.Authority.Local,
+          Trinity.Receipts.KeyCustody
+        ],
         do: assert(m in CorePolicy.modules())
 
     assert CorePolicy.hash() == CorePolicy.hash_of(CorePolicy.modules())
@@ -41,6 +49,7 @@ defmodule Trinity.Effects.BootReceiptTest do
 
   test "changing a policy module changes the hash; an unchanged one does not" do
     mod = :"Elixir.Trinity.PlantedPolicy#{System.unique_integer([:positive])}"
+
     compile = fn body ->
       {:module, ^mod, binary, _} = Module.create(mod, body, Macro.Env.location(__ENV__))
       # get_object_code/1 reads the loaded module's binary through the code path; a module
@@ -60,7 +69,11 @@ defmodule Trinity.Effects.BootReceiptTest do
     h1_again = CorePolicy.hash_of([mod])
     d2 = compile.(quote(do: def(decide, do: :deny)))
     h2 = CorePolicy.hash_of([mod])
-    on_exit(fn -> File.rm_rf!(d1); File.rm_rf!(d2) end)
+
+    on_exit(fn ->
+      File.rm_rf!(d1)
+      File.rm_rf!(d2)
+    end)
 
     assert h1 == h1_again
     assert h1 != h2
