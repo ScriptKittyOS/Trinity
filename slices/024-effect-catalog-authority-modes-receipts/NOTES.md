@@ -124,3 +124,66 @@ row, because `receipts` is append-only and never updated (docs/05); "the tail ca
 "a checkpoint row names the tail"; (c) the boot receipt's page is `/receipts/boot`, not Settings (none exists);
 (d) the `ToolRunner` refactor lands as an executor function on `Tools.Runner` with `Effects.Runner` as the seam
 implementation, so the boundary table's arrow (Effects depends on Tools) holds without a cycle.
+
+## Research, 2026-09-20, and the G1 amendments it produces
+
+The owner asked for the design to be checked against what the field does, not against this tree's own plan.
+Read this date, primary sources only; each amendment names the line of the G1 plan it changes.
+
+1. **DSSE (secure-systems-lab/dsse, protocol.md).** The signature is over `PAE(UTF8(PAYLOAD_TYPE),
+   SERIALIZED_BODY)` where PAE is `"DSSEv1" SP LEN(type) SP type SP LEN(body) SP body`, so the payload type is
+   inside the signed bytes: "two different applications could use the same encoding (e.g. JSON) but interpret the
+   payload differently". `KEYID` is "an unauthenticated hint" that "MUST NOT be used for security decisions".
+   **Amendment A (lines 2, 3, 4):** the signature is over `PAE("trinity/receipt/" <> scheme, canonical_body)`, the
+   DSSE construction with the scheme string as the payload type, and the checkpoint signature over
+   `PAE("trinity/checkpoint/" <> scheme, canonical_checkpoint)`. The reason is concrete here: SLICE.md amendment 1
+   has one key-custody module signing both receipts and, at 061, the MCP core's envelopes with the same key, and
+   without domain separation a signature made for one could be presented as the other. `key_id` stays inside the
+   body as SLICE.md amendment 3 says, which is stronger than DSSE's hint; the verifier still treats it only as
+   the registry lookup key and takes the algorithm from the registry row.
+2. **RFC 8725, JWT Best Current Practices, section 3.1.** "Libraries MUST enable the caller to specify a supported
+   set of algorithms and MUST NOT use any other algorithms", and "each key MUST be used with exactly one
+   algorithm, and this MUST be checked when the cryptographic operation is performed". **Amendment B (line 4):**
+   the verifier takes the allowed scheme set as an argument (the three schemes, or fewer), the registry row binds
+   one algorithm to one key id, and a receipt whose scheme names an algorithm other than its key's row is
+   refused before any signature check, which is SLICE.md amendments 3 and 4 with the RFC's wording as the test
+   names.
+3. **RFC 7638, JWK Thumbprint.** A key identifier computed by anyone from the public key: the required JWK
+   members (`crv`, `kty`, `x`, `y` for EC; `crv`, `kty`, `x` for OKP per RFC 8037) serialised "with no whitespace
+   ... ordered lexicographically", hashed with SHA-256, base64url. **Amendment C (line 2):** `key_id` is the RFC
+   7638 thumbprint of the public key, and the registry row carries the JWK, so a stranger recomputes the id from
+   the key instead of trusting a label. ML-DSA-87 has no JWK form registered at this date; its id is the SHA-256
+   of the raw public key with the same base64url encoding, and the registry row says so by a `kid_scheme` field.
+4. **RFC 5848, Signed Syslog Messages.** The existing standard for signing a stream of records in groups: a
+   Signature Block carries a Reboot Session ID (RSID, "expected to strictly monotonically increase"), a Global
+   Block Counter, the First Message Number, a Count of hashes, the hashes, and a signature over the block; blocks
+   are emitted by count or by `sigMaxDelay`. **Amendment D (line 3):** the `receipt_checkpoints` row carries
+   `chain_scope`, `boot_receipt_hash` (the RSID's role: which boot this checkpoint belongs to), `first_seq`,
+   `last_seq`, `tail_hash`, `key_id`, `signature`, `at`, so a checkpoint states its coverage and a gap between
+   checkpoints is visible as a gap, not as silence; N = 100 rows or T = 5 s stands (RFC 5848 caps a block at 99
+   hashes because of syslog message size, a limit this table does not have).
+5. **C2SP `tlog-checkpoint` and `signed-note`.** "Verifiers MUST ignore signatures from unknown keys ... If no
+   known key successfully verifies, clients MUST reject the note"; "A log MUST not sign any checkpoint which is
+   inconsistent with any checkpoint it previously signed". **Amendment E (lines 3, 4):** the verifier's exit 5
+   (trust not established) is exactly the first rule and is stated with it; the ChainWriter, on rehydrate,
+   verifies the newest checkpoint against the tail before re-signing it, so it can never sign a checkpoint
+   inconsistent with one it signed before (a test: a tail row altered on disk stops the writer from starting,
+   with the reason).
+6. **Crosby and Wallach, "Efficient Data Structures for Tamper-Evident Logging" (USENIX Security 2009), and RFC
+   9162.** A flat hash chain proves inclusion in O(n) and a history tree or Merkle tree in O(log n), with
+   consistency proofs between two tree heads. **No amendment; the trade-off recorded:** Trinity's scopes are per
+   session and verified wholesale, offline, by an operator holding the rows, so the linear chain with RFC
+   5848-style checkpoints is the right size; the day a third party needs inclusion proofs without the rows (026's
+   store-and-forward, or 061's MCP consumers), the checkpoint gains a Merkle root over the scope under a new
+   scheme string, which this design leaves room for and does not build.
+7. **FIPS 186-5 (NIST, February 2023) approves EdDSA.** OpenSSL's maintainers (openssl/openssl #22105, 2023-09):
+   Ed25519 "could be changed to approved once the corresponding self tests are implemented", which later
+   providers carry; the 3.0.7 module the 003 image runs does not, and OTP's `pkey.c` refuses `eddsa` in the mode
+   on its own (measured on the leg). **No amendment; a note for the register:** the mode selection (P-384 when
+   `info_fips()` is `enabled`) is the right rule for this OTP and this provider, and it lives in one function; when
+   OTP lifts its refusal on a provider that approves Ed25519, that function changes and nothing else, because the
+   registry binds each key to its algorithm and old chains verify as written.
+
+What the research did not change: RFC 8785 canonicalisation (the tree already uses it, `jcs` 0.2.0, the RFC
+8785 vector passes); one writer per scope (ADR-0013); signing every decision, effect, boot and cap receipt;
+denial when no approved signer exists; the registry as the only source of the algorithm.
