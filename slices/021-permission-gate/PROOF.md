@@ -160,3 +160,8 @@ $ git log --oneline main..HEAD
 897be2b chore(s021): add jcs ~> 0.2
 c3125f8 docs(s021): G1 plan with the canonicalisation measured, and the slice opens
 ```
+
+## Closing correction, 2026-09-20
+Supersedes the "Final commit" field in the header: the commit carrying this file is `a32d705`
+(`feat(s021): complete slice 021 (permission gate and approval UI)`); the `git log` block above lists the
+commits before it. The pull request, its merge commit (signed in its body) and the tag come after review.
