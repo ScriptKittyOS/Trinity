@@ -224,3 +224,7 @@ b34cd8f feat(s024): the receipts repo and file, the signer seam, key custody and
 9f646ca docs(s024): the design checked against DSSE, RFC 8725, RFC 7638, RFC 5848, C2SP and FIPS 186-5; five G1 amendments
 95b3660 docs(s024): G1 plan with the signing and insert costs measured, and the slice opens
 ```
+
+## Closing correction, 2026-09-20
+Supersedes the header's "Final commit" placeholder: the closing commit is `2ab8d28` (`feat(s024): complete
+slice 024 (effect catalog, authority selection, local receipts)`), and this correction rides on the commit after it.
