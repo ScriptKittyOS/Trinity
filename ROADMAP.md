@@ -33,7 +33,7 @@ standards register names the rows that ask for them.
 | 001 | Packaging spike: Burrito + ex_tauri smoke build | 0 Foundation | M | 000 | approved |
 | 002 | Supply chain, early: SBOM, build provenance, the TLS floor | 0 Foundation | S | 000 | planned |
 | 003 | FIPS build leg in CI, from source | 0 Foundation | M | 000 | planned |
-| 010 | Core domain + persistence (Ecto/SQLite, schemas, Repo owner) | 1 Core loop | M | 000 | planned |
+| 010 | Core domain + persistence (Ecto/SQLite, schemas, Repo owner) | 1 Core loop | M | 000 | in_progress |
 | 011 | LLM provider layer (req_llm behind `Trinity.LLM` behaviour) | 1 Core loop | M | 010 | planned |
 | 012 | Session process + agent loop (gen_statem, DynamicSupervisor, rehydration) | 1 Core loop | L | 010, 011 | planned |
 | 013 | LiveView chat UI with streaming | 1 Core loop | M | 012 | planned |
