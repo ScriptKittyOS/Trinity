@@ -53,3 +53,31 @@ Manual verification queue (two items, for the owner at G4):
 Deviations stated before any code: (a) AC2's "ran" is asserted as not found, with the reason (above); (b) the
 deep link anchors on the chat's existing dom id `message-<id>` rather than a new `m-<seq>`; (c) reindex on
 Postgres is a documented no-op, because a generated column cannot be stale.
+
+## Findings, 2026-09-20
+
+1. **The type checker knows the adapter.** `Trinity.Repo.__adapter__()` is a compile-time constant, so a
+   `case` over it is a "clause will never match" warning under `--warnings-as-errors`; the two databases'
+   query shapes are compiled in with `if @adapter == ...` around the definitions, which is also the truth: the
+   adapter is chosen at compile time (slice 010). The test's count helper reads the adapter from the application
+   environment at run time for the same reason.
+2. **Schemaless selects do not cast.** `inserted_at` came back as text on SQLite and `Calendar.strftime/2`
+   refused it; the select casts it with `type/2`, as the ids are cast through `Trinity.UUID`.
+3. **Tools now depends on Memory.** The `session_search` tool reads `Trinity.Memory.Search`; the boundary edge
+   is new and one-way (Memory never depends on Tools), and docs/01's row says so.
+4. **`~s(...)` cannot hold an unbalanced parenthesis**; the operator-shaped test query uses `~s|...|`.
+5. **Ranking on short rows**: bm25 put this week's question above last week's answer for "launch date" on the
+   screenshot; both are hits, and the page says which session each is. Ranking is not a criterion of this slice.
+6. **The real-provider run** for AC4 went through `nvidia:nemotron` (the session's model, set at seed) with the
+   owner's `.env`, on the dev database, the dev server on port 4031 through a wrapper script; the model called
+   `session_search` unprompted beyond the question naming it, and answered from the hit. Killing the server by
+   `pkill -f phx.server` took the shell with it (exit 144), as the 013 notes warned; kill by pid.
+7. **AC3's time**: 32 ms and 46 ms for 10,000 rows on SQLite here (two runs; `optimize` included); 0 ms on
+   Postgres because there is nothing to rebuild (a generated column), which the task and the test both say.
+
+## Follow-ups
+- 032 (semantic search) fuses with this index; the `rank` field is bm25's on SQLite and `ts_rank` on Postgres,
+  not comparable across adapters, and 032 should normalise before fusing.
+- The search page shows a scope of hits wholesale; a filter row (role, persona, dates) is a small addition when
+  the persona slice (030) gives it something to filter by.
+- The receipts page's "open the covered range" follow-up from 024 can reuse the deep link shape (`#message-<id>`).
