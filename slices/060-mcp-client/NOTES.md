@@ -174,7 +174,7 @@ subscription over stateless HTTP has nothing to hold it).
 
 - beam_mcp's board: a line on the stdio page that the host's log handler must not write to standard output
   (finding 4); and, when 0.9.0 ships, 061 pins it (the seam ask is already on that board, 2026-09-21).
-- Tasks (AC5, deferred): a client for the extension when the core builds or refuses it (SCR-286, after 1.0.0
+- Tasks (AC5, deferred): a client for the extension when the core builds or refuses it (the Tasks issue on that board, after 1.0.0
   on beam_mcp's plan).
 - `Trinity.MCP.Client.Auth` is 062's seam: the static `TRINITY_MCP_<NAME>_TOKEN` variable is the whole of it
   at this slice, and a `401` is a logged refusal.
