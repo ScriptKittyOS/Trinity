@@ -55,7 +55,11 @@ defmodule Trinity.Effects.BootReceiptTest do
       {:module, ^mod, binary, _} = Module.create(mod, body, Macro.Env.location(__ENV__))
       # get_object_code/1 reads the loaded module's binary through the code path; a module
       # created in memory has none, so the test writes it where the code server looks.
-      dir = Path.join(System.tmp_dir!(), "trinity-policy-#{System.unique_integer([:positive])}")
+      # Not "trinity-<anything>": :code.lib_dir/1 reads a code-path entry named like
+      # `<app>-<vsn>` as the application's directory, and a prepended "trinity-policy-N"
+      # made Application.app_dir(:trinity) point at /tmp for every later test (slice 034
+      # found it: the migration files vanished). The path is removed on exit as well.
+      dir = Path.join(System.tmp_dir!(), "planted-policy-#{System.unique_integer([:positive])}")
       File.mkdir_p!(dir)
       File.write!(Path.join(dir, "#{mod}.beam"), binary)
       :code.purge(mod)
@@ -72,6 +76,8 @@ defmodule Trinity.Effects.BootReceiptTest do
     h2 = CorePolicy.hash_of([mod])
 
     on_exit(fn ->
+      Code.delete_path(d1)
+      Code.delete_path(d2)
       File.rm_rf!(d1)
       File.rm_rf!(d2)
     end)

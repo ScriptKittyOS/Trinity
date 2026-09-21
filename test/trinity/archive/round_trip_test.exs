@@ -64,7 +64,9 @@ defmodule Trinity.Archive.RoundTripTest do
           scope: AlwaysOn.persona_scope(persona.id),
           key: "editor",
           body: "neovim"
-        }, by: "test")
+        },
+        by: "test"
+      )
 
     scope = Receipts.session_scope(session.id)
 
