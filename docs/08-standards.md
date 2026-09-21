@@ -51,10 +51,18 @@ Microsoft, OpenAI. Trinity targets AAIF-governed standards first; vendor-specifi
    `requestState` echoed back unmodified**. That echo is what makes MRTR work on a stateless server: all the
    state rides in the payload, so any instance can resume the work. Consequence: our permission gate over MCP maps naturally to MRTR
    (approval = input_required → user decides → retry), and our client must implement the retry loop.
+   As built at 060 (client side): `inputRequests` and `inputResponses` are maps keyed alike, each request a
+   `{method, params}` object and each response an `ElicitResult` (`action`, `content`); the retry is a new
+   JSON-RPC id; only requests the client declared in its capabilities may be sent, and Trinity's client
+   declares form elicitation alone, so the owner answers from the permissions page and no sampling or roots
+   request reaches it. The core (beam_mcp) refuses MRTR on the server side by design; Trinity's server (061)
+   speaks it above the core.
 3. **Deprecated:** Roots, Sampling, Logging (use tool params/resource URIs, provider APIs directly, stderr/OTel),
    HTTP+SSE transport, DCR. Do not build new code on these.
 4. **Extensions framework** with `extensions` in capabilities. Tasks (`io.modelcontextprotocol/tasks`,
-   poll-based `tasks/get`, `tasks/update`) is the one we use.
+   poll-based `tasks/get`, `tasks/update`) is the one we use. At 060 the client builds nothing for it: the
+   core neither builds nor refuses it (059 finding 4), and a client for an extension the server core does
+   not speak would be tested against a double alone; the question goes to beam_mcp's board first.
 5. **Subscriptions** via a single `subscriptions/listen` stream per opted-in notification type
    (`toolsListChanged`, …) instead of the GET endpoint.
 6. **Cacheable lists**: `tools/list` etc. MUST return `ttlMs` + `cacheScope`; return tools in deterministic

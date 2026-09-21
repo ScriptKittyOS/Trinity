@@ -137,6 +137,35 @@ root loads as any other and is not scanned (a follow-up in the slice's NOTES).
 - Luerl with reduction limits, no `os`/`io`/`require`, no filesystem; explicit host functions only.
 - Native/shell code is never "sandboxed" by the BEAM: the UI says so plainly when approving `:exec`.
 
+## MCP client (Slice 060, as built)
+
+- **Every tool a server lists is a dynamic tool under `mcp:<server>:<tool>`**, registered through one bridge
+  module with the server's own description and `inputSchema` as its definition (digested like any other). The
+  tier is `:ask`, because the gate maps core names alone and answers `:ask` for the rest; a row cannot lower it,
+  and the owner allows a tool the way every tool is allowed, with a rule on the permissions page. The effect is
+  `:none` unless the row says `:artifact` for that tool; `:catalog` is refused at write by the changeset and at
+  load by the registry, with a decision receipt of outcome `deny` on the server's chain scope `mcp:<server>`.
+- **Every result is untrusted.** The server's content parts become one `Trinity.Content.Part` tainted
+  `:untrusted` with origin `tool:mcp:<server>:<tool>` and source `mcp://<server>/<tool>`; an image or audio
+  part is a line naming its type and size (the bytes never reach the model); `isError` is a marked line the
+  model reads as the server's error, not a crash.
+- **A stdio child sees an allow-listed environment.** A Port's `env:` adds to the inherited environment, so the
+  driver unsets by name every variable this VM holds outside PATH, HOME, the locale and temp variables and the
+  row's `env_refs`; provider keys are the first thing that must not cross. `env_refs` are names, never values.
+  The child's stderr is the VM's; its stdout is the wire, and a line that is not JSON-RPC is dropped with a
+  warning.
+- **A server's question is an approval, never an automatic answer.** A `tools/call` result with `resultType`
+  `input_required` (the revision's multi-round-trip pattern) holds the call: the server's `inputRequests` go
+  into an approval row's `request` column, the card renders the server's message and a form from its
+  `requestedSchema`, and the owner's answer travels with the decision (`answer`) to the retry. The client
+  declares form elicitation alone in its capabilities, so a server may not ask Trinity to sample a model or
+  list roots. The server's `requestState` is held in the client process, keyed by session and call, and
+  echoed byte-for-byte on the retry; it is never in a row, never shown, never parsed (the revision's MUST
+  NOT). A server that answers `input_required` forever is a server whose every round asks the owner again.
+- **The driver is thin.** It builds the outbound request and nothing else of the protocol; decoding and
+  argument validation are the core's public functions (`BeamMCP.JSON.decode/1`, `BeamMCP.Schema.validate/2`),
+  and a census test holds the population to that (060 AC7).
+
 ## Secrets
 
 - Env vars in dev; OS keychain via `Trinity.Secrets` from Slice 100 (Tauri stronghold/store or a keychain NIF).

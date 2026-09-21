@@ -214,7 +214,7 @@ defmodule TrinityWeb.MCPLive do
                       <td class="py-1 pr-3 font-mono text-meta">{t.effect}</td>
                       <td class="py-1 pr-3 font-mono text-meta">{t.risk}</td>
                       <td class="py-1 text-meta opacity-70">
-                        {Trinity.Tools.Registry.description(t)}
+                        {t.spec && t.spec.description}
                       </td>
                     </tr>
                   </tbody>
