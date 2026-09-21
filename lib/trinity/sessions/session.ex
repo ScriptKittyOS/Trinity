@@ -612,7 +612,9 @@ defmodule Trinity.Sessions.Session do
 
     meta = if turn.finish, do: Map.put(meta, "finish", Atom.to_string(turn.finish)), else: meta
     meta = Map.put(meta, "tool_surface", turn.surface)
-    content = if turn.text == "", do: "(no text)", else: turn.text
+    # Whitespace-only text is blank to `validate_required` (fix(s012) at slice 032: a
+    # model's lone "\n" before its tool calls lost the assistant row and its calls).
+    content = if String.trim(turn.text) == "", do: "(no text)", else: turn.text
 
     result =
       case turn.draft_id && Store.get_message(turn.draft_id) do
