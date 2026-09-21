@@ -10,9 +10,10 @@ desktop application. Apache-2.0, developed in the open from the first commit.
 
 ## Status
 
-Pre-alpha, and usable from source. Milestones M0 to M4 are approved, and the first slice of M5a
-(059, the MCP measurement) with them: 20 slices, each merged with a merge commit and tagged
-`slice/NNN` (`git tag -l 'slice/*' | wc -l` → 20, on 2026-09-21). What that means in practice:
+Pre-alpha, and usable from source. Milestones M0 to M4 are approved, and the first two slices
+of M5a (059, the MCP measurement; 060, the MCP client) with them: 21 slices, each merged with a
+merge commit and tagged `slice/NNN` (`git tag -l 'slice/*' | wc -l` → 21, on 2026-09-21). What
+that means in practice:
 
 - **Talks.** Streaming chat with any provider behind one behaviour (`Trinity.LLM`), switched by
   configuration; the assistant's text is persisted as a draft every 500 ms or 2 KB while it
@@ -34,9 +35,15 @@ Pre-alpha, and usable from source. Milestones M0 to M4 are approved, and the fir
   approve it on the skills page: every proposal is staged with a diff, scanned for shell pipes,
   credentials and instructions to ignore safety, and promoted through the permission gate with a
   receipt.
+- **Connects.** MCP servers you add on the `/mcp` page, over stdio (a child process that sees
+  only the environment variables you name) or Streamable HTTP, at the 2026-07-28 revision with
+  2025-11-25 as the fallback. Every tool a server lists becomes a tool the assistant can call,
+  namespaced so it can never borrow a built-in tool's permissions, asking you until you write a
+  rule; every result is marked untrusted; and when a server needs input mid-call it asks you,
+  on the permissions page, before the call continues.
 
-Not there yet: scheduled tasks and the rest of MCP (M5a: the client is built at 060, the server
-with approvals and the authorization roles follow), messaging gateways and subagents (M5b),
+Not there yet: scheduled tasks and the rest of MCP (M5a: Trinity as an MCP server with approvals,
+and the authorization roles), messaging gateways and subagents (M5b),
 the native desktop shell and signed releases (M6), executable skills in a sandbox (M7). `ROADMAP.md` carries the live status of every
 slice, and the [Milestones](#milestones) section below explains how to read it.
 
@@ -132,7 +139,7 @@ engineering contract that every change is held to.
 | M7 Sandboxed | Executable skills in an in-VM sandbox | 110 approved |
 | M9 Donatable | Open-source hygiene audited, supply chain signed, shared libraries extracted | 002 and 120 to 123 approved |
 
-M0 to M4 are approved as of 2026-09-21. Slice numbers have gaps on purpose (000, 001, 010, 011 and so on) so that a slice can be inserted
+M0 to M4 are approved as of 2026-09-21, and 059 and 060 of M5a with them. Slice numbers have gaps on purpose (000, 001, 010, 011 and so on) so that a slice can be inserted
 later without renumbering anything.
 
 ## What is in the repository
