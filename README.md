@@ -10,9 +10,9 @@ desktop application. Apache-2.0, developed in the open from the first commit.
 
 ## Status
 
-Pre-alpha, and usable from source. Milestones M0 to M4 are approved: 19 slices, each merged with a
-merge commit and tagged `slice/NNN` (`git tag -l 'slice/*' | wc -l` → 19, on 2026-09-21). What
-that means in practice:
+Pre-alpha, and usable from source. Milestones M0 to M4 are approved, and the first slice of M5a
+(059, the MCP measurement) with them: 20 slices, each merged with a merge commit and tagged
+`slice/NNN` (`git tag -l 'slice/*' | wc -l` → 20, on 2026-09-21). What that means in practice:
 
 - **Talks.** Streaming chat with any provider behind one behaviour (`Trinity.LLM`), switched by
   configuration; the assistant's text is persisted as a draft every 500 ms or 2 KB while it
