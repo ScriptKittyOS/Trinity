@@ -66,6 +66,9 @@ defmodule TrinityWeb.SessionLive.Index do
             </select>
             <.link navigate={~p"/personas"} class="underline opacity-70">{gettext("edit")}</.link>
             <.link navigate={~p"/memory"} class="underline opacity-70">{gettext("memory")}</.link>
+            <.link id="settings-link" navigate={~p"/settings"} class="underline opacity-70">{gettext(
+              "settings"
+            )}</.link>
           </form>
           <button
             id="new-session"

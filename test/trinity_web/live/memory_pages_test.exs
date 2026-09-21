@@ -131,8 +131,7 @@ defmodule TrinityWeb.MemoryPagesTest do
     {:ok, view, _html} = live(conn, ~p"/")
     view |> form("#persona-picker", persona_id: persona.id) |> render_change()
     view |> element("#new-session") |> render_click()
-    assert_redirect(view)
-    [session | _] = Trinity.Sessions.list_sessions(limit: 1)
-    assert session.persona_id == persona.id
+    {"/s/" <> id, _flash} = assert_redirect(view)
+    assert Trinity.Sessions.get_session(id).persona_id == persona.id
   end
 end

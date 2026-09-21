@@ -29,6 +29,9 @@ defmodule TrinityWeb.Router do
       live "/permissions", PermissionsLive, :index
       # Slice 031: full-text search over every message.
       live "/search", SearchLive, :index
+      # Slice 034: settings, with the export as a download.
+      live "/settings", SettingsLive, :index
+      get "/settings/export.tar.gz", ExportController, :download
       # Slice 030: personas and the always-on memory.
       live "/personas", PersonasLive, :index
       live "/personas/:id", PersonasLive, :edit
