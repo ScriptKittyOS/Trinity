@@ -99,6 +99,36 @@ defmodule TrinityWeb.SkillsLive do
      |> start_async(:learn, fn -> Skills.Learn.learn_for(args, project, persona) end)}
   end
 
+  def handle_event("view", %{"name" => name}, socket) do
+    {:noreply, assign(socket, viewing: Enum.find(socket.assigns.skills, &(&1.name == name)))}
+  end
+
+  def handle_event("close", _params, socket), do: {:noreply, assign(socket, viewing: nil)}
+
+  def handle_event(
+        "set_status",
+        %{"name" => name, "source" => source, "status" => status},
+        socket
+      ) do
+    case Skills.set_status(name, source, status) do
+      :ok ->
+        {:noreply, load(socket)}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, gettext("Not changed: %{r}", r: inspect(reason)))}
+    end
+  end
+
+  def handle_event("reindex", _params, socket) do
+    :ok = Skills.rescan()
+    {:noreply, socket |> load() |> put_flash(:info, gettext("Skills reindexed."))}
+  end
+
+  def handle_event("new_session", _params, socket),
+    do: {:noreply, TrinityWeb.SessionLive.Index.new_session(socket)}
+
+  def handle_event("cancel", _params, socket), do: {:noreply, socket}
+
   @impl true
   def handle_async(:learn, {:ok, {:ok, change}}, socket) do
     {:noreply,
