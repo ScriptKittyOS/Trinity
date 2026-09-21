@@ -80,7 +80,9 @@ defmodule Trinity.Skills.Learn do
             "description (one or two sentences: what the skill does and when to use it, with the words a person would use); " <>
             "category (one lowercase word); body (Markdown: the procedure or the knowledge, step by step, under #{@max_body_lines} lines, " <>
             "pointing at the reference file for detail); reference_name (a file name like overview.md); " <>
-            "reference (Markdown: the detail worth keeping from the document, condensed). Keep only what a future task needs. Invent nothing.",
+            "reference (Markdown: the detail worth keeping from the document, condensed). Every field is one JSON string; " <>
+            "body and reference are Markdown with real line breaks (\\n between lines, a heading, numbered steps, a blank line between paragraphs), " <>
+            "never a single run-on line. Keep only what a future task needs. Invent nothing.",
         messages: [%{role: "user", content: "Source: #{source_ref}\n\n" <> text}]
       })
 
@@ -135,6 +137,7 @@ defmodule Trinity.Skills.Learn do
     body =
       obj["body"]
       |> to_string()
+      |> unflatten()
       |> String.split("\n")
       |> Enum.take(@max_body_lines)
       |> Enum.join("\n")
@@ -160,8 +163,20 @@ defmodule Trinity.Skills.Learn do
         |> String.replace(~r/[^a-z0-9]+/, "-"),
       body: body,
       reference_name: ref_name,
-      reference: to_string(obj["reference"])
+      reference: obj["reference"] |> to_string() |> unflatten()
     }
+  end
+
+  # A model that answered one run-on line (two spaces where its line breaks were) gets them
+  # back: a Markdown heading, a numbered step or a bullet after two spaces starts a line.
+  defp unflatten(text) do
+    if String.contains?(text, "\n") do
+      text
+    else
+      text
+      |> String.replace(~r/\s{2,}(?=(\#{1,6} |\d+\. |- |\* ))/, "\n\n")
+      |> String.replace(~r/\s{2,}/, "\n")
+    end
   end
 
   # A double-quoted YAML scalar for a description that may hold a colon or a quote.

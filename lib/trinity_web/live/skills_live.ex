@@ -19,7 +19,13 @@ defmodule TrinityWeb.SkillsLive do
 
     {:ok,
      socket
-     |> assign(page_title: gettext("Skills"), project: project, viewing: nil, showing: nil)
+     |> assign(
+       page_title: gettext("Skills"),
+       project: project,
+       viewing: nil,
+       showing: nil,
+       learning: nil
+     )
      |> load()}
   end
 
@@ -75,61 +81,49 @@ defmodule TrinityWeb.SkillsLive do
   end
 
   # The learn form: a URL or a file under the project's roots, distilled by the default
-  # persona's model, staged like any change.
+  # persona's model, staged like any change. The model call takes a while, so it runs as
+  # the view's async task (a blocked view misses its heartbeats and the client reconnects).
   def handle_event("learn", %{"source" => source}, socket) do
     source = String.trim(source)
     persona = Trinity.Personas.default()
+    project = socket.assigns.project
 
     args =
       if String.match?(source, ~r/^https?:\/\//),
         do: %{"url" => source},
         else: %{"file" => source}
 
-    case Skills.Learn.learn_for(args, socket.assigns.project, persona) do
-      {:ok, change} ->
-        {:noreply,
-         socket
-         |> load()
-         |> put_flash(
-           :info,
-           gettext("Staged the learned skill %{name} for your approval.", name: change.skill_name)
-         )}
-
-      {:error, reason} ->
-        {:noreply,
-         put_flash(socket, :error, gettext("Nothing learned: %{r}", r: inspect(reason)))}
-    end
+    {:noreply,
+     socket
+     |> assign(learning: source)
+     |> start_async(:learn, fn -> Skills.Learn.learn_for(args, project, persona) end)}
   end
 
-  def handle_event("view", %{"name" => name}, socket) do
-    {:noreply, assign(socket, viewing: Enum.find(socket.assigns.skills, &(&1.name == name)))}
+  @impl true
+  def handle_async(:learn, {:ok, {:ok, change}}, socket) do
+    {:noreply,
+     socket
+     |> assign(learning: nil)
+     |> load()
+     |> put_flash(
+       :info,
+       gettext("Staged the learned skill %{name} for your approval.", name: change.skill_name)
+     )}
   end
 
-  def handle_event("close", _params, socket), do: {:noreply, assign(socket, viewing: nil)}
-
-  def handle_event(
-        "set_status",
-        %{"name" => name, "source" => source, "status" => status},
-        socket
-      ) do
-    case Skills.set_status(name, source, status) do
-      :ok ->
-        {:noreply, load(socket)}
-
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, gettext("Not changed: %{r}", r: inspect(reason)))}
-    end
+  def handle_async(:learn, {:ok, {:error, reason}}, socket) do
+    {:noreply,
+     socket
+     |> assign(learning: nil)
+     |> put_flash(:error, gettext("Nothing learned: %{r}", r: inspect(reason)))}
   end
 
-  def handle_event("reindex", _params, socket) do
-    :ok = Skills.rescan()
-    {:noreply, socket |> load() |> put_flash(:info, gettext("Skills reindexed."))}
+  def handle_async(:learn, {:exit, reason}, socket) do
+    {:noreply,
+     socket
+     |> assign(learning: nil)
+     |> put_flash(:error, gettext("Nothing learned: %{r}", r: inspect(reason)))}
   end
-
-  def handle_event("new_session", _params, socket),
-    do: {:noreply, TrinityWeb.SessionLive.Index.new_session(socket)}
-
-  def handle_event("cancel", _params, socket), do: {:noreply, socket}
 
   defp blank_to_nil(nil), do: nil
   defp blank_to_nil(s), do: if(String.trim(s) == "", do: nil, else: String.trim(s))
@@ -237,7 +231,11 @@ defmodule TrinityWeb.SkillsLive do
               placeholder={gettext("learn from a file under the project, or a URL")}
               class="flex-1 rounded-field border border-base-300 bg-base-100 px-2 py-2 text-ui"
             />
-            <button type="submit" class="btn btn-sm btn-ghost">{gettext("Learn")}</button>
+            <button type="submit" class="btn btn-sm btn-ghost" disabled={@learning != nil}>{gettext(
+              "Learn"
+            )}</button>
+            <span :if={@learning} id="learning" class="font-mono text-meta opacity-70">{gettext(
+              "learning from %{s}…", s: @learning)}</span>
           </form>
 
           <ul :if={@recent != []} id="recent-changes" class="font-mono text-meta opacity-70">

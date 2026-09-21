@@ -98,10 +98,12 @@ defmodule TrinityWeb.SkillChangesTest do
 
     {:ok, view, _} = live(conn, ~p"/skills?project=#{project}")
     view |> form("#learn-form", source: "notes.md") |> render_submit()
-    assert render(view) =~ "Staged the learned skill notes for your approval."
+    assert has_element?(view, "#learning", "learning from notes.md")
+    # The learn is the view's async task; render_async waits for it.
+    assert render_async(view, 5_000) =~ "Staged the learned skill notes for your approval."
     assert [%{skill_name: "notes", status: "pending"}] = Staging.list()
 
     view |> form("#learn-form", source: "/etc/hostname") |> render_submit()
-    assert render(view) =~ "Nothing learned: {:outside_roots"
+    assert render_async(view, 5_000) =~ "Nothing learned: {:outside_roots"
   end
 end
