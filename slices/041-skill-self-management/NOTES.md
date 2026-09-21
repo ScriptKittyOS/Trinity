@@ -83,3 +83,56 @@ because a change may be approved from a page with no session and outlives the se
 the card as blocking auto-approval; (e) cross-scope promotion (project to global) is not built: the target
 root is always the user root, and a project skill's edit stages against the user root under the same name
 (the platform alignment's second approval waits for a slice that has two targets).
+
+## Findings at G3, 2026-09-21
+
+1. **An approval needs no session.** 021's `approvals.session_id` was NOT NULL and its changeset required
+   it; a staged change approved from the page has no session, and the platform alignment wants the promotion
+   to go through `Trinity.Permissions` all the same. Migration `20260921161000` drops the constraint (Postgres
+   in place; SQLite by rebuilding the table with the same columns, foreign key and indexes, rows copied), the
+   changeset no longer requires it, and `Permissions.topic(nil)` is `approvals:none` (the scope was already
+   `session:none`). A gateway (070) listening on `approvals:all` sees these like any other.
+2. **The comment did not persist.** The manager set the decider's comment on the struct before the
+   promotion, and `Change.changeset/2` saw no change against its own data: the row stayed `nil` while the
+   returned struct said otherwise, which the staging test's assertion on the struct did not catch and the page
+   test's reload did. `Promotion.swap/4` takes the comment as an argument now; the staging test reloads.
+3. **The learn cannot run inside `handle_event/3`.** nemotron-3.5 took 151 s to distil `docs/backup.md`;
+   a view blocked that long misses its heartbeats, the client reconnects, the view dies and its in-flight
+   call with it (the first run's row appeared only because the call finished before the socket gave up).
+   The learn is the view's `start_async` task now, with a "learning from …" line and the flash on completion;
+   the page test waits with `render_async`.
+4. **The model's first answer was one run-on line** (two spaces where its line breaks should have been, and
+   a stray `, category:` on the end). The prompt now asks for real line breaks in `body` and `reference` and
+   names the shape (a heading, numbered steps, a blank line between paragraphs), and `Learn` unflattens an
+   answer without a newline at its headings, steps and bullets. The second run answered a 32-line SKILL.md
+   and a 16-line reference (`proof/learned/`).
+5. **A skills page edit lost its 040 clauses.** Inserting the learn handler cut the `view`, `close`,
+   `set_status` and `reindex` clauses; the gate's page test caught it (a `FunctionClauseError` on "view").
+   Restored from the previous commit; noted because the failure mode (a text edit dropping neighbouring
+   code) is one a reviewer should know the tests cover.
+6. **The compaction test sized itself.** Two more tool schemas moved the retry past the hard threshold
+   again (as 040's three had); the crossing message is now computed from the registered tool surface and the
+   window, so a tool added later does not turn a compaction into a fork in that test.
+7. **The secret scan reads test fixtures.** The scanner's own tests carried an AWS key shape and a private
+   key header as literals; `mix trinity.secrets.scan` flagged them in the gate. The samples are concatenated
+   at run time; the scanner still sees the shape.
+8. **One pending create per name.** A second `create` of a name with a pending create is `{:pending, name}`;
+   other actions may stack (each approval recomputes the digest of its own tree, and a patch staged against
+   a version that has since changed still applies as its own whole tree, which is the design's blunt edge:
+   the diff shown is against the skill as it was when staged).
+9. **The proposing tool asks, then the change asks.** Under the default policy `skill_manage` (a `:write`
+   tool) needs an approval to run, and the staged change needs another; the manage test sets an allow rule
+   for the tool so it measures the staging. A persona that proposes often wants that rule; the second gate is
+   the one that matters.
+
+## Follow-ups
+
+- **Hub installation** (docs/07: scanned, `disabled` until enabled) and the `agent` and `hub:<url>` sources
+  of docs/05: not built; a skill dropped by hand into the user root loads unscanned. The scanner runs on
+  pending trees only.
+- **Cross-scope promotion** (project to global) as a second approval: the target root is always the user
+  root here (decision e).
+- **A stale patch.** A patch staged against version N and approved after N+1 applies its whole tree over
+  N+1 (finding 8); a rebase or a refusal when the base digest moved is the better behaviour.
+- **`allowed-tools` as a permission hint** and the persona's auto-approval on the persona page (it is a
+  setting today, set through `Trinity.Personas.put_setting/3`, with no control on `/personas/:id`).
