@@ -12,7 +12,7 @@ block in the volatile tier under its own cap, a `recall` tool, and the memory pa
 live run found two defects older than the slice (a whitespace-only assistant row lost, the req_llm tool-call
 encoding), both closed red-then-fix; the packaged binary showed that EXLA's NIF does not load in Burrito's
 Linux ERTS, so exla is started on demand and the Linux bundle boots with the tier off and says why (AC7's
-fallback clause). Twelve findings and four follow-ups in NOTES.md.
+fallback clause). Thirteen findings and four follow-ups in NOTES.md.
 
 ## Gate
 ```
@@ -111,6 +111,8 @@ test/trinity/sessions/session_test.exs
   * test the tool path (AC6) a turn whose only text is whitespace before its tool calls still persists its assistant row   (fix(s012), red first: 31a793b)
 test/trinity/llm/mapping_test.exs
   * test the request's assistant tool calls reach req_llm's context as ToolCall structs with their ids   (fix(s011), red first: f6fc944)
+test/trinity/receipts/chain_writer_test.exs
+  * test AC5 at the writer: the key removed mid-run, the next signed receipt is refused, the alarm sounds, no row is written   (its tail: the alarm clears when the signer signs again)   (fix(s024) ab07781, red first: eda618f)
 ```
 
 ## Acceptance criteria evidence
@@ -241,8 +243,9 @@ and vector search over 1,000 and 10,000 rows on both stores (`scripts/vector_ben
 NOTES.md, the four stated before code (no `sqlite_vec`; the hosted embedder opt-in only; the download an
 explicit action; the embedder recorded on the row), and three found building: exla declared `runtime: false`
 and started on demand (finding 2), the fake embedder 384 wide (finding 6), a cosine floor on recall (finding
-7). Two fixes outside the slice's scope, both red-then-fix, because the slice's first live run met them
-(finding 1): `fix(s012)` and `fix(s011)`. Two test flakes closed at their source (finding 10).
+7). Three fixes outside the slice's scope, each red-then-fix, because this slice's runs met them: `fix(s012)`
+and `fix(s011)` (finding 1, the first live run) and `fix(s024)` (finding 13, the fips leg). Two test flakes
+closed at their source (finding 10).
 
 ## Versions touched
 `VERSIONS.md` updated: yes (nx, exla, bumblebee, pgvector rows now locked and ✅; sqlite_vec recorded as not

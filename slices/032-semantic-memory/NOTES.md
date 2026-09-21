@@ -199,6 +199,14 @@ produced each vector is recorded on the row (decision 4).
     search's own transaction (pgvector 0.8, `fix(s032)` de55660), which walks on until the LIMIT is met with the
     order exact. Four runs of the three memory files on the container after: 21 passed each.
 
+13. **The signer alarm never cleared.** The fips leg (run 35606884798) failed its receipts test on
+    `refute Alarm.set?()` after a successful effect: `Trinity.Receipts.Alarm`'s doc has said since 024 that the
+    alarm clears "once a signer signs again", and nothing called `clear/0` outside tests, so an alarm any
+    earlier test raised stayed up for the run. Red in `test/trinity/receipts/chain_writer_test.exs` (the
+    alarm test's tail), then `fix(s024)`: a successful signature in `ChainWriter` clears a set alarm. The
+    postgres job's `sessions_stress_test.exs:20` pool-starvation flake (run 35606463533) is the known one
+    from earlier slices (the fix(s010) candidate), not touched here.
+
 ## Follow-ups
 
 - **A local embedding backend for the Linux bundle and for Windows.** The Linux bundle boots with the tier

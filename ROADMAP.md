@@ -46,7 +46,7 @@ standards register names the rows that ask for them.
 | 026 | Store-and-forward receipts for disconnected operation | 2 Tools | L | 024 | planned |
 | 030 | Persona (SOUL) + always-on memory tier | 3 Memory | M | 012 | approved |
 | 031 | Session search (SQLite FTS5) | 3 Memory | S | 010 | approved |
-| 032 | Embeddings + semantic memory + hybrid retrieval | 3 Memory | L | 031 | in_progress |
+| 032 | Embeddings + semantic memory + hybrid retrieval | 3 Memory | L | 031 | done |
 | 033 | Project context: AGENTS.md | 3 Memory | S | 030, 022 | approved |
 | 034 | Export, import, restore | 3 Memory | S | 030, 031 | approved |
 | 040 | Skills registry + agentskills.io format + progressive disclosure | 4 Skills | M | 020 | planned |
