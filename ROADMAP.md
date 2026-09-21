@@ -45,7 +45,7 @@ standards register names the rows that ask for them.
 | 025 | Encryption at rest, and the key-custody seam | 2 Tools | M | 010, 024 | planned |
 | 026 | Store-and-forward receipts for disconnected operation | 2 Tools | L | 024 | planned |
 | 030 | Persona (SOUL) + always-on memory tier | 3 Memory | M | 012 | planned |
-| 031 | Session search (SQLite FTS5) | 3 Memory | S | 010 | done |
+| 031 | Session search (SQLite FTS5) | 3 Memory | S | 010 | approved |
 | 032 | Embeddings + semantic memory + hybrid retrieval | 3 Memory | L | 031 | planned |
 | 033 | Project context: AGENTS.md | 3 Memory | S | 030, 022 | planned |
 | 034 | Export, import, restore | 3 Memory | S | 030, 031 | planned |
