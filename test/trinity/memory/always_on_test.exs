@@ -97,7 +97,9 @@ defmodule Trinity.Memory.AlwaysOnTest do
                  scope: "persona:x",
                  key: "Bad Key!",
                  body: "x"
-               }, by: "test")
+               },
+               by: "test"
+             )
 
     add!(persona, %{key: "again", body: "1"})
 
@@ -109,7 +111,9 @@ defmodule Trinity.Memory.AlwaysOnTest do
                  scope: AlwaysOn.persona_scope(persona.id),
                  key: "again",
                  body: "2"
-               }, by: "test")
+               },
+               by: "test"
+             )
 
     assert [
              %{action: "add", key: "again", by: "test"},

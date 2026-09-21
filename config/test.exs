@@ -27,6 +27,8 @@ config :trinity, :tools,
     Trinity.Tools.Web.Search,
     # Slice 031: full-text search over past messages.
     Trinity.Tools.SessionSearch,
+    # Slice 030: the always-on memory tiers.
+    Trinity.Tools.Memory,
     Trinity.Tools.Shell.Run
   ],
   toolsets: %{
@@ -35,7 +37,7 @@ config :trinity, :tools,
     web: ["web_fetch", "web_search"],
     shell: ["shell"],
     # Slice 031: search over past conversations.
-    memory: ["session_search"]
+    memory: ["session_search", "memory"]
   },
   timeout_ms: 2_000
 

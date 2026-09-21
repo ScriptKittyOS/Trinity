@@ -106,31 +106,34 @@ defmodule Trinity.Tools.Runner do
           {:ok, Result.t()} | {:error, term()}
   def execute_direct(entry, args, ctx) do
     case decide(entry, args, ctx) do
-      {:allow, _fp} -> call_tool(entry, args, ctx)
-      {:deny, _fp} -> {:error, :denied}
-      {:ask, reason, _fp} -> {:error, reason}
+      {:allow, _fp, _basis} -> call_tool(entry, args, ctx)
+      {:deny, _fp, _basis} -> {:error, :denied}
+      {:ask, reason, _fp, _basis} -> {:error, reason}
     end
   end
 
   @doc """
   The gate's decision for a validated call, asked exactly once, with the fingerprint the
-  decision bound: `{:allow, fp}`, `{:deny, fp}`, or `{:ask, reason, fp}` where the reason is
+  decision bound and the layer that decided (slice 030): `{:allow, fp, basis}`,
+  `{:deny, fp, basis}`, or `{:ask, reason, fp, basis}` where the reason is
   `{:approval_required, id}` (a pending approval the Session waits on), `:approval_required`
   (no session to ask) or `{:request_failed, why}`.
   """
   @spec decide(Registry.entry(), map(), Context.t()) ::
-          {:allow, String.t()} | {:deny, String.t()} | {:ask, term(), String.t()}
+          {:allow, String.t(), String.t()}
+          | {:deny, String.t(), String.t()}
+          | {:ask, term(), String.t(), String.t()}
   def decide(%{name: name} = entry, args, ctx) do
     fp = Permissions.fingerprint(ctx.session_id, name, args, ctx.cwd)
 
-    case Permissions.decide(ctx.session_id, name, args,
+    case Permissions.decide_with_basis(ctx.session_id, name, args,
            persona: ctx.persona,
            cwd: ctx.cwd,
            escalate: escalation(entry, args, ctx)
          ) do
-      :allow -> {:allow, fp}
-      :deny -> {:deny, fp}
-      :ask -> {:ask, ask(ctx, entry, args), fp}
+      {:allow, basis} -> {:allow, fp, basis}
+      {:deny, basis} -> {:deny, fp, basis}
+      {:ask, basis} -> {:ask, ask(ctx, entry, args), fp, basis}
     end
   end
 
