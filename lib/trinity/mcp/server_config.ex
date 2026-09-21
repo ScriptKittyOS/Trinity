@@ -22,7 +22,6 @@ defmodule Trinity.MCP.ServerConfig do
 
   @transports ~w(stdio http)
   @effects ~w(none artifact)
-  @risks ~w(read write exec network destructive ask)
   @name_pattern ~r/^[a-z0-9][a-z0-9_-]{0,31}$/
 
   schema "mcp_servers" do
@@ -39,13 +38,11 @@ defmodule Trinity.MCP.ServerConfig do
     timestamps()
   end
 
-  @doc "The transports, the effect classes a server's tools may carry, the risk tiers an override may name."
+  @doc "The transports, and the effect classes a server's tools may carry."
   @spec transports() :: [String.t()]
   def transports, do: @transports
   @spec effects() :: [String.t()]
   def effects, do: @effects
-  @spec risks() :: [String.t()]
-  def risks, do: @risks
 
   @doc false
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
@@ -115,14 +112,14 @@ defmodule Trinity.MCP.ServerConfig do
     end)
   end
 
-  # An override is `%{"effect" => none | artifact, "risk" => a tier}` per tool name; `catalog`
-  # is refused here so a row can never claim it (the registry refuses it too, and the load
-  # path receipts a refusal: AC3).
+  # An override is `%{"effect" => none | artifact}` per tool name; `catalog` is refused here
+  # so a row can never claim it (the registry refuses it too, and the load path receipts a
+  # refusal: AC3). No other key is known.
   defp validate_overrides(changeset) do
     validate_change(changeset, :tool_overrides, fn :tool_overrides, overrides ->
       Enum.flat_map(overrides, fn
         {tool, %{} = o} when is_binary(tool) ->
-          effect_errors(tool, Map.get(o, "effect")) ++ risk_errors(tool, Map.get(o, "risk"))
+          effect_errors(tool, Map.get(o, "effect")) ++ key_errors(tool, Map.keys(o))
 
         {tool, _} ->
           [tool_overrides: "#{tool}: an override is a map"]
@@ -139,7 +136,16 @@ defmodule Trinity.MCP.ServerConfig do
   defp effect_errors(tool, other),
     do: [tool_overrides: "#{tool}: unknown effect #{inspect(other)}"]
 
-  defp risk_errors(_tool, nil), do: []
-  defp risk_errors(_tool, risk) when risk in @risks, do: []
-  defp risk_errors(tool, other), do: [tool_overrides: "#{tool}: unknown risk #{inspect(other)}"]
+  defp key_errors(tool, keys) do
+    case keys -- ["effect"] do
+      [] ->
+        []
+
+      other ->
+        [
+          tool_overrides:
+            "#{tool}: unknown key#{if length(other) > 1, do: "s"} #{Enum.join(other, ", ")}"
+        ]
+    end
+  end
 end

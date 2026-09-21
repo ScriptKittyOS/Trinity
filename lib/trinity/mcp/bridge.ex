@@ -12,7 +12,8 @@ defmodule Trinity.MCP.Bridge do
   tier (docs/07); the effect is `:none` unless the row says `:artifact` for the tool, and a
   row that claims `:catalog` is refused at load with a decision receipt on the server's
   chain scope, because the effect catalog is compile time and a server cannot enter it
-  (AC3). The risk is `:ask` unless the row's override lowers it by name.
+  (AC3). The tier is `:ask`: `Trinity.Permissions.tier/1` answers that for every name
+  outside the core map, and only a rule the owner writes allows a call without asking.
 
   A result whose `resultType` is `input_required` (the revision's multi-round-trip pattern)
   is not a result: the server's `inputRequests` become one approval-shaped request to the
@@ -63,13 +64,12 @@ defmodule Trinity.MCP.Bridge do
     registry_name = tool_name(server, tool)
 
     with :ok <- check_name(tool),
-         {effect, risk} = classes(config, tool),
          spec = %{
            name: registry_name,
            description: to_string(Map.get(listed, "description") || ""),
            schema: Map.get(listed, "inputSchema") || %{"type" => "object"},
-           effect: effect,
-           risk: risk
+           effect: effect(config, tool),
+           risk: :ask
          },
          {:ok, _entry} <- Trinity.Tools.register(__MODULE__, spec: spec) do
       {:ok, registry_name}
@@ -88,15 +88,12 @@ defmodule Trinity.MCP.Bridge do
     if Regex.match?(@tool_name_pattern, tool), do: :ok, else: {:error, {:invalid_tool_name, tool}}
   end
 
-  # The row's classes for a tool: the override's effect and risk when named, the row's
-  # default effect otherwise, `:ask` for the risk. The strings are the row's; an unknown one
-  # is passed through for the registry to refuse (`catalog` included), never mapped to a
-  # safe value silently.
-  defp classes(%ServerConfig{effect_default: default, tool_overrides: overrides}, tool) do
+  # The row's effect for a tool: the override's when named, the row's default otherwise.
+  # The string is the row's; an unknown one is passed through for the registry to refuse
+  # (`catalog` included), never mapped to a safe value silently.
+  defp effect(%ServerConfig{effect_default: default, tool_overrides: overrides}, tool) do
     override = Map.get(overrides || %{}, tool, %{})
-    effect = Map.get(override, "effect") || default
-    risk = Map.get(override, "risk") || "ask"
-    {as_atom(effect), as_atom(risk)}
+    as_atom(Map.get(override, "effect") || default)
   end
 
   defp as_atom(s) when is_binary(s), do: String.to_existing_atom(s)

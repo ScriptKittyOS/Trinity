@@ -88,7 +88,8 @@ Branch `slice/060-mcp-client`; ROADMAP row 060 to `in_progress` in this commit. 
    `meta` carrying the server, the tool and the revision. Registration per tool: name
    `mcp:<server>:<tool>`, effect from `effect_default` and the override (`catalog` refused at load with a
    `decision` receipt of outcome `deny` on the server's chain scope `mcp:<server>`, and the tool skipped),
-   risk `:ask` unless an override says lower for that name. Tests AC2 (a call through
+   risk `:ask` unless an override says lower for that name (superseded below: no override lowers
+   it). Tests AC2 (a call through
    `Trinity.Effects.Runner` with `effect: :none` yields a query receipt), AC3 (an override claiming
    `catalog` is refused at load with the receipt), and the mapping.
 6. MRTR (AC4) on the approval mechanism 021 already has, so the Session changes not at all: on
@@ -121,3 +122,26 @@ keep or retag.
 Not built here: the OAuth client role (062), Tasks (see above), sampling, roots, logging, SSE,
 `subscriptions/listen` for tool list changes (stdio's notification and `ttlMs` cover re-listing; a
 subscription over stateless HTTP has nothing to hold it).
+
+## Deviations while building, 2026-09-21
+
+- **No `risk` in a row's `tool_overrides`.** The plan's line 5 said an override could lower a tool's tier.
+  It cannot: `Trinity.Permissions.tier/1` maps the core names alone and answers `:ask` for every other
+  (docs/07, "unmapped goes to ask"), and a dynamic entry's `risk` is never handed to the permission
+  layer (021: only the registry in the application tree writes the core tiers, "a dynamic tool never
+  reaches this line"). A `risk` on the row would have claimed something the gate never honours. The
+  override carries `effect` alone; the tier of every MCP tool is `:ask`, and the owner lowers it the way
+  every other tier is lowered, with a rule on the permissions page. Test: `spec_registration_test.exs`
+  runs a spec'd call under a rule, and `server_config_test.exs` refuses an unknown override key.
+- **The stdio child's environment is an allow list, not an add list.** A Port's `env:` adds to the
+  inherited environment (022's lesson), so the child of an MCP row would have seen every variable this
+  VM holds, provider keys first. Every inherited variable outside PATH, HOME, the locale and temp
+  variables and the row's `env_refs` is unset by name for the child (`Transport.Stdio.kept_variables/0`),
+  on every OS. Test: `stdio_env_test.exs`.
+- **A stdio server's log must not go to stdout.** The Elixir VM's default log handler writes to standard
+  output, which is the wire. The stdio server under test moves its handler to standard error; a child
+  that logs to stdout is read as undecodable lines (warned, dropped) and its answers still correlate by
+  id. Worth a line on beam_mcp's stdio page (follow-up, not raised yet).
+- **`server/discover` carries the modern `_meta`.** The HTTP transport requires a version on every POST;
+  the dual-era core answers `server/discover` whatever the `_meta` says; a legacy-only core answers
+  `-32022` naming what it supports, which the driver reads as its cue to `initialize`.
