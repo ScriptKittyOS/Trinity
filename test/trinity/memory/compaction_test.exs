@@ -139,16 +139,16 @@ defmodule Trinity.Memory.CompactionTest do
       long_conversation(pid, id, 12)
       before = Enum.count(Sessions.history(id, limit: 500), &Compactor.compaction?/1)
       # A message that crosses the soft threshold, and an object call slow enough to be killed in.
-      # 200 repetitions since slice 040: the three skill tools' schemas are in every request's
-      # estimate, and 250 put the retry past the hard threshold (a fork, not a compaction).
+      # Sized from the tool surface (since 040: every registered tool's schema is in the
+      # estimate, and a fixed count forked past the hard threshold as tools were added): the
+      # message lands the request 600 tokens over the soft threshold, well under the hard one.
       Fake.object_delay(3_000)
       Fake.script(script_deltas(2, "again "))
-
-      {:ok, _} =
-        Session.send_user_message(
-          pid,
-          String.duplicate("more words to cross the threshold ", 200)
-        )
+      base = Tokens.estimate(Jason.encode!(Trinity.Tools.to_llm_tools()))
+      %{soft: soft} = Tokens.thresholds(Tokens.context_tokens("fake:chat"))
+      unit = "more words to cross the threshold "
+      repeats = div((soft + 600 - base) * 3, byte_size(unit))
+      {:ok, _} = Session.send_user_message(pid, String.duplicate(unit, repeats))
 
       events = collect(id, &match?({:state, :compacting}, &1), 5_000)
 

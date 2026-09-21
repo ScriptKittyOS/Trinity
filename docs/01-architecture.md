@@ -88,7 +88,7 @@ without anything failing.
 | `Trinity.Authority` | Behaviour; `Local` implementation (the one caller of `execute/2` for effectful tools); selection at boot; `Staged` | Receipts, Repo |
 | `Trinity.Receipts` | Local chain (one supervised writer per scope, ADR-0013), the signer seam (Ed25519, P-384, ML-DSA-87), key custody and the registry, checkpoints, the verifier, the alarm | Repo (`Repo.Receipts`) |
 | `Trinity.Memory` | Always-on tiers with their budget and consolidator (030), search (031), semantic store and retrieval (032), compaction (023) | LLM (summaries/embeddings), Repo |
-| `Trinity.Skills` | SKILL.md parsing, registry, loader, manager, scanner (as built at 040: parser, sources, registry, index, the three tools) | Repo, Permissions, **Effects**, **Receipts**, Sandbox (as built at 040: Tools, for conditional activation and the tool behaviour, and Memory, for the token estimator; Tools never depends on Skills) |
+| `Trinity.Skills` | SKILL.md parsing, registry, loader, manager, scanner (as built at 040: parser, sources, registry, index, the three tools; at 041: staging, promotion, manager, scanner, diff, learn, `skill_manage` and `learn`) | Repo, Permissions, **Effects**, **Receipts**, Sandbox (as built at 041: Tools, Memory, Permissions, Receipts and LLM; Effects is not a dependency: the promotion is not a tool call, it writes its own effect receipt; Tools never depends on Skills) |
 | `Trinity.Scheduler` | Oban workers for agent tasks, delivery | Sessions, Gateways, **Repo** |
 | `Trinity.MCP` | Client manager, tool bridge, server | Tools, **Effects**, **Permissions**, Memory |
 | `Trinity.Gateways` | Adapter behaviour, router, allowlists, pairing | Sessions, **Permissions**, PubSub |

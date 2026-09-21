@@ -157,6 +157,7 @@ defmodule Trinity.Permissions do
   @doc "The PubSub topic of a session's approvals, or of all of them."
   @spec topic(String.t() | :all) :: String.t()
   def topic(:all), do: "approvals:all"
+  def topic(nil), do: "approvals:none"
   def topic(session_id), do: "approvals:" <> session_id
 
   @doc "Subscribes the caller to `{:approval, :requested | :decided, %Approval{}}` for a session or all."

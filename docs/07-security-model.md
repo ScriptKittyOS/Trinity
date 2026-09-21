@@ -114,6 +114,24 @@ is not public (loopback, private, link-local) to `:ask`.
 - Scanner flags: shell commands, network calls, credential-looking strings, instructions to disable safety, external URLs.
 - Hub-installed skills are scanned and default to `disabled` until the human enables.
 
+As built at slice 041: the agent's `skill_manage` (and the `learn` flow) never writes a skill root. Every
+change is staged by `Trinity.Skills.Staging` as the whole target tree under `<data dir>/pending/skills/<name>/<change id>/`,
+outside every root the registry scans, with a unified diff, the scanner's findings (`Trinity.Skills.Scanner`:
+shell pipes into a shell, destructive commands, credential shapes and instructions to ignore or disable safety
+are `high`; plain shell commands, network calls, external URLs and base64 blobs `medium`; a file it cannot read
+as text is a `low` finding naming it) and a `skill_changes` row. The one path that moves a staged tree into a
+root is `Trinity.Skills.Promotion.swap/4`, and it requires an allowed `skill_apply` approval whose arguments
+name the change's id and digest (021's fingerprint binds them), recomputes the staged tree's digest, archives
+the previous version under `.history/`, renames the tree into place and writes an `effect` receipt on the
+`skills` chain scope carrying the digest and the approval id. The census (`test/trinity/skills/census_test.exs`)
+holds the tree to one caller of `swap` and two filesystem writers under `lib/trinity/skills/`, with a plant.
+Auto-approval is the persona's (`settings.skills.auto_approve`, off by default, `"low"` applies `none` and
+`low`); `medium` and `high` are never auto-approved, whatever a rule says. Proposing is itself a `:write` tool
+call under the default policy (an approval to propose); "always allow" on `skill_manage` makes proposing free
+while the promotion stays gated. An approval may have no session (a change approved from the page): its topic
+is `approvals:none` and `approvals:all`. Hub installation is not built; a skill dropped by hand into the user
+root loads as any other and is not scanned (a follow-up in the slice's NOTES).
+
 ## Sandbox (Slice 110)
 
 - Luerl with reduction limits, no `os`/`io`/`require`, no filesystem; explicit host functions only.
