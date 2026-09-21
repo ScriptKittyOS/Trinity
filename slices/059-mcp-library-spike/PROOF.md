@@ -136,3 +136,17 @@ one found building (`Trinity.MCP` is a top-level boundary, finding 1).
 $ git log --oneline main..HEAD
 (named in the closing correction, after the final commit)
 ```
+
+## Closing correction, 2026-09-21
+
+Supersedes "named in the closing correction" above. The tree the PR is merged from is `e82c170` (`feat(s059):
+complete slice 059`, the commit carrying this file). On it, CI gate run 35643511487: `gate` success (454
+passed, 18 excluded), `postgres` success (434 passed, 38 excluded), `fips-tag` and `fips` success (459 passed,
+13 excluded; the six FIPS tests by name). The coverage row stays at `53c9091` (80.54%): `e82c170` differs from
+it in this file, NOTES.md, ROADMAP.md, README.md, coverage.tsv and the probe diff's copy only.
+
+```
+$ git log --oneline main..HEAD
+e82c170 feat(s059): complete slice 059 (MCP capability gap and seam probe)
+53c9091 feat(s059): beam_mcp 0.8.0 measured against the 2026-07-28 checklist, the seam probed, the dependency behind the Trinity.MCP boundary
+```
