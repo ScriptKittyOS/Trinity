@@ -300,6 +300,45 @@ defmodule Trinity.Archive.RoundTripTest do
     assert File.ls!(target.data_dir) == []
   end
 
+  test "a manifest path outside the layout is refused before anything is written", %{
+    tmp: tmp,
+    source: source
+  } do
+    archive = Path.join(tmp, "good.tar.gz")
+    {:ok, %{manifest: manifest}} = Archive.export(source, archive)
+    {:ok, entries} = :erl_tar.extract(String.to_charlist(archive), [:compressed, :memory])
+
+    evil = %{
+      manifest
+      | files:
+          manifest.files ++
+            [%{"path" => "keys/../../escaped", "bytes" => 1, "sha256" => Archive.digest("x")}]
+    }
+
+    rewritten =
+      Enum.map(entries, fn
+        {~c"manifest.json", _} -> {~c"manifest.json", Manifest.encode(evil)}
+        other -> other
+      end) ++ [{~c"keys/../../escaped", "x"}]
+
+    bad = Path.join(tmp, "evil.tar.gz")
+    :ok = :erl_tar.create(String.to_charlist(bad), rewritten, [:compressed])
+    target = Layout.of(Path.join(tmp, "victim"))
+    File.mkdir_p!(target.data_dir)
+
+    assert {:error, {:verification_failed, [{"keys/../../escaped", :unsafe_path}]}} =
+             Archive.import(bad, target)
+
+    assert File.ls!(target.data_dir) == []
+    refute File.exists?(Path.join(tmp, "escaped"))
+
+    for p <- ["trinity.db", "keys/registry.json", "skills/a/b.md", "personas/x.md"],
+        do: assert(Layout.safe_path?(p), p)
+
+    for p <- ["/etc/passwd", "keys/../x", "other.db", "keys", "./trinity.db", "skills/./x"],
+        do: refute(Layout.safe_path?(p), p)
+  end
+
   test "a manifest round-trips through JSON; another format is refused" do
     m = Manifest.build([%{path: "x", bytes: 1, sha256: "ab"}], %{"trinity.db" => [1, 2]}, true)
     assert {:ok, ^m} = Manifest.decode(Manifest.encode(m))

@@ -87,7 +87,28 @@ defmodule Trinity.Archive.Layout do
     dbs ++ reg ++ keys ++ dirs
   end
 
-  @doc "The absolute path a manifest path lands at in this layout."
+  @doc """
+  True for a manifest path this layout accepts: one of the known files, or a relative path
+  under `keys/`, `skills/` or `personas/` with no `..` segment and no absolute part. An
+  archive's manifest is data; a path it names lands nowhere the layout did not say.
+  """
+  @spec safe_path?(String.t()) :: boolean()
+  def safe_path?(path) when is_binary(path) do
+    segments = Path.split(path)
+
+    cond do
+      path in ["trinity.db", "receipts.db"] -> true
+      Path.type(path) != :relative -> false
+      Enum.any?(segments, &(&1 in ["..", "."])) -> false
+      Enum.any?(segments, &String.contains?(&1, "\\")) -> false
+      hd(segments) in ["keys", "skills", "personas"] and length(segments) > 1 -> true
+      true -> false
+    end
+  end
+
+  def safe_path?(_), do: false
+
+  @doc "The absolute path a manifest path lands at in this layout (for a path `safe_path?/1` accepts)."
   @spec absolute(t(), String.t()) :: Path.t()
   def absolute(%__MODULE__{} = l, "trinity.db"), do: l.db
   def absolute(%__MODULE__{} = l, "receipts.db"), do: l.receipts_db

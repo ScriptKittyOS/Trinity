@@ -19,6 +19,8 @@ defmodule Trinity.Archive do
 
   alias Trinity.Archive.{Layout, Manifest}
 
+  Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
+
   @marker "RESTORED"
 
   @type export_result :: %{path: Path.t(), manifest: Manifest.t(), bytes: non_neg_integer()}
@@ -28,6 +30,9 @@ defmodule Trinity.Archive do
   Writes the archive at `out`. `opts`: `keys: true` includes the private key files (the
   manifest records the choice either way).
   """
+  # sobelow_skip reason: Traversal.FileModule: `out` is the path the owner named on the task or
+  # a temporary file the controller made; the temporary directory is this function's own.
+  @sobelow_skip ["Traversal.FileModule"]
   @spec export(Layout.t(), Path.t(), keyword()) :: {:ok, export_result()} | {:error, term()}
   def export(%Layout{} = layout, out, opts \\ []) do
     keys? = Keyword.get(opts, :keys, false)
@@ -55,6 +60,9 @@ defmodule Trinity.Archive do
   holds (listed in the result). Nothing is written until every digest and the schema versions
   have been checked.
   """
+  # sobelow_skip reason: Traversal.FileModule: the marker is written at the layout's data
+  # directory, the owner's; the archive path is the owner's argument.
+  @sobelow_skip ["Traversal.FileModule"]
   @spec import(Path.t(), Layout.t(), keyword()) :: {:ok, import_result()} | {:error, term()}
   def import(archive, %Layout{} = layout, opts \\ []) do
     force? = Keyword.get(opts, :force, false)
@@ -76,6 +84,9 @@ defmodule Trinity.Archive do
     do: :crypto.hash(:sha256, bytes) |> Base.encode16(case: :lower)
 
   @doc "A digest over a restored layout's files, by manifest path, to compare with the manifest."
+  # sobelow_skip reason: Traversal.FileModule: reads the layout's own files by manifest paths
+  # `Layout.safe_path?/1` accepted at import.
+  @sobelow_skip ["Traversal.FileModule"]
   @spec digest_tree(Layout.t(), Manifest.t()) :: %{String.t() => String.t()}
   def digest_tree(%Layout{} = layout, %Manifest{files: files}) do
     Map.new(files, fn %{"path" => rel} ->
@@ -105,6 +116,9 @@ defmodule Trinity.Archive do
 
   # Each database is snapshotted with VACUUM INTO through exqlite directly: no Ecto, no
   # transaction, so it runs beside a live app and inside a test that must see disk.
+  # sobelow_skip reason: Traversal.FileModule: the sources are the layout's (the owner's data
+  # directory by role) and the destinations are under this export's own temporary directory.
+  @sobelow_skip ["Traversal.FileModule"]
   defp stage(layout, tmp, keys?) do
     Enum.reduce_while(Layout.sources(layout, keys?), {:ok, []}, fn {rel, abs, kind}, {:ok, acc} ->
       dest = Path.join(tmp, rel)
@@ -206,6 +220,9 @@ defmodule Trinity.Archive do
     end
   end
 
+  # sobelow_skip reason: Traversal.FileModule: every path was accepted by `Layout.safe_path?/1`
+  # in `Manifest.verify/2` before this runs, and lands under the layout's directories.
+  @sobelow_skip ["Traversal.FileModule"]
   defp write_files(%Manifest{files: files}, entries, layout) do
     for %{"path" => rel} <- files do
       abs = Layout.absolute(layout, rel)

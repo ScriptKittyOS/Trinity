@@ -104,9 +104,18 @@ defmodule Trinity.Archive.Manifest do
     if bad == [], do: :ok, else: {:error, {:verification_failed, bad}}
   end
 
-  defp problem(%{"path" => path}, nil), do: [{path, :missing}]
+  # A path the layout would not accept is refused first: the manifest is data from the
+  # archive, and `keys/../x` must never be resolved, let alone written.
+  defp problem(%{"path" => path}, _bin) when not is_binary(path),
+    do: [{inspect(path), :unsafe_path}]
 
-  defp problem(%{"path" => path, "sha256" => sha, "bytes" => bytes}, bin) do
+  defp problem(%{"path" => path} = file, bin) do
+    if Trinity.Archive.Layout.safe_path?(path), do: check(file, bin), else: [{path, :unsafe_path}]
+  end
+
+  defp check(%{"path" => path}, nil), do: [{path, :missing}]
+
+  defp check(%{"path" => path, "sha256" => sha, "bytes" => bytes}, bin) do
     if byte_size(bin) == bytes and Trinity.Archive.digest(bin) == sha,
       do: [],
       else: [{path, :digest_mismatch}]

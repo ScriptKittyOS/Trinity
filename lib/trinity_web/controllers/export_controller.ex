@@ -7,6 +7,12 @@ defmodule TrinityWeb.ExportController do
   """
   use TrinityWeb, :controller
 
+  Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
+
+  # sobelow_skip reason: Traversal.FileModule and Traversal.SendDownload: the file sent and
+  # removed is the temporary archive this action just made, at a path it chose; nothing in
+  # the request names a path.
+  @sobelow_skip ["Traversal.FileModule", "Traversal.SendDownload"]
   def download(conn, params) do
     keys? = params["keys"] in ["1", "true"]
     stamp = DateTime.utc_now() |> DateTime.to_iso8601(:basic) |> String.slice(0, 15)
