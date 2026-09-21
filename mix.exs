@@ -113,6 +113,14 @@ defmodule Trinity.MixProject do
       {:jcs, "~> 0.2"},
       # Slice 022: HTML to text for web_fetch (Trinity.Tools.Web.Fetch).
       {:floki, "~> 0.38"},
+      # Slice 032: local embeddings (Trinity.Memory.Embedders.Bumblebee). The 0.13 line of nx
+      # and exla is what bumblebee 0.7.1 accepts (nx 1.0.0 shipped 2026-09-10 and bumblebee has
+      # no release for it at G1); measured for bundle size and latency in the slice's NOTES.md.
+      {:nx, "~> 0.13.1"},
+      {:exla, "~> 0.13.1"},
+      {:bumblebee, "~> 0.7.1"},
+      # Slice 032: vectors on the Postgres job (Trinity.Memory.VectorStores.Pgvector).
+      {:pgvector, "~> 0.4.1"},
       # Slice 013 (owner decision, 2026-09-20): the linux package builds mdex's NIF from
       # source for musl (MDEX_NATIVE_BUILD=1 and TRINITY_NIF_TARGET in config/config.exs),
       # because neither precompiled artifact loads in Burrito's musl ERTS (NOTES finding 13).
