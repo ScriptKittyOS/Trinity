@@ -19,6 +19,27 @@ ExUnit.start(
       if(fips_leg?, do: [], else: [:fips]) ++ if(local_model?, do: [], else: [:local_model])
 )
 
+# Slice 024's boot receipt is written by a transient Task after the tree starts; once the
+# receipts pool is in manual mode that write can no longer check a connection out, and the
+# boot-receipt tests fail with an OwnershipError (postgres job, run 35603385277, at slice
+# 032). Wait for the Task to finish, either way, before the mode flips: bounded, and a Task
+# that is gone has either written or logged its reason.
+boot_task = fn ->
+  Trinity.Supervisor
+  |> Supervisor.which_children()
+  |> Enum.find_value(fn
+    {Trinity.Effects.Boot, pid, _, _} when is_pid(pid) -> pid
+    _ -> nil
+  end)
+end
+
+Enum.find(1..200, fn _ ->
+  case boot_task.() do
+    nil -> true
+    _pid -> Process.sleep(50) && false
+  end
+end)
+
 Ecto.Adapters.SQL.Sandbox.mode(Trinity.Repo, :manual)
 Ecto.Adapters.SQL.Sandbox.mode(Trinity.Repo.Receipts, :manual)
 
