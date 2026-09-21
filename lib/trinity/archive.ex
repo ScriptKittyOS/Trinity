@@ -138,9 +138,8 @@ defmodule Trinity.Archive do
 
   defp snapshot(src, dest) do
     with {:ok, db} <- Exqlite.Sqlite3.open(src),
-         :ok <- Exqlite.Sqlite3.execute(db, "VACUUM INTO '#{String.replace(dest, "'", "''")}'"),
-         :ok <- Exqlite.Sqlite3.close(db) do
-      :ok
+         :ok <- Exqlite.Sqlite3.execute(db, "VACUUM INTO '#{String.replace(dest, "'", "''")}'") do
+      Exqlite.Sqlite3.close(db)
     end
   end
 

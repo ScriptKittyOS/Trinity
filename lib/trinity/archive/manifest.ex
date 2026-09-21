@@ -100,15 +100,15 @@ defmodule Trinity.Archive.Manifest do
   def verify(%__MODULE__{files: files}, entries) do
     # Not a comprehension filter: a `nil` bound in a `for` filter skips the element, and a
     # missing file is exactly what must not be skipped (found by AC4's second half).
-    bad =
-      Enum.flat_map(files, fn %{"path" => path, "sha256" => sha, "bytes" => bytes} ->
-        case Map.get(entries, path) do
-          nil -> [{path, :missing}]
-          bin when byte_size(bin) != bytes -> [{path, :digest_mismatch}]
-          bin -> if Trinity.Archive.digest(bin) == sha, do: [], else: [{path, :digest_mismatch}]
-        end
-      end)
-
+    bad = Enum.flat_map(files, &problem(&1, Map.get(entries, &1["path"])))
     if bad == [], do: :ok, else: {:error, {:verification_failed, bad}}
+  end
+
+  defp problem(%{"path" => path}, nil), do: [{path, :missing}]
+
+  defp problem(%{"path" => path, "sha256" => sha, "bytes" => bytes}, bin) do
+    if byte_size(bin) == bytes and Trinity.Archive.digest(bin) == sha,
+      do: [],
+      else: [{path, :digest_mismatch}]
   end
 end
