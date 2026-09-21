@@ -166,3 +166,22 @@ have no session (finding 1: a migration and a changeset change), the learn as th
 $ git log --oneline main..HEAD
 (named in the closing correction, after the final commit)
 ```
+
+## Closing correction, 2026-09-21
+
+Supersedes "named in the closing correction" above. The tree the PR is merged from is `2d307fa` (`feat(s041):
+complete slice 041`, the commit carrying this file). On it, CI gate run 35637583650: `gate` success (448
+passed, 18 excluded), `postgres` success (428 passed, 38 excluded), `fips-tag` and `fips` success (453 passed,
+13 excluded; the six FIPS tests by name). The coverage row stays at `ae200d7` (80.55%): `2d307fa` differs from
+it in this file, NOTES.md, ROADMAP.md and coverage.tsv only.
+
+```
+$ git log --oneline main..HEAD
+2d307fa feat(s041): complete slice 041 (skill self-management with approval)
+ae200d7 fix(s041): the skills page's view, status and reindex clauses restored (lost in the learn edit); the page test covers them
+ca1796b chore(s041): format
+83a30ab feat(s041): the learn runs as the view's async task; the model asked for real line breaks and a run-on answer unflattened; the AC6 sample and AC7 shots
+ee43a4c docs(s041): docs/07, docs/05 and docs/01 as built
+0c16db3 feat(s041): staged skill changes: the proposer, the one promotion path, the scanner, the manager, skill_manage and learn, the pending changes on /skills
+42e3dbe docs(s041): what the slice joins, the G1 plan, and the slice opens
+```
