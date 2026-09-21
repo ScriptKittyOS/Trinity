@@ -24,7 +24,9 @@ import Config
 # which is the same call: this file is evaluated before the application is available under
 # Mix, so it may not call project modules. `Burrito.Util.Args.get_arguments/0` reads the same
 # thing.
-smoke? = "--smoke" in Enum.map(:init.get_plain_arguments(), &to_string/1)
+smoke? =
+  "--smoke" in Enum.map(:init.get_plain_arguments(), &to_string/1) or
+    System.get_env("TRINITY_SMOKE") == "1"
 
 if System.get_env("PHX_SERVER") || smoke? do
   config :trinity, TrinityWeb.Endpoint, server: true

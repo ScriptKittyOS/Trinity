@@ -29,6 +29,16 @@ defmodule SmokeTest do
       refute Smoke.requested?(["--smoked"])
       refute Smoke.requested?(["smoke"])
     end
+
+    # Slice 032: the variable form, which Kernel.CLI cannot mistake for a file.
+    test "true with TRINITY_SMOKE=1 and no argument" do
+      System.put_env("TRINITY_SMOKE", "1")
+      on_exit(fn -> System.delete_env("TRINITY_SMOKE") end)
+      assert Smoke.requested?([])
+      assert Smoke.probe([]) == [Trinity.Smoke.Probe]
+      System.put_env("TRINITY_SMOKE", "0")
+      refute Smoke.requested?([])
+    end
   end
 
   describe "port_line/1" do

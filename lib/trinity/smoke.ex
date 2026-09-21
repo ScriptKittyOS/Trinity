@@ -44,9 +44,17 @@ defmodule Trinity.Smoke do
   @spec argv() :: [String.t()]
   def argv, do: Enum.map(:init.get_plain_arguments(), &to_string/1)
 
-  @doc "Whether `#{@flag}` was passed."
+  @doc """
+  Whether the smoke run was asked for: `#{@flag}` among the arguments, or `TRINITY_SMOKE=1` in
+  the environment. The variable is the form the package workflow uses since slice 032:
+  `Kernel.CLI` reads the same plain arguments once the application has started and treats
+  `#{@flag}` as a file to run ("No file named --smoke", exit 1), and the Task that prints the
+  lines and halts wins that race only sometimes (package run 35608084951, macOS: exit 1
+  between the fourth line and the fifth). An environment variable is nothing for the CLI to
+  read.
+  """
   @spec requested?([String.t()]) :: boolean()
-  def requested?(args), do: @flag in args
+  def requested?(args), do: @flag in args or System.get_env("TRINITY_SMOKE") == "1"
 
   @doc """
   The line printed for the caller to parse. One key=value pair, no prose around it, so a shell

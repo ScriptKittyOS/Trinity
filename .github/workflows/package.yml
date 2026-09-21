@@ -192,7 +192,10 @@ jobs:
           ours() { ps -eo pid,ppid,comm | grep -E 'burrito|beam\.smp|erl_child_setup|desktop_' | grep -v grep || true; }
           ours > ps-before.txt
           chmod +x "burrito_out/${{ matrix.artifact }}"
-          "./burrito_out/${{ matrix.artifact }}" --no-halt --smoke | tee smoke.log
+          # Slice 032: the variable, not `--smoke`: Kernel.CLI read the argument as a file
+          # ("No file named --smoke", exit 1) and won the race against the halting Task on
+          # macOS in run 35608084951.
+          TRINITY_SMOKE=1 "./burrito_out/${{ matrix.artifact }}" --no-halt | tee smoke.log
           sleep 3
           ours > ps-after.txt
           grep -q '^TRINITY_SMOKE_PORT=[0-9][0-9]*$' smoke.log
@@ -212,7 +215,8 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          & ".\burrito_out\${{ matrix.artifact }}" --no-halt --smoke | Tee-Object smoke.log
+          $env:TRINITY_SMOKE = "1"
+          & ".\burrito_out\${{ matrix.artifact }}" --no-halt | Tee-Object smoke.log
           if ($LASTEXITCODE -ne 0) { throw "smoke exited $LASTEXITCODE" }
           if (-not (Select-String -Path smoke.log -Pattern '^TRINITY_SMOKE_PORT=\d+$')) {
             throw "no port line"
