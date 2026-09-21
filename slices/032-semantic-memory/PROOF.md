@@ -257,3 +257,51 @@ none disagreeing with 51 pins.
 $ git log --oneline main..HEAD
 (named in the closing correction, after the final commit)
 ```
+
+## Closing correction, 2026-09-21
+
+Supersedes "named in the closing correction" above. The tree the PR is merged from is `193800e`
+(`fix(s032): the test pools queue instead of shedding under the stress tests`), three commits after the
+`feat(s032): complete slice 032` commit `a954393` that carried this file first: `ab07781`'s successor
+commits closed the smoke argument's race (finding 15) and the test pools' shedding (finding 14) after
+the runs named there. On `193800e`:
+
+- CI gate run 35612151947 (push) and 35612156858 (pull request): `gate` success (409 passed, 18
+  excluded), `postgres` success (389 passed, 38 excluded), `fips-tag` and `fips` success (414 passed,
+  13 excluded; the six FIPS tests by name).
+- Package run 35610163163 on `a82bd4c` (the commit before, which differs from `193800e` only in
+  `config/test.exs` and the two slice files): all three jobs green, the smoke lines as AC7 lists them
+  with the Linux reason now `{:exla, "the EXLA NIF did not load (EXLA.NIF.start_log_sink undefined)"}`
+  and the run asked for by `TRINITY_SMOKE=1`. Artifacts: `desktop_linux_x86_64` 92,556,709 bytes,
+  `desktop_windows_x86_64.exe` 29,639,041 bytes, `desktop_macos_aarch64` (its job green; the size in
+  docs/perf.md is run 35604769356's, 60,544,615).
+- Coverage on `193800e`: `mix test --cover` prints `Result: 409 passed, 18 excluded` and `78.99% |
+  Total` (two hundredths under 732238c's 79.01: the smoke module gained the variable branch and the
+  chain writer its two clears). The `coverage.tsv` row is corrected to `032  78.99  193800e  2026-09-21`
+  in the commit carrying this correction; the 732238c row above is superseded, not rewritten here.
+
+```
+$ git log --oneline main..HEAD
+193800e fix(s032): the test pools queue instead of shedding under the stress tests
+a82bd4c fix(s032): the smoke run asked for by TRINITY_SMOKE=1, so Kernel.CLI has no argument to mistake for a file
+a954393 feat(s032): complete slice 032 (semantic memory and hybrid retrieval)
+ab07781 fix(s024): a signer that signs again clears the signer alarm
+eda618f test(s024): red: the signer alarm is not cleared when a signer signs again
+732238c feat(s032): the exla reason unwrapped and summarised to the NIF's undef; package sizes in docs/perf.md
+d9b2686 test(s032): the scoring-agreement test starts exla on demand like the store does
+de55660 fix(s032): pgvector searches with an iterative HNSW scan so a filtered query is never short
+53cb840 docs(s032): G3 findings and follow-ups in NOTES; the exla row says how it is carried
+a8fa7e9 feat(s032): exla declared runtime: false so the release can carry it in :load mode
+fa019cf test(s032): two flakes met on run 35603385277 closed at their source
+372e05d test(s032): the supervisor's reason line is captured at info
+352f55f test(s032): the supervisor without and with the serving; AC2 automated where the model is on disk (local_model tag)
+8cfac84 docs(s032): docs/perf.md and scripts/vector_bench.exs; the AC6 proof shots
+8bf06fb feat(s032): exla loaded on demand in the release, the smoke probe after the tree, EXLA scoring in the brute store
+4f47964 fix(s011): encode assistant tool calls for req_llm as maps with name and arguments
+f6fc944 test(s011): red: the adapter hands req_llm a tool-call tuple it refuses
+87a8f53 fix(s012): persist the assistant row when its text is whitespace only
+31a793b test(s012): red: a whitespace-only assistant text before tool calls loses the assistant row
+062cb12 feat(s032): the smoke path reports EXLA, a vector search in the binary, and the tier's status; exla declared on Linux and macOS hosts only
+6a6d5cf feat(s032): semantic memory: embedder, vector stores, observer, hybrid retriever, recall tool, memory page tab
+e7b0c28 docs(s032): the owner's decisions at G0, the embedders and the vector store measured, the G1 plan, and the slice opens
+```
