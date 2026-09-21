@@ -4,8 +4,8 @@ defmodule Trinity.Context.AgentsMdTest do
   @moduledoc "Slice 033: discovery, precedence, the cap and its stated cut, the untrusted block, the session's root, live reload, AC3."
   use Trinity.SessionCase
 
-  alias Trinity.{Factory, Permissions, Sessions}
   alias Trinity.Context.AgentsMd
+  alias Trinity.{Factory, Permissions, Sessions}
   alias Trinity.LLM.Providers.Fake
   alias Trinity.Sessions.{Prompt, Session}
   alias Trinity.Tools.FS
