@@ -60,7 +60,9 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17
+        # Slice 032: pgvector's image of Postgres 17, so the vector extension exists for the
+        # semantic memory's Postgres store.
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: trinity
           POSTGRES_PASSWORD: trinity

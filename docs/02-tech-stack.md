@@ -14,6 +14,7 @@ Versions live in `VERSIONS.md`. This file explains *why* each choice was made an
 | MCP | decided by Slice 059 (fastest_mcp / gen_mcp / anubis_mcp / own server) | Target is 2026-07-28 with 2025-11-25 compat; anubis is ≤ 2025-11-25 and LGPL-3.0 | ADR-0007 finalised by measurement |
 | Embeddings | Bumblebee + EXLA (all-MiniLM-L6-v2) | Local, private, 384-dim | If EXLA binary size is unacceptable on desktop → hosted embeddings via req_llm, or Ortex (risk: stalled) |
 | Vector search | sqlite_vec (brute force) behind `VectorStore` behaviour | Fine to ~10^5 vectors; no extra process | Scale → hnswlib (pre-1.0) or pgvector HNSW |
+| Vector search, as built at 032 | brute force in Elixir over the row's `embedding` bytes (SQLite); pgvector HNSW (Postgres) | sqlite_vec's one release needs `nx ~> 0.9` and cannot share a tree with nx 0.13 (VERSIONS.md); measured in docs/perf.md | Scale → hnswlib 0.1.10 |
 | Shell tool | MuonTrap | Guaranteed child kill on process death; cgroups on Linux | none |
 | Sandbox | Luerl (`sandbox` pkg) | In-VM, reduction-limited, no OS access | Untrusted native code → container/microVM (out of scope) |
 | Modularity | `boundary` + behaviours + `Registry` | Compile-time enforcement of context deps | none |

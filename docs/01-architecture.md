@@ -42,7 +42,12 @@ Trinity.Application
 │                 # INSERT but does not guarantee each row read the correct predecessor.
 ├── Trinity.Effects.Boot                          # Slice 024, as built: a transient Task writing the boot receipt
 │                                                 # once the signer and the authority are known
-├── Trinity.Memory.Supervisor                     # Nx.Serving for embeddings, retrieval. Slice 032
+├── Trinity.Memory.Supervisor                     # Slice 032, as built: Trinity.Memory.TaskSupervisor (the
+│   │                                             # observer's task after each turn, the page's model download)
+│   └── Nx.Serving (Trinity.Memory.Embedding)     # the local embedder, started only when the embedder is
+│                                                 # :local and the model is in the cache; absent otherwise, the
+│                                                 # tier off and the reason logged once. ensure_embedding/0
+│                                                 # starts it after a download.
 ├── Trinity.Skills.Registry                       # hot-loaded skills index. Slice 040
 ├── Oban                                        # cron + durable jobs. Slice 050
 ├── Trinity.MCP.Supervisor                        # MCP clients (one per server, lib per 059) + server. Slice 059-062
@@ -106,7 +111,8 @@ through those modules only. `boundary` `exports:` lists enforce this.
 | `Trinity.LLM.Provider` | `stream/3`, `generate/3`, `embed/2`, `models/0`, `capabilities/1` | config `:providers` list |
 | `Trinity.Tools.Tool` | `name/0`, `description/0`, `schema/0`, `risk/0`, `execute/2` | config `:tools` list + MCP dynamic registration |
 | `Trinity.Gateways.Adapter` | `child_spec/1`, `deliver/2`, `capabilities/0` | config `:gateways` list |
-| `Trinity.Memory.VectorStore` | `upsert/2`, `search/3`, `delete/1` | config `:vector_store` (`SqliteVec` \| `Pgvector` \| `Hnswlib`) |
+| `Trinity.Memory.VectorStore` | `upsert/3`, `search/3`, `delete/1`, `count/1` (as built at 032: the scope filter is `search/3`'s required argument) | the database adapter, at compile time (`Brute` on SQLite, `Pgvector` on Postgres; `Hnswlib` when a slice measures past 10^5 rows) |
+| `Trinity.Memory.Embedder` | `embed/1`, `dim/0`, `model_id/0`, `availability/0` | `config :trinity, :memory, embedder:` (`:local` default, `:hosted` opt-in only, `:fake` in the suite) |
 | `Trinity.Skills.Loader` | `load/1`, `validate/1` | config `:skill_loaders` |
 | `Trinity.Permissions.Policy` | `decide/3` → `:allow | :deny | {:ask, prompt}` | config |
 
@@ -120,7 +126,7 @@ UI/Gateway ──user_message──▶ Session(gen_statem)
   Session: append message → build prompt (persona + always-on memory + skills index + history[compacted])
           → LLM.stream/3 ──chunks──▶ PubSub "session:<id>" ──▶ LiveView + gateways
           → on tool_call: Permissions.decide → (ask → approval_wait) → Tools.execute in Task → result appended
-          → loop until final text → persist → Memory.observe(turn) (async) → idle
+          → loop until final text → persist → Memory.Observer.observe(turn) (a Task under Trinity.Memory.TaskSupervisor, as built at 032) → idle
 ```
 
 Every state transition is persisted before it is broadcast. A crash between persist and broadcast is safe

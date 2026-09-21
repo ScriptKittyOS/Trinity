@@ -26,6 +26,11 @@ defmodule Trinity.Memory.Entry do
     field :source_message_id, Trinity.UUID
     field :confidence, :float
     field :last_used_at, :utc_datetime_usec
+    # Slice 032: the vector, the model that produced it (never mixed: docs/05 § semantic) and
+    # its width. `nil` until the observer embeds the row.
+    field :embedding, :binary
+    field :embedding_model, :string
+    field :embedding_dim, :integer
     timestamps(type: :utc_datetime_usec)
   end
 
@@ -48,7 +53,10 @@ defmodule Trinity.Memory.Entry do
       :body,
       :source_message_id,
       :confidence,
-      :last_used_at
+      :last_used_at,
+      :embedding,
+      :embedding_model,
+      :embedding_dim
     ])
     |> validate_required([:persona_id, :tier, :scope, :key, :body])
     |> validate_inclusion(:tier, @always_on_tiers)
@@ -57,6 +65,38 @@ defmodule Trinity.Memory.Entry do
     )
     |> validate_length(:body, min: 1, max: 4_000)
     |> validate_format(:scope, ~r/^(global|persona:[^\s]+|project:[^\s]+|session:[^\s]+)$/)
+    |> unique_constraint([:tier, :scope, :key])
+  end
+
+  @doc """
+  The changeset of a semantic memory (slice 032): the same fields, the tier fixed to
+  `semantic`, and `confidence` between 0 and 1. The always-on changeset refuses the tier so
+  the `memory` tool and the consolidator cannot write into it; pinning one (`Semantic.pin/2`)
+  goes through `changeset/2` with the always-on tier.
+  """
+  @spec semantic_changeset(t(), map()) :: Ecto.Changeset.t()
+  def semantic_changeset(entry, attrs) do
+    entry
+    |> cast(attrs, [
+      :persona_id,
+      :scope,
+      :key,
+      :body,
+      :source_message_id,
+      :confidence,
+      :last_used_at,
+      :embedding,
+      :embedding_model,
+      :embedding_dim
+    ])
+    |> put_change(:tier, "semantic")
+    |> validate_required([:persona_id, :scope, :key, :body])
+    |> validate_format(:key, ~r/^[a-z0-9][a-z0-9_.-]{0,63}$/,
+      message: "a short stable key: lowercase, digits, _ . -"
+    )
+    |> validate_length(:body, min: 1, max: 4_000)
+    |> validate_format(:scope, ~r/^(global|persona:[^\s]+|project:[^\s]+|session:[^\s]+)$/)
+    |> validate_number(:confidence, greater_than_or_equal_to: 0, less_than_or_equal_to: 1)
     |> unique_constraint([:tier, :scope, :key])
   end
 

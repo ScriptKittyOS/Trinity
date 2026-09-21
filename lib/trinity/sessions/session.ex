@@ -357,8 +357,16 @@ defmodule Trinity.Sessions.Session do
     # Slice 033: the project's AGENTS.md, read now, so a change is in this turn (live reload).
     context = Trinity.Context.AgentsMd.render(session.project_root, session.project_root)
 
+    # Slice 032: what the semantic tier and past conversations hold about the latest user
+    # message, fused and capped; "" when there is no persona or nothing relevant.
+    recall = recall_block(session, history)
+
     {request, truncations} =
-      Prompt.build_with_report(session, persona, history, tools, memory: memory, context: context)
+      Prompt.build_with_report(session, persona, history, tools,
+        memory: memory,
+        context: context,
+        recall: recall
+      )
 
     Enum.each(truncations, &truncation_receipt(id, &1))
     {session, persona, history, request}
@@ -378,6 +386,20 @@ defmodule Trinity.Sessions.Session do
       subject_ref: "prompt:#{id}:#{tier}"
     })
   end
+
+  # Slice 032: the retriever runs on the latest user message, over the session's scope chain.
+  defp recall_block(%{persona_id: persona_id, id: id}, history) when is_binary(persona_id) do
+    case Enum.reverse(history) |> Enum.find(&(&1.role == "user")) do
+      nil ->
+        ""
+
+      %{content: query} ->
+        Trinity.Memory.Retriever.relevant(persona_id, id, query)
+        |> Trinity.Memory.Retriever.render()
+    end
+  end
+
+  defp recall_block(_, _), do: ""
 
   # Slice 030: the always-on block for this session's chain, frozen in state.
   defp memory_snapshot(%{id: id, persona_id: persona_id}) when is_binary(persona_id),
@@ -634,8 +656,23 @@ defmodule Trinity.Sessions.Session do
 
       _ ->
         data = persist_final(data, %{})
+        observe_turn(data)
         {:next_state, :idle, %{data | turn: nil}}
     end
+  end
+
+  # Slice 032: the completed turn (from its user message on) goes to the memory observer,
+  # which runs under its own supervisor; the session is idle at once and never waits on it.
+  defp observe_turn(%State{id: id, session: session}) do
+    row = Store.get_session(id) || session
+    history = Trinity.Sessions.history(id, limit: 60)
+    last_user = history |> Enum.reverse() |> Enum.find_index(&(&1.role == "user"))
+    turn = if last_user, do: Enum.take(history, -(last_user + 1)), else: history
+
+    Trinity.Memory.Observer.observe(
+      %{session_id: id, persona_id: row.persona_id, model: row.model},
+      Enum.map(turn, &%{id: &1.id, role: &1.role, content: &1.content})
+    )
   end
 
   # After the tool rows: the next model call, or the cap.

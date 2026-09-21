@@ -27,6 +27,8 @@ config :trinity, :tools,
     Trinity.Tools.Web.Search,
     # Slice 031: full-text search over past messages.
     Trinity.Tools.SessionSearch,
+    # Slice 032: hybrid recall.
+    Trinity.Tools.Recall,
     # Slice 030: the always-on memory tiers.
     Trinity.Tools.Memory,
     Trinity.Tools.Shell.Run
@@ -37,7 +39,7 @@ config :trinity, :tools,
     web: ["web_fetch", "web_search"],
     shell: ["shell"],
     # Slice 031: search over past conversations.
-    memory: ["session_search", "memory"]
+    memory: ["session_search", "recall", "memory"]
   },
   timeout_ms: 2_000
 
@@ -97,7 +99,9 @@ if System.get_env("TRINITY_DB") == "postgres" do
   config :trinity, Trinity.Repo,
     url: System.get_env("DATABASE_URL") || raise("TRINITY_DB=postgres needs DATABASE_URL"),
     pool_size: 10,
-    pool: Ecto.Adapters.SQL.Sandbox
+    pool: Ecto.Adapters.SQL.Sandbox,
+    # Slice 032: pgvector's `vector` type.
+    types: Trinity.Repo.PostgrexTypes
 
   # Slice 024: the receipts Repo shares the Postgres database (its own migrations table).
   config :trinity, Trinity.Repo.Receipts,
@@ -150,3 +154,7 @@ config :phoenix,
 # Slice 024: the receipt signing key and registry for the suite live under the project's
 # ignored tmp/, never in the data directory of the machine running the tests.
 config :trinity, :receipts, keys_dir: Path.expand("../tmp/test_keys", __DIR__)
+
+# Slice 032: the suite embeds with the deterministic fake; nothing leaves the machine and no
+# model is needed.
+config :trinity, :memory, embedder: :fake, observer: false

@@ -87,7 +87,7 @@ never pin a version hex marks as retired or vulnerable.
 | `ecto_sql` | ~> 3.13 | ✅ in `mix.lock` |  |
 | `ecto_sqlite3` | >= 0.0.0 | ✅ in `mix.lock` | Primary DB. FTS5 available. |
 | `postgrex` | >= 0.0.0 (optional) | ✅ in `mix.lock` | Secondary DB driver, `optional: true` so the desktop build carries none of it; compiled in only under `TRINITY_DB=postgres`, which the CI job proves. Added at Slice 010. Was one row with pgvector; pgvector keeps its own row below. |
-| `pgvector` | optional, ~> 0.3 | 🔍 not yet a dependency | Vectors on the Postgres path. Not yet a dependency; Slice 032 decides. Split from the postgrex row at Slice 010. |
+| `pgvector` | ~> 0.4.1 | ✅ in `mix.lock` | Vectors on the Postgres path: `memories.embedding_vector vector(384)` under an HNSW cosine index, searched by `Trinity.Memory.VectorStores.Pgvector` (Slice 032). The postgres job runs on the `pgvector/pgvector:pg17` image. Split from the postgrex row at Slice 010. |
 | `oban` | ~> 2.24 | 🔍 not yet a dependency | Uses `Oban.Engines.Lite` on SQLite. ⚠️ Oban Pro Workflows/Smart engine are Postgres-only. Added at Slice 050. |
 | `req` | ~> 0.5 | ✅ in `mix.lock` | HTTP client. |
 | `req_llm` | ~> 1.22 | ✅ in `mix.lock` | Provider layer (streaming, tools, structured output, usage). ⚠️ The pin was `~> 1.10` against a recorded latest of 1.10.0; the real latest was twelve minors ahead. Check event shapes against the current version at Slice 011, not against this file's prose. Added at Slice 011. |
@@ -118,10 +118,11 @@ never pin a version hex marks as retired or vulnerable.
 
 | Name | Pin | Verified | Note |
 |---|---|---|---|
-| `nx, exla` | latest stable | 🔍 not a single package | Local embeddings. EXLA binary size matters for desktop: measure in 032. Two packages, so no single lock key. |
-| `bumblebee` | ~> 0.7 | 🔍 not yet a dependency | `all-MiniLM-L6-v2` embeddings; Whisper later. Added at Slice 032. |
-| `sqlite_vec` | ~> 0.1 | 🔍 not yet a dependency | Vectors in SQLite. Verify the loadable extension works inside the Burrito bundle (Slice 032). ⚠️ Pre-1.0, no release in roughly 22 months, 6,938 downloads all-time. R11's trigger already fires. Decide the fallback before Slice 032 starts. |
-| `hnswlib` | ~> 0.1.7 | 🔍 not yet a dependency | ⚠️ Pre-1.0. Optional accelerator; not on the critical path. |
+| `nx` | ~> 0.13.1 | ✅ in `mix.lock` | Tensors for the local embedder (Slice 032). The 0.13 line, not 1.0.0 (2026-09-10): bumblebee 0.7.1 accepts `~> 0.12 or ~> 0.13` and has no release for 1.0. Measured at Slice 032: docs/perf.md. |
+| `exla` | ~> 0.13.1 | ✅ in `mix.lock` | The XLA backend the serving compiles to (Slice 032); precompiled for x86_64 and aarch64 Linux and macOS, none for Windows (the tier is off there). The XLA shared library is 463 MB on disk: docs/perf.md. Pulls `xla` 0.10.0 and `fine`. |
+| `bumblebee` | ~> 0.7.1 | ✅ in `mix.lock` | `all-MiniLM-L6-v2` embeddings through `Trinity.Memory.Embedders.Bumblebee` (Slice 032); Whisper later. Pulls `axon` 0.8.1 and `tokenizers` 0.5.1 (a precompiled Rust NIF). |
+| `sqlite_vec` | not used (decided at Slice 032, 2026-09-21) | 🔍 not a single package | Vectors in SQLite. Its only release (0.1.0, 2024-11-19) requires `nx ~> 0.9` and cannot sit in a tree with nx 0.13; R11's trigger fired and the owner chose brute force in Elixir over the persona's semantic rows (`Trinity.Memory.VectorStores.Brute`, docs/02: fine to about 10^5) with pgvector on the Postgres path. The row stays so the decision is visible where a reader would look for the package. |
+| `hnswlib` | ~> 0.1.10 | 🔍 not yet a dependency | ⚠️ Pre-1.0 (0.1.10, 2026-09-17, active). The scale option after brute force; not yet a dependency, the slice that measures brute force past 10^5 rows adds it. |
 
 ### Tools, sandbox and desktop
 

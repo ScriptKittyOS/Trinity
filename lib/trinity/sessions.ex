@@ -157,6 +157,10 @@ defmodule Trinity.Sessions do
          do: Store.update_session(session, %{project_root: expanded})
   end
 
+  @doc "A message by id (slice 032: the memory page's provenance link)."
+  @spec get_message(String.t()) :: Message.t() | nil
+  def get_message(id), do: Store.get_message(id)
+
   @doc "The number of messages in a session."
   @spec message_count(session_id()) :: non_neg_integer()
   def message_count(session_id), do: Store.message_count(session_id)

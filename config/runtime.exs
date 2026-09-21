@@ -119,7 +119,9 @@ if config_env() == :prod do
   if System.get_env("TRINITY_DB") == "postgres" do
     config :trinity, Trinity.Repo,
       url: System.get_env("DATABASE_URL") || raise("TRINITY_DB=postgres needs DATABASE_URL"),
-      pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10")
+      pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
+      # Slice 032: pgvector's `vector` type.
+      types: Trinity.Repo.PostgrexTypes
 
     config :trinity, Trinity.Repo.Receipts,
       url: System.get_env("DATABASE_URL"),
