@@ -84,4 +84,79 @@ defmodule Trinity.Memory.EmbedderTest do
       assert Semantic.describe({:off, r}) =~ "unavailable"
     end
   end
+
+  describe "the supervisor and the serving (G1 line 1)" do
+    test "with the local embedder and no model, the supervisor starts without the serving and says why",
+         %{old: old} do
+      configure(old, embedder: :local, model_cache_dir: no_models())
+
+      {{:ok, {_flags, children}}, log} =
+        ExUnit.CaptureLog.with_log(fn -> Trinity.Memory.Supervisor.init([]) end)
+
+      assert Enum.map(children, & &1.id) == [Trinity.Memory.TaskSupervisor]
+
+      case :os.type() do
+        {:win32, _} ->
+          assert log =~ "no local embedding backend"
+
+        _ ->
+          assert log =~
+                   "memory: semantic recall is unavailable: the local model is not downloaded"
+      end
+
+      assert Trinity.Memory.Supervisor.ensure_embedding() == {:error, :model_missing}
+    end
+
+    test "with the fake, the supervisor starts the task supervisor alone and the tier is on" do
+      {:ok, {_flags, children}} = Trinity.Memory.Supervisor.init([])
+      assert Enum.map(children, & &1.id) == [Trinity.Memory.TaskSupervisor]
+      assert Trinity.Memory.Supervisor.ensure_embedding() == :ok
+      assert Semantic.on?()
+    end
+
+    # AC2, automated where the model is on disk: `TRINITY_LOCAL_MODEL_CACHE=<cache> mix test --only local_model`.
+    @tag :local_model
+    @tag timeout: 120_000
+    test "AC2: the real embedder through the serving: dim 384, the related pair over 0.7, the unrelated under 0.3",
+         %{old: old} do
+      configure(old,
+        embedder: :local,
+        model_cache_dir: System.fetch_env!("TRINITY_LOCAL_MODEL_CACHE")
+      )
+
+      assert Embedders.Bumblebee.availability() == :ok
+      assert Trinity.Memory.Supervisor.ensure_embedding() == :ok
+
+      on_exit(fn ->
+        Supervisor.terminate_child(Trinity.Memory.Supervisor, Trinity.Memory.Embedding)
+        Supervisor.delete_child(Trinity.Memory.Supervisor, Trinity.Memory.Embedding)
+      end)
+
+      assert Semantic.status() == :on
+      assert Embedders.Bumblebee.dim() == 384
+      assert Embedders.Bumblebee.model_id() == "bumblebee:sentence-transformers/all-MiniLM-L6-v2"
+
+      {us, {:ok, [cat, sitting, tax]}} =
+        :timer.tc(fn ->
+          Embedder.embed(["the cat sat", "a cat was sitting", "quarterly tax filing"])
+        end)
+
+      assert length(cat) == 384
+      related = Embedder.cosine(cat, sitting)
+      unrelated = Embedder.cosine(cat, tax)
+
+      IO.puts(
+        "\nAC2 on this machine: dim=384 cosine(related)=#{Float.round(related, 3)} cosine(unrelated)=#{Float.round(unrelated, 3)} three embeds in #{div(us, 1000)} ms"
+      )
+
+      assert related > 0.7
+      assert unrelated < 0.3
+    end
+  end
+
+  defp no_models do
+    cache = Path.join(System.tmp_dir!(), "no-models-#{System.unique_integer([:positive])}")
+    on_exit(fn -> File.rm_rf(cache) end)
+    cache
+  end
 end

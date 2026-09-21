@@ -7,8 +7,18 @@
 # Slice 003: :fips (tests that need FIPS mode on) runs only where the leg declares itself with
 # TRINITY_FIPS_LEG=1; excluded by tag elsewhere, never skipped. test/fips/mode_test.exs runs
 # everywhere and is what makes a leg that failed to enter the mode red rather than quiet.
+# Slice 032: :local_model (the real embedder through the serving) runs where
+# TRINITY_LOCAL_MODEL_CACHE names a cache that already holds all-MiniLM-L6-v2 (no download,
+# no network: a missing model is a failure there, not a skip); excluded by tag elsewhere.
 fips_leg? = System.get_env("TRINITY_FIPS_LEG") == "1"
-ExUnit.start(exclude: [:live, :desktop, :eval] ++ if(fips_leg?, do: [], else: [:fips]))
+local_model? = System.get_env("TRINITY_LOCAL_MODEL_CACHE") not in [nil, ""]
+
+ExUnit.start(
+  exclude:
+    [:live, :desktop, :eval] ++
+      if(fips_leg?, do: [], else: [:fips]) ++ if(local_model?, do: [], else: [:local_model])
+)
+
 Ecto.Adapters.SQL.Sandbox.mode(Trinity.Repo, :manual)
 Ecto.Adapters.SQL.Sandbox.mode(Trinity.Repo.Receipts, :manual)
 
