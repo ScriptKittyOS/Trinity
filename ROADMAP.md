@@ -47,8 +47,8 @@ standards register names the rows that ask for them.
 | 030 | Persona (SOUL) + always-on memory tier | 3 Memory | M | 012 | approved |
 | 031 | Session search (SQLite FTS5) | 3 Memory | S | 010 | approved |
 | 032 | Embeddings + semantic memory + hybrid retrieval | 3 Memory | L | 031 | planned |
-| 033 | Project context: AGENTS.md | 3 Memory | S | 030, 022 | done |
-| 034 | Export, import, restore | 3 Memory | S | 030, 031 | done |
+| 033 | Project context: AGENTS.md | 3 Memory | S | 030, 022 | approved |
+| 034 | Export, import, restore | 3 Memory | S | 030, 031 | approved |
 | 040 | Skills registry + agentskills.io format + progressive disclosure | 4 Skills | M | 020 | planned |
 | 041 | Skill self-management with staged approval + scanner | 4 Skills | M | 040, 021 | planned |
 | 050 | Scheduler: Oban cron agent tasks with delivery targets | 5 Automation | M | 012 | planned |
