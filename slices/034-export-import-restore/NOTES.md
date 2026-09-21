@@ -47,3 +47,43 @@ Deviations stated before any code: (a) `skills/` and `personas/` are archived as
 empty at this slice (skills arrive at 040; personas are rows in the database, restored with it); the "reindex
 after restore" of the design note has nothing to reindex yet and is a follow-up for 040; (b) the "Settings
 action" is the first `/settings` page, small, since none existed.
+
+## Findings, 2026-09-21
+
+1. **The schema check refused this machine on its first run.** The test database on disk carried slice 033's
+   migration from another branch, which this branch's binary does not have; the import refused
+   `{:schema_newer_than_binary, [{"trinity.db", [20260921010000]}]}`, which is the criterion working before
+   its test was written. A fresh test database for the branch, and the check stayed as it is.
+2. **A `for` filter that binds `nil` skips the element.** `Manifest.verify/2` first checked digests with
+   `bin = Map.get(entries, path)` as a comprehension filter, so a file the manifest named and the tarball
+   lacked was never reported, and AC4's second half wrote the archive partially. Rewritten as a function over
+   the list; the test that found it stays.
+3. **A manifest path is data, and one of sobelow's fifteen findings was real.** `write_files` resolved
+   `keys/<rest>` under the layout's keys directory, and `<rest>` came from the archive: `keys/../../x` would
+   have landed outside. `Layout.safe_path?/1` now accepts the two databases and relative paths under `keys/`,
+   `skills/` or `personas/` with no dot segments, `Manifest.verify/2` refuses anything else as `:unsafe_path`
+   before the digests, and a test plants one. The other fourteen are the owner's own paths (the data
+   directory, a task argument, a temporary file the export made) and carry their reasons inline.
+4. **`.sobelow-skips` keys on file and line** (slice 022's lesson): adding `live_holder/1` to the lock module
+   shifted two skipped findings and they came back; the function sits at the file's end.
+5. **A 030 test polluted the code path.** `Application.app_dir(:trinity)` answered `/tmp/trinity-policy-N`
+   during the suite because that test had prepended a directory of that name and `:code.lib_dir/1` reads any
+   `<app>-<vsn>` entry as the application's; the migration listing this slice's check reads came back empty.
+   Fixed as `fix(s030)` (a name without the prefix, the path removed on exit); found because AC1's schema
+   assertion failed only in the full run.
+6. **The persona picker test read the newest session on disk**, and a session a failed archive run had left
+   outranked it; it reads the session it was redirected to now (in the same `fix(s030)`).
+7. **Auto sandbox mode for the round trip, and none for the download.** `VACUUM INTO` cannot run inside the
+   sandbox's transaction and the rows must be on disk, so the round-trip tests switch both repos to `:auto` and
+   clean up their rows; the export itself never goes through Ecto (it opens the files), so the controller test
+   needs no mode change, and switching it starved the one-connection pool until that was seen.
+8. **The archive is SQLite's.** The postgres job had no file to snapshot; the archive tests carry `:sqlite`,
+   and docs/backup.md says a Postgres deployment backs up with `pg_dump`.
+
+## Follow-ups
+- 040: `skills/` is archived when present; the restore reindexes skills after writing files (the design note),
+  which has nothing to index until then.
+- 032: measure the archive with vectors in it; the size line in docs/backup.md is today's.
+- 024's boot receipt under a Mix-run script (030's finding 5) is unchanged by this slice.
+- The private key's absence on a fresh install means a new key id on first boot; a later slice may offer the
+  import of just the key file for someone restoring their own machine.
