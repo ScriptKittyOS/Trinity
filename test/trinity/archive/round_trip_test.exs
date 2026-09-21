@@ -10,6 +10,9 @@ defmodule Trinity.Archive.RoundTripTest do
   """
   use ExUnit.Case, async: false
 
+  # The archive is the SQLite data directory\'s (docs/backup.md); the postgres job excludes :sqlite.
+  @moduletag :sqlite
+
   import Ecto.Query, only: [from: 2]
 
   alias Ecto.Adapters.SQL.Sandbox

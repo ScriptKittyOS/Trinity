@@ -49,6 +49,12 @@ faithful. The search index is inside the database on SQLite; on Postgres it is a
 
 `--data-dir <dir>` points either task at a directory other than the configured one.
 
+## Postgres
+
+The archive is the SQLite data directory's. A deployment on Postgres (`TRINITY_DB=postgres`) keeps its rows in
+that database and backs it up with Postgres's own tools (`pg_dump`); the export there carries the key registry
+and the directories, not the databases, and says so in the manifest's file list.
+
 ## Size
 
 On the machine this was written on (2026-09-21), 18 sessions and 8,029 messages made a 713 KB archive (3.1 MB

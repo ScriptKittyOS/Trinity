@@ -4,6 +4,9 @@ defmodule Mix.Tasks.Trinity.ImportTaskTest do
   @moduledoc "Slice 034: the import task refuses a held data directory and a non-empty one, and restores into an empty one."
   use ExUnit.Case, async: false
 
+  # The archive is the SQLite data directory\'s (docs/backup.md); the postgres job excludes :sqlite.
+  @moduletag :sqlite
+
   alias Trinity.Archive
   alias Trinity.Archive.Layout
 

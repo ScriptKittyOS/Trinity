@@ -4,6 +4,9 @@ defmodule TrinityWeb.SettingsExportTest do
   @moduledoc "Slice 034: the settings page links to the export; the download is a tarball whose manifest parses and names the keys choice."
   use TrinityWeb.ConnCase, async: false
 
+  # The archive is the SQLite data directory\'s (docs/backup.md); the postgres job excludes :sqlite.
+  @moduletag :sqlite
+
   import Phoenix.LiveViewTest
 
   alias Trinity.Archive.Manifest
