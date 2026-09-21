@@ -53,7 +53,7 @@ standards register names the rows that ask for them.
 | 041 | Skill self-management with staged approval + scanner | 4 Skills | M | 040, 021 | approved |
 | 050 | Scheduler: Oban cron agent tasks with delivery targets | 5 Automation | M | 012 | planned |
 | 059 | MCP capability gap against beam_mcp, and the server seam probe | 6 MCP | S/M | 020 | approved |
-| 060 | MCP client: Trinity's thin driver (2026-07-28 preferred, 2025-11-25 compat, MRTR, Tasks) | 6 MCP | L | 059, 021 | done |
+| 060 | MCP client: Trinity's thin driver (2026-07-28 preferred, 2025-11-25 compat, MRTR, Tasks) | 6 MCP | L | 059, 021 | approved |
 | 061 | MCP server (stateless 2026-07-28 + compat, MRTR approvals, headless profile) | 6 MCP | M | 060, 024 | planned |
 | 062 | MCP authorization: OAuth client role, RS, embedded AS, Enterprise Managed Authorization (ID-JAG) | 6 MCP | L | 061 | planned |
 | 070 | Gateway core: adapter behaviour, routing, PubSub fan-out | 7 Gateways | M | 012 | planned |
