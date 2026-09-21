@@ -1,0 +1,4 @@
+defmodule Trinity.PlantedBeamMcp do
+  @moduledoc false
+  def depth, do: BeamMCP.JSON.max_depth()
+end

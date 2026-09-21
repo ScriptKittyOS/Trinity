@@ -26,6 +26,9 @@ defmodule Trinity.MixProject do
       # 90. `mix test --cover` was still exiting 3 on a rule this project does not have, and
       # the comment above it claimed otherwise for the whole of slice 000.
       test_coverage: [summary: [threshold: 0]],
+      # Slice 059: calls into beam_mcp are checked by the boundary compiler everywhere;
+      # only Trinity.MCP lists BeamMCP among its deps (ADR-0007 decision 4 and 5).
+      boundary: [default: [check: [apps: [:beam_mcp]]]],
       releases: releases()
     ]
   end
@@ -157,6 +160,9 @@ defmodule Trinity.MixProject do
         # (Trinity.Skills.Watcher); both were in the lock already as transitive dependencies.
         {:yaml_elixir, "~> 2.12"},
         {:file_system, "~> 1.1"},
+        # Slice 059: the MCP server core (ADR-0007 decision 5), reached only through the
+        # Trinity.MCP boundary; the slice measures its gap, 060 and 061 build on it.
+        {:beam_mcp, "~> 0.8"},
         # Slice 013 (owner decision, 2026-09-20): the linux package builds mdex's NIF from
         # source for musl (MDEX_NATIVE_BUILD=1 and TRINITY_NIF_TARGET in config/config.exs),
         # because neither precompiled artifact loads in Burrito's musl ERTS (NOTES finding 13).
