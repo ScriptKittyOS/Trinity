@@ -7,7 +7,10 @@ defmodule Trinity.Application do
   # Trinity.Smoke is its own top-level boundary: it is the `--smoke` boot path and has to ask
   # TrinityWeb.Endpoint what port it bound, which Trinity (deps: []) may not do. Adding it here
   # is what lets the child list mention it.
-  use Boundary, top_level?: true, deps: [Trinity, TrinityWeb, Trinity.Smoke], exports: []
+  use Boundary,
+    top_level?: true,
+    deps: [Trinity, TrinityWeb, Trinity.Smoke, Trinity.MCP],
+    exports: []
 
   # See https://elixir.hexdocs.pm/Application.html
   # for more information on OTP Applications
@@ -57,6 +60,10 @@ defmodule Trinity.Application do
           # Slice 040: the skills index, scanned from its roots and watched; after the tools
           # (conditional activation asks which exist) and before the sessions that read it.
           Trinity.Skills.Registry,
+          # Slice 060: the MCP clients, one per enabled server row, after the tools they
+          # register into and the gate their approvals go through.
+          Trinity.MCP.Supervisor,
+          Trinity.MCP.Boot,
           Trinity.Sessions.Supervisor
         ] ++
         Trinity.Smoke.probe(Trinity.Smoke.argv()) ++

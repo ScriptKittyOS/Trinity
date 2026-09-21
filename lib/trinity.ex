@@ -47,6 +47,11 @@ defmodule Trinity do
         Memory.Retriever,
         Memory.Embedders.Bumblebee,
         Tools,
+        # Slice 060: what the MCP bridge (a top-level boundary) implements and returns.
+        Tools.Tool,
+        Tools.Context,
+        Tools.Result,
+        Tools.Untrusted,
         Permissions,
         Permissions.Approval,
         Permissions.Rule,

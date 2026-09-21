@@ -14,6 +14,14 @@ defmodule Trinity.Tools.Registry do
 
   Every entry carries the tool's definition digest (SHA-256 over name, description and
   schema), which each tool call record and each turn's declared surface cite.
+
+  Slice 060: a dynamic tool may be registered as a module plus a `spec:` (name, description,
+  schema, risk, effect, timeout), so one module serves many tools whose definitions arrived
+  at runtime (an MCP server's), with no module created per tool: a module is an atom, and
+  an atom per name a server chooses is a leak a rotating catalog could drive. The entry
+  carries the spec, and everything that reads a definition reads it from the spec when one
+  is present and from the module otherwise. The module's `execute/2` learns which tool it is
+  from `Trinity.Tools.Context.tool`, the entry's name.
   """
   use GenServer
 
@@ -24,6 +32,15 @@ defmodule Trinity.Tools.Registry do
 
   @table __MODULE__
 
+  @type spec :: %{
+          required(:name) => String.t(),
+          required(:description) => String.t(),
+          required(:schema) => map(),
+          optional(:risk) => Tool.risk(),
+          optional(:effect) => Tool.effect(),
+          optional(:timeout) => pos_integer()
+        }
+
   @type entry :: %{
           name: String.t(),
           module: module(),
@@ -31,7 +48,8 @@ defmodule Trinity.Tools.Registry do
           risk: Tool.risk(),
           effect: Tool.effect(),
           digest: String.t(),
-          toolsets: [atom()]
+          toolsets: [atom()],
+          spec: spec() | nil
         }
 
   @dynamic_prefixes ["mcp:", "skill:"]
@@ -63,7 +81,9 @@ defmodule Trinity.Tools.Registry do
 
   @doc """
   Admits a dynamic tool: a module implementing `Trinity.Tools.Tool` whose name is namespaced,
-  not a core name, whose schema builds, and whose effect is not `:catalog`.
+  not a core name, whose schema builds, and whose effect is not `:catalog`. With `spec:`
+  (slice 060) the name, description, schema, risk, effect and timeout are the spec's and the
+  module supplies `execute/2` alone.
   """
   @spec register(module(), keyword()) :: {:ok, entry()} | {:error, term()}
   def register(module, opts \\ []), do: GenServer.call(__MODULE__, {:register, module, opts})
@@ -77,16 +97,43 @@ defmodule Trinity.Tools.Registry do
           %{name: String.t(), description: String.t(), parameters: map()}
         ]
   def to_llm_tools(opts \\ []) do
-    for %{module: m, name: name} <- list(opts) do
-      %{name: name, description: m.description(), parameters: m.schema()}
+    for %{name: name} = entry <- list(opts) do
+      %{name: name, description: description(entry), parameters: schema(entry)}
     end
   end
 
   @doc "SHA-256, hex, over the name, the description and the schema, so a changed definition is a changed digest."
-  @spec definition_digest(module()) :: String.t()
-  def definition_digest(module) do
-    payload = :erlang.term_to_binary({module.name(), module.description(), module.schema()})
+  @spec definition_digest(module() | entry()) :: String.t()
+  def definition_digest(module) when is_atom(module),
+    do: digest_of(module.name(), module.description(), module.schema())
+
+  def definition_digest(%{spec: %{} = spec}),
+    do: digest_of(spec.name, spec.description, spec.schema)
+
+  def definition_digest(%{module: module}), do: definition_digest(module)
+
+  defp digest_of(name, description, schema) do
+    payload = :erlang.term_to_binary({name, description, schema})
     :crypto.hash(:sha256, payload) |> Base.encode16(case: :lower)
+  end
+
+  @doc "The description the model reads: the spec's when present, the module's otherwise."
+  @spec description(entry()) :: String.t()
+  def description(%{spec: %{description: d}}), do: d
+  def description(%{module: m}), do: m.description()
+
+  @doc "The argument schema: the spec's when present, the module's otherwise."
+  @spec schema(entry()) :: map()
+  def schema(%{spec: %{schema: s}}), do: s
+  def schema(%{module: m}), do: m.schema()
+
+  @doc "The call timeout in milliseconds, or nil for the configured default."
+  @spec timeout(entry()) :: pos_integer() | nil
+  def timeout(%{spec: %{timeout: t}}) when is_integer(t), do: t
+  def timeout(%{spec: %{}}), do: nil
+
+  def timeout(%{module: m}) do
+    if function_exported?(m, :timeout, 0), do: m.timeout(), else: nil
   end
 
   @doc "True for a name a dynamic tool may carry."
@@ -166,21 +213,63 @@ defmodule Trinity.Tools.Registry do
 
   defp admit(module, kind, toolsets, opts \\ []) do
     with :ok <- implements(module),
-         name = module.name(),
+         {:ok, spec} <- spec_rule(Keyword.get(opts, :spec), kind),
+         {name, description, schema, risk, effect} = definition(module, spec),
          :ok <- name_rules(name, kind),
-         :ok <- schema_rule(module.schema()),
-         :ok <- effect_rule(module.effect(), name, kind) do
+         :ok <- schema_rule(schema),
+         :ok <- effect_rule(effect, name, kind) do
       {:ok,
        %{
          name: name,
          module: module,
          kind: kind,
-         risk: module.risk(),
-         effect: module.effect(),
-         digest: definition_digest(module),
-         toolsets: sets_of(name, toolsets, kind, opts)
+         risk: risk,
+         effect: effect,
+         digest: digest_of(name, description, schema),
+         toolsets: sets_of(name, toolsets, kind, opts),
+         spec: spec
        }}
     end
+  end
+
+  # A spec belongs to a dynamic tool only; a core tool's definition is its module's. What the
+  # spec leaves out (risk, effect) falls back to the module, so a bridge module's own
+  # `risk/0` and `effect/0` are the defaults for the tools it serves.
+  defp spec_rule(nil, _kind), do: {:ok, nil}
+  defp spec_rule(_spec, :core), do: {:error, :core_tool_with_spec}
+
+  defp spec_rule(%{name: name, description: d, schema: s} = spec, :dynamic)
+       when is_binary(name) and is_binary(d) and is_map(s) do
+    with :ok <- spec_field(spec, :risk, [:read, :write, :exec, :network, :destructive, :ask]),
+         :ok <- spec_field(spec, :effect, [:none, :artifact, :catalog]),
+         :ok <- spec_timeout(spec) do
+      {:ok, spec}
+    end
+  end
+
+  defp spec_rule(spec, :dynamic), do: {:error, {:invalid_spec, spec}}
+
+  defp spec_field(spec, key, allowed) do
+    case Map.get(spec, key) do
+      nil -> :ok
+      v -> if v in allowed, do: :ok, else: {:error, {:invalid_spec, {key, v}}}
+    end
+  end
+
+  defp spec_timeout(spec) do
+    case Map.get(spec, :timeout) do
+      nil -> :ok
+      t when is_integer(t) and t > 0 -> :ok
+      other -> {:error, {:invalid_spec, {:timeout, other}}}
+    end
+  end
+
+  defp definition(module, nil),
+    do: {module.name(), module.description(), module.schema(), module.risk(), module.effect()}
+
+  defp definition(module, spec) do
+    {spec.name, spec.description, spec.schema, Map.get(spec, :risk, module.risk()),
+     Map.get(spec, :effect, module.effect())}
   end
 
   defp implements(module) do

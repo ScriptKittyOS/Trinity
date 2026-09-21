@@ -21,7 +21,7 @@ defmodule Trinity.Permissions.Gate do
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
-  @doc "Creates a pending request; `opts`: `cwd:`, `risk:` (the tier by default)."
+  @doc "Creates a pending request; `opts`: `cwd:`, `risk:` (the tier by default), `request:` (slice 060: a server's input request, shown to the decider)."
   @spec request(String.t(), String.t(), map(), keyword()) ::
           {:ok, Approval.t()} | {:error, term()}
   def request(session_id, tool, args, opts \\ []),
@@ -76,7 +76,8 @@ defmodule Trinity.Permissions.Gate do
       args: args,
       risk: Atom.to_string(Keyword.get(opts, :risk, Permissions.tier(tool))),
       fingerprint: Permissions.fingerprint(session_id, tool, args, Keyword.get(opts, :cwd)),
-      expires_at: DateTime.add(now, expiry_ms(), :millisecond)
+      expires_at: DateTime.add(now, expiry_ms(), :millisecond),
+      request: Keyword.get(opts, :request)
     }
 
     case Store.insert_approval(attrs) do
@@ -133,7 +134,8 @@ defmodule Trinity.Permissions.Gate do
              status: status,
              decision: Atom.to_string(decision),
              decided_at: now,
-             decided_by: by
+             decided_by: by,
+             answer: Keyword.get(opts, :answer)
            }) do
       broadcast(:decided, decided)
       cancel(state.timers[approval.id])
