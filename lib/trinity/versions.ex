@@ -204,7 +204,7 @@ defmodule Trinity.Versions do
       pin: "~> 0.13.1",
       lock: "exla",
       note:
-        "The XLA backend the serving compiles to (Slice 032); precompiled for x86_64 and aarch64 Linux and macOS, none for Windows (the tier is off there). The XLA shared library is 463 MB on disk: docs/perf.md. Pulls `xla` 0.10.0 and `fine`."
+        "The XLA backend the serving compiles to (Slice 032); precompiled for x86_64 and aarch64 Linux and macOS, none for Windows (not declared on a Windows host; the tier is off there). Declared `runtime: false` and carried by the release in `:load` mode, started on demand by `Trinity.Memory.Embedders.Bumblebee.exla/0`: its NIF does not load in Burrito's Linux ERTS (NOTES finding 2). The XLA shared library is 463 MB on disk: docs/perf.md. Pulls `xla` 0.10.0 and `fine`."
     },
     %{
       name: "bumblebee",

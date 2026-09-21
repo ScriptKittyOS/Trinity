@@ -122,3 +122,86 @@ embedder or disabled semantic tier" is read as "disabled semantic tier"; (c) the
 action, not an automatic first-run download, because a download is a network egress the operator should see
 happen (the design note's "first-run download with UI progress" is kept as that action); (d) the embedder that
 produced each vector is recorded on the row (decision 4).
+
+## Findings at G3, 2026-09-21
+
+1. **Two defects older than this slice, found by AC6's first live run** (nvidia:nemotron, the dev server,
+   the flow in `proof/ac6-recall.gif`). (a) The model streamed one `"\n"` and then its tool calls;
+   `validate_required` counts whitespace as blank, so the assistant row with the calls was refused
+   ("could not persist the assistant message") and the tool rows followed a call the history never showed.
+   Red `test/trinity/sessions/session_test.exs` ("a turn whose only text is whitespace…"), then `fix(s012)`:
+   `String.trim` before the `(no text)` substitution. (b) The turn after a tool result raised
+   `invalid tool_call: {"call-…", "recall", %{…}}` inside req_llm 1.24.0: the adapter handed
+   `ReqLLM.Context.assistant/2` a `{id, name, args}` tuple, and `normalize_tool_call/1` takes `{name, input}`,
+   `{name, input, opts}` or a map with `name` and `arguments`. Every live turn after a tool call had failed this
+   way since 011; the fake provider builds no context, so the suite never saw it. Red
+   `test/trinity/llm/mapping_test.exs` ("the request's assistant tool calls reach req_llm's context…"), then
+   `fix(s011)`: maps with `id`, `name`, `arguments`. With both in, the run completed: two `memory` tool calls,
+   a final answer, then in a new session two `recall` calls and "Your dog's name is **Rex**, and you live in
+   **Lisbon** (you moved there last spring)."
+2. **EXLA inside the Burrito bundle.** Package run 35600216451, the first with exla: on Linux the NIF does
+   not load in Burrito's musl ERTS (`Error relocating …/libexla.so: __libc_single_threaded: symbol not
+   found`, NOTES finding 13 of slice 013's shape), and because exla's application start loads the NIF, the
+   whole release failed to boot (exit 1). On macOS the NIF loaded (`TRINITY_SMOKE_EXLA=ok`). On Windows exla
+   is not declared (xla ships no Windows archive; `exla_deps/0` in mix.exs). Closed by declaring exla
+   `runtime: false` (compiled, on the code path, not in `applications`), carrying it in the release in
+   `:load` mode (Mix refuses `:load` while an application depends on it: run 35603384655), and starting it
+   on demand in `Trinity.Memory.Embedders.Bumblebee.exla/0`, whose failure is remembered for the run and is
+   the tier's reason (`{:off, {:exla, "…"}}`). The Linux bundle therefore boots with the tier off and says
+   why; a local backend for the Linux bundle is a follow-up (below), not this slice's.
+3. **The smoke probe ran before the Repo.** The 032 smoke lines were first computed in `Smoke.children/1`,
+   inside `Application.start/2` before the tree (where the markdown line lives for its own race); the vector
+   check answered "could not lookup Ecto repo Trinity.Repo because it was not started" on all three OSes. It
+   is now `Trinity.Smoke.Probe`, a child placed after the sessions supervisor and before the endpoint whose
+   `start_link/0` does the work and answers `:ignore`.
+4. **Brute force in Elixir is fine to 10^4, not 10^5.** Over 10,000 rows the Elixir cosine took 531.7 ms
+   p50, of which decoding the float32 binaries to lists was 323 ms; `Nx.dot` on `Nx.BinaryBackend` was worse
+   (1,364 ms). One EXLA product over the same bytes: 102 ms the first time (the compile for that shape), 6 ms
+   after. `Brute.search/3` now scores with the product when the NIF is loaded and with the Elixir path when it
+   is not (the hosted embedder on a machine without EXLA), a test holding the two to the same numbers; as
+   built, 10,000 rows search in 99.6 ms p50 through `scripts/vector_bench.exs`, the rows' load from SQLite
+   being most of it. docs/perf.md carries the tables; docs/02's line is amended.
+5. **Postgrex needs the `vector` type registered.** Found on a local `pgvector/pgvector:pg17` container
+   before the postgres job ran: `type vector can not be handled by the types module Postgrex.DefaultTypes`.
+   `Trinity.Repo.PostgrexTypes` (defined only when the Postgres adapter is compiled in) and `types:` on the
+   repo in the Postgres branch of config; vectors bound as `Pgvector.new/1` structs, never as text literals.
+6. **The fake embedder is 384 wide**, twelve counted SHA-256s per text, so the postgres job's AC1 exercises
+   the `vector(384)` column and its HNSW index rather than the brute fallback for another width. Its
+   `#near:<key>` prefix is two words to the full-text index, which is why the retriever tests' past messages
+   carry the words "near" and the key: 031's search is "all these words".
+7. **A recall floor.** The first recall tool test asked for "zzz" and got the dog memory back: a vector search
+   always has `k` nearest rows, however far. `recall_min_cosine:` (0.3, the slice's own "unrelated" line: the
+   unrelated pair measures 0.062 on the local model) gates the vector list; the full-text list needs no floor.
+8. **The observer on the real model** extracted "The person's dog is called Rex." and "The person moved to
+   Lisbon last spring." at confidence 0.95 from one turn; the same turn's model had also called the `memory`
+   tool twice on its own, so the always-on tier held the facts as well. nemotron answered each call in about
+   75 s that hour (`proof/ac6-3-taught.png` and `ac6-5-recalled.png` carry the timestamps).
+9. **The archive-size line from G1 answered.** A vector is 1,536 bytes on the row; 10,000 rows add
+   15,360,000 bytes of vectors and the scratch database measured 47,702,016 bytes with 10,000 rows in it
+   (docs/perf.md).
+10. **Two flakes met on run 35603385277, closed at their source.** `Fake.fail(10, …)` in
+    `test/trinity/llm/llm_test.exs` left failures behind for the next test that did not clear first (the memory
+    page's consolidation test got `{:exhausted, 3, :down}`); llm_test and `Trinity.SessionCase` now clear on
+    exit too. And the boot receipt's Task raced the sandbox's switch to manual mode on the postgres job (the
+    024 boot-receipt tests failed with an OwnershipError); `test/test_helper.exs` waits for the Task before the
+    switch. Neither is 032's code; both are in this branch because this branch met them.
+11. **AC2 is automated where the model is on disk.** `TRINITY_LOCAL_MODEL_CACHE=<cache> mix test --only
+    local_model` runs the real serving under `Trinity.Memory.Supervisor` and asserts the dimension and the two
+    cosines; excluded by tag elsewhere, never a silent skip when the variable is set and the model is absent.
+    On this machine: dim 384, 0.858, 0.062, three embeds in 281 ms. The owner's manual queue keeps AC2 all the
+    same, on their machine.
+
+## Follow-ups
+
+- **A local embedding backend for the Linux bundle and for Windows.** The Linux bundle boots with the tier
+  off (finding 2); Windows has no EXLA at all. Candidates: a glibc-linked ERTS for Burrito's Linux target (the
+  mdex NIF is already built for musl by hand, slice 013, and XLA cannot be), or an ONNX runtime NIF (ortex)
+  with the same model exported to ONNX, which would serve all three targets. Owner: the slice that takes it;
+  lift condition: `TRINITY_SMOKE_EXLA=ok` (or its ONNX equivalent) on the linux and windows package jobs.
+- **hnswlib past 10^4 rows** on machines without EXLA, past 10^5 with it (finding 4).
+- **The persona's memory rule and the observer.** The observer writes semantic rows whenever the tier is on;
+  the `memory` tool's `permissions.memory` rule on the persona does not gate it. Decide at 040 or when a
+  persona needs a read-only memory.
+- **Hosted embedder prompting.** nvidia:embed's raw vectors do not separate at the slice's thresholds
+  (G1); its query/passage instruction prefixes would have to be measured before `embedder: :hosted` is
+  recommended to anyone.
