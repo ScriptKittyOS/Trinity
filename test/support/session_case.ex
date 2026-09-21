@@ -18,6 +18,8 @@ defmodule Trinity.SessionCase do
       setup do
         Trinity.LLM.Providers.Fake.clear()
         on_exit(fn -> Trinity.SessionCase.stop_all_sessions() end)
+        # Slice 032: scripts and objects set here do not outlive the test either.
+        on_exit(fn -> Trinity.LLM.Providers.Fake.clear() end)
         :ok
       end
     end

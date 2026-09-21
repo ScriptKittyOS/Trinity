@@ -73,6 +73,8 @@ config :trinity, :tools,
     Trinity.Tools.Web.Search,
     # Slice 031: full-text search over past messages.
     Trinity.Tools.SessionSearch,
+    # Slice 032: hybrid recall over semantic memories and past messages.
+    Trinity.Tools.Recall,
     # Slice 030: the always-on memory tiers.
     Trinity.Tools.Memory,
     Trinity.Tools.Shell.Run
@@ -82,7 +84,7 @@ config :trinity, :tools,
     web: ["web_fetch", "web_search"],
     shell: ["shell"],
     # Slice 031: search over past conversations.
-    memory: ["session_search", "memory"]
+    memory: ["session_search", "recall", "memory"]
   }
 
 # Slice 022: the filesystem roots beside the data directory (always a root) and the session's

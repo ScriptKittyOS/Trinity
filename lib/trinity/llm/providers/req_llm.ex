@@ -196,7 +196,9 @@ defmodule Trinity.LLM.Providers.ReqLLM do
     end)
   end
 
-  defp context(%Request{system: system, messages: messages}) do
+  @doc false
+  @spec context(Request.t()) :: ReqLLM.Context.t()
+  def context(%Request{system: system, messages: messages}) do
     base = if system, do: [ReqLLM.Context.system(system)], else: []
     ReqLLM.Context.new(base ++ Enum.map(messages, &message/1))
   end
@@ -213,7 +215,11 @@ defmodule Trinity.LLM.Providers.ReqLLM do
         ReqLLM.Context.assistant(c)
 
       calls ->
-        ReqLLM.Context.assistant(c, tool_calls: Enum.map(calls, &{&1.id, &1.name, &1.args}))
+        # fix(s011) at slice 032: req_llm 1.24.0's normalize_tool_call/1 takes a map with
+        # `name` and `arguments` (the id kept), not the `{id, name, args}` tuple sent before.
+        ReqLLM.Context.assistant(c,
+          tool_calls: Enum.map(calls, &%{id: &1.id, name: &1.name, arguments: &1.args})
+        )
     end
   end
 

@@ -8,5 +8,23 @@ defmodule Trinity.Memory do
   """
   use Boundary,
     deps: [Trinity, Trinity.LLM],
-    exports: [Tokens, Compactor, Search, AlwaysOn, Budget, Consolidator, Entry, Proposal, Change]
+    exports: [
+      Tokens,
+      Compactor,
+      Search,
+      AlwaysOn,
+      Budget,
+      Consolidator,
+      Entry,
+      Proposal,
+      Change,
+      Embedder,
+      Embedders.Bumblebee,
+      Embedders.Fake,
+      Observer,
+      Retriever,
+      Semantic,
+      Supervisor,
+      VectorStore
+    ]
 end

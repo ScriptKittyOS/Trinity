@@ -112,6 +112,23 @@ defmodule Trinity.Sessions.SessionTest do
 
       assert Enum.map(history, & &1.seq) == [1, 2, 3, 4]
     end
+
+    # Found by slice 032's AC6 run on nvidia:nemotron: the model sent one "\n" delta and then
+    # its tool calls, `validate_required` counts whitespace as blank, and the assistant row
+    # with the calls was refused ("could not persist the assistant message"), so the tool
+    # rows followed a call the history never showed. Committed red first.
+    test "a turn whose only text is whitespace before its tool calls still persists its assistant row",
+         %{id: id} do
+      script = [{:text_delta, "\n"} | Enum.drop(default_script(), 2)]
+      Fake.scripts([script, script_deltas(1, "final ")])
+      {:ok, pid} = start_drained(id)
+      {:ok, _} = Session.send_user_message(pid, "weather?")
+      _ = collect(id, fn e -> match?({:state, :idle}, e) end, 8_000)
+      history = Sessions.history(id)
+      assert Enum.map(history, & &1.role) == ["user", "assistant", "tool", "assistant"]
+      assert Enum.at(history, 1).content == "(no text)"
+      assert Enum.at(history, 1).parts["tool_calls"] |> length() == 1
+    end
   end
 
   describe "a failing stream (AC3)" do

@@ -11,7 +11,8 @@ defmodule Trinity do
   # Tools and Permissions sub-boundaries and, until 024, `Effects.Catalog` (now
   # `Tools.Catalog`, exported by Tools). Slice 024 exports Repo.Receipts (the Receipts
   # boundary writes it), CorePolicy (the boot receipt reads it) and the Receipts, Authority
-  # and Effects sub-boundaries.
+  # and Effects sub-boundaries. Slice 032 exports Memory.Semantic, Memory.Retriever and
+  # Memory.Embedders.Bumblebee (the memory page's semantic tab and its download action).
   use Boundary,
     deps: [],
     exports:
@@ -41,6 +42,9 @@ defmodule Trinity do
         Memory.Entry,
         Memory.Proposal,
         Memory.Change,
+        Memory.Semantic,
+        Memory.Retriever,
+        Memory.Embedders.Bumblebee,
         Tools,
         Permissions,
         Permissions.Approval,

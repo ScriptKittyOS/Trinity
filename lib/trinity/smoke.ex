@@ -44,9 +44,17 @@ defmodule Trinity.Smoke do
   @spec argv() :: [String.t()]
   def argv, do: Enum.map(:init.get_plain_arguments(), &to_string/1)
 
-  @doc "Whether `#{@flag}` was passed."
+  @doc """
+  Whether the smoke run was asked for: `#{@flag}` among the arguments, or `TRINITY_SMOKE=1` in
+  the environment. The variable is the form the package workflow uses since slice 032:
+  `Kernel.CLI` reads the same plain arguments once the application has started and treats
+  `#{@flag}` as a file to run ("No file named --smoke", exit 1), and the Task that prints the
+  lines and halts wins that race only sometimes (package run 35608084951, macOS: exit 1
+  between the fourth line and the fifth). An environment variable is nothing for the CLI to
+  read.
+  """
   @spec requested?([String.t()]) :: boolean()
-  def requested?(args), do: @flag in args
+  def requested?(args), do: @flag in args or System.get_env("TRINITY_SMOKE") == "1"
 
   @doc """
   The line printed for the caller to parse. One key=value pair, no prose around it, so a shell
@@ -75,17 +83,76 @@ defmodule Trinity.Smoke do
   end
 
   @doc """
+  The third line (slice 032): whether the EXLA NIF loaded in this binary and ran one
+  operation. Informative, not binding: a bundle whose XLA library does not load (Burrito's
+  musl ERTS against a glibc `.so`, NOTES finding 13's shape) still boots with the semantic
+  tier off, and AC7 asks that the failure be recorded by name. `ok` or `failed:<reason>`.
+  """
+  @spec exla_line() :: String.t()
+  def exla_line do
+    if Code.ensure_loaded?(EXLA) and Trinity.Memory.Embedders.Bumblebee.exla() == :ok do
+      try do
+        t = Nx.tensor([1.0, 2.0], backend: EXLA.Backend)
+        [3.0] = Nx.to_flat_list(Nx.sum(t))
+        "TRINITY_SMOKE_EXLA=ok"
+      rescue
+        e -> "TRINITY_SMOKE_EXLA=failed:#{inspect(Exception.message(e) |> String.slice(0, 200))}"
+      catch
+        kind, reason ->
+          "TRINITY_SMOKE_EXLA=failed:#{inspect({kind, reason}) |> String.slice(0, 200)}"
+      end
+    else
+      "TRINITY_SMOKE_EXLA=failed:#{inspect(Trinity.Memory.Embedders.Bumblebee.exla()) |> String.slice(0, 200)}"
+    end
+  end
+
+  @doc """
+  The fourth line (slice 032, AC7): a fake-vector search inside this binary through the
+  vector store in force, on the database the binary opened, rolled back. Three rows of the
+  suite's deterministic vectors, the nearest expected first; `ok:<store>` or
+  `failed:<reason>`. Binding: exit 4 when it fails. The tier's own status follows as the
+  fifth line, informative (`on`, or the reason it is off on this machine).
+  """
+  @spec vec_line() :: String.t()
+  def vec_line do
+    case Trinity.Memory.Semantic.smoke() do
+      {:ok, store} -> "TRINITY_SMOKE_VEC=ok:#{inspect(store)}"
+      {:error, reason} -> "TRINITY_SMOKE_VEC=failed:#{inspect(reason) |> String.slice(0, 200)}"
+    end
+  end
+
+  @doc "The fifth line: the semantic tier's status in this binary, informative."
+  @spec semantic_line() :: String.t()
+  def semantic_line do
+    case Trinity.Memory.Semantic.status() do
+      :on -> "TRINITY_SMOKE_SEMANTIC=on"
+      {:off, reason} -> "TRINITY_SMOKE_SEMANTIC=off:#{inspect(reason) |> String.slice(0, 200)}"
+    end
+  end
+
+  @doc """
   Runs the smoke check: report the listening port, then stop the OS process.
 
   `say` and `halt` are injected so the whole path is exercisable from a test without ending
   the test runner's own OS process.
   """
-  @spec run(say_fun(), halt_fun(), String.t()) :: any()
-  def run(say \\ &IO.puts/1, halt \\ &System.halt/1, markdown \\ markdown_line()) do
+  @spec run(say_fun(), halt_fun(), String.t(), [String.t()]) :: any()
+  def run(say \\ &IO.puts/1, halt \\ &System.halt/1, markdown \\ markdown_line(), rest \\ nil) do
     {:ok, {_ip, port}} = TrinityWeb.Endpoint.server_info(:http)
     say.(port_line(port))
     say.(markdown)
-    halt.(if markdown == "TRINITY_SMOKE_MARKDOWN=ok", do: 0, else: 3)
+    [exla, vec, semantic] = rest || [exla_line(), vec_line(), semantic_line()]
+    say.(exla)
+    say.(vec)
+    say.(semantic)
+
+    halt.(
+      cond do
+        markdown != "TRINITY_SMOKE_MARKDOWN=ok" -> 3
+        not String.starts_with?(vec, "TRINITY_SMOKE_VEC=ok:") -> 4
+        true -> 0
+      end
+    )
   end
 
   @doc """
@@ -109,9 +176,46 @@ defmodule Trinity.Smoke do
   def children(args) do
     if requested?(args) do
       markdown = markdown_line()
-      [{Task, fn -> run(&IO.puts/1, &System.halt/1, markdown) end}]
+      # The 032 lines were computed by `probe/1`, a child placed after the Repo, the memory
+      # supervisor and the sessions (package run 35600216451: computed here, before the
+      # tree, the vector check found no Repo); the Task only reads them.
+      [{Task, fn -> run(&IO.puts/1, &System.halt/1, markdown, probed()) end}]
     else
       []
+    end
+  end
+
+  @doc """
+  The child that computes the 032 lines (slice 032): placed in `Trinity.Application` just
+  before the endpoint, so the Repo, the memory supervisor and the sessions are up. Its
+  `start_link/1` does the work synchronously and answers `:ignore`, so the supervisor waits
+  for it and starts no process; `children/1`'s Task reads the result.
+  """
+  @spec probe([String.t()]) :: [Supervisor.child_spec()]
+  def probe(args) do
+    if requested?(args), do: [Trinity.Smoke.Probe], else: []
+  end
+
+  @doc false
+  @spec probed() :: [String.t()]
+  def probed do
+    :persistent_term.get({__MODULE__, :probed}, [
+      "TRINITY_SMOKE_EXLA=failed:not_probed",
+      "TRINITY_SMOKE_VEC=failed:not_probed",
+      "TRINITY_SMOKE_SEMANTIC=off:not_probed"
+    ])
+  end
+
+  defmodule Probe do
+    @moduledoc false
+    use Boundary, top_level?: true, deps: [Trinity, Trinity.Smoke]
+
+    def child_spec(_), do: %{id: __MODULE__, start: {__MODULE__, :start_link, []}}
+
+    def start_link do
+      lines = [Trinity.Smoke.exla_line(), Trinity.Smoke.vec_line(), Trinity.Smoke.semantic_line()]
+      :persistent_term.put({Trinity.Smoke, :probed}, lines)
+      :ignore
     end
   end
 end

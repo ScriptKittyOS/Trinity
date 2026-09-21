@@ -75,6 +75,22 @@ vocabulary is `global | persona:<id> | project:<path> | session:<id>` (a session
 `persona`, `global`), `key` is required for the two always-on tiers (`^[a-z0-9][a-z0-9_.-]{0,63}$`, unique with
 tier and scope), and the semantic tier's columns wait for 032. Two tables beside it:
 
+As built at slice 032 (the semantic tier): no `memories_vec` virtual table and no `sqlite_vec` (its only release
+needs `nx ~> 0.9`; NOTES decision 1). The vector is three columns on the row, on both databases:
+`embedding` (binary: float32, little-endian, `dim * 4` bytes), `embedding_model` (the embedder that produced it,
+e.g. `bumblebee:sentence-transformers/all-MiniLM-L6-v2`, `fake:sha256-384` in the suite) and `embedding_dim`
+(integer), all nullable, under an index on (`persona_id`, `tier`, `embedding_model`). On Postgres the migration
+also creates the `vector` extension, a fourth column `embedding_vector vector(384)` and an HNSW cosine index on
+it where `tier = 'semantic'`; `Trinity.Memory.VectorStores.Pgvector` keeps it in step with the bytes column and
+searches it with `<=>`, and `VectorStores.Brute` (SQLite) loads the filter's rows and scores them in Elixir.
+A search takes the scope list as a required argument (M6) and runs only over rows whose `embedding_model` is the
+embedder in force's: models are never mixed, a change of embedder is a re-embed. Semantic rows are written by
+`Trinity.Memory.Semantic.add/2` (the observer after a turn, `by: "observer"`; the page, `by: "ui"`), keyed
+`<slug of the body>-<6 hex of its SHA-256>`, and every write is a `memory_changes` row (`add`, `remove`, `pin`).
+The change log's `action` vocabulary grows by `pin` (a semantic memory promoted to `always_on` through
+`AlwaysOn.add/2`, so the budget applies) and `by` by `observer`. Recall marks its memory hits' `last_used_at`,
+which the retriever's recency decay reads.
+
 ### memory_changes (Slice 030)
 `persona_id`, `action` (add | replace | remove | promote | consolidate), `tier`, `scope`, `key`, `before`,
 `after`, `by` (tool | ui | consolidator), `session_id`, `proposal_id`, `inserted_at`. Every write to the

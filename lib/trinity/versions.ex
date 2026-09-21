@@ -141,10 +141,10 @@ defmodule Trinity.Versions do
     },
     %{
       name: "pgvector",
-      pin: "optional, ~> 0.3",
+      pin: "~> 0.4.1",
       lock: "pgvector",
       note:
-        "Vectors on the Postgres path. Not yet a dependency; Slice 032 decides. Split from the postgrex row at Slice 010."
+        "Vectors on the Postgres path: `memories.embedding_vector vector(384)` under an HNSW cosine index, searched by `Trinity.Memory.VectorStores.Pgvector` (Slice 032). The postgres job runs on the `pgvector/pgvector:pg17` image. Split from the postgrex row at Slice 010."
     },
     %{
       name: "oban",
@@ -193,30 +193,39 @@ defmodule Trinity.Versions do
 
   @memory [
     %{
-      name: "nx, exla",
-      pin: "latest stable",
-      lock: nil,
+      name: "nx",
+      pin: "~> 0.13.1",
+      lock: "nx",
       note:
-        "Local embeddings. EXLA binary size matters for desktop: measure in 032. Two packages, so no single lock key."
+        "Tensors for the local embedder (Slice 032). The 0.13 line, not 1.0.0 (2026-09-10): bumblebee 0.7.1 accepts `~> 0.12 or ~> 0.13` and has no release for 1.0. Measured at Slice 032: docs/perf.md."
+    },
+    %{
+      name: "exla",
+      pin: "~> 0.13.1",
+      lock: "exla",
+      note:
+        "The XLA backend the serving compiles to (Slice 032); precompiled for x86_64 and aarch64 Linux and macOS, none for Windows (not declared on a Windows host; the tier is off there). Declared `runtime: false` and carried by the release in `:load` mode, started on demand by `Trinity.Memory.Embedders.Bumblebee.exla/0`: its NIF does not load in Burrito's Linux ERTS (NOTES finding 2). The XLA shared library is 463 MB on disk: docs/perf.md. Pulls `xla` 0.10.0 and `fine`."
     },
     %{
       name: "bumblebee",
-      pin: "~> 0.7",
+      pin: "~> 0.7.1",
       lock: "bumblebee",
-      note: "`all-MiniLM-L6-v2` embeddings; Whisper later. Added at Slice 032."
+      note:
+        "`all-MiniLM-L6-v2` embeddings through `Trinity.Memory.Embedders.Bumblebee` (Slice 032); Whisper later. Pulls `axon` 0.8.1 and `tokenizers` 0.5.1 (a precompiled Rust NIF)."
     },
     %{
       name: "sqlite_vec",
-      pin: "~> 0.1",
-      lock: "sqlite_vec",
+      pin: "not used (decided at Slice 032, 2026-09-21)",
+      lock: nil,
       note:
-        "Vectors in SQLite. Verify the loadable extension works inside the Burrito bundle (Slice 032). ⚠️ Pre-1.0, no release in roughly 22 months, 6,938 downloads all-time. R11's trigger already fires. Decide the fallback before Slice 032 starts."
+        "Vectors in SQLite. Its only release (0.1.0, 2024-11-19) requires `nx ~> 0.9` and cannot sit in a tree with nx 0.13; R11's trigger fired and the owner chose brute force in Elixir over the persona's semantic rows (`Trinity.Memory.VectorStores.Brute`, docs/02: fine to about 10^5) with pgvector on the Postgres path. The row stays so the decision is visible where a reader would look for the package."
     },
     %{
       name: "hnswlib",
-      pin: "~> 0.1.7",
+      pin: "~> 0.1.10",
       lock: "hnswlib",
-      note: "⚠️ Pre-1.0. Optional accelerator; not on the critical path."
+      note:
+        "⚠️ Pre-1.0 (0.1.10, 2026-09-17, active). The scale option after brute force; not yet a dependency, the slice that measures brute force past 10^5 rows adds it."
     }
   ]
 

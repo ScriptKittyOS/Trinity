@@ -29,7 +29,15 @@ defmodule Trinity.Sessions.Prompt do
   # plus 300 for the skills index 040 adds).
   @default_budgets [stable: 800, context: 5_800, volatile: 2_800]
 
-  @type truncation :: %{tier: :stable | :context | :volatile, dropped_tokens: pos_integer()}
+  @type truncation :: %{
+          tier: :stable | :context | :volatile | :recall,
+          dropped_tokens: pos_integer()
+        }
+
+  # Slice 032: the recall block's own cap inside the volatile tier, measured against the
+  # volatile budget of 030 (2,800): eight one-line hits of 300 characters are about 800 tokens
+  # under the estimator; 600 keeps the always-in-mind block and the facts whole.
+  @default_recall_tokens 600
 
   @doc "The request for the next model call; `tools` is the declared surface (slice 020), none by default."
   @spec build(SessionRow.t(), Persona.t() | nil, [Message.t()], [Request.tool()], keyword()) ::
@@ -43,7 +51,9 @@ defmodule Trinity.Sessions.Prompt do
   The request and the truncations the tier budgets forced. `opts`: `memory:` (the snapshot
   block, `""` when none), `now:` (the time the volatile tier states; `DateTime.utc_now/0`
   by default), `context:` (the context tier's text: the AGENTS.md block from slice 033, the
-  skills index from 040; `""` when none).
+  skills index from 040; `""` when none), `recall:` (slice 032's "Relevant memories" block,
+  cut at `config :trinity, :memory, recall_tokens:` before it joins the volatile tier, the
+  cut reported as the `:recall` tier; `""` when none).
   """
   @spec build_with_report(
           SessionRow.t(),
@@ -57,6 +67,12 @@ defmodule Trinity.Sessions.Prompt do
     {compaction, rows} = fold_compaction(history)
     budgets = Keyword.merge(@default_budgets, Application.get_env(:trinity, :prompt_budgets, []))
 
+    {recall, recall_truncations} =
+      case cut(Keyword.get(opts, :recall, ""), recall_tokens()) do
+        {kept, 0} -> {kept, []}
+        {kept, dropped} -> {kept, [%{tier: :recall, dropped_tokens: dropped}]}
+      end
+
     tiers = [
       {:stable, system(persona) <> "\n\n" <> @untrusted_rule},
       {:context, Keyword.get(opts, :context, "")},
@@ -64,12 +80,13 @@ defmodule Trinity.Sessions.Prompt do
        volatile(
          session,
          Keyword.get(opts, :memory, ""),
+         recall,
          Keyword.get(opts, :now) || DateTime.utc_now()
        )}
     ]
 
     {texts, truncations} =
-      Enum.map_reduce(tiers, [], fn {tier, text}, acc ->
+      Enum.map_reduce(tiers, recall_truncations, fn {tier, text}, acc ->
         case cut(text, Keyword.fetch!(budgets, tier)) do
           {kept, 0} -> {kept, acc}
           {kept, dropped} -> {kept, acc ++ [%{tier: tier, dropped_tokens: dropped}]}
@@ -95,13 +112,23 @@ defmodule Trinity.Sessions.Prompt do
   def budgets,
     do: Keyword.merge(@default_budgets, Application.get_env(:trinity, :prompt_budgets, []))
 
-  # The volatile tier: the memory block, the time, the session's facts.
-  defp volatile(session, memory, now) do
+  @doc "The recall block's cap in tokens."
+  @spec recall_tokens() :: pos_integer()
+  def recall_tokens,
+    do:
+      Keyword.get(
+        Application.get_env(:trinity, :memory, []),
+        :recall_tokens,
+        @default_recall_tokens
+      )
+
+  # The volatile tier: the memory block, the recall block, the time, the session's facts.
+  defp volatile(session, memory, recall, now) do
     facts =
       "The time now is #{DateTime.to_iso8601(DateTime.truncate(now, :second))} (UTC)." <>
         title(session)
 
-    if memory == "", do: facts, else: memory <> "\n\n" <> facts
+    [memory, recall, facts] |> Enum.reject(&(&1 == "")) |> Enum.join("\n\n")
   end
 
   defp title(%SessionRow{title: t}) when is_binary(t) and t != "",

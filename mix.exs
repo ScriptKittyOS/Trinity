@@ -47,6 +47,9 @@ defmodule Trinity.MixProject do
     [
       desktop: [
         steps: [:assemble, &Burrito.wrap/1],
+        # Slice 032: exla in the release, loaded and not started (see `exla_deps/0`); on a
+        # Windows host it is not declared at all.
+        applications: exla_release_applications(),
         burrito: [
           targets: [
             linux_x86_64: [os: :linux, cpu: :x86_64],
@@ -89,82 +92,119 @@ defmodule Trinity.MixProject do
   # Specifies your project dependencies.
   #
   # Type `mix help deps` for examples and options.
+  # Slice 032: EXLA is the local embedder's backend and has no Windows build (xla 0.10.0
+  # ships archives for Linux and macOS, x86_64 and aarch64, none for Windows, and building
+  # XLA from source needs Bazel), so a Windows host does not declare it: the tree compiles
+  # there, `Trinity.Memory.Embedders.Bumblebee.availability/0` answers
+  # `{:off, :no_local_backend}`, and the semantic tier is off until a Windows backend exists
+  # (NOTES decision 3). The lock file carries exla either way; `mix deps.get` leaves an
+  # undeclared lock entry alone.
+  #
+  # `runtime: false`: exla is compiled and on the code path but not in this application's
+  # `applications`, so nothing starts it at boot; the release carries it in `:load` mode
+  # (`exla_release_applications/0`, which Mix accepts only because no application in the
+  # release depends on it) and `Trinity.Memory.Embedders.Bumblebee.exla/0` starts it on
+  # demand. Its start loads the NIF, and in Burrito's musl ERTS on Linux that load fails
+  # (`__libc_single_threaded: symbol not found`, package run 35600216451); started at boot
+  # it took the whole release down, started on demand it is the tier's reason.
+  defp exla_release_applications do
+    case :os.type() do
+      {:win32, _} -> []
+      _ -> [exla: :load]
+    end
+  end
+
+  defp exla_deps do
+    case :os.type() do
+      {:win32, _} -> []
+      _ -> [{:exla, "~> 0.13.1", runtime: false}]
+    end
+  end
+
   defp deps do
-    [
-      {:phoenix, "~> 1.8.13"},
-      {:phoenix_ecto, "~> 4.5"},
-      {:ecto_sql, "~> 3.13"},
-      {:ecto_sqlite3, ">= 0.0.0"},
-      # Slice 010: the CI-tested alternative behind TRINITY_DB=postgres (docs/adr/0002).
-      # Optional so the standalone desktop build carries no Postgres driver; the CI matrix
-      # job compiles with the variable set and proves the migrations on both.
-      {:postgrex, ">= 0.0.0", optional: true},
-      # Slice 011: the provider layer behind Trinity.LLM (docs/adr/0003). What it brings into
-      # mix.lock is counted in the slice's NOTES.md, because the desktop binary carries it.
-      {:req_llm, "~> 1.22"},
-      # Slice 013: the chat's markdown renderer, behind TrinityWeb.Markdown. Chosen by the
-      # measurement in the slice's NOTES.md; it brings a Rust NIF (mdex_native), precompiled.
-      {:mdex, "~> 0.13"},
-      # Slice 020: JSON Schema validation of tool arguments (Trinity.Tools.Schema). Already in
-      # the lock through req_llm; direct because a module of ours calls it (ADR-0009).
-      {:jsv, "~> 0.23"},
-      # Slice 021: RFC 8785 canonical JSON under every approval fingerprint (docs/07). Chosen
-      # by the measurement in the slice's NOTES.md; the RFC's vector is a test in the tree.
-      {:jcs, "~> 0.2"},
-      # Slice 022: HTML to text for web_fetch (Trinity.Tools.Web.Fetch).
-      {:floki, "~> 0.38"},
-      # Slice 013 (owner decision, 2026-09-20): the linux package builds mdex's NIF from
-      # source for musl (MDEX_NATIVE_BUILD=1 and TRINITY_NIF_TARGET in config/config.exs),
-      # because neither precompiled artifact loads in Burrito's musl ERTS (NOTES finding 13).
-      # rustler_precompiled needs Rustler present to run that build; build time only.
-      {:rustler, "~> 0.38", runtime: false},
-      {:phoenix_html, "~> 4.1"},
-      {:phoenix_live_reload, "~> 1.2", only: :dev},
-      {:phoenix_live_view, "~> 1.2.0"},
-      {:lazy_html, ">= 0.1.0", only: :test},
-      {:phoenix_live_dashboard, "~> 0.8.3"},
-      {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
-      {:tailwind, "~> 0.5", runtime: Mix.env() == :dev},
-      {:heroicons,
-       github: "tailwindlabs/heroicons",
-       tag: "v2.2.0",
-       sparse: "optimized",
-       app: false,
-       compile: false,
-       depth: 1},
-      {:daisyui,
-       github: "saadeghi/daisyui",
-       tag: "v5.5.20",
-       sparse: "packages/bundle",
-       app: false,
-       compile: false,
-       depth: 1},
-      {:telemetry_metrics, "~> 1.0"},
-      {:telemetry_poller, "~> 1.0"},
-      {:gettext, "~> 1.0"},
-      {:jason, "~> 1.2"},
-      {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.5"},
-      # Slice 000: the gate's own tooling. Nothing else yet.
-      {:boundary, "~> 0.10", runtime: false},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:mox, "~> 1.2", only: :test},
-      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
-      {:sobelow, "~> 0.15", only: [:dev, :test], runtime: false},
-      {:ex_doc, "~> 0.38", only: :dev, runtime: false},
-      {:nimble_options, "~> 1.1"},
-      # Slice 001 line 1, arm (a) recorded `only: :dev`. **Corrected at G4**, and the reason is
-      # the shell, not the tooling: `ExTauri.ShutdownManager` is the sidecar's heartbeat, the
-      # Rust window's only way to tell the BEAM it has closed, so it has to exist in the
-      # binary that ships, and a `:dev`-only dependency does not. `mix ex_tauri.install` adds
-      # that child unconditionally, which is why the generator's output could not start under
-      # MIX_ENV=test or MIX_ENV=prod. Recorded as deviation D7 in NOTES.md.
-      {:ex_tauri, "~> 0.2"},
-      # Slice 001 line 3. `ex_tauri` already depends on burrito, but only in :dev, and
-      # `&Burrito.wrap/1` is a release step that runs under MIX_ENV=prod. Declared directly so
-      # the module exists in the environment that calls it.
-      {:burrito, "~> 1.6"}
-    ] ++ posix_deps()
+    exla_deps() ++
+      [
+        {:phoenix, "~> 1.8.13"},
+        {:phoenix_ecto, "~> 4.5"},
+        {:ecto_sql, "~> 3.13"},
+        {:ecto_sqlite3, ">= 0.0.0"},
+        # Slice 010: the CI-tested alternative behind TRINITY_DB=postgres (docs/adr/0002).
+        # Optional so the standalone desktop build carries no Postgres driver; the CI matrix
+        # job compiles with the variable set and proves the migrations on both.
+        {:postgrex, ">= 0.0.0", optional: true},
+        # Slice 011: the provider layer behind Trinity.LLM (docs/adr/0003). What it brings into
+        # mix.lock is counted in the slice's NOTES.md, because the desktop binary carries it.
+        {:req_llm, "~> 1.22"},
+        # Slice 013: the chat's markdown renderer, behind TrinityWeb.Markdown. Chosen by the
+        # measurement in the slice's NOTES.md; it brings a Rust NIF (mdex_native), precompiled.
+        {:mdex, "~> 0.13"},
+        # Slice 020: JSON Schema validation of tool arguments (Trinity.Tools.Schema). Already in
+        # the lock through req_llm; direct because a module of ours calls it (ADR-0009).
+        {:jsv, "~> 0.23"},
+        # Slice 021: RFC 8785 canonical JSON under every approval fingerprint (docs/07). Chosen
+        # by the measurement in the slice's NOTES.md; the RFC's vector is a test in the tree.
+        {:jcs, "~> 0.2"},
+        # Slice 022: HTML to text for web_fetch (Trinity.Tools.Web.Fetch).
+        {:floki, "~> 0.38"},
+        # Slice 032: local embeddings (Trinity.Memory.Embedders.Bumblebee). The 0.13 line of nx
+        # and exla is what bumblebee 0.7.1 accepts (nx 1.0.0 shipped 2026-09-10 and bumblebee has
+        # no release for it at G1); measured for bundle size and latency in the slice's NOTES.md.
+        {:nx, "~> 0.13.1"},
+        {:bumblebee, "~> 0.7.1"},
+        # Slice 032: vectors on the Postgres job (Trinity.Memory.VectorStores.Pgvector).
+        {:pgvector, "~> 0.4.1"},
+        # Slice 013 (owner decision, 2026-09-20): the linux package builds mdex's NIF from
+        # source for musl (MDEX_NATIVE_BUILD=1 and TRINITY_NIF_TARGET in config/config.exs),
+        # because neither precompiled artifact loads in Burrito's musl ERTS (NOTES finding 13).
+        # rustler_precompiled needs Rustler present to run that build; build time only.
+        {:rustler, "~> 0.38", runtime: false},
+        {:phoenix_html, "~> 4.1"},
+        {:phoenix_live_reload, "~> 1.2", only: :dev},
+        {:phoenix_live_view, "~> 1.2.0"},
+        {:lazy_html, ">= 0.1.0", only: :test},
+        {:phoenix_live_dashboard, "~> 0.8.3"},
+        {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
+        {:tailwind, "~> 0.5", runtime: Mix.env() == :dev},
+        {:heroicons,
+         github: "tailwindlabs/heroicons",
+         tag: "v2.2.0",
+         sparse: "optimized",
+         app: false,
+         compile: false,
+         depth: 1},
+        {:daisyui,
+         github: "saadeghi/daisyui",
+         tag: "v5.5.20",
+         sparse: "packages/bundle",
+         app: false,
+         compile: false,
+         depth: 1},
+        {:telemetry_metrics, "~> 1.0"},
+        {:telemetry_poller, "~> 1.0"},
+        {:gettext, "~> 1.0"},
+        {:jason, "~> 1.2"},
+        {:dns_cluster, "~> 0.2.0"},
+        {:bandit, "~> 1.5"},
+        # Slice 000: the gate's own tooling. Nothing else yet.
+        {:boundary, "~> 0.10", runtime: false},
+        {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+        {:mox, "~> 1.2", only: :test},
+        {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
+        {:sobelow, "~> 0.15", only: [:dev, :test], runtime: false},
+        {:ex_doc, "~> 0.38", only: :dev, runtime: false},
+        {:nimble_options, "~> 1.1"},
+        # Slice 001 line 1, arm (a) recorded `only: :dev`. **Corrected at G4**, and the reason is
+        # the shell, not the tooling: `ExTauri.ShutdownManager` is the sidecar's heartbeat, the
+        # Rust window's only way to tell the BEAM it has closed, so it has to exist in the
+        # binary that ships, and a `:dev`-only dependency does not. `mix ex_tauri.install` adds
+        # that child unconditionally, which is why the generator's output could not start under
+        # MIX_ENV=test or MIX_ENV=prod. Recorded as deviation D7 in NOTES.md.
+        {:ex_tauri, "~> 0.2"},
+        # Slice 001 line 3. `ex_tauri` already depends on burrito, but only in :dev, and
+        # `&Burrito.wrap/1` is a release step that runs under MIX_ENV=prod. Declared directly so
+        # the module exists in the environment that calls it.
+        {:burrito, "~> 1.6"}
+      ] ++ posix_deps()
   end
 
   # Slice 022: the shell tool's process wrapper is a C port built with elixir_make (fork,

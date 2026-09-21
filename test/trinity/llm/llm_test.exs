@@ -10,8 +10,12 @@ defmodule Trinity.LLMTest do
 
   setup :verify_on_exit!
 
+  # Cleared on the way out too: `Fake.fail(10, …)` below leaves failures behind for the next
+  # test that does not clear first (seen at slice 032 on run 35603385277, seed 568667: the
+  # memory page's consolidation test got `{:exhausted, 3, :down}` from this file's leftovers).
   setup do
     Fake.clear()
+    on_exit(fn -> Fake.clear() end)
     :ok
   end
 

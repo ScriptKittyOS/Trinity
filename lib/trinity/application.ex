@@ -44,6 +44,8 @@ defmodule Trinity.Application do
           {Registry, keys: :unique, name: Trinity.Registry},
           # Slice 024: the signer and its key, the chain writers, the boot receipt. Before the
           # tools and the sessions, which receipt through it.
+          # Slice 032: the observer's task supervisor and the local embedding serving.
+          Trinity.Memory.Supervisor,
           Trinity.Receipts.Supervisor,
           # Slice 024: the boot receipt, once the signer and the authority are known.
           Trinity.Effects.Boot,
@@ -52,7 +54,10 @@ defmodule Trinity.Application do
           Trinity.Tools.Supervisor,
           # Slice 021: approval requests and their decisions, with pending rows reloaded.
           Trinity.Permissions.Gate,
-          Trinity.Sessions.Supervisor,
+          Trinity.Sessions.Supervisor
+        ] ++
+        Trinity.Smoke.probe(Trinity.Smoke.argv()) ++
+        [
           # Start to serve requests, typically the last entry
           TrinityWeb.Endpoint
         ] ++ Trinity.Smoke.children(Trinity.Smoke.argv())

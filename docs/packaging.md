@@ -66,6 +66,15 @@ nothing downstream notices.
 process. It is the only part of "the desktop app works" that a terminal can answer on a machine
 with no display.
 
+As built at slice 032, `TRINITY_SMOKE=1` in the environment asks for the same run and is the form
+the package workflow uses: `Kernel.CLI` reads the plain arguments once the application has started
+and treats `--smoke` as a file to run ("No file named --smoke", exit 1), a race the halting Task
+lost on macOS in run 35608084951. The run prints five lines: the port, the markdown renderer
+(slice 013), whether the EXLA NIF loaded (`TRINITY_SMOKE_EXLA`, recorded), a fake-vector search
+through the vector store in force on the binary's own database, rolled back (`TRINITY_SMOKE_VEC`,
+binding: exit 4), and the semantic tier's status (`TRINITY_SMOKE_SEMANTIC`, recorded). Slice
+032's PROOF.md AC7 has each bundle's answers.
+
 ## Measurements: linux x86_64 only
 
 Machine: Linux 6.14.0-37-generic, x86_64. **These figures are for this host and this target.**

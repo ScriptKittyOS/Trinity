@@ -24,7 +24,9 @@ import Config
 # which is the same call: this file is evaluated before the application is available under
 # Mix, so it may not call project modules. `Burrito.Util.Args.get_arguments/0` reads the same
 # thing.
-smoke? = "--smoke" in Enum.map(:init.get_plain_arguments(), &to_string/1)
+smoke? =
+  "--smoke" in Enum.map(:init.get_plain_arguments(), &to_string/1) or
+    System.get_env("TRINITY_SMOKE") == "1"
 
 if System.get_env("PHX_SERVER") || smoke? do
   config :trinity, TrinityWeb.Endpoint, server: true
@@ -119,7 +121,9 @@ if config_env() == :prod do
   if System.get_env("TRINITY_DB") == "postgres" do
     config :trinity, Trinity.Repo,
       url: System.get_env("DATABASE_URL") || raise("TRINITY_DB=postgres needs DATABASE_URL"),
-      pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10")
+      pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
+      # Slice 032: pgvector's `vector` type.
+      types: Trinity.Repo.PostgrexTypes
 
     config :trinity, Trinity.Repo.Receipts,
       url: System.get_env("DATABASE_URL"),
