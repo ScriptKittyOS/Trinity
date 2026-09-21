@@ -69,15 +69,15 @@ defmodule Trinity.Memory.PromptTiersTest do
     scope = Receipts.session_scope(row.id)
     on_exit(fn -> Receipts.stop_writer(scope) end)
 
-    {:ok, _} =
-      AlwaysOn.add(
-        %{
-          persona_id: persona.id,
-          tier: "always_on",
-          scope: AlwaysOn.persona_scope(persona.id),
-          key: "before",
-          body: "known at start"
-        }, by: "test")
+    attrs = %{
+      persona_id: persona.id,
+      tier: "always_on",
+      scope: AlwaysOn.persona_scope(persona.id),
+      key: "before",
+      body: "known at start"
+    }
+
+    {:ok, _} = AlwaysOn.add(attrs, by: "test")
 
     Fake.scripts([script_deltas(1, "ok "), script_deltas(1, "ok "), script_deltas(1, "ok ")])
     {:ok, pid} = start_drained(row.id)
@@ -85,15 +85,15 @@ defmodule Trinity.Memory.PromptTiersTest do
     _ = collect(row.id, &match?({:state, :idle}, &1))
     assert Fake.last_request().system =~ "- before: known at start"
 
-    {:ok, _} =
-      AlwaysOn.add(
-        %{
-          persona_id: persona.id,
-          tier: "always_on",
-          scope: AlwaysOn.persona_scope(persona.id),
-          key: "later",
-          body: "added mid-session"
-        }, by: "test")
+    attrs = %{
+      persona_id: persona.id,
+      tier: "always_on",
+      scope: AlwaysOn.persona_scope(persona.id),
+      key: "later",
+      body: "added mid-session"
+    }
+
+    {:ok, _} = AlwaysOn.add(attrs, by: "test")
 
     {:ok, _} = Session.send_user_message(pid, "two")
     _ = collect(row.id, &match?({:state, :idle}, &1))
@@ -128,15 +128,15 @@ defmodule Trinity.Memory.PromptTiersTest do
     a = Factory.persona!(%{soul: "# Alpha\nYou are the alpha persona."})
     b = Factory.persona!(%{soul: "# Beta\nYou are the beta persona."})
 
-    {:ok, _} =
-      AlwaysOn.add(
-        %{
-          persona_id: b.id,
-          tier: "profile",
-          scope: AlwaysOn.persona_scope(b.id),
-          key: "name",
-          body: "Bea"
-        }, by: "test")
+    attrs = %{
+      persona_id: b.id,
+      tier: "profile",
+      scope: AlwaysOn.persona_scope(b.id),
+      key: "name",
+      body: "Bea"
+    }
+
+    {:ok, _} = AlwaysOn.add(attrs, by: "test")
 
     sa = Factory.session!(%{persona_id: a.id})
     sb = Factory.session!(%{persona_id: b.id})

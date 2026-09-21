@@ -86,15 +86,15 @@ defmodule TrinityWeb.MemoryPagesTest do
     on_exit(fn -> Application.put_env(:trinity, :memory, old) end)
     pscope = AlwaysOn.persona_scope(persona.id)
 
-    {:ok, _} =
-      AlwaysOn.add(
-        %{
-          persona_id: persona.id,
-          tier: "always_on",
-          scope: pscope,
-          key: "a",
-          body: String.duplicate("alpha ", 8)
-        }, by: "test")
+    attrs = %{
+      persona_id: persona.id,
+      tier: "always_on",
+      scope: pscope,
+      key: "a",
+      body: String.duplicate("alpha ", 8)
+    }
+
+    {:ok, _} = AlwaysOn.add(attrs, by: "test")
 
     Fake.object(%{
       "entries" => [
@@ -107,15 +107,15 @@ defmodule TrinityWeb.MemoryPagesTest do
       ]
     })
 
-    {:ok, _} =
-      AlwaysOn.add(
-        %{
-          persona_id: persona.id,
-          tier: "always_on",
-          scope: pscope,
-          key: "b",
-          body: String.duplicate("beta ", 8)
-        }, by: "test")
+    attrs = %{
+      persona_id: persona.id,
+      tier: "always_on",
+      scope: pscope,
+      key: "b",
+      body: String.duplicate("beta ", 8)
+    }
+
+    {:ok, _} = AlwaysOn.add(attrs, by: "test")
 
     [proposal] = Consolidator.pending(persona.id)
 
