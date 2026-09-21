@@ -211,20 +211,20 @@ defmodule TrinityWeb.ApprovalComponents do
     given = Map.get(params, "answer", %{})
 
     for {key, req} <- input_requests(approval), into: %{} do
-      case Map.get(given, key) do
-        %{} = fields ->
-          content =
-            for {name, prop} <- properties(req), Map.has_key?(fields, name), into: %{} do
-              {name, typed(prop, fields[name])}
-            end
-
-          {key, %{"action" => "accept", "content" => content}}
-
-        _ ->
-          {key, %{"action" => "decline"}}
-      end
+      {key, elicit_result(req, Map.get(given, key))}
     end
   end
+
+  defp elicit_result(req, %{} = fields) do
+    content =
+      for {name, prop} <- properties(req), Map.has_key?(fields, name), into: %{} do
+        {name, typed(prop, fields[name])}
+      end
+
+    %{"action" => "accept", "content" => content}
+  end
+
+  defp elicit_result(_req, _absent), do: %{"action" => "decline"}
 
   defp typed(%{"type" => "boolean"}, v), do: v in ["true", true]
 

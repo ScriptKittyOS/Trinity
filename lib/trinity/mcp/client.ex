@@ -317,21 +317,13 @@ defmodule Trinity.MCP.Client do
   defp choose_revision(state) do
     case request(state, Wire.discover(next_id()), connect_timeout(state)) do
       {:ok, %{"result" => %{"supportedVersions" => versions}}} when is_list(versions) ->
-        cond do
-          Wire.modern() in versions -> {:ok, Wire.modern()}
-          Wire.legacy() in versions -> initialize(state)
-          true -> {:refused, {:unsupported_revisions, versions}}
-        end
+        pick(state, versions)
 
       {:ok, %{"error" => %{"code" => -32_601}}} ->
         initialize(state)
 
       {:ok, %{"error" => %{"code" => -32_022} = error}} ->
-        supported = get_in(error, ["data", "supported"]) || []
-
-        if Wire.legacy() in supported,
-          do: initialize(state),
-          else: {:refused, {:unsupported_revisions, supported}}
+        pick(state, List.delete(get_in(error, ["data", "supported"]) || [], Wire.modern()))
 
       {:ok, %{"error" => error}} ->
         {:error, {:discover_refused, error}}
@@ -341,6 +333,17 @@ defmodule Trinity.MCP.Client do
 
       {:error, reason} ->
         {:error, {:discover_failed, reason}}
+    end
+  end
+
+  # The preferred revision when listed, the legacy one when that is, else a refusal naming
+  # the list. (A -32022 refusal of the modern opener lists what the server serves; the
+  # modern revision is removed from that list before the pick, since the server just said no.)
+  defp pick(state, versions) do
+    cond do
+      Wire.modern() in versions -> {:ok, Wire.modern()}
+      Wire.legacy() in versions -> initialize(state)
+      true -> {:refused, {:unsupported_revisions, versions}}
     end
   end
 
