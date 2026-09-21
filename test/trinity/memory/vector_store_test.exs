@@ -147,5 +147,32 @@ defmodule Trinity.Memory.VectorStoreTest do
     assert store == VectorStore.impl()
     assert length(Trinity.Personas.list()) == before
     assert Trinity.Smoke.vec_line() == "TRINITY_SMOKE_VEC=ok:#{inspect(store)}"
+
+    # The probe child (placed before the endpoint) computes the three lines and starts nothing.
+    assert :ignore = Trinity.Smoke.Probe.start_link()
+
+    assert ["TRINITY_SMOKE_EXLA=" <> _, "TRINITY_SMOKE_VEC=ok:" <> _, "TRINITY_SMOKE_SEMANTIC=on"] =
+             Trinity.Smoke.probed()
+
+    assert Trinity.Smoke.probe(["--smoke"]) == [Trinity.Smoke.Probe]
+    assert Trinity.Smoke.probe([]) == []
+  end
+
+  test "the EXLA product and the Elixir cosine agree, and a row of another width scores 0.0 on both",
+       %{persona: persona, scope: scope} do
+    rows = for i <- 1..50, do: add!(persona, scope, "k#{i}", "text #{i}")
+    query = Fake.vector("text 7")
+    elixir = Trinity.Memory.VectorStores.Brute.elixir_scores(rows, query)
+    assert Enum.max(elixir) > 0.999
+
+    if Code.ensure_loaded?(EXLA.Backend) do
+      exla = Trinity.Memory.VectorStores.Brute.exla_scores(rows, query)
+      for {a, b} <- Enum.zip(elixir, exla), do: assert_in_delta(a, b, 1.0e-5)
+      odd = %{hd(rows) | embedding: Embedder.to_binary([1.0, 0.0])}
+      assert [first | _] = Trinity.Memory.VectorStores.Brute.exla_scores([odd | tl(rows)], query)
+      assert first == 0.0
+    else
+      IO.puts("\nEXLA not loaded here: the Elixir path is the one in force")
+    end
   end
 end

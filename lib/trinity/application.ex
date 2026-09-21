@@ -54,7 +54,10 @@ defmodule Trinity.Application do
           Trinity.Tools.Supervisor,
           # Slice 021: approval requests and their decisions, with pending rows reloaded.
           Trinity.Permissions.Gate,
-          Trinity.Sessions.Supervisor,
+          Trinity.Sessions.Supervisor
+        ] ++
+        Trinity.Smoke.probe(Trinity.Smoke.argv()) ++
+        [
           # Start to serve requests, typically the last entry
           TrinityWeb.Endpoint
         ] ++ Trinity.Smoke.children(Trinity.Smoke.argv())

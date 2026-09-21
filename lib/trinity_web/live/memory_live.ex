@@ -319,7 +319,7 @@ defmodule TrinityWeb.MemoryLive do
               @status != :on && "bg-warning/10"
             ]}
           >
-            {Semantic.describe(@status)}
+            {Semantic.describe(@status)}.
             <span :if={@status != :on}>{gettext("Full-text search still works.")}</span>
           </p>
           <div

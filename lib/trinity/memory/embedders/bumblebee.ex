@@ -48,10 +48,40 @@ defmodule Trinity.Memory.Embedders.Bumblebee do
     cond do
       match?({:win32, _}, :os.type()) -> {:off, :no_local_backend}
       not Code.ensure_loaded?(EXLA) -> {:off, {:exla, :not_compiled}}
+      match?({:error, _}, exla()) -> {:off, exla()}
       not model_present?() -> {:off, :model_missing}
       true -> :ok
     end
   end
+
+  @doc """
+  Starts the exla application if it is loaded and not running, once: the release loads it
+  without starting it (mix.exs), because its start loads the NIF and that load fails in
+  Burrito's Linux ERTS. `:ok`, or `{:error, {:exla, reason}}` remembered for the run (a NIF
+  that did not load will not load on the next call either).
+  """
+  @spec exla() :: :ok | {:error, {:exla, term()}}
+  def exla do
+    case :persistent_term.get({__MODULE__, :exla}, nil) do
+      nil ->
+        result =
+          case Application.ensure_all_started(:exla) do
+            {:ok, _} -> :ok
+            {:error, reason} -> {:error, {:exla, summarise(reason)}}
+          end
+
+        :persistent_term.put({__MODULE__, :exla}, result)
+        result
+
+      known ->
+        known
+    end
+  end
+
+  # The loader's message, not the whole start_link failure tree.
+  defp summarise({:exla, {reason, _}}), do: summarise(reason)
+  defp summarise(reason) when is_binary(reason), do: String.slice(reason, 0, 200)
+  defp summarise(reason), do: reason |> inspect() |> String.slice(0, 200)
 
   @doc "True when the weights and tokenizer are in the cache (checked offline, no request made)."
   @spec model_present?() :: boolean()

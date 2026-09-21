@@ -82,7 +82,7 @@ defmodule Trinity.Smoke do
   """
   @spec exla_line() :: String.t()
   def exla_line do
-    if Code.ensure_loaded?(EXLA) do
+    if Code.ensure_loaded?(EXLA) and Trinity.Memory.Embedders.Bumblebee.exla() == :ok do
       try do
         t = Nx.tensor([1.0, 2.0], backend: EXLA.Backend)
         [3.0] = Nx.to_flat_list(Nx.sum(t))
@@ -94,7 +94,7 @@ defmodule Trinity.Smoke do
           "TRINITY_SMOKE_EXLA=failed:#{inspect({kind, reason}) |> String.slice(0, 200)}"
       end
     else
-      "TRINITY_SMOKE_EXLA=failed:not_compiled"
+      "TRINITY_SMOKE_EXLA=failed:#{inspect(Trinity.Memory.Embedders.Bumblebee.exla()) |> String.slice(0, 200)}"
     end
   end
 
@@ -168,13 +168,46 @@ defmodule Trinity.Smoke do
   def children(args) do
     if requested?(args) do
       markdown = markdown_line()
-      # The 032 lines need the Repo and the memory supervisor, which have started by now;
-      # they are cheap (one tiny tensor, three rows rolled back) and computed here for the
-      # same race the markdown line lost once.
-      rest = [exla_line(), vec_line(), semantic_line()]
-      [{Task, fn -> run(&IO.puts/1, &System.halt/1, markdown, rest) end}]
+      # The 032 lines were computed by `probe/1`, a child placed after the Repo, the memory
+      # supervisor and the sessions (package run 35600216451: computed here, before the
+      # tree, the vector check found no Repo); the Task only reads them.
+      [{Task, fn -> run(&IO.puts/1, &System.halt/1, markdown, probed()) end}]
     else
       []
+    end
+  end
+
+  @doc """
+  The child that computes the 032 lines (slice 032): placed in `Trinity.Application` just
+  before the endpoint, so the Repo, the memory supervisor and the sessions are up. Its
+  `start_link/1` does the work synchronously and answers `:ignore`, so the supervisor waits
+  for it and starts no process; `children/1`'s Task reads the result.
+  """
+  @spec probe([String.t()]) :: [Supervisor.child_spec()]
+  def probe(args) do
+    if requested?(args), do: [Trinity.Smoke.Probe], else: []
+  end
+
+  @doc false
+  @spec probed() :: [String.t()]
+  def probed do
+    :persistent_term.get({__MODULE__, :probed}, [
+      "TRINITY_SMOKE_EXLA=failed:not_probed",
+      "TRINITY_SMOKE_VEC=failed:not_probed",
+      "TRINITY_SMOKE_SEMANTIC=off:not_probed"
+    ])
+  end
+
+  defmodule Probe do
+    @moduledoc false
+    use Boundary, top_level?: true, deps: [Trinity, Trinity.Smoke]
+
+    def child_spec(_), do: %{id: __MODULE__, start: {__MODULE__, :start_link, []}}
+
+    def start_link do
+      lines = [Trinity.Smoke.exla_line(), Trinity.Smoke.vec_line(), Trinity.Smoke.semantic_line()]
+      :persistent_term.put({Trinity.Smoke, :probed}, lines)
+      :ignore
     end
   end
 end
