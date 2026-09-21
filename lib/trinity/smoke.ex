@@ -75,17 +75,76 @@ defmodule Trinity.Smoke do
   end
 
   @doc """
+  The third line (slice 032): whether the EXLA NIF loaded in this binary and ran one
+  operation. Informative, not binding: a bundle whose XLA library does not load (Burrito's
+  musl ERTS against a glibc `.so`, NOTES finding 13's shape) still boots with the semantic
+  tier off, and AC7 asks that the failure be recorded by name. `ok` or `failed:<reason>`.
+  """
+  @spec exla_line() :: String.t()
+  def exla_line do
+    if Code.ensure_loaded?(EXLA) do
+      try do
+        t = Nx.tensor([1.0, 2.0], backend: EXLA.Backend)
+        [3.0] = Nx.to_flat_list(Nx.sum(t))
+        "TRINITY_SMOKE_EXLA=ok"
+      rescue
+        e -> "TRINITY_SMOKE_EXLA=failed:#{inspect(Exception.message(e) |> String.slice(0, 200))}"
+      catch
+        kind, reason ->
+          "TRINITY_SMOKE_EXLA=failed:#{inspect({kind, reason}) |> String.slice(0, 200)}"
+      end
+    else
+      "TRINITY_SMOKE_EXLA=failed:not_compiled"
+    end
+  end
+
+  @doc """
+  The fourth line (slice 032, AC7): a fake-vector search inside this binary through the
+  vector store in force, on the database the binary opened, rolled back. Three rows of the
+  suite's deterministic vectors, the nearest expected first; `ok:<store>` or
+  `failed:<reason>`. Binding: exit 4 when it fails. The tier's own status follows as the
+  fifth line, informative (`on`, or the reason it is off on this machine).
+  """
+  @spec vec_line() :: String.t()
+  def vec_line do
+    case Trinity.Memory.Semantic.smoke() do
+      {:ok, store} -> "TRINITY_SMOKE_VEC=ok:#{inspect(store)}"
+      {:error, reason} -> "TRINITY_SMOKE_VEC=failed:#{inspect(reason) |> String.slice(0, 200)}"
+    end
+  end
+
+  @doc "The fifth line: the semantic tier's status in this binary, informative."
+  @spec semantic_line() :: String.t()
+  def semantic_line do
+    case Trinity.Memory.Semantic.status() do
+      :on -> "TRINITY_SMOKE_SEMANTIC=on"
+      {:off, reason} -> "TRINITY_SMOKE_SEMANTIC=off:#{inspect(reason) |> String.slice(0, 200)}"
+    end
+  end
+
+  @doc """
   Runs the smoke check: report the listening port, then stop the OS process.
 
   `say` and `halt` are injected so the whole path is exercisable from a test without ending
   the test runner's own OS process.
   """
-  @spec run(say_fun(), halt_fun(), String.t()) :: any()
-  def run(say \\ &IO.puts/1, halt \\ &System.halt/1, markdown \\ markdown_line()) do
+  @spec run(say_fun(), halt_fun(), String.t(), [String.t()]) :: any()
+  def run(say \\ &IO.puts/1, halt \\ &System.halt/1, markdown \\ markdown_line(), rest \\ nil) do
     {:ok, {_ip, port}} = TrinityWeb.Endpoint.server_info(:http)
     say.(port_line(port))
     say.(markdown)
-    halt.(if markdown == "TRINITY_SMOKE_MARKDOWN=ok", do: 0, else: 3)
+    [exla, vec, semantic] = rest || [exla_line(), vec_line(), semantic_line()]
+    say.(exla)
+    say.(vec)
+    say.(semantic)
+
+    halt.(
+      cond do
+        markdown != "TRINITY_SMOKE_MARKDOWN=ok" -> 3
+        not String.starts_with?(vec, "TRINITY_SMOKE_VEC=ok:") -> 4
+        true -> 0
+      end
+    )
   end
 
   @doc """
@@ -109,7 +168,11 @@ defmodule Trinity.Smoke do
   def children(args) do
     if requested?(args) do
       markdown = markdown_line()
-      [{Task, fn -> run(&IO.puts/1, &System.halt/1, markdown) end}]
+      # The 032 lines need the Repo and the memory supervisor, which have started by now;
+      # they are cheap (one tiny tensor, three rows rolled back) and computed here for the
+      # same race the markdown line lost once.
+      rest = [exla_line(), vec_line(), semantic_line()]
+      [{Task, fn -> run(&IO.puts/1, &System.halt/1, markdown, rest) end}]
     else
       []
     end

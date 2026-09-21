@@ -198,6 +198,11 @@ jobs:
           grep -q '^TRINITY_SMOKE_PORT=[0-9][0-9]*$' smoke.log
           # Slice 013: the renderer's NIF loaded and rendered in this binary (exit 3 otherwise).
           grep -q '^TRINITY_SMOKE_MARKDOWN=ok$' smoke.log
+          # Slice 032, AC7: a fake-vector search ran inside this binary through the vector
+          # store in force (exit 4 otherwise). The EXLA and SEMANTIC lines are recorded, not
+          # asserted: whether the XLA library loads in Burrito's ERTS is what they measure.
+          grep -q '^TRINITY_SMOKE_VEC=ok:' smoke.log
+          grep -E '^TRINITY_SMOKE_(EXLA|SEMANTIC)=' smoke.log
           echo "--- ours, before ---"; cat ps-before.txt
           echo "--- ours, after ----"; cat ps-after.txt
           diff ps-before.txt ps-after.txt
@@ -215,6 +220,11 @@ jobs:
           if (-not (Select-String -Path smoke.log -Pattern '^TRINITY_SMOKE_MARKDOWN=ok$')) {
             throw "the markdown renderer did not render in this binary (slice 013)"
           }
+          # Slice 032, AC7, as on the other two: the vector search binds, the other two lines are recorded.
+          if (-not (Select-String -Path smoke.log -Pattern '^TRINITY_SMOKE_VEC=ok:')) {
+            throw "the vector search did not run inside this binary (slice 032)"
+          }
+          Select-String -Path smoke.log -Pattern '^TRINITY_SMOKE_(EXLA|SEMANTIC)='
 
       # AC1's property on a runner, and AC6's per-OS cold start, which used to be skipped.
       # `bash` on every OS, Windows included: the job that never curled was the one gap in

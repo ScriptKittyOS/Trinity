@@ -13,6 +13,14 @@ defmodule SmokeTest do
 
   alias Trinity.Smoke
 
+  # Slice 032: the three lines that need the Repo are injected here (SmokeTest has no
+  # sandbox); Trinity.Memory.VectorStoreTest proves `Semantic.smoke/0` on a database.
+  @rest [
+    "TRINITY_SMOKE_EXLA=ok",
+    "TRINITY_SMOKE_VEC=ok:Trinity.Memory.VectorStores.Brute",
+    "TRINITY_SMOKE_SEMANTIC=on"
+  ]
+
   describe "requested?/1" do
     test "true only for the exact flag" do
       assert Smoke.requested?(["--smoke"])
@@ -40,7 +48,7 @@ defmodule SmokeTest do
                "#{inspect(configured)}. runtime.exs overrode it with 4000 once already."
 
       me = self()
-      Smoke.run(&send(me, {:said, &1}), fn _ -> :ok end)
+      Smoke.run(&send(me, {:said, &1}), fn _ -> :ok end, Smoke.markdown_line(), @rest)
       assert_received {:said, line}
       assert [_, reported] = String.split(line, "=")
       reported = String.to_integer(reported)
@@ -53,7 +61,7 @@ defmodule SmokeTest do
 
     test "stops the OS process instead of serving forever" do
       me = self()
-      Smoke.run(fn _ -> :ok end, &send(me, {:halted, &1}))
+      Smoke.run(fn _ -> :ok end, &send(me, {:halted, &1}), Smoke.markdown_line(), @rest)
 
       assert_received {:halted, status},
                       "run/2 returned without calling halt: a binary launched with --smoke " <>
@@ -67,11 +75,41 @@ defmodule SmokeTest do
     # (NOTES.md finding 13), so the smoke path says whether it rendered, and exits 3 if not.
     test "says whether the markdown renderer rendered, on its own line" do
       me = self()
-      Smoke.run(&send(me, {:said, &1}), &send(me, {:halted, &1}))
+      Smoke.run(&send(me, {:said, &1}), &send(me, {:halted, &1}), Smoke.markdown_line(), @rest)
       assert_received {:said, "TRINITY_SMOKE_PORT=" <> _}
       assert_received {:said, "TRINITY_SMOKE_MARKDOWN=ok"}
+      assert_received {:said, "TRINITY_SMOKE_EXLA=ok"}
+      assert_received {:said, "TRINITY_SMOKE_VEC=ok:" <> _}
+      assert_received {:said, "TRINITY_SMOKE_SEMANTIC=on"}
       assert_received {:halted, 0}
       assert Smoke.markdown_line() == "TRINITY_SMOKE_MARKDOWN=ok"
+    end
+
+    # Slice 032, AC7: the vector search is binding (exit 4), the EXLA and status lines are not.
+    test "exits 4 when the vector search inside the binary fails; a failed EXLA line alone still exits 0" do
+      me = self()
+
+      failed = [
+        "TRINITY_SMOKE_EXLA=failed:x",
+        "TRINITY_SMOKE_VEC=failed:y",
+        "TRINITY_SMOKE_SEMANTIC=off:z"
+      ]
+
+      Smoke.run(fn _ -> :ok end, &send(me, {:halted, &1}), Smoke.markdown_line(), failed)
+      assert_received {:halted, 4}
+
+      Smoke.run(fn _ -> :ok end, &send(me, {:halted, &1}), Smoke.markdown_line(), [
+        "TRINITY_SMOKE_EXLA=failed:x",
+        "TRINITY_SMOKE_VEC=ok:S",
+        "TRINITY_SMOKE_SEMANTIC=off:z"
+      ])
+
+      assert_received {:halted, 0}
+    end
+
+    test "the EXLA line on this machine (the NIF is compiled and loads here; the bundle's answer is AC7's)" do
+      assert Smoke.exla_line() == "TRINITY_SMOKE_EXLA=ok"
+      assert Smoke.semantic_line() == "TRINITY_SMOKE_SEMANTIC=on"
     end
   end
 end

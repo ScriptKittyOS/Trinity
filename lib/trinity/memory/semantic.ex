@@ -177,6 +177,55 @@ defmodule Trinity.Memory.Semantic do
   @spec get(String.t()) :: Entry.t() | nil
   def get(id), do: Repo.get_by(Entry, id: id, tier: "semantic")
 
+  @doc """
+  The packaged binary's vector check (slice 032, AC7, `--smoke`): three rows of the fake
+  embedder's deterministic vectors on a throwaway persona, the nearest expected first through
+  the store in force, all rolled back. `{:ok, store}` or `{:error, reason}`.
+  """
+  @spec smoke() :: {:ok, module()} | {:error, term()}
+  def smoke do
+    alias Trinity.Memory.Embedders.Fake
+
+    Repo.transaction(fn ->
+      {:ok, persona} =
+        Trinity.Personas.create(%{name: "smoke-#{System.unique_integer([:positive])}"})
+
+      scope = AlwaysOn.persona_scope(persona.id)
+      texts = ["the cat sat", "quarterly tax filing", "a dog barked"]
+
+      ids =
+        for {t, i} <- Enum.with_index(texts) do
+          attrs = %{persona_id: persona.id, scope: scope, key: "k#{i}", body: t}
+          {:ok, e} = %Entry{} |> Entry.semantic_changeset(attrs) |> Repo.insert()
+          :ok = VectorStore.upsert(e.id, Fake.vector(t), Fake.model_id())
+          e.id
+        end
+
+      filter = %{persona_id: persona.id, scopes: [scope], model: Fake.model_id()}
+      hits = VectorStore.search(Fake.vector("a dog barked"), 3, filter)
+
+      expected = Enum.at(ids, 2)
+
+      result =
+        case hits do
+          [%{id: ^expected, score: score}, _, _] when score > 0.999 ->
+            {:ok, VectorStore.impl()}
+
+          _ ->
+            {:error, {:wrong_order, Enum.map(hits, &{&1.entry.body, Float.round(&1.score, 3)})}}
+        end
+
+      Repo.rollback(result)
+    end)
+    |> case do
+      {:error, {:ok, store}} -> {:ok, store}
+      {:error, {:error, reason}} -> {:error, reason}
+      other -> {:error, other}
+    end
+  rescue
+    e -> {:error, Exception.message(e)}
+  end
+
   defp vector_for(body, nil), do: Embedder.embed([body])
   defp vector_for(_body, vector) when is_list(vector), do: {:ok, [vector]}
 

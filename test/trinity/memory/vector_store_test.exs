@@ -140,4 +140,12 @@ defmodule Trinity.Memory.VectorStoreTest do
     stored = Embedder.from_binary(e.embedding)
     for {x, y} <- Enum.zip(stored, Fake.vector("one text")), do: assert_in_delta(x, y, 1.0e-6)
   end
+
+  test "Semantic.smoke/0 (the packaged binary's vector check) passes on the store in force and leaves nothing behind" do
+    before = length(Trinity.Personas.list())
+    assert {:ok, store} = Semantic.smoke()
+    assert store == VectorStore.impl()
+    assert length(Trinity.Personas.list()) == before
+    assert Trinity.Smoke.vec_line() == "TRINITY_SMOKE_VEC=ok:#{inspect(store)}"
+  end
 end
