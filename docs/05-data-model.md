@@ -129,6 +129,16 @@ on the next scan.
 ### skill_changes (Slice 041)
 Staged proposals by the agent: `skill_id`, `diff`, `rationale`, `status`, `decided_by`, `decided_at`.
 
+As built at slice 041: `skill_name` (not an id: a create names a skill that has no row yet), `action`
+(`create | patch | write_file | remove_file | delete`), `source` (the target root, `user`), `change_dir` (the
+staged tree under the pending root), `diff` (unified, per changed text file; a non-text or oversized file is
+"replaced, N bytes"), `rationale`, `destructive` (a whole-file replace or a delete), `digest` (SHA-256 over the
+staged tree's paths and bytes; the promotion recomputes it), `status` (`pending | approved | rejected | applied
+| failed`), `severity` (`none | low | medium | high`), `findings` (the scanner's, with file, line, rule,
+severity and the matched text), `proposed_by` (session id, nullable), `approval_id`, `decided_by`, `decided_at`,
+`comment`, `receipt_hash` (the promotion's effect receipt) and `applied_version`. `approvals.session_id` is
+nullable since this slice (a change approved from the page has no session).
+
 ### tool_permissions (Slice 021, as built)
 | column | type | notes |
 |---|---|---|
