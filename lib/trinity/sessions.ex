@@ -138,6 +138,25 @@ defmodule Trinity.Sessions do
     end
   end
 
+  @doc """
+  Sets the session's project root (slice 033): an existing directory, expanded, or nil to
+  clear it. The next turn's tools work there and its AGENTS.md is read.
+  """
+  @spec set_project_root(session_id(), String.t() | nil) ::
+          {:ok, SessionRow.t()} | {:error, term()}
+  def set_project_root(session_id, nil) do
+    with %SessionRow{} = session <- Store.get_session(session_id) || {:error, :no_session},
+         do: Store.update_session(session, %{project_root: nil})
+  end
+
+  def set_project_root(session_id, root) when is_binary(root) do
+    expanded = Path.expand(root)
+
+    with true <- File.dir?(expanded) || {:error, {:not_a_directory, expanded}},
+         %SessionRow{} = session <- Store.get_session(session_id) || {:error, :no_session},
+         do: Store.update_session(session, %{project_root: expanded})
+  end
+
   @doc "The number of messages in a session."
   @spec message_count(session_id()) :: non_neg_integer()
   def message_count(session_id), do: Store.message_count(session_id)
