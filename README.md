@@ -10,12 +10,30 @@ desktop application. Apache-2.0, developed in the open from the first commit.
 
 ## Status
 
-Pre-alpha. The repository, quality gate and packaging path are in place and proven (milestone M0).
-There is no chat, no model integration and no tool execution yet; those arrive with milestones
-M1 and M2. `ROADMAP.md` carries the live status of every slice of work, and the
-[Milestones](#milestones) section below explains how to read it.
+Pre-alpha, and usable from source. Milestones M0 to M3 are approved: 17 slices, each merged with a
+merge commit and tagged `slice/NNN` (`git tag -l 'slice/*' | wc -l` → 17, on 2026-09-21). What
+that means in practice:
 
-Nothing here is ready to use. If you want to follow along, watch the roadmap and the tags.
+- **Talks.** Streaming chat with any provider behind one behaviour (`Trinity.LLM`), switched by
+  configuration; the assistant's text is persisted as a draft every 500 ms or 2 KB while it
+  streams, so a crash mid-turn loses at most that much. Context compaction with lineage when a conversation outgrows the
+  model's window.
+- **Acts.** Filesystem, web and shell tools behind a permission gate with fingerprint-bound
+  approvals; every effect passes one membrane and leaves a signed, hash-chained receipt you can
+  verify offline (`mix trinity.receipts.verify`). A FIPS build leg in CI proves the receipt scheme
+  under OpenSSL's FIPS provider.
+- **Remembers.** A persona (its SOUL), a small always-on memory with a byte budget and a
+  consolidator instead of truncation, full-text search over every past conversation, a semantic
+  tier filled by an observer after each turn and recalled by meaning (local embeddings, never a
+  hosted call unless you opt in), project context from `AGENTS.md`, and export and import of the
+  whole thing as one archive.
+
+Not there yet: skills (M4), scheduled tasks and MCP (M5a), messaging gateways and subagents (M5b),
+the native desktop shell and signed releases (M6). `ROADMAP.md` carries the live status of every
+slice, and the [Milestones](#milestones) section below explains how to read it.
+
+The interface is a local web page; the desktop shell exists as a packaging spike, not a product.
+If you want to follow along, watch the roadmap and the tags.
 
 ## Why the BEAM
 
@@ -42,11 +60,22 @@ only needed for the desktop shell.
 
 ```
 git config core.hooksPath .githooks   # once, before your first commit
+cp .env.example .env                  # then put a provider key in it
 mix setup                             # dependencies, database, assets
 mix phx.server                        # or: iex -S mix phx.server
 ```
 
-Then open [localhost:4000](http://localhost:4000). Today that is a scaffold page, not an agent.
+Then open [localhost:4000](http://localhost:4000): new conversation, pick a model, talk. The
+model registry is `config/llm.exs`; keys come from the environment (`.env` is gitignored). The
+pages: `/` conversations, `/s/:id` a conversation and `/s/:id/receipts` its receipts, `/search`
+full-text search, `/personas` and `/memory` the persona and its memory (with the semantic tab and
+the embedding model's download), `/permissions` the rules and pending approvals, `/settings` the
+export. `mix trinity.export` and `mix trinity.import` do what `/settings` does from a terminal;
+`docs/backup.md` explains the archive.
+
+Semantic recall needs the local embedding model (91 MB, downloaded from the memory page on your
+say-so, never on its own). Without it the tier is off and full-text search still works;
+`docs/perf.md` has what it costs.
 
 `mix gate` runs the full quality gate and has to pass before every commit: format check, compile
 with warnings as errors, Credo, Sobelow, dependency audits, version verification, the naming and
@@ -54,7 +83,7 @@ secret checks, the tests with coverage, and `scripts/plan_check.sh`, which check
 documents themselves for consistency.
 
 Packaging as a single binary is documented in `docs/packaging.md`, with measured sizes and
-start-up times for each target.
+start-up times for each target; `docs/fips-leg.md` describes the FIPS build leg.
 
 ## How the work is organised
 
@@ -84,16 +113,16 @@ engineering contract that every change is held to.
 |---|---|---|
 | M0 Stands | Repository, quality gate and packaging path proven | 000 and 001 approved |
 | M1 Talks | Streaming chat with any provider, persisted and crash-safe | 010 to 013 approved |
-| M2 Acts | Tools behind a permission gate, one side-effect membrane, local receipts, context compaction | 020 to 024 approved |
+| M2 Acts | Tools behind a permission gate, one side-effect membrane, local receipts, context compaction; the FIPS build leg | 003 and 020 to 024 approved |
 | M3 Remembers | Persona, always-on memory, full-text and semantic recall, project context, export and import | 030 to 034 approved |
 | M4 Learns | A skills system the agent can extend itself, behind approval and a scanner | 040 and 041 approved |
 | M5a Automates | Scheduled tasks and MCP, client and server, with authorization | 050 and 059 to 062 approved |
 | M5b Reaches | Messaging gateways and subagents | 070 to 072 and 080 approved |
 | M6 Ships | Observability and a cost ledger, native desktop shell, signed releases | 090 to 101 approved |
 | M7 Sandboxed | Executable skills in an in-VM sandbox | 110 approved |
-| M9 Donatable | Open-source hygiene audited, supply chain signed, shared libraries extracted | 120 to 123 approved |
+| M9 Donatable | Open-source hygiene audited, supply chain signed, shared libraries extracted | 002 and 120 to 123 approved |
 
-Slice numbers have gaps on purpose (000, 001, 010, 011 and so on) so that a slice can be inserted
+M0 to M3 are approved as of 2026-09-21. Slice numbers have gaps on purpose (000, 001, 010, 011 and so on) so that a slice can be inserted
 later without renumbering anything.
 
 ## What is in the repository
@@ -103,13 +132,15 @@ later without renumbering anything.
 | `ROADMAP.md` | Every slice with its phase, milestone, dependencies and current status |
 | `VERSIONS.md` | The verified dependency versions, generated from `lib/trinity/versions.ex` |
 | `CLAUDE.md` | The engineering contract: slice rules, definition of done, proof standard |
-| `docs/` | Vision, architecture, tech stack, conventions, slice process, data model, risks, security model, standards |
+| `docs/` | Vision, architecture, tech stack, conventions, slice process, data model, risks, security model, standards; packaging, the FIPS leg, backup and restore, performance measurements |
 | `docs/adr/` | Architecture decision records. One is added whenever a decision changes |
 | `slices/` | One folder per slice: specification, notes and proof |
 | `templates/` | The templates a new slice, proof or decision record starts from |
 | `lib/`, `test/`, `config/` | The application |
 | `src-tauri/` | The native desktop shell |
-| `scripts/`, `credo_checks/` | The plan checker and this project's own Credo checks |
+| `scripts/`, `credo_checks/` | The plan checker, the benchmark scripts and this project's own Credo checks |
+| `ci/fips/` | The container the FIPS leg builds its toolchain in |
+| `coverage.tsv` | Test coverage per slice, appended at each close |
 
 ## Connecting Trinity to the platform
 
