@@ -74,6 +74,11 @@ defmodule Trinity.Memory.CompactionTest do
 
   describe "through a Session" do
     setup do
+      # Slice 040: the skills index would add its lines to every prompt here; these tests
+      # measure the window with controlled data, so the index is off (cap 0).
+      old = Application.get_env(:trinity, :skills, [])
+      Application.put_env(:trinity, :skills, Keyword.put(old, :index_tokens, 0))
+      on_exit(fn -> Application.put_env(:trinity, :skills, old) end)
       row = Factory.session!()
       :ok = Sessions.subscribe(row.id)
       {:ok, id: row.id}
@@ -134,13 +139,15 @@ defmodule Trinity.Memory.CompactionTest do
       long_conversation(pid, id, 12)
       before = Enum.count(Sessions.history(id, limit: 500), &Compactor.compaction?/1)
       # A message that crosses the soft threshold, and an object call slow enough to be killed in.
+      # 200 repetitions since slice 040: the three skill tools' schemas are in every request's
+      # estimate, and 250 put the retry past the hard threshold (a fork, not a compaction).
       Fake.object_delay(3_000)
       Fake.script(script_deltas(2, "again "))
 
       {:ok, _} =
         Session.send_user_message(
           pid,
-          String.duplicate("more words to cross the threshold ", 250)
+          String.duplicate("more words to cross the threshold ", 200)
         )
 
       events = collect(id, &match?({:state, :compacting}, &1), 5_000)

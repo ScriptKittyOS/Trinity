@@ -355,7 +355,14 @@ defmodule Trinity.Sessions.Session do
     tools = Trinity.Tools.to_llm_tools()
     history = Trinity.Sessions.history(id, limit: 500)
     # Slice 033: the project's AGENTS.md, read now, so a change is in this turn (live reload).
-    context = Trinity.Context.AgentsMd.render(session.project_root, session.project_root)
+    context =
+      [
+        Trinity.Context.AgentsMd.render(session.project_root, session.project_root),
+        # Slice 040: the skills index, under its own cap inside the same tier.
+        Trinity.Context.SkillsIndex.render(session.project_root)
+      ]
+      |> Enum.reject(&(&1 == ""))
+      |> Enum.join("\n\n")
 
     # Slice 032: what the semantic tier and past conversations hold about the latest user
     # message, fused and capped; "" when there is no persona or nothing relevant.

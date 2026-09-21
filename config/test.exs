@@ -29,6 +29,10 @@ config :trinity, :tools,
     Trinity.Tools.SessionSearch,
     # Slice 032: hybrid recall.
     Trinity.Tools.Recall,
+    # Slice 040: the skills' progressive disclosure.
+    Trinity.Skills.Tools.List,
+    Trinity.Skills.Tools.View,
+    Trinity.Skills.Tools.File,
     # Slice 030: the always-on memory tiers.
     Trinity.Tools.Memory,
     Trinity.Tools.Shell.Run
@@ -39,7 +43,9 @@ config :trinity, :tools,
     web: ["web_fetch", "web_search"],
     shell: ["shell"],
     # Slice 031: search over past conversations.
-    memory: ["session_search", "recall", "memory"]
+    memory: ["session_search", "recall", "memory"],
+    # Slice 040: the skill tools.
+    skills: ["skills_list", "skill_view", "skill_file"]
   },
   timeout_ms: 2_000
 
@@ -171,3 +177,11 @@ config :trinity, :receipts, keys_dir: Path.expand("../tmp/test_keys", __DIR__)
 # Slice 032: the suite embeds with the deterministic fake; nothing leaves the machine and no
 # model is needed.
 config :trinity, :memory, embedder: :fake, observer: false
+
+# Slice 040: the suite's skill roots are fixtures; the user root is a directory a test may
+# point elsewhere with `Application.put_env` and a rescan.
+config :trinity, :skills,
+  bundled_dir: Path.expand("../test/support/fixtures/skills/bundled", __DIR__),
+  user_dir: Path.expand("../test/support/fixtures/skills/user", __DIR__),
+  watch: true,
+  index_tokens: 338

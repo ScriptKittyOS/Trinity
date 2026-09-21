@@ -245,6 +245,20 @@ defmodule Trinity.Versions do
         "HTML to text for `web_fetch` (Slice 022): script, style, nav, header, footer and aside dropped, the body's text taken."
     },
     %{
+      name: "yaml_elixir",
+      pin: "~> 2.12",
+      lock: "yaml_elixir",
+      note:
+        "SKILL.md frontmatter (`Trinity.Skills.Parser`, Slice 040), over `yamerl` 0.10.0. Was in the lock as sobelow's dependency; declared at 040. Checked against hex.pm 2026-09-21: 2.12.2 (2026-05-30)."
+    },
+    %{
+      name: "file_system",
+      pin: "~> 1.1",
+      lock: "file_system",
+      note:
+        "The skill roots' watcher (`Trinity.Skills.Registry`, Slice 040): inotify on Linux (needs the `inotifywait` executable; polls once a second without it), fsevents on macOS, the Windows backend there. Was in the lock as phoenix_live_reload's dependency; declared at 040. Checked against hex.pm 2026-09-21: 1.1.1 (2025-09-08)."
+    },
+    %{
       name: "luerl (+ sandbox)",
       pin: "latest",
       lock: nil,

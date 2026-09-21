@@ -6,5 +6,5 @@ defmodule Trinity.Context do
   content, read from the project root every turn, untrusted by provenance. `AgentsMd` is the
   first source; slice 040's skills index joins it in the same tier.
   """
-  use Boundary, deps: [Trinity], exports: [AgentsMd]
+  use Boundary, deps: [Trinity, Trinity.Skills], exports: [AgentsMd, SkillsIndex]
 end

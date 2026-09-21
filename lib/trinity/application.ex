@@ -54,6 +54,9 @@ defmodule Trinity.Application do
           Trinity.Tools.Supervisor,
           # Slice 021: approval requests and their decisions, with pending rows reloaded.
           Trinity.Permissions.Gate,
+          # Slice 040: the skills index, scanned from its roots and watched; after the tools
+          # (conditional activation asks which exist) and before the sessions that read it.
+          Trinity.Skills.Registry,
           Trinity.Sessions.Supervisor
         ] ++
         Trinity.Smoke.probe(Trinity.Smoke.argv()) ++
