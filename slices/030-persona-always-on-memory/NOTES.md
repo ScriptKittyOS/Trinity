@@ -72,3 +72,34 @@ receipt is written by the Session, so Sessions depends on Receipts (docs/01's ro
 `memory` tool's default scope is the persona's, so AC2's three-argument add is visible to the next session, and
 AC7 uses the explicit `session` scope and `promote`; (d) the volatile budget is 2,800 tokens, not 200 to 500,
 for the reason measured above.
+
+## Findings, 2026-09-21
+
+1. **Mox mocks implement optional callbacks too.** A `decide_with_basis/4` optional callback on the policy
+   behaviour made `function_exported?/3` true for `Trinity.Permissions.PolicyMock`, and the 020 and 021 tests'
+   `decide/4` expectations never fired. The contract is a tuple answer instead: `decide/4` may return
+   `{decision, basis}`, the facade normalises, and a bare decision is basis `"policy"`.
+2. **The `memory` tool must not reach into Sessions.** The first draft looked the persona up through
+   `Trinity.Sessions` when the context had none; the boundary compiler allows it (Trinity exports Sessions) but
+   Sessions depends on Tools, and the Session already puts its persona in the context. The tool refuses a call
+   without one (`{:error, :no_persona}`).
+3. **The 012 purity test took the time as a hidden input** once the volatile tier stated it; `now:` is an option
+   of `Prompt.build/5` and the test passes a fixed one. The system prompt's last line is no longer the untrusted
+   rule, which the same test asserted; it asserts the rule followed by the time line now.
+4. **The formatter does not converge** on a multi-line map followed by keyword arguments in a call
+   (`AlwaysOn.add(%{...}, by: "test")`): `mix format` leaves one shape and `--check-formatted` wants another.
+   Binding the map to a variable first ends it. Five spots in two test files.
+5. **The screenshot server's boot receipt failed** on a fresh receipts database: under Mix, migrations run after
+   the application starts (slice 022's finding 7 for the primary), and the boot receipt is written at start. The
+   pages do not need it; a script that runs migrations before `ensure_all_started` would, and the 024 boot task
+   could retry once the migrator has run. Recorded as a follow-up for 024's boot receipt under Mix.
+6. **Killing a server by pattern took the shell again** (exit 144, twice): `pgrep -f` matches the shell that
+   runs it. The 013 notes said so; kill by the pid `pgrep -f <the db file name>` returns before the shell's.
+
+## Follow-ups
+- 024's boot receipt under Mix runs (finding 5): retry after the migrator, or write it from the migrator's
+  `after_start`.
+- 032 fills the semantic tier and reads `source_message_id` and `confidence`, which 030 writes as nil.
+- 033 adds the `project:<path>` scope to the chain; the scope vocabulary and the chain order are ready for it.
+- 040 fills the context tier (the skills index) and measures its budget; 300 tokens is the starting value.
+- The memory page shows one persona at a time; a global scope view across personas is a small addition.
