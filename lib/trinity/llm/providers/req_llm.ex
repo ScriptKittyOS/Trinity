@@ -196,7 +196,9 @@ defmodule Trinity.LLM.Providers.ReqLLM do
     end)
   end
 
-  defp context(%Request{system: system, messages: messages}) do
+  @doc false
+  @spec context(Request.t()) :: ReqLLM.Context.t()
+  def context(%Request{system: system, messages: messages}) do
     base = if system, do: [ReqLLM.Context.system(system)], else: []
     ReqLLM.Context.new(base ++ Enum.map(messages, &message/1))
   end

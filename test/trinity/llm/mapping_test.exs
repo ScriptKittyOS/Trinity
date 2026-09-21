@@ -131,6 +131,36 @@ defmodule Trinity.LLM.Providers.ReqLLM.MappingTest do
              Mapping.tool_call(%{id: "2", function: %{name: "u", arguments: nil}})
   end
 
+  # Found by slice 032's AC6 run on nvidia:nemotron: the turn after a tool result raised
+  # `invalid tool_call: {"call-…", "recall", %{…}}` inside req_llm, because the adapter handed
+  # `ReqLLM.Context.assistant/2` a `{id, name, args}` tuple and 1.24.0's `normalize_tool_call/1`
+  # accepts `{name, input}`, `{name, input, opts}` or a map with `name` and `arguments`. Every
+  # live turn after a tool call has failed this way since 011 shipped; the fake provider never
+  # builds a context, so the suite did not see it. Committed red first.
+  test "the request's assistant tool calls reach req_llm's context as ToolCall structs with their ids" do
+    {:ok, request} =
+      Trinity.LLM.Request.new(%{
+        messages: [
+          %{role: "user", content: "weather?"},
+          %{
+            role: "assistant",
+            content: "(no text)",
+            tool_calls: [%{id: "call-1", name: "get_weather", args: %{"city" => "Paris"}}]
+          },
+          %{role: "tool", content: "sunny", tool_call_id: "call-1"}
+        ]
+      })
+
+    %ReqLLM.Context{messages: [_, assistant, tool]} =
+      Trinity.LLM.Providers.ReqLLM.context(request)
+
+    assert [%ReqLLM.ToolCall{id: "call-1", function: %{name: "get_weather", arguments: json}}] =
+             assistant.tool_calls
+
+    assert JSON.decode!(json) == %{"city" => "Paris"}
+    assert tool.role == :tool
+  end
+
   describe "classify/1" do
     test "an API error with a status classifies by status" do
       assert %Error{transient?: true, status: 429} =
