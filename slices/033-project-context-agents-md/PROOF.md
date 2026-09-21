@@ -95,3 +95,7 @@ a988cda feat(s033): the project root in the chat's bar; docs 05, 07 and 01 as bu
 7d13043 feat(s033): the session's project root, Trinity.Context.AgentsMd, the context tier fed every turn
 8fea997 docs(s033): G1 plan with the cap and the context budget measured, and the slice opens
 ```
+
+## Closing correction, 2026-09-21
+Supersedes the header's "Final commit" placeholder: the closing commit is `0c8238a` (`feat(s033): complete
+slice 033 (AGENTS.md project context)`), and this correction rides on the commit after it.
