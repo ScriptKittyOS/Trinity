@@ -15,7 +15,8 @@ defmodule Trinity.Sessions.ModelAndPersonaTest do
     test "creates the row named default once and returns the same row after" do
       first = Sessions.default_persona()
       assert first.name == "default"
-      assert first.soul == nil
+      # Slice 013 asserted no soul; slice 030 seeds it from priv/personas/default/SOUL.md.
+      assert first.soul == File.read!("priv/personas/default/SOUL.md")
       assert Sessions.default_persona().id == first.id
     end
   end

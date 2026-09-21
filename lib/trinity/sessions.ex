@@ -12,7 +12,8 @@ defmodule Trinity.Sessions do
   # Slice 020: and the tool runtime, for the declared surface and the runner in force.
   # Slice 023: and Memory, for the estimate and the compaction before a model call.
   use Boundary,
-    deps: [Trinity, Trinity.LLM, Trinity.Tools, Trinity.Memory],
+    # Slice 030: Receipts, for the prompt truncation receipt (docs/01's row as built).
+    deps: [Trinity, Trinity.LLM, Trinity.Tools, Trinity.Memory, Trinity.Receipts],
     exports: [Events, Message, Persona, SessionRow, Session, Caps, Prompt]
 
   alias Trinity.Sessions.{Message, Persona, SessionRow, Store}
@@ -65,26 +66,55 @@ defmodule Trinity.Sessions do
   def archive(%SessionRow{} = session), do: Store.update_session(session, %{status: "archived"})
 
   @default_persona_name "default"
+  @default_soul_path Path.join(:code.priv_dir(:trinity), "personas/default/SOUL.md")
 
   @doc """
-  The persona new sessions belong to: the row named `default`, created on first use with no
-  soul (so the prompt keeps its fallback). Slice 013 adds it so the chat can open a session;
-  slice 030 seeds the SOUL into this same row.
+  The persona new sessions belong to: the row named `default`, created on first use. Slice
+  013 added it so the chat can open a session; slice 030 seeds it from
+  `priv/personas/default/SOUL.md` (the soul, and the persona rule that lets the `memory` tool
+  write without asking) when the row is created or when its soul is still empty, so an
+  install from before 030 gets the same seed on its next boot. A soul the owner has edited is
+  never overwritten.
   """
   @spec default_persona() :: Persona.t()
   def default_persona do
     case Store.get_persona_by_name(@default_persona_name) do
       nil ->
-        case Store.insert_persona(%{name: @default_persona_name}) do
+        case Store.insert_persona(Map.put(default_seed(), :name, @default_persona_name)) do
           {:ok, persona} -> persona
           # Two callers raced; the unique index let one through, and it is the row.
           {:error, _} -> Store.get_persona_by_name(@default_persona_name)
         end
 
+      %Persona{soul: soul} = persona when soul in [nil, ""] ->
+        {:ok, seeded} = Store.update_persona(persona, default_seed())
+        seeded
+
       persona ->
         persona
     end
   end
+
+  @doc "The default persona's seed: the SOUL file and the settings it ships with."
+  @spec default_seed() :: map()
+  def default_seed do
+    %{
+      soul: File.read!(@default_soul_path),
+      settings: %{"permissions" => %{"memory" => "allow"}}
+    }
+  end
+
+  @doc "Every persona, by name (slice 030)."
+  @spec list_personas() :: [Persona.t()]
+  def list_personas, do: Store.list_personas()
+
+  @doc "A persona by id, or nil."
+  @spec get_persona(String.t()) :: Persona.t() | nil
+  def get_persona(id), do: Store.get_persona(id)
+
+  @doc "Updates a persona (slice 030)."
+  @spec update_persona(Persona.t(), map()) :: {:ok, Persona.t()} | {:error, Ecto.Changeset.t()}
+  def update_persona(%Persona{} = persona, attrs), do: Store.update_persona(persona, attrs)
 
   @doc "Sets the session's title (the chat uses the first message's opening line)."
   @spec set_title(session_id(), String.t()) :: {:ok, SessionRow.t()} | {:error, term()}

@@ -31,16 +31,16 @@ defmodule Trinity.Effects.Runner do
   @doc "The executor: decide and receipt, then read directly or cross the membrane."
   @spec execute(map(), map(), Context.t()) :: {:ok, Result.t()} | {:error, term()}
   def execute(entry, args, %Context{} = ctx) do
-    {decision, fp, reason} =
+    {decision, fp, reason, basis} =
       case Runner.decide(entry, args, ctx) do
-        {:allow, fp} -> {:allow, fp, nil}
-        {:deny, fp} -> {:deny, fp, :denied}
-        {:ask, why, fp} -> {:ask, fp, why}
+        {:allow, fp, basis} -> {:allow, fp, nil, basis}
+        {:deny, fp, basis} -> {:deny, fp, :denied, basis}
+        {:ask, why, fp, basis} -> {:ask, fp, why, basis}
       end
 
     scope = scope(ctx)
 
-    case decision_receipt(scope, entry, ctx, decision, fp, reason) do
+    case decision_receipt(scope, entry, ctx, decision, fp, reason, basis) do
       {:ok, _} -> dispatch(decision, entry, args, ctx, scope, fp, reason)
       {:error, why} -> {:error, {:decision_not_receipted, why}}
     end
@@ -83,7 +83,8 @@ defmodule Trinity.Effects.Runner do
          ctx,
          decision,
          fp,
-         reason
+         reason,
+         basis
        ) do
     Receipts.append(scope, %{
       kind: "decision",
@@ -93,7 +94,11 @@ defmodule Trinity.Effects.Runner do
         "tool" => name,
         "effect" => Atom.to_string(effect)
       },
-      decision: %{"outcome" => Atom.to_string(decision), "reason" => reason && inspect(reason)},
+      decision: %{
+        "outcome" => Atom.to_string(decision),
+        "basis" => basis,
+        "reason" => reason && inspect(reason)
+      },
       fingerprint: fp,
       subject_ref: "decision:#{ctx.session_id || "none"}:#{ctx.call_id || "none"}",
       meta: %{"tool_definition_digest" => digest}

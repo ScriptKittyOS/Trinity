@@ -69,6 +69,22 @@ every term for FTS5, so operators are text.
 Invariant: total bytes of `always_on` + `profile` for a persona ≤ configurable budget (default 8 KB), enforced by
 `Trinity.Memory.Budget`, which triggers consolidation instead of silent truncation.
 
+As built at slice 030: `memories` carries `persona_id` (the budget's unit) beside the columns above, the scope
+vocabulary is `global | persona:<id> | project:<path> | session:<id>` (a session reads the chain `session`,
+`persona`, `global`), `key` is required for the two always-on tiers (`^[a-z0-9][a-z0-9_.-]{0,63}$`, unique with
+tier and scope), and the semantic tier's columns wait for 032. Two tables beside it:
+
+### memory_changes (Slice 030)
+`persona_id`, `action` (add | replace | remove | promote | consolidate), `tier`, `scope`, `key`, `before`,
+`after`, `by` (tool | ui | consolidator), `session_id`, `proposal_id`, `inserted_at`. Every write to the
+always-on tiers appends one; a consolidation's writes carry its proposal id, so no entry leaves the tiers
+without a row here.
+
+### memory_proposals (Slice 030)
+`persona_id`, `entries` (the proposed set), `bytes_before`, `bytes_after`, `budget`, `status` (applied | pending |
+rejected), `decided_at`. The consolidator applies a proposal under budget at once and holds one over budget for
+the owner (the memory page).
+
 ### skills (Slice 040)
 | column | type | notes |
 |---|---|---|

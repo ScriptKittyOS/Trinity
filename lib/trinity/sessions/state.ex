@@ -37,10 +37,13 @@ defmodule Trinity.Sessions.State do
           id: String.t(),
           session: SessionRow.t(),
           turn: turn() | nil,
-          task_sup: pid() | nil
+          task_sup: pid() | nil,
+          memory: String.t()
         }
 
-  defstruct [:id, :session, :turn, :task_sup]
+  # `memory` (slice 030): the always-on snapshot frozen at start and on refresh, so a
+  # mid-session edit takes effect next session or on refresh, never silently mid-turn.
+  defstruct [:id, :session, :turn, :task_sup, memory: ""]
 
   @doc "A fresh turn record."
   @spec new_turn() :: turn()

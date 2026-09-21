@@ -72,14 +72,14 @@ without anything failing.
 
 | Context (module) | Owns | May depend on |
 |---|---|---|
-| `Trinity.Sessions` | Session process, turn loop, message log | LLM, Tools, **Effects**, Permissions, Memory, Skills, Repo, PubSub |
+| `Trinity.Sessions` | Session process, turn loop, message log; the persona row and its store (since 010; `Trinity.Personas` is the context over them, as built at 030) | LLM, Tools, **Effects**, Permissions, Memory, Skills, Repo, PubSub, Receipts (as built at 030: the prompt truncation receipt) |
 | `Trinity.LLM` | Provider behaviour, req_llm adapter, model registry, streaming, usage | Repo (usage), Telemetry |
 | `Trinity.Tools` | Tool behaviour, registry, execution runtime, core tools, and (as built at 024) the compile-time effect catalog `Trinity.Tools.Catalog`, because the registry reads it and Effects depends on Tools | Permissions, Sandbox, Repo, **Memory** (as built at 031: `session_search` reads the index; Memory never depends on Tools) |
 | `Trinity.Permissions` | Policy, tier/1 (name-only), fingerprint-bound approvals, override adjudication | Repo, PubSub |
 | `Trinity.Effects` | The membrane; the runner in force (`Effects.Runner`, the executor `Tools.Runner` takes as a function); decision and query receipts; the boot receipt | **Tools**, Permissions, Authority, Receipts, Repo |
 | `Trinity.Authority` | Behaviour; `Local` implementation (the one caller of `execute/2` for effectful tools); selection at boot; `Staged` | Receipts, Repo |
 | `Trinity.Receipts` | Local chain (one supervised writer per scope, ADR-0013), the signer seam (Ed25519, P-384, ML-DSA-87), key custody and the registry, checkpoints, the verifier, the alarm | Repo (`Repo.Receipts`) |
-| `Trinity.Memory` | Always-on tier, episodic FTS, semantic store, retrieval, compaction | LLM (summaries/embeddings), Repo |
+| `Trinity.Memory` | Always-on tiers with their budget and consolidator (030), search (031), semantic store and retrieval (032), compaction (023) | LLM (summaries/embeddings), Repo |
 | `Trinity.Skills` | SKILL.md parsing, registry, loader, manager, scanner | Repo, Permissions, **Effects**, **Receipts**, Sandbox |
 | `Trinity.Scheduler` | Oban workers for agent tasks, delivery | Sessions, Gateways, **Repo** |
 | `Trinity.MCP` | Client manager, tool bridge, server | Tools, **Effects**, **Permissions**, Memory |

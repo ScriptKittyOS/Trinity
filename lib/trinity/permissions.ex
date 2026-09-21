@@ -78,7 +78,23 @@ defmodule Trinity.Permissions do
   tool raised the call to from its arguments; it can only raise).
   """
   @spec decide(String.t() | nil, String.t(), map(), keyword()) :: decision()
-  def decide(session_id, tool, args, opts \\ []), do: impl().decide(session_id, tool, args, opts)
+  def decide(session_id, tool, args, opts \\ []) do
+    {decision, _basis} = decide_with_basis(session_id, tool, args, opts)
+    decision
+  end
+
+  @doc "The decision and the layer that made it (slice 030); `\"policy\"` for a policy that answers a bare decision."
+  @spec decide_with_basis(String.t() | nil, String.t(), map(), keyword()) ::
+          {decision(), String.t()}
+  def decide_with_basis(session_id, tool, args, opts \\ []) do
+    case impl().decide(session_id, tool, args, opts) do
+      {decision, basis} when decision in [:allow, :deny, :ask] and is_binary(basis) ->
+        {decision, basis}
+
+      decision when decision in [:allow, :deny, :ask] ->
+        {decision, "policy"}
+    end
+  end
 
   @doc "The fingerprint of a call as this session would bind it."
   @spec fingerprint(String.t() | nil, String.t(), map(), String.t() | nil) :: String.t()

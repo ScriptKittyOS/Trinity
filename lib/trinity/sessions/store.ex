@@ -17,6 +17,15 @@ defmodule Trinity.Sessions.Store do
   @spec get_persona_by_name(String.t()) :: Persona.t() | nil
   def get_persona_by_name(name), do: Repo.get_by(Persona, name: name)
 
+  @doc "Every persona, by name (slice 030)."
+  @spec list_personas() :: [Persona.t()]
+  def list_personas, do: Repo.all(from p in Persona, order_by: p.name)
+
+  @doc "Updates a persona (slice 030: the SOUL editor, the model, the settings)."
+  @spec update_persona(Persona.t(), map()) :: {:ok, Persona.t()} | {:error, Ecto.Changeset.t()}
+  def update_persona(%Persona{} = persona, attrs),
+    do: persona |> Persona.changeset(attrs) |> Repo.update()
+
   @spec insert_session(map()) :: {:ok, SessionRow.t()} | {:error, Ecto.Changeset.t()}
   def insert_session(attrs), do: %SessionRow{} |> SessionRow.changeset(attrs) |> Repo.insert()
 

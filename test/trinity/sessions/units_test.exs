@@ -85,11 +85,17 @@ defmodule Trinity.Sessions.UnitsTest do
         %Message{role: "assistant", content: "done", parts: %{}}
       ]
 
-      r1 = Prompt.build(row, persona, history)
-      assert r1 == Prompt.build(row, persona, history)
-      # Slice 022: the system prompt carries the untrusted-content rule after the soul.
+      # Slice 030: the time is an input (`now:`), so the same inputs still build the same request.
+      now = ~U[2026-09-21 09:00:00Z]
+      r1 = Prompt.build(row, persona, history, [], now: now)
+      assert r1 == Prompt.build(row, persona, history, [], now: now)
+      # Slice 022: the system prompt carries the untrusted-content rule after the soul; slice
+      # 030 follows it with the volatile tier (the time, here with no memory and no title).
       assert String.starts_with?(r1.system, "Be kind.\n\n")
-      assert String.ends_with?(r1.system, Prompt.untrusted_rule())
+
+      assert r1.system =~
+               Prompt.untrusted_rule() <> "\n\nThe time now is 2026-09-21T09:00:00Z (UTC)."
+
       assert r1.model == "fake:chat"
 
       assert [

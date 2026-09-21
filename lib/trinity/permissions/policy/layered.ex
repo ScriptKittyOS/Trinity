@@ -24,17 +24,25 @@ defmodule Trinity.Permissions.Policy.Layered do
 
   @default %{read: :allow, network: :allow, write: :ask, exec: :ask, destructive: :ask}
 
+  # Slice 030: the answer names the layer that decided, for the decision receipt.
   @impl true
   def decide(session_id, tool, args, opts) do
     now = DateTime.utc_now()
     fp = Permissions.fingerprint(session_id, tool, args, Keyword.get(opts, :cwd))
 
-    with :next <- session_grants(session_id, tool, args, fp, now),
-         :next <- decided_approval(session_id, fp, now),
-         :next <- persona(Keyword.get(opts, :persona), tool),
-         :next <- global_rules(tool, args, fp, now) do
-      default(tool, Keyword.get(opts, :escalate))
-    end
+    layers = [
+      {"session_grant", fn -> session_grants(session_id, tool, args, fp, now) end},
+      {"approval", fn -> decided_approval(session_id, fp, now) end},
+      {"persona", fn -> persona(Keyword.get(opts, :persona), tool) end},
+      {"global_rule", fn -> global_rules(tool, args, fp, now) end}
+    ]
+
+    Enum.reduce_while(layers, nil, fn {name, layer}, _ ->
+      case layer.() do
+        :next -> {:cont, nil}
+        decision -> {:halt, {decision, name}}
+      end
+    end) || {default(tool, Keyword.get(opts, :escalate)), "default"}
   end
 
   defp session_grants(nil, _tool, _args, _fp, _now), do: :next
