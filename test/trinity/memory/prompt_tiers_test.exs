@@ -30,11 +30,12 @@ defmodule Trinity.Memory.PromptTiersTest do
       Prompt.build_with_report(session, persona, [], [],
         memory: "",
         now: @now,
-        skills: "## Skills\n- none"
+        context: "## Skills\n- none"
       )
 
     assert with_skills.system =~ ~r/Be brief\.\n\n.*\n\n## Skills\n- none\n\nThe time now is/s
-    assert Prompt.budgets() == [stable: 800, context: 300, volatile: 2_800]
+    # 033 raised the context budget from 300 to the AGENTS.md cap plus the skills index.
+    assert Prompt.budgets() == [stable: 800, context: 5_800, volatile: 2_800]
   end
 
   test "a tier over its budget is cut on a line boundary and reported with the tokens dropped" do

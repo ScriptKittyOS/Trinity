@@ -27,6 +27,7 @@ with adapter-specific `execute/1` guarded by `repo().__adapter__()`.
 | model | string | current model (may differ from persona default) |
 | token_usage | map | running totals |
 | last_activity_at | utc_datetime_usec | |
+Slice 033 adds `project_root` (string, nullable): the directory the session's tools work in (the filesystem allowlist's `cwd`) and its `AGENTS.md` is read from; set from the chat's bar or `Trinity.Sessions.set_project_root/2`.
 
 ### messages (Slice 010)
 | column | type | notes |

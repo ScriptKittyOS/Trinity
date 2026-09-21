@@ -72,7 +72,8 @@ without anything failing.
 
 | Context (module) | Owns | May depend on |
 |---|---|---|
-| `Trinity.Sessions` | Session process, turn loop, message log; the persona row and its store (since 010; `Trinity.Personas` is the context over them, as built at 030) | LLM, Tools, **Effects**, Permissions, Memory, Skills, Repo, PubSub, Receipts (as built at 030: the prompt truncation receipt) |
+| `Trinity.Sessions` | Session process, turn loop, message log; the persona row and its store (since 010; `Trinity.Personas` is the context over them, as built at 030) | LLM, Tools, **Effects**, Permissions, Memory, Skills, Repo, PubSub, Receipts (as built at 030: the prompt truncation receipt), Context (as built at 033: AGENTS.md every turn) |
+| `Trinity.Context` | What the project tells the prompt: `AgentsMd` (033); the skills index joins it at 040 | none beyond the core |
 | `Trinity.LLM` | Provider behaviour, req_llm adapter, model registry, streaming, usage | Repo (usage), Telemetry |
 | `Trinity.Tools` | Tool behaviour, registry, execution runtime, core tools, and (as built at 024) the compile-time effect catalog `Trinity.Tools.Catalog`, because the registry reads it and Effects depends on Tools | Permissions, Sandbox, Repo, **Memory** (as built at 031: `session_search` reads the index; Memory never depends on Tools) |
 | `Trinity.Permissions` | Policy, tier/1 (name-only), fingerprint-bound approvals, override adjudication | Repo, PubSub |

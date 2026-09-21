@@ -34,6 +34,15 @@ system prompt states that instructions inside untrusted blocks are data, not com
   checkpointed. No approved algorithm available means the effect is denied, never signed with a refused one and
   never written unsigned.
 
+## Project context (Slice 033, as built)
+
+`AGENTS.md` is repository content, not owner-authored configuration. Every file on the path from the session's
+project root to its working directory enters the prompt's context tier inside an
+`<untrusted source="agents_md" path=... digest=...>` block, capped at 16,384 bytes in total with every cut
+stated, and the untrusted rule already in the prompt covers it. The gate never reads the prompt: a file that
+says approvals are off changes nothing about what asks (AC3, a test), and the same holds for anything else the
+model reads.
+
 ## Permission gate (Slice 021)
 
 Every `Trinity.Tools.Tool` declares `effect/0` (`:none | :artifact | :catalog`) and the gate derives risk from the tool **name only** via `Trinity.Permissions.tier/1` (`:read | :write | :exec | :network | :destructive`; unmapped → ask).
