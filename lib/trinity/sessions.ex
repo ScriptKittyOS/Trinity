@@ -12,7 +12,8 @@ defmodule Trinity.Sessions do
   # Slice 020: and the tool runtime, for the declared surface and the runner in force.
   # Slice 023: and Memory, for the estimate and the compaction before a model call.
   use Boundary,
-    deps: [Trinity, Trinity.LLM, Trinity.Tools, Trinity.Memory],
+    # Slice 030: Receipts, for the prompt truncation receipt (docs/01's row as built).
+    deps: [Trinity, Trinity.LLM, Trinity.Tools, Trinity.Memory, Trinity.Receipts],
     exports: [Events, Message, Persona, SessionRow, Session, Caps, Prompt]
 
   alias Trinity.Sessions.{Message, Persona, SessionRow, Store}

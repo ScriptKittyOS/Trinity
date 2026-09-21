@@ -63,6 +63,10 @@ defmodule Trinity.Sessions.Session do
         }
   def state(ref), do: :gen_statem.call(target(ref), :state)
 
+  @doc "Recomputes the always-on memory snapshot the next turn will carry (slice 030); returns it."
+  @spec refresh_memory(pid() | String.t()) :: {:ok, String.t()}
+  def refresh_memory(ref), do: :gen_statem.call(target(ref), :refresh_memory)
+
   defp target(pid) when is_pid(pid), do: pid
   defp target(id) when is_binary(id), do: via(id)
 
@@ -82,7 +86,15 @@ defmodule Trinity.Sessions.Session do
         # Slice 021: the gate's decisions for this session's requests arrive here.
         :ok = Trinity.Permissions.subscribe(session_id)
         {:ok, task_sup} = Task.Supervisor.start_link()
-        data = %State{id: session_id, session: session, turn: nil, task_sup: task_sup}
+
+        data = %State{
+          id: session_id,
+          session: session,
+          turn: nil,
+          task_sup: task_sup,
+          memory: memory_snapshot(session)
+        }
+
         {:ok, :idle, data, [{:next_event, :internal, :rehydrate}]}
     end
   end
@@ -127,6 +139,12 @@ defmodule Trinity.Sessions.Session do
 
   def handle_event(:state_timeout, :recover, :error, data),
     do: {:next_state, :idle, %{data | turn: nil}}
+
+  # Slice 030: the snapshot is recomputed only here; the next turn reads the new one.
+  def handle_event({:call, from}, :refresh_memory, _state, %State{session: session} = data) do
+    memory = memory_snapshot(session)
+    {:keep_state, %{data | memory: memory}, [{:reply, from, {:ok, memory}}]}
+  end
 
   def handle_event({:call, from}, :state, state, %State{turn: turn}) do
     view = %{
@@ -330,14 +348,40 @@ defmodule Trinity.Sessions.Session do
 
   # The row is read again at every turn (slice 013): a model set between turns through
   # `Trinity.Sessions.set_model/2` is the next turn's model, not the next incarnation's.
-  defp build_request(%State{id: id} = data) do
+  defp build_request(%State{id: id, memory: memory} = data) do
     session = Store.get_session(id) || data.session
     persona = session.persona_id && Store.get_persona(session.persona_id)
     # Slice 020: the declared surface of this turn, into the request and onto the row.
     tools = Trinity.Tools.to_llm_tools()
     history = Trinity.Sessions.history(id, limit: 500)
-    {session, persona, history, Prompt.build(session, persona, history, tools)}
+
+    {request, truncations} =
+      Prompt.build_with_report(session, persona, history, tools, memory: memory)
+
+    Enum.each(truncations, &truncation_receipt(id, &1))
+    {session, persona, history, request}
   end
+
+  # Slice 030: a tier cut at its budget is a query receipt naming the tier and the tokens
+  # dropped, so the receipt stream shows where the budget binds and no clip is silent.
+  defp truncation_receipt(id, %{tier: tier, dropped_tokens: dropped}) do
+    Trinity.Receipts.append(Trinity.Receipts.session_scope(id), %{
+      kind: "query",
+      subject: %{"session_id" => id, "prompt_tier" => Atom.to_string(tier)},
+      decision: %{
+        "truncated" => true,
+        "tier" => Atom.to_string(tier),
+        "dropped_tokens" => dropped
+      },
+      subject_ref: "prompt:#{id}:#{tier}"
+    })
+  end
+
+  # Slice 030: the always-on block for this session's chain, frozen in state.
+  defp memory_snapshot(%{id: id, persona_id: persona_id}) when is_binary(persona_id),
+    do: Trinity.Memory.AlwaysOn.snapshot(persona_id, id)
+
+  defp memory_snapshot(_), do: ""
 
   defp start_compaction(%State{id: id, task_sup: sup, turn: turn} = data, history, model) do
     ref = make_ref()
