@@ -116,6 +116,16 @@ the owner (the memory page).
 | embedding | vector(384), nullable | for skill retrieval |
 Filesystem is canonical for content; DB is the index (rebuildable via `mix trinity.skills.reindex`).
 
+As built at slice 040: `skills` carries `id`, `name`, `version` (integer, bumped when the body's digest
+changes), `source` (`bundled | user | project`; `agent` and `hub:<url>` arrive with 041), `scope` (`global |
+account | project`, the M6 tag from the root), `path`, `frontmatter` (the parsed keys: description, category,
+license, compatibility, metadata, allowed-tools, trinity), `body_hash`, `status` (`active | disabled`, the
+owner's, kept across rescans; `pending_approval` and `rejected` are 041's), `scan_result` (the per-file
+SHA-256 manifest of the directory and the `references/` and `scripts/` listings) and timestamps, unique on
+(`name`, `source`). No `embedding` column: nothing retrieves skills by vector yet. The rows are written on
+the registry's first read after a scan, not at boot, and a row whose skill is gone from every root is removed
+on the next scan.
+
 ### skill_changes (Slice 041)
 Staged proposals by the agent: `skill_id`, `diff`, `rationale`, `status`, `decided_by`, `decided_at`.
 
