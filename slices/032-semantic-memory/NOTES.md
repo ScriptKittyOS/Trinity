@@ -191,6 +191,14 @@ produced each vector is recorded on the row (decision 4).
     On this machine: dim 384, 0.858, 0.062, three embeds in 281 ms. The owner's manual queue keeps AC2 all the
     same, on their machine.
 
+12. **An HNSW scan with a WHERE clause can come back short.** The postgres job (run 35604770525) answered two
+    of three rows for the smoke's vector check: pgvector's HNSW scan hands back its `ef_search` (40) nearest
+    index entries and the filter (persona, scope, model) is applied after; the index held other personas'
+    entries and dead tuples from rolled-back inserts, so a small persona's rows fell outside the candidates.
+    Reproduced locally one run in three; closed by `SET LOCAL hnsw.iterative_scan = strict_order` inside the
+    search's own transaction (pgvector 0.8, `fix(s032)` de55660), which walks on until the LIMIT is met with the
+    order exact. Four runs of the three memory files on the container after: 21 passed each.
+
 ## Follow-ups
 
 - **A local embedding backend for the Linux bundle and for Windows.** The Linux bundle boots with the tier

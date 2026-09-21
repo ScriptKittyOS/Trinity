@@ -226,6 +226,9 @@ defmodule Trinity.Receipts.ChainWriter do
     if Receipt.signed?(kind) do
       case KeyCustody.sign(bytes) do
         {:ok, sig} ->
+          # fix(s024) at slice 032: a signer that signs again clears the alarm, as Alarm's
+          # doc has said since 024; before this nothing did.
+          if Trinity.Receipts.Alarm.set?(), do: Trinity.Receipts.Alarm.clear()
           {:ok, sig}
 
         {:error, reason} ->
@@ -322,6 +325,7 @@ defmodule Trinity.Receipts.ChainWriter do
   defp sign_checkpoint(bytes) do
     case KeyCustody.sign(bytes) do
       {:ok, signature} ->
+        if Trinity.Receipts.Alarm.set?(), do: Trinity.Receipts.Alarm.clear()
         {:ok, signature}
 
       {:error, why} ->
