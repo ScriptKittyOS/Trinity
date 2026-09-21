@@ -73,3 +73,55 @@ read as "a toolset with no registered tool" (the shell on Windows, a toolset rem
 there is no separate disable switch and this slice adds none; (c) the `skills.embedding` column in docs/05 is
 not added: nothing in this slice retrieves skills by vector, and 032's rule (a vector records its embedder)
 would apply when one does.
+
+## Findings at G3, 2026-09-21
+
+1. **The index rows cannot be written at boot in the test environment.** The first build wrote the `skills`
+   rows in the registry's `init/1`, and `mix test` could not start the application: under the sandbox pool in
+   its automatic mode, the one SQLite connection belongs to whichever process took it first (the permission
+   gate, which reloads its pending approvals at boot), and the registry waited its 90 s on the queue. Built
+   instead: the filesystem scan at boot into ETS, the rows on the first read after a scan (`list/1` asks the
+   process for them), so nothing at boot needs the database and a test writes rows under its own sandbox
+   owner. `mix trinity.skills.reindex` therefore runs in dev and prod, not under `MIX_ENV=test`
+   (the same ownership: the task's rescan times out there).
+2. **A watcher whose directory is gone takes the registry down.** `FileSystem.start_link` links; a test
+   that removed its temporary root made `inotifywait` exit, the worker with it, and the registry restarted
+   mid-test, losing the edit the hot-reload test was waiting for (one run in three). The registry now traps
+   exits, drops the watcher on `EXIT`, and stops watchers whose directories no longer exist at the next scan.
+3. **`inotifywait` says nothing when its watches are up**, and an edit before they are is missed; the
+   gate's runners have no `inotifywait` at all (run 35623752961), so the registry polls there (file_system's
+   `fs_poll`, once a second), and the poll compares mtimes at one-second resolution: an edit inside the
+   second the file was created in is no change to it. The hot-reload test waits 1.1 s before its edit;
+   `TRINITY_SKILLS_POLL=1` forces the poll so the fallback can be exercised here (1,219 ms to the registry,
+   three runs; inotify: 316 ms).
+4. **The three skill tools' schemas are in every request's estimate.** Slice 023's compaction test with
+   the kill mid-compaction sent 250 repetitions to cross the soft threshold; with the three schemas added,
+   the retry landed past the hard threshold and forked instead of compacting. The test sends 200 now, and
+   the compaction tests set the prompt index's cap to 0 (the index off), since they measure the window with
+   controlled data. A cap of 0 switching the index off is now a documented meaning of `index_tokens`.
+5. **The model on the AC7 run** (nvidia:nemotron, `proof/ac7-git-workflow.gif`): asked to commit an
+   uncommitted file and to check its skills first, it called `skills_list`, then `skill_view` with an
+   extra `path` argument (refused by the schema, `additionalProperties: false`), then `skill_view` again
+   correctly, then followed the skill's order: `git status --short`, a read of the file, `git log --oneline
+   -10`, and staged the file. Its first turn ended in prose ("First, let me stage it") rather than a tool
+   call, and the second turn's `git add` waited on an approval the driver was not clicking and hit the
+   turn's wall clock; the third message ("greet.ex is staged now. Commit it…") produced `git commit -m
+   "feat: add greet function…"` and `git log --oneline -3`, and the answer names the skill it followed.
+   Session `01a0c4bc-6f47-73af-bd34-f1c719bd6da5` in the dev database; the commit is `92d55bd` in the
+   scratch repository. The driver, not the slice, was at fault for the stalled second turn.
+6. **AC8, the agent's dry run.** `anthropics/skills`' `skill-creator` (its `SKILL.md`, 33,168 bytes, fetched
+   from GitHub 2026-09-21) parses: name `skill-creator`, category `general`, body digest
+   `dcd4803e61e913e6fc27294184cd3a71f09f5e924ff20c8a9a20173e7b3c2bcf`, no references (the repository's
+   references live beside the file and were not fetched). The owner's own download stays in the queue.
+7. **Untrusted is now an export of Tools.** The skill tools wrap their results the way `session_search`
+   does and live in the Skills boundary; `Trinity.Tools.Untrusted` joined the export list for them.
+
+## Follow-ups
+
+- **A loader behaviour** (`Trinity.Skills.Loader`, docs/01) when a fourth kind of source arrives (a hub
+  install, 041's follow-up); the three roots are fixed in `Trinity.Skills.Sources` until then.
+- **The `allowed-tools` hint.** Parsed and kept on the skill; nothing reads it yet. The permission gate
+  could show it beside a request as the skill author's expectation, never as a grant (docs/08).
+- **Skill retrieval by vector** (docs/05's `embedding` column): when the index outgrows its 338-token cap in
+  practice, the retriever of 032 could rank skills for the prompt; 032's rule (a vector records its
+  embedder) would apply.
