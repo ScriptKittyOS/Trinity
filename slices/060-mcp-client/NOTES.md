@@ -145,3 +145,40 @@ subscription over stateless HTTP has nothing to hold it).
 - **`server/discover` carries the modern `_meta`.** The HTTP transport requires a version on every POST;
   the dual-era core answers `server/discover` whatever the `_meta` says; a legacy-only core answers
   `-32022` naming what it supports, which the driver reads as its cue to `initialize`.
+
+## Findings at G3, 2026-09-21
+
+1. **A public 2026-07-28 server exists, and AC8 ran against it.** The G1 plan doubted one would be found;
+   `https://mcpplaygroundonline.com/mcp-stateless-server` speaks the revision (stateless, `server/discover`
+   lists `["2026-07-28"]`, `ttlMs` 300000 on discover and 60000 on the list, `cacheScope` public) and ships
+   three tools, two of them multi-round-trip (`mrtr_confirm` with no `requestState`, `mrtr_signed_state`
+   with an HMAC-sealed one). `scripts/dev_chat_mcp_playground.sh` boots the chat against it with the fake
+   provider scripted to call `mcp:playground:mrtr_signed_state`; the recording in `proof/` is the owner's
+   manual queue done once here, and the criterion's word "public" holds as written.
+2. **A receipt written from a tool task needs a pool nobody owns in the test environment.** The first run of
+   that script timed out every call through the membrane: `Trinity.Repo.Receipts` keeps the sandbox pool in
+   `config/test.exs`, and the decision receipt's `ensure_writer` waited on a checkout from a process outside
+   any sandbox owner (stacktrace in the session log, `Trinity.Receipts.ensure_writer/1`). The direct paths
+   (`Bridge.execute/2`, `Tools.Runner`) never touched it, which is why they were fast. The script now takes
+   both repos off the sandbox pool, as `serve030.sh` did at 030; the earlier 021 script predates the receipts
+   repo. Not a defect in the tree: a dev-script rule, recorded so the next screenshot script starts from it.
+3. **The gate reads the spec's risk nowhere.** Recorded under "Deviations": no row lowers a tool's tier.
+4. **The stdio child's stdout is the wire, and the Elixir VM logs to stdout by default.** The server under
+   test moves its log handler to standard error; a host running `BeamMCP.Transport.Stdio` should do the
+   same, and the package's page does not say so. Follow-up for beam_mcp's board, below.
+5. **The one census that moved.** 059's boundary census pinned `lib/trinity/mcp.ex` as the only referrer of
+   `BeamMCP.`; the wire module is the second, under the same boundary, and the census now holds both and
+   that nothing outside `lib/trinity/mcp/` names the core.
+
+## Follow-ups
+
+- beam_mcp's board: a line on the stdio page that the host's log handler must not write to standard output
+  (finding 4); and, when 0.9.0 ships, 061 pins it (the seam ask is already on that board, 2026-09-21).
+- Tasks (AC5, deferred): a client for the extension when the core builds or refuses it (SCR-286, after 1.0.0
+  on beam_mcp's plan).
+- `Trinity.MCP.Client.Auth` is 062's seam: the static `TRINITY_MCP_<NAME>_TOKEN` variable is the whole of it
+  at this slice, and a `401` is a logged refusal.
+- Slice 090: the client emits no telemetry of its own yet; the core's dispatch events are the server side's.
+  A `[:trinity, :mcp, :call, :start | :stop]` pair around `Client.call/4` belongs in 090's catalogue.
+- Windows: the stdio transport's environment allow list uses `{name, false}` on the Port, which every OS
+  honours, but nothing here was run on Windows; the package workflow does not run the suite there.
