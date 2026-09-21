@@ -92,7 +92,10 @@ defmodule Trinity.Sessions.UnitsTest do
       # Slice 022: the system prompt carries the untrusted-content rule after the soul; slice
       # 030 follows it with the volatile tier (the time, here with no memory and no title).
       assert String.starts_with?(r1.system, "Be kind.\n\n")
-      assert r1.system =~ Prompt.untrusted_rule() <> "\n\nThe time now is 2026-09-21T09:00:00Z (UTC)."
+
+      assert r1.system =~
+               Prompt.untrusted_rule() <> "\n\nThe time now is 2026-09-21T09:00:00Z (UTC)."
+
       assert r1.model == "fake:chat"
 
       assert [

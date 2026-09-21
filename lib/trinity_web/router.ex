@@ -29,6 +29,10 @@ defmodule TrinityWeb.Router do
       live "/permissions", PermissionsLive, :index
       # Slice 031: full-text search over every message.
       live "/search", SearchLive, :index
+      # Slice 030: personas and the always-on memory.
+      live "/personas", PersonasLive, :index
+      live "/personas/:id", PersonasLive, :edit
+      live "/memory", MemoryLive, :index
       # Slice 024: a session's receipt chain, and the boot receipt of this run.
       live "/s/:id/receipts", ReceiptsLive, :session
       live "/receipts/boot", ReceiptsLive, :boot

@@ -13,15 +13,25 @@ defmodule TrinityWeb.SessionLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
+    default = Trinity.Personas.default()
+
     {:ok,
      socket
-     |> assign(page_title: gettext("Sessions"))
+     |> assign(
+       page_title: gettext("Sessions"),
+       personas: Trinity.Personas.list(),
+       persona_id: default.id
+     )
      |> stream(:sessions, Sessions.list_sessions(limit: 100))}
   end
 
   @impl true
   def handle_event("new_session", _params, socket), do: {:noreply, new_session(socket)}
   def handle_event("cancel", _params, socket), do: {:noreply, socket}
+
+  # Slice 030: the persona picker chooses who the next new session belongs to.
+  def handle_event("pick_persona", %{"persona_id" => id}, socket),
+    do: {:noreply, assign(socket, persona_id: id)}
 
   @impl true
   def render(assigns) do
@@ -40,6 +50,23 @@ defmodule TrinityWeb.SessionLive.Index do
       >
         <div class="flex items-center justify-between">
           <h1 class="text-lg font-semibold">{gettext("Sessions")}</h1>
+          <form
+            id="persona-picker"
+            phx-change="pick_persona"
+            class="flex items-center gap-2 text-meta"
+          >
+            <label class="opacity-70">{gettext("Persona")}</label>
+            <select
+              name="persona_id"
+              class="rounded-field border border-base-300 bg-base-100 px-2 py-1 text-meta"
+            >
+              <option :for={p <- @personas} value={p.id} selected={p.id == @persona_id}>
+                {p.name}
+              </option>
+            </select>
+            <.link navigate={~p"/personas"} class="underline opacity-70">{gettext("edit")}</.link>
+            <.link navigate={~p"/memory"} class="underline opacity-70">{gettext("memory")}</.link>
+          </form>
           <button
             id="new-session"
             type="button"
@@ -84,9 +111,9 @@ defmodule TrinityWeb.SessionLive.Index do
   @doc false
   @spec new_session(Phoenix.LiveView.Socket.t()) :: Phoenix.LiveView.Socket.t()
   def new_session(socket) do
-    persona = Sessions.default_persona()
+    persona_id = Map.get(socket.assigns, :persona_id) || Sessions.default_persona().id
 
-    case Sessions.create_session(%{persona_id: persona.id, origin: "desktop"}) do
+    case Sessions.create_session(%{persona_id: persona_id, origin: "desktop"}) do
       {:ok, session} -> push_navigate(socket, to: ~p"/s/#{session.id}")
       {:error, _} -> put_flash(socket, :error, gettext("The session could not be created."))
     end
