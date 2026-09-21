@@ -160,6 +160,25 @@ defmodule TrinityWeb.SessionLive.Show do
 
   def handle_event("dismiss", _params, socket), do: {:noreply, assign(socket, banner: nil)}
 
+  # Slice 033: the project root, saved on submit; empty clears it. The next turn's tools
+  # work there and its AGENTS.md is read.
+  def handle_event("set_project_root", %{"project_root" => root}, socket) do
+    value = if String.trim(root) == "", do: nil, else: String.trim(root)
+
+    case Sessions.set_project_root(socket.assigns.session.id, value) do
+      {:ok, session} ->
+        {:noreply, socket |> assign(session: session) |> refresh_context()}
+
+      {:error, reason} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext("Project root not set: %{reason}", reason: inspect(reason))
+         )}
+    end
+  end
+
   def handle_event("set_model", %{"model" => model}, socket) do
     case Sessions.set_model(socket.assigns.session.id, model) do
       {:ok, session} ->
@@ -338,6 +357,15 @@ defmodule TrinityWeb.SessionLive.Show do
         <span class="min-w-0 truncate">{@session.title || gettext("Untitled session")}</span>
         <.status_pill status={@status} />
         <.model_picker models={@models} value={@session.model} default={@default_model} />
+        <form id="project-root" phx-submit="set_project_root" class="contents">
+          <input
+            name="project_root"
+            value={@session.project_root}
+            placeholder={gettext("project root")}
+            title={gettext("The directory the tools work in and AGENTS.md is read from; Enter saves")}
+            class="w-44 rounded-field border border-base-300 bg-base-100 px-2 py-1 font-mono text-meta"
+          />
+        </form>
         <.context_indicator used={@context_used} window={@context_window} />
         <.pending_indicator count={@pending_count} />
         <.link
