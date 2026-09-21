@@ -49,7 +49,7 @@ standards register names the rows that ask for them.
 | 032 | Embeddings + semantic memory + hybrid retrieval | 3 Memory | L | 031 | approved |
 | 033 | Project context: AGENTS.md | 3 Memory | S | 030, 022 | approved |
 | 034 | Export, import, restore | 3 Memory | S | 030, 031 | approved |
-| 040 | Skills registry + agentskills.io format + progressive disclosure | 4 Skills | M | 020 | done |
+| 040 | Skills registry + agentskills.io format + progressive disclosure | 4 Skills | M | 020 | approved |
 | 041 | Skill self-management with staged approval + scanner | 4 Skills | M | 040, 021 | planned |
 | 050 | Scheduler: Oban cron agent tasks with delivery targets | 5 Automation | M | 012 | planned |
 | 059 | MCP capability gap against beam_mcp, and the server seam probe | 6 MCP | S/M | 020 | planned |
