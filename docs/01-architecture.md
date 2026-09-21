@@ -90,7 +90,7 @@ without anything failing.
 | `Trinity.Memory` | Always-on tiers with their budget and consolidator (030), search (031), semantic store and retrieval (032), compaction (023) | LLM (summaries/embeddings), Repo |
 | `Trinity.Skills` | SKILL.md parsing, registry, loader, manager, scanner (as built at 040: parser, sources, registry, index, the three tools; at 041: staging, promotion, manager, scanner, diff, learn, `skill_manage` and `learn`) | Repo, Permissions, **Effects**, **Receipts**, Sandbox (as built at 041: Tools, Memory, Permissions, Receipts and LLM; Effects is not a dependency: the promotion is not a tool call, it writes its own effect receipt; Tools never depends on Skills) |
 | `Trinity.Scheduler` | Oban workers for agent tasks, delivery | Sessions, Gateways, **Repo** |
-| `Trinity.MCP` | Client manager, tool bridge, server | Tools, **Effects**, **Permissions**, Memory |
+| `Trinity.MCP` | Client manager, tool bridge, server (as built at 059: the boundary alone, holding the core's version, its JSON depth and its telemetry event names) | Tools, **Effects**, **Permissions**, Memory (as built at 059: a top-level boundary, like `Trinity.Smoke`, with `deps: [Trinity, BeamMCP.JSON]`; the boundary compiler checks every call into the `beam_mcp` application and this boundary alone lists its modules) |
 | `Trinity.Gateways` | Adapter behaviour, router, allowlists, pairing | Sessions, **Permissions**, PubSub |
 | `Trinity.Subagents` | Delegation, result collection | Sessions, Tools |
 | `Trinity.Sandbox` | Luerl runners, resource limits | none |
