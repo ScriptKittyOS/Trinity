@@ -129,3 +129,7 @@ e7a8e38 fix(s030): the planted-policy test no longer puts a trinity-* directory 
 874ea1f feat(s034): Trinity.Archive: export by VACUUM INTO, import verified before any write, the manifest
 fd546f2 docs(s034): G1 plan with the snapshot statement and the archive size measured, and the slice opens
 ```
+
+## Closing correction, 2026-09-21
+Supersedes the header's "Final commit" placeholder: the closing commit is `d353594` (`feat(s034): complete
+slice 034 (export, import, restore)`), and this correction rides on the commit after it.
