@@ -48,7 +48,7 @@ defmodule Trinity.Skills.ToolsTest do
     end
 
     assert Application.get_env(:trinity, :tools)[:toolsets][:skills] ==
-             ~w(skills_list skill_view skill_file)
+             ~w(skills_list skill_view skill_file skill_manage learn)
   end
 
   test "AC4: with 50 fixture skills the index stays under the cap and says it was cut; skill_view returns the body; skill_file reads a reference and refuses ../secrets",

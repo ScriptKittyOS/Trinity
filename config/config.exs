@@ -79,6 +79,9 @@ config :trinity, :tools,
     Trinity.Skills.Tools.List,
     Trinity.Skills.Tools.View,
     Trinity.Skills.Tools.File,
+    # Slice 041: proposals and learning, staged for approval.
+    Trinity.Skills.Tools.Manage,
+    Trinity.Skills.Tools.Learn,
     # Slice 030: the always-on memory tiers.
     Trinity.Tools.Memory,
     Trinity.Tools.Shell.Run
@@ -90,7 +93,7 @@ config :trinity, :tools,
     # Slice 031: search over past conversations.
     memory: ["session_search", "recall", "memory"],
     # Slice 040: the skill tools.
-    skills: ["skills_list", "skill_view", "skill_file"]
+    skills: ["skills_list", "skill_view", "skill_file", "skill_manage", "learn"]
   }
 
 # Slice 040: the skill roots. `user_dir:` and `bundled_dir:` default to the data directory's

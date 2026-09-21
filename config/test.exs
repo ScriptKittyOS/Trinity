@@ -33,6 +33,9 @@ config :trinity, :tools,
     Trinity.Skills.Tools.List,
     Trinity.Skills.Tools.View,
     Trinity.Skills.Tools.File,
+    # Slice 041: proposals and learning, staged for approval.
+    Trinity.Skills.Tools.Manage,
+    Trinity.Skills.Tools.Learn,
     # Slice 030: the always-on memory tiers.
     Trinity.Tools.Memory,
     Trinity.Tools.Shell.Run
@@ -45,7 +48,7 @@ config :trinity, :tools,
     # Slice 031: search over past conversations.
     memory: ["session_search", "recall", "memory"],
     # Slice 040: the skill tools.
-    skills: ["skills_list", "skill_view", "skill_file"]
+    skills: ["skills_list", "skill_view", "skill_file", "skill_manage", "learn"]
   },
   timeout_ms: 2_000
 
@@ -183,5 +186,8 @@ config :trinity, :memory, embedder: :fake, observer: false
 config :trinity, :skills,
   bundled_dir: Path.expand("../test/support/fixtures/skills/bundled", __DIR__),
   user_dir: Path.expand("../test/support/fixtures/skills/user", __DIR__),
+  # Slice 041: staged changes go under a scratch pending root; a test that promotes points
+  # user_dir at a temporary directory first.
+  pending_dir: Path.join(System.tmp_dir!(), "trinity-test-pending-skills"),
   watch: true,
   index_tokens: 338

@@ -15,8 +15,34 @@ defmodule Trinity.Skills do
   never depends on Skills.
   """
   use Boundary,
-    deps: [Trinity, Trinity.Tools, Trinity.Memory],
-    exports: [Skill, Parser, Sources, Registry, Row, Index, Tools.List, Tools.View, Tools.File]
+    deps: [
+      Trinity,
+      Trinity.Tools,
+      Trinity.Memory,
+      Trinity.Permissions,
+      Trinity.Receipts,
+      Trinity.LLM
+    ],
+    exports: [
+      Skill,
+      Parser,
+      Sources,
+      Registry,
+      Row,
+      Index,
+      Tools.List,
+      Tools.View,
+      Tools.File,
+      Tools.Manage,
+      Tools.Learn,
+      Change,
+      Staging,
+      Promotion,
+      Manager,
+      Scanner,
+      Diff,
+      Learn
+    ]
 
   alias Trinity.Skills.Registry
 

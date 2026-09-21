@@ -15,7 +15,7 @@ defmodule Trinity.Tools do
     deps: [Trinity, Trinity.Permissions, Trinity.Memory],
     # Slice 040 exports Untrusted: the skill tools (Trinity.Skills.Tools.*) wrap their results
     # the way session_search does, and they live in the Skills boundary.
-    exports: [Tool, Context, Result, Registry, Runner, Schema, Catalog, Untrusted]
+    exports: [Tool, Context, Result, Registry, Runner, Schema, Catalog, Untrusted, FS, Web.Fetch]
 
   alias Trinity.Sessions.Message
   alias Trinity.Tools.Registry

@@ -45,7 +45,9 @@ defmodule Trinity.Permissions.Approval do
   def request_changeset(approval, attrs) do
     approval
     |> cast(attrs, [:session_id, :tool, :args, :risk, :fingerprint, :expires_at])
-    |> validate_required([:session_id, :tool, :risk, :fingerprint, :expires_at])
+    # Slice 041: a request may have no session (a staged skill change approved from the
+    # page); its topic is `approvals:none` and `approvals:all`, its scope `session:none`.
+    |> validate_required([:tool, :risk, :fingerprint, :expires_at])
     |> foreign_key_constraint(:session_id)
   end
 
