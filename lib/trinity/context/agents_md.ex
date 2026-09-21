@@ -25,6 +25,8 @@ defmodule Trinity.Context.AgentsMd do
 
   alias Trinity.Content.Part
 
+  Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
+
   @file_name "AGENTS.md"
   @default_max_bytes 16_384
 
@@ -65,6 +67,10 @@ defmodule Trinity.Context.AgentsMd do
   end
 
   @doc "The files, read and capped: the nearest whole first, the outer ones cut from the end."
+  # sobelow_skip reason: Traversal.FileModule: every path read here is `discover/2`'s, the
+  # session's project root (an existing directory the owner set) joined with the constant
+  # file name along the path to the working directory under it; nothing from a request.
+  @sobelow_skip ["Traversal.FileModule"]
   @spec load(String.t() | nil, String.t() | nil) :: [file()]
   def load(root, cwd) do
     files =
