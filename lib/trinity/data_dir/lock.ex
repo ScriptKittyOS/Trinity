@@ -91,6 +91,15 @@ defmodule Trinity.DataDir.Lock do
   @spec holder(Path.t()) :: {:ok, holder()} | {:error, term()}
   def holder(dir), do: read(Path.join(dir, @file_name))
 
+  @doc "The live holder of `dir`, if a live process holds it (slice 034: the import task asks before it writes)."
+  @spec live_holder(Path.t()) :: {:ok, holder()} | :none
+  def live_holder(dir) do
+    case holder(dir) do
+      {:ok, %{pid: pid} = h} -> if alive?(pid), do: {:ok, h}, else: :none
+      _ -> :none
+    end
+  end
+
   ## Server
 
   @impl true
