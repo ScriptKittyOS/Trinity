@@ -130,6 +130,10 @@ defmodule Trinity.Receipts.ChainWriterTest do
     assert {:ok, %Receipt{kind: "query"}} = Receipts.append(scope, query(3))
     File.write!(path, bytes)
     assert {:ok, _} = Receipts.append(scope, decision(4))
+    # "Clears the alarm once a signer signs again" (Alarm's own doc): the signed append above
+    # is that signing. Red at slice 032: nothing cleared it, and the fips leg's receipts test
+    # met an alarm an earlier test had left set (run 35606884798).
+    refute Alarm.set?()
   end
 
   describe "AC9: query checkpoints" do
