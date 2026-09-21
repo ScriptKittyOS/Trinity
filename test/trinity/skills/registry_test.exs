@@ -123,8 +123,11 @@ defmodule Trinity.Skills.RegistryTest do
     Registry.rescan()
     assert Skills.get("watched").description == "Before."
     # inotifywait establishes its watches a moment after it starts and says nothing when it
-    # has; an edit before that is missed (one run in three without this pause).
-    Process.sleep(500)
+    # has; an edit before that is missed (one run in three without a pause). And the polling
+    # backend the registry picks where inotifywait is absent (the gate's runners, run
+    # 35623752961) compares mtimes at one-second resolution: an edit inside the second the
+    # file was written in is no change to it. So the edit waits a second and a bit.
+    Process.sleep(1_100)
 
     File.write!(
       Path.join([dir, "watched", "SKILL.md"]),

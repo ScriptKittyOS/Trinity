@@ -301,22 +301,27 @@ defmodule Trinity.Skills.Registry do
   end
 
   # inotify needs the `inotifywait` executable; without it, and on any platform file_system
-  # has no native backend for, poll once a second (AC3's 2 s still holds).
+  # has no native backend for, poll once a second (AC3's 2 s still holds; the poll compares
+  # mtimes at one-second resolution). `TRINITY_SKILLS_POLL=1` forces the poll, so the
+  # fallback can be exercised on a machine that has inotifywait.
   defp backend do
-    case :os.type() do
-      {:unix, :linux} ->
-        if System.find_executable("inotifywait"),
-          do: [],
-          else: [backend: :fs_poll, interval: 1_000]
+    poll = [backend: :fs_poll, interval: 1_000]
 
-      {:unix, :darwin} ->
+    cond do
+      System.get_env("TRINITY_SKILLS_POLL") == "1" ->
+        poll
+
+      match?({:unix, :linux}, :os.type()) ->
+        if System.find_executable("inotifywait"), do: [], else: poll
+
+      match?({:unix, :darwin}, :os.type()) ->
         []
 
-      {:win32, _} ->
+      match?({:win32, _}, :os.type()) ->
         []
 
-      _ ->
-        [backend: :fs_poll, interval: 1_000]
+      true ->
+        poll
     end
   end
 
