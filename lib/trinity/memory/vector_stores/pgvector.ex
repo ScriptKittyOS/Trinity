@@ -4,7 +4,8 @@ defmodule Trinity.Memory.VectorStores.Pgvector do
   @moduledoc """
   The Postgres vector store (slice 032): the same rows, with the vector also in
   `memories.embedding_vector` (pgvector, `vector(384)`), searched by cosine distance
-  (`<=>`) under the HNSW index over the semantic tier. Keeps `embedding`, `embedding_model`
+  (`<=>`) under the HNSW index over the semantic tier, with pgvector 0.8's iterative scan so a
+  filtered query never comes back short. Keeps `embedding`, `embedding_model`
   and `embedding_dim` in step with the SQLite store so an export reads the same columns on
   both. Only vectors of 384 dimensions fit the column; another embedder's go to the bytes
   column alone and are searched brute force here too.
@@ -51,7 +52,7 @@ defmodule Trinity.Memory.VectorStores.Pgvector do
         limit: ^k,
         select: {e, fragment("1 - (embedding_vector <=> ?)", ^vec)}
       )
-      |> Repo.all()
+      |> all_iterative()
       |> Enum.map(fn {e, score} -> %{id: e.id, score: score * 1.0, entry: e} end)
     else
       Trinity.Memory.VectorStores.Brute.search(query, k, %{
@@ -60,6 +61,22 @@ defmodule Trinity.Memory.VectorStores.Pgvector do
         model: model
       })
     end
+  end
+
+  # An HNSW scan hands back its `ef_search` (40) nearest index entries and the WHERE clause
+  # is applied after; a persona's few rows can all fall outside those candidates when the
+  # index holds many other entries (other personas' rows, and dead tuples from rolled-back
+  # inserts, which is how the postgres job saw two of three rows: run 35604770525). pgvector
+  # 0.8's iterative scan keeps walking the index until the LIMIT is met; `SET LOCAL` scopes
+  # it to this transaction (a savepoint inside the sandbox's).
+  defp all_iterative(query) do
+    {:ok, rows} =
+      Repo.transaction(fn ->
+        Repo.query!("SET LOCAL hnsw.iterative_scan = strict_order")
+        Repo.all(query)
+      end)
+
+    rows
   end
 
   @impl true
