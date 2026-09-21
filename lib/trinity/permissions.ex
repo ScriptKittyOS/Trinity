@@ -120,8 +120,10 @@ defmodule Trinity.Permissions do
   Decides a pending request: `:once` allows this fingerprint one execution, `:session` grants
   it for the session (a `tool_permissions` row scoped to it, with an expiry), `:always` writes
   a global rule with `opts[:pattern]` (the pattern the user confirmed; `*` by default), `:deny`
-  denies. `opts[:by]` names the decider (`"liveview"` by default). Everything the UI does
-  goes through here, so a button carries no authority of its own (M7).
+  denies. `opts[:by]` names the decider (`"liveview"` by default); `opts[:answer]` (slice
+  060) is the answer to a request that carried a server's input request, a map keyed as
+  the request was. Everything the UI does goes through here, so a button carries no
+  authority of its own (M7).
   """
   @spec decide_request(String.t(), request_decision(), keyword()) ::
           {:ok, Approval.t()} | {:error, term()}

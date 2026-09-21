@@ -161,6 +161,8 @@ One row per request, the audit trail this slice owns; slice 024 reads it for dec
 | decided_at, decided_by | timestamp, string | every decided row has both ("expiry" is a decider) |
 | consumed_at | nullable | a "once" allowance or a denial is spent by the execution that reads it |
 | expires_at | timestamp | pending past it becomes "expired" with decision "deny" |
+| request | map, nullable | slice 060: a server's input request as sent (`kind`, `server`, `inputRequests`), when the approval is a multi-round-trip question and not a yes or no; the server's `requestState` is never here (it lives in the client process) |
+| answer | map, nullable | slice 060: the answer the decision carried, the revision's `inputResponses` map keyed as `inputRequests` were |
 
 ### tasks (Slice 050)
 | column | type | notes |
@@ -230,9 +232,19 @@ and `receipt_hash`. Chain scopes: `session:<id>` and `boot`.
 | reason | string | "count" \| "time" \| "shutdown" \| "rehydrate" \| "manual" |
 A row, never a write onto a receipt: `receipts` stays append-only and a checkpoint states its own coverage.
 
-### mcp_servers (Slice 060)
-`name`, `transport`, `command_or_url`, `env_refs`, `enabled`, `effect_default ∈ {none, artifact}`, per-tool
-effect and risk overrides. A server config claiming `:catalog` is refused at load and receipted.
+### mcp_servers (Slice 060, as built)
+One row per server the client connects to; the row's `name` is the namespace segment of every tool it contributes.
+| column | type | notes |
+|---|---|---|
+| name | string, unique | `[a-z0-9][a-z0-9_-]{0,31}`; the tools are `mcp:<name>:<tool>` |
+| transport | string | "stdio" \| "http" |
+| command, args | string, {array, string} | stdio: the child and its arguments |
+| url | string | http: one POST endpoint |
+| env_refs | {array, string} | names of environment variables passed to a stdio child; never a value (the child sees the process basics and these, nothing else of Trinity's environment) |
+| enabled | boolean | a client runs for an enabled row |
+| effect_default | string | "none" \| "artifact"; the effect of every tool the row does not override |
+| tool_overrides | map | tool name to `{"effect": …}`; `catalog` is refused by the changeset and, on a row that carries it anyway, at load with a decision receipt on the chain scope `mcp:<name>`. No override lowers a tool's tier: it is `:ask` for every namespaced name, and a rule on the permissions page is what allows one |
+| last_error | text, nullable | |
 
 ### task_runs (Slice 050)
 `task_id`, `scheduled_at`, `session_id`, `status`, `summary`, `error`. Unique on `(task_id, scheduled_at)` so a

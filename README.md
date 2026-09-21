@@ -35,7 +35,8 @@ Pre-alpha, and usable from source. Milestones M0 to M4 are approved, and the fir
   credentials and instructions to ignore safety, and promoted through the permission gate with a
   receipt.
 
-Not there yet: scheduled tasks and MCP (M5a), messaging gateways and subagents (M5b),
+Not there yet: scheduled tasks and the rest of MCP (M5a: the client is built at 060, the server
+with approvals and the authorization roles follow), messaging gateways and subagents (M5b),
 the native desktop shell and signed releases (M6), executable skills in a sandbox (M7). `ROADMAP.md` carries the live status of every
 slice, and the [Milestones](#milestones) section below explains how to read it.
 
@@ -77,8 +78,9 @@ model registry is `config/llm.exs`; keys come from the environment (`.env` is gi
 pages: `/` conversations, `/s/:id` a conversation and `/s/:id/receipts` its receipts, `/search`
 full-text search, `/personas` and `/memory` the persona and its memory (with the semantic tab and
 the embedding model's download), `/skills` the skills, the changes waiting for your decision and
-the learn form, `/permissions` the rules and pending approvals, `/settings` the
-export. `mix trinity.export` and `mix trinity.import` do what `/settings` does from a terminal;
+the learn form, `/mcp` the MCP servers you connect to (their health and the tools they
+contribute), `/permissions` the rules and pending approvals (a server's question to you, when
+one of its tools asks for input mid-call, is answered there too), `/settings` the export. `mix trinity.export` and `mix trinity.import` do what `/settings` does from a terminal;
 `docs/backup.md` explains the archive.
 
 Semantic recall needs the local embedding model (91 MB, downloaded from the memory page on your
@@ -161,7 +163,7 @@ catalogued effect to it: Trinity proposes, Requisition decides, and Trinity keep
 Trinity refuses to start if the module is absent or does not implement `Trinity.Authority`. See
 `docs/adr/0008-authority-is-an-adapter.md` and `docs/adr/0010-authority-selection-at-boot.md`.
 
-**Ultraviolet** is the purple-team tool. Add it to `config :trinity, :mcp_servers` like any other MCP server. Its
+**Ultraviolet** is the purple-team tool. Add it on the `/mcp` page like any other MCP server (since slice 060 a server is a row, not a config entry). Its
 read tools return query-receipted results, its proposal tools return proposal ids rather than effects, and content
 coming back from it is tagged untrusted like any other external content.
 
@@ -179,8 +181,10 @@ every project space.
 the BEAM from the same organisation, on Hex as `beam_mcp`. Trinity depends on it since slice 059,
 pinned at 0.8.0 and reached only through the `Trinity.MCP` boundary; slice 059's `FINDINGS.md`
 measures what it ships against the 2026-07-28 checklist, and the MCP phase (milestone M5a) builds
-Trinity's client driver, the approval loop and authorization above it. The client side and the
-authorization server are Trinity's own work. `docs/adr/0007-mcp-2026-07-28-target-and-library.md`
+Trinity's client driver (slice 060: a thin driver over the core's decoder and validator, stdio
+and Streamable HTTP, 2026-07-28 preferred and 2025-11-25 as the fallback, a server's mid-call
+question answered as an approval), the approval loop and authorization above it. The client side
+and the authorization server are Trinity's own work. `docs/adr/0007-mcp-2026-07-28-target-and-library.md`
 records the protocol target and the layering.
 
 ## License

@@ -86,7 +86,7 @@ defmodule Trinity.Tools.Runner do
   end
 
   defp execute(%{name: name, args: args} = call, ctx, executor) do
-    ctx = %{ctx | call_id: Map.get(call, :id)}
+    ctx = %{ctx | call_id: Map.get(call, :id), tool: name}
 
     with {:ok, entry} <- Registry.lookup(name),
          {:ok, args} <- validate(entry, args),
@@ -156,8 +156,8 @@ defmodule Trinity.Tools.Runner do
     if function_exported?(module, :escalate, 2), do: module.escalate(args, ctx), else: nil
   end
 
-  defp validate(%{module: module}, args) do
-    case Schema.validate(module.schema(), args) do
+  defp validate(entry, args) do
+    case Schema.validate(Registry.schema(entry), args) do
       {:ok, args} -> {:ok, args}
       {:error, reasons} -> {:error, {:invalid_args, reasons}}
     end
@@ -179,9 +179,9 @@ defmodule Trinity.Tools.Runner do
     do: {:error, {:effectful_tool_outside_membrane, name}}
 
   defp timeout_of(%{name: name}) do
-    with {:ok, %{module: m}} <- Registry.lookup(name),
-         true <- function_exported?(m, :timeout, 0) do
-      m.timeout()
+    with {:ok, entry} <- Registry.lookup(name),
+         t when is_integer(t) <- Registry.timeout(entry) do
+      t
     else
       _ -> default_timeout()
     end

@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: Sudo Apt Holdings LLC
 # SPDX-License-Identifier: Apache-2.0
 defmodule TrinityWeb do
-  use Boundary, deps: [Trinity], exports: [Endpoint]
+  # Slice 060: the MCP page reads the servers and their clients.
+  use Boundary, deps: [Trinity, Trinity.MCP], exports: [Endpoint]
 
   @moduledoc """
   The entrypoint for defining your web interface, such

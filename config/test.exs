@@ -191,3 +191,8 @@ config :trinity, :skills,
   pending_dir: Path.join(System.tmp_dir!(), "trinity-test-pending-skills"),
   watch: true,
   index_tokens: 338
+
+# Slice 060: no MCP client boots from rows in the suite (each test starts the clients it
+# needs); a short backoff so the reconnect test runs in seconds.
+config :trinity, :mcp_boot, false
+config :trinity, :mcp_client, backoff_ms: 50, max_backoff_ms: 400, connect_timeout: 5_000

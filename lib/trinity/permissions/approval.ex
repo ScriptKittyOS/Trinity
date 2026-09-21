@@ -30,6 +30,9 @@ defmodule Trinity.Permissions.Approval do
     field :decided_by, :string
     field :consumed_at, :utc_datetime_usec
     field :expires_at, :utc_datetime_usec
+    # Slice 060: a server's input request (MRTR) and, once decided, the answer given.
+    field :request, :map
+    field :answer, :map
     belongs_to :session, Trinity.Sessions.SessionRow
     timestamps()
   end
@@ -44,7 +47,7 @@ defmodule Trinity.Permissions.Approval do
   @spec request_changeset(t(), map()) :: Ecto.Changeset.t()
   def request_changeset(approval, attrs) do
     approval
-    |> cast(attrs, [:session_id, :tool, :args, :risk, :fingerprint, :expires_at])
+    |> cast(attrs, [:session_id, :tool, :args, :risk, :fingerprint, :expires_at, :request])
     # Slice 041: a request may have no session (a staged skill change approved from the
     # page); its topic is `approvals:none` and `approvals:all`, its scope `session:none`.
     |> validate_required([:tool, :risk, :fingerprint, :expires_at])
@@ -55,7 +58,7 @@ defmodule Trinity.Permissions.Approval do
   @spec decide_changeset(t(), map()) :: Ecto.Changeset.t()
   def decide_changeset(approval, attrs) do
     approval
-    |> cast(attrs, [:status, :decision, :decided_at, :decided_by, :consumed_at])
+    |> cast(attrs, [:status, :decision, :decided_at, :decided_by, :consumed_at, :answer])
     |> validate_required([:status, :decision, :decided_at, :decided_by])
     |> validate_inclusion(:status, @statuses)
     |> validate_inclusion(:decision, @decisions)

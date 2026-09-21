@@ -17,7 +17,20 @@ defmodule Trinity.MCP do
   # A top-level boundary (as `Trinity.Smoke` is), not a sub-boundary of `Trinity`: the
   # library lets a nested boundary depend on an external module only when an ancestor does,
   # and `Trinity` must never list `BeamMCP` (that would open the core to it).
-  use Boundary, top_level?: true, deps: [Trinity, BeamMCP.JSON], exports: []
+  # Slice 060: the client reaches the core's decoder and validator, and Trinity's tools,
+  # permissions and receipts.
+  # The suite's servers under test (test/support/mcp) are the core's own transports over a
+  # test catalog, and live under this boundary too, so the modules they reach are listed
+  # for the test environment alone.
+  use Boundary,
+    top_level?: true,
+    deps:
+      [Trinity, BeamMCP.JSON, BeamMCP.Schema] ++
+        if(Mix.env() == :test,
+          do: [BeamMCP.Catalog, BeamMCP.ToolSpec, BeamMCP.Transport.HTTP],
+          else: []
+        ),
+    exports: [Bridge, Client, Servers, ServerConfig, Supervisor, Boot]
 
   @doc "The core's version, from its application spec."
   @spec core_version() :: String.t()

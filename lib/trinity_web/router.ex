@@ -38,6 +38,8 @@ defmodule TrinityWeb.Router do
       live "/memory", MemoryLive, :index
       # Slice 040: the skills the registry found.
       live "/skills", SkillsLive, :index
+      # Slice 060: the MCP servers and their health.
+      live "/mcp", MCPLive, :index
       # Slice 024: a session's receipt chain, and the boot receipt of this run.
       live "/s/:id/receipts", ReceiptsLive, :session
       live "/receipts/boot", ReceiptsLive, :boot

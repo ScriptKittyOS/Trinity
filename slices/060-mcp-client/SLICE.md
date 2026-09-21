@@ -54,7 +54,7 @@ enter the effect catalog (M4); health, reconnect, UI.
 2. [auto] An MCP tool call flows through `Trinity.Effects` with `effect: :none` and yields a query receipt (test).
 3. [auto] A server-config claiming `effect: :catalog` for an MCP tool is refused at load with a receipt (test).
 4. [auto] MRTR: test server returns `input_required` with a `requestState`; the Session surfaces the request; answering resumes; the retried call carries the `requestState` back byte-for-byte and completes. A retry with the `requestState` altered or omitted is rejected by the server (test).
-5. [auto] Tasks: a slow tool returns a handle; polling completes; cancel from the UI cancels the task (test).
+5. [deferred] Tasks: a slow tool returns a handle; polling completes; cancel from the UI cancels the task (test). Deferred at G1, 2026-09-21: 059's approved finding 4 says this slice builds no client for an extension the core neither builds nor refuses (NOTES.md, "Read before code").
 6. [auto] Server dies → tools unregistered → reconnect → re-registered (test with short backoff).
 7. [auto] The thin-driver rule: a census over `lib/trinity/mcp/client/` finds no revision negotiation beyond
    `server/discover` and `initialize`, no protocol object built other than the outbound request, and no schema
