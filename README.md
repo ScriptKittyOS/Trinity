@@ -10,8 +10,8 @@ desktop application. Apache-2.0, developed in the open from the first commit.
 
 ## Status
 
-Pre-alpha, and usable from source. Milestones M0 to M3 are approved: 17 slices, each merged with a
-merge commit and tagged `slice/NNN` (`git tag -l 'slice/*' | wc -l` → 17, on 2026-09-21). What
+Pre-alpha, and usable from source. Milestones M0 to M4 are approved: 19 slices, each merged with a
+merge commit and tagged `slice/NNN` (`git tag -l 'slice/*' | wc -l` → 19, on 2026-09-21). What
 that means in practice:
 
 - **Talks.** Streaming chat with any provider behind one behaviour (`Trinity.LLM`), switched by
@@ -27,9 +27,16 @@ that means in practice:
   tier filled by an observer after each turn and recalled by meaning (local embeddings, never a
   hosted call unless you opt in), project context from `AGENTS.md`, and export and import of the
   whole thing as one archive.
+- **Learns.** Skills as directories with a `SKILL.md` in the agentskills.io format, found under
+  the project, the data directory and the bundled set, shown to the model by progressive
+  disclosure (an index in the prompt, the body on request). The agent can propose new skills and
+  changes to them, and distil a document into one, but nothing it proposes is applied until you
+  approve it on the skills page: every proposal is staged with a diff, scanned for shell pipes,
+  credentials and instructions to ignore safety, and promoted through the permission gate with a
+  receipt.
 
-Not there yet: skills (M4), scheduled tasks and MCP (M5a), messaging gateways and subagents (M5b),
-the native desktop shell and signed releases (M6). `ROADMAP.md` carries the live status of every
+Not there yet: scheduled tasks and MCP (M5a), messaging gateways and subagents (M5b),
+the native desktop shell and signed releases (M6), executable skills in a sandbox (M7). `ROADMAP.md` carries the live status of every
 slice, and the [Milestones](#milestones) section below explains how to read it.
 
 The interface is a local web page; the desktop shell exists as a packaging spike, not a product.
@@ -69,7 +76,8 @@ Then open [localhost:4000](http://localhost:4000): new conversation, pick a mode
 model registry is `config/llm.exs`; keys come from the environment (`.env` is gitignored). The
 pages: `/` conversations, `/s/:id` a conversation and `/s/:id/receipts` its receipts, `/search`
 full-text search, `/personas` and `/memory` the persona and its memory (with the semantic tab and
-the embedding model's download), `/permissions` the rules and pending approvals, `/settings` the
+the embedding model's download), `/skills` the skills, the changes waiting for your decision and
+the learn form, `/permissions` the rules and pending approvals, `/settings` the
 export. `mix trinity.export` and `mix trinity.import` do what `/settings` does from a terminal;
 `docs/backup.md` explains the archive.
 
@@ -122,7 +130,7 @@ engineering contract that every change is held to.
 | M7 Sandboxed | Executable skills in an in-VM sandbox | 110 approved |
 | M9 Donatable | Open-source hygiene audited, supply chain signed, shared libraries extracted | 002 and 120 to 123 approved |
 
-M0 to M3 are approved as of 2026-09-21. Slice numbers have gaps on purpose (000, 001, 010, 011 and so on) so that a slice can be inserted
+M0 to M4 are approved as of 2026-09-21. Slice numbers have gaps on purpose (000, 001, 010, 011 and so on) so that a slice can be inserted
 later without renumbering anything.
 
 ## What is in the repository
