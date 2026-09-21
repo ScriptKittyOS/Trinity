@@ -51,9 +51,10 @@ defmodule Trinity.MCP.ThinDriverCensusTest do
     assert "server/discover" in methods
     assert sources["lib/trinity/mcp/client/wire.ex"] =~ ~s("initialize")
 
-    # The revisions the driver knows are two literals in the wire module and nowhere else.
+    # The revisions the driver knows are two literals in the wire module and nowhere else
+    # (prose in a moduledoc may name them; a quoted literal outside the wire module is code).
     for {f, src} <- sources, f != "lib/trinity/mcp/client/wire.ex" do
-      refute src =~ ~r/20\d\d-\d\d-\d\d/, "#{f} names a revision"
+      refute src =~ ~r/"20\d\d-\d\d-\d\d"/, "#{f} names a revision"
     end
 
     assert Regex.scan(~r/"(20\d\d-\d\d-\d\d)"/, sources["lib/trinity/mcp/client/wire.ex"],
