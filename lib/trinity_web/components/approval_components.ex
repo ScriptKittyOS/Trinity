@@ -9,6 +9,12 @@ defmodule TrinityWeb.ApprovalComponents do
   page turns into `Trinity.Permissions.decide_request/3`; nothing on the card carries authority
   of its own (M7). "Always allow" shows the pattern that would be written, pre-filled from the
   arguments and editable, so what is granted is what the person read.
+
+  Slice 060: an approval that carries a server's input request (`request`, the multi-round-trip
+  pattern) is a question, not a yes or no: the card renders the server's message and a form
+  from its `requestedSchema` (string, number, boolean, enum), and the one button answers and
+  continues (`once`, with the answer) or declines (`deny`). The server's opaque state is not on
+  the card: it never left the client process.
   """
   use Phoenix.Component
   use Gettext, backend: TrinityWeb.Gettext
@@ -23,6 +29,54 @@ defmodule TrinityWeb.ApprovalComponents do
   attr :pattern, :string,
     default: nil,
     doc: "the always-allow pattern as edited; the suggestion by default"
+
+  def approval_card(%{approval: %Approval{request: %{"kind" => "mcp_input"}}} = assigns) do
+    ~H"""
+    <div
+      id={"approval-#{@approval.id}"}
+      class="flex flex-col gap-3 rounded-panel border border-warning/50 bg-warning/10 px-4 py-3 text-ui"
+      role="dialog"
+      aria-label={gettext("A server asks")}
+    >
+      <div class="flex flex-wrap items-center gap-2">
+        <.icon name="hero-chat-bubble-left-ellipsis-micro" class="size-5 text-warning" />
+        <span class="font-semibold">{gettext("The MCP server %{server} asks",
+          server: @approval.request["server"]
+        )}</span>
+        <span class="font-mono">{@approval.tool}</span>
+      </div>
+      <form id={"answer-#{@approval.id}"} phx-submit="approval_answer" class="flex flex-col gap-3">
+        <input type="hidden" name="approval_id" value={@approval.id} />
+        <div :for={{key, req} <- input_requests(@approval)} class="flex flex-col gap-2">
+          <p class="font-medium">{req["params"]["message"]}</p>
+          <div :for={{name, prop} <- properties(req)} class="flex flex-col gap-1">
+            <label for={"field-#{@approval.id}-#{key}-#{name}"} class="text-meta opacity-70">
+              {prop["title"] || name}{if name in required(req), do: " *"}
+            </label>
+            <.request_field
+              id={"field-#{@approval.id}-#{key}-#{name}"}
+              name={"answer[#{key}][#{name}]"}
+              prop={prop}
+              required={name in required(req)}
+            />
+          </div>
+          <p :if={properties(req) == []} class="text-meta opacity-70">
+            {gettext("This request has no fields to fill; answering continues the call.")}
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button
+            type="submit"
+            class="cursor-pointer rounded-field border border-primary bg-primary px-3 py-1.5 text-ui text-primary-content transition hover:brightness-110"
+          >
+            {gettext("Answer and continue")}
+          </button>
+          <.decision_button id={@approval.id} decision="deny" label={gettext("Decline")} danger />
+        </div>
+      </form>
+    </div>
+    """
+  end
 
   def approval_card(assigns) do
     assigns = assign(assigns, :pattern, assigns.pattern || suggest_pattern(assigns.approval))
@@ -75,6 +129,123 @@ defmodule TrinityWeb.ApprovalComponents do
     </div>
     """
   end
+
+  attr :id, :string, required: true
+  attr :name, :string, required: true
+  attr :prop, :map, required: true
+  attr :required, :boolean, default: false
+
+  # One field of a requested schema: an enum is a select, a boolean a checkbox, a number a
+  # number input, anything else text. The value's type is restored by `answer_from_params/2`.
+  defp request_field(%{prop: %{"enum" => choices}} = assigns) when is_list(choices) do
+    assigns = assign(assigns, :choices, choices)
+
+    ~H"""
+    <select
+      id={@id}
+      name={@name}
+      required={@required}
+      class="rounded-field border border-base-300 bg-base-100 px-2 py-1"
+    >
+      <option :for={c <- @choices} value={to_string(c)}>{to_string(c)}</option>
+    </select>
+    """
+  end
+
+  defp request_field(%{prop: %{"type" => "boolean"}} = assigns) do
+    ~H"""
+    <span>
+      <input type="hidden" name={@name} value="false" />
+      <input id={@id} type="checkbox" name={@name} value="true" class="checkbox" />
+    </span>
+    """
+  end
+
+  defp request_field(%{prop: %{"type" => t}} = assigns) when t in ["integer", "number"] do
+    ~H"""
+    <input
+      id={@id}
+      type="number"
+      name={@name}
+      required={@required}
+      step={if @prop["type"] == "integer", do: "1", else: "any"}
+      class="rounded-field border border-base-300 bg-base-100 px-2 py-1 font-mono"
+    />
+    """
+  end
+
+  defp request_field(assigns) do
+    ~H"""
+    <input
+      id={@id}
+      type="text"
+      name={@name}
+      required={@required}
+      class="rounded-field border border-base-300 bg-base-100 px-2 py-1"
+    />
+    """
+  end
+
+  defp input_requests(%Approval{request: %{"inputRequests" => requests}}) when is_map(requests),
+    do: Enum.sort_by(requests, &elem(&1, 0))
+
+  defp input_requests(_), do: []
+
+  defp properties(req),
+    do:
+      req
+      |> get_in(["params", "requestedSchema", "properties"])
+      |> Kernel.||(%{})
+      |> Enum.sort_by(&elem(&1, 0))
+
+  defp required(req), do: get_in(req, ["params", "requestedSchema", "required"]) || []
+
+  @doc """
+  The answer to a request from the form's params (`answer[key][field]`): one `ElicitResult`
+  per request, `accept` with the content typed as the requested schema says (a number
+  parsed, a boolean read, a string kept); a request the form sent nothing for is `decline`.
+  The revision's `inputResponses` map, keyed as the `inputRequests` were.
+  """
+  @spec answer_from_params(Approval.t(), map()) :: map()
+  def answer_from_params(%Approval{} = approval, params) do
+    given = Map.get(params, "answer", %{})
+
+    for {key, req} <- input_requests(approval), into: %{} do
+      case Map.get(given, key) do
+        %{} = fields ->
+          content =
+            for {name, prop} <- properties(req), Map.has_key?(fields, name), into: %{} do
+              {name, typed(prop, fields[name])}
+            end
+
+          {key, %{"action" => "accept", "content" => content}}
+
+        _ ->
+          {key, %{"action" => "decline"}}
+      end
+    end
+  end
+
+  defp typed(%{"type" => "boolean"}, v), do: v in ["true", true]
+
+  defp typed(%{"type" => "integer"}, v) when is_binary(v) do
+    case Integer.parse(v) do
+      {i, ""} -> i
+      _ -> v
+    end
+  end
+
+  defp typed(%{"type" => "number"}, v) when is_binary(v) do
+    case Float.parse(v) do
+      {f, ""} -> f
+      _ -> v
+    end
+  end
+
+  defp typed(%{"enum" => choices}, v) when is_list(choices),
+    do: Enum.find(choices, v, &(to_string(&1) == v))
+
+  defp typed(_prop, v), do: v
 
   attr :id, :string, required: true
   attr :decision, :string, required: true

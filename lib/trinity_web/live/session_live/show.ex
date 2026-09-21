@@ -214,6 +214,23 @@ defmodule TrinityWeb.SessionLive.Show do
   def handle_event("approval_pattern", %{"approval_id" => id, "pattern" => pattern}, socket),
     do: {:noreply, assign(socket, patterns: Map.put(socket.assigns.patterns, id, pattern))}
 
+  # Slice 060: a server's input request, answered from the card's form; the answer travels
+  # with the decision, and the retry the Session makes carries it to the server.
+  def handle_event("approval_answer", %{"approval_id" => id} = params, socket) do
+    with %Approval{} = approval <- Permissions.get_approval(id),
+         answer = answer_from_params(approval, params),
+         {:ok, _} <- Permissions.decide_request(id, :once, answer: answer) do
+      {:noreply, socket}
+    else
+      nil ->
+        {:noreply, put_flash(socket, :error, gettext("That request is gone."))}
+
+      {:error, reason} ->
+        {:noreply,
+         put_flash(socket, :error, gettext("Not decided: %{reason}", reason: inspect(reason)))}
+    end
+  end
+
   defp suggested(socket, id) do
     case Enum.find(socket.assigns.approvals, &(&1.id == id)) do
       nil -> "*"
