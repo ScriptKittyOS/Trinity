@@ -90,6 +90,11 @@ defmodule Trinity.Memory.EmbedderTest do
          %{old: old} do
       configure(old, embedder: :local, model_cache_dir: no_models())
 
+      # The suite logs at :warning; the supervisor says why at :info.
+      old_level = Logger.level()
+      Logger.configure(level: :info)
+      on_exit(fn -> Logger.configure(level: old_level) end)
+
       {{:ok, {_flags, children}}, log} =
         ExUnit.CaptureLog.with_log(fn -> Trinity.Memory.Supervisor.init([]) end)
 
