@@ -48,7 +48,9 @@ Trinity.Application
 │                                                 # :local and the model is in the cache; absent otherwise, the
 │                                                 # tier off and the reason logged once. ensure_embedding/0
 │                                                 # starts it after a download.
-├── Trinity.Skills.Registry                       # hot-loaded skills index. Slice 040
+├── Trinity.Skills.Registry                       # Slice 040, as built: a GenServer over an ETS table; scans the
+│                                                 # roots at boot and on change (file_system watchers, linked,
+│                                                 # a dead one dropped), writes the index rows on first read
 ├── Oban                                        # cron + durable jobs. Slice 050
 ├── Trinity.MCP.Supervisor                        # MCP clients (one per server, lib per 059) + server. Slice 059-062
 ├── Trinity.Gateways.Supervisor                   # adapters (Telegram, Discord…). Slice 070+
@@ -78,7 +80,7 @@ without anything failing.
 | Context (module) | Owns | May depend on |
 |---|---|---|
 | `Trinity.Sessions` | Session process, turn loop, message log; the persona row and its store (since 010; `Trinity.Personas` is the context over them, as built at 030) | LLM, Tools, **Effects**, Permissions, Memory, Skills, Repo, PubSub, Receipts (as built at 030: the prompt truncation receipt), Context (as built at 033: AGENTS.md every turn) |
-| `Trinity.Context` | What the project tells the prompt: `AgentsMd` (033); the skills index joins it at 040 | none beyond the core |
+| `Trinity.Context` | What the project tells the prompt: `AgentsMd` (033), `SkillsIndex` (040) | Skills (as built at 040) |
 | `Trinity.LLM` | Provider behaviour, req_llm adapter, model registry, streaming, usage | Repo (usage), Telemetry |
 | `Trinity.Tools` | Tool behaviour, registry, execution runtime, core tools, and (as built at 024) the compile-time effect catalog `Trinity.Tools.Catalog`, because the registry reads it and Effects depends on Tools | Permissions, Sandbox, Repo, **Memory** (as built at 031: `session_search` reads the index; Memory never depends on Tools) |
 | `Trinity.Permissions` | Policy, tier/1 (name-only), fingerprint-bound approvals, override adjudication | Repo, PubSub |
@@ -86,7 +88,7 @@ without anything failing.
 | `Trinity.Authority` | Behaviour; `Local` implementation (the one caller of `execute/2` for effectful tools); selection at boot; `Staged` | Receipts, Repo |
 | `Trinity.Receipts` | Local chain (one supervised writer per scope, ADR-0013), the signer seam (Ed25519, P-384, ML-DSA-87), key custody and the registry, checkpoints, the verifier, the alarm | Repo (`Repo.Receipts`) |
 | `Trinity.Memory` | Always-on tiers with their budget and consolidator (030), search (031), semantic store and retrieval (032), compaction (023) | LLM (summaries/embeddings), Repo |
-| `Trinity.Skills` | SKILL.md parsing, registry, loader, manager, scanner | Repo, Permissions, **Effects**, **Receipts**, Sandbox |
+| `Trinity.Skills` | SKILL.md parsing, registry, loader, manager, scanner (as built at 040: parser, sources, registry, index, the three tools) | Repo, Permissions, **Effects**, **Receipts**, Sandbox (as built at 040: Tools, for conditional activation and the tool behaviour, and Memory, for the token estimator; Tools never depends on Skills) |
 | `Trinity.Scheduler` | Oban workers for agent tasks, delivery | Sessions, Gateways, **Repo** |
 | `Trinity.MCP` | Client manager, tool bridge, server | Tools, **Effects**, **Permissions**, Memory |
 | `Trinity.Gateways` | Adapter behaviour, router, allowlists, pairing | Sessions, **Permissions**, PubSub |
@@ -113,7 +115,7 @@ through those modules only. `boundary` `exports:` lists enforce this.
 | `Trinity.Gateways.Adapter` | `child_spec/1`, `deliver/2`, `capabilities/0` | config `:gateways` list |
 | `Trinity.Memory.VectorStore` | `upsert/3`, `search/3`, `delete/1`, `count/1` (as built at 032: the scope filter is `search/3`'s required argument) | the database adapter, at compile time (`Brute` on SQLite, `Pgvector` on Postgres; `Hnswlib` when a slice measures past 10^5 rows) |
 | `Trinity.Memory.Embedder` | `embed/1`, `dim/0`, `model_id/0`, `availability/0` | `config :trinity, :memory, embedder:` (`:local` default, `:hosted` opt-in only, `:fake` in the suite) |
-| `Trinity.Skills.Loader` | `load/1`, `validate/1` | config `:skill_loaders` |
+| `Trinity.Skills.Loader` | `load/1`, `validate/1` | config `:skill_loaders` (not built at 040: the three roots are fixed and `Trinity.Skills.Sources` scans them; a loader behaviour waits for a fourth kind of source) |
 | `Trinity.Permissions.Policy` | `decide/3` → `:allow | :deny | {:ask, prompt}` | config |
 
 Adding any of these = new module + config entry. No core edits. A test in Slice 020 asserts this

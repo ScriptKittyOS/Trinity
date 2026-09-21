@@ -36,6 +36,8 @@ defmodule TrinityWeb.Router do
       live "/personas", PersonasLive, :index
       live "/personas/:id", PersonasLive, :edit
       live "/memory", MemoryLive, :index
+      # Slice 040: the skills the registry found.
+      live "/skills", SkillsLive, :index
       # Slice 024: a session's receipt chain, and the boot receipt of this run.
       live "/s/:id/receipts", ReceiptsLive, :session
       live "/receipts/boot", ReceiptsLive, :boot

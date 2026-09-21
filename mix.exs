@@ -153,6 +153,10 @@ defmodule Trinity.MixProject do
         {:bumblebee, "~> 0.7.1"},
         # Slice 032: vectors on the Postgres job (Trinity.Memory.VectorStores.Pgvector).
         {:pgvector, "~> 0.4.1"},
+        # Slice 040: SKILL.md frontmatter (Trinity.Skills.Parser) and the skill roots' watcher
+        # (Trinity.Skills.Watcher); both were in the lock already as transitive dependencies.
+        {:yaml_elixir, "~> 2.12"},
+        {:file_system, "~> 1.1"},
         # Slice 013 (owner decision, 2026-09-20): the linux package builds mdex's NIF from
         # source for musl (MDEX_NATIVE_BUILD=1 and TRINITY_NIF_TARGET in config/config.exs),
         # because neither precompiled artifact loads in Burrito's musl ERTS (NOTES finding 13).

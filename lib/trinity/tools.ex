@@ -13,7 +13,9 @@ defmodule Trinity.Tools do
   # Slice 031: Memory, for the core tools that read it (session_search; 032's recall follows).
   use Boundary,
     deps: [Trinity, Trinity.Permissions, Trinity.Memory],
-    exports: [Tool, Context, Result, Registry, Runner, Schema, Catalog]
+    # Slice 040 exports Untrusted: the skill tools (Trinity.Skills.Tools.*) wrap their results
+    # the way session_search does, and they live in the Skills boundary.
+    exports: [Tool, Context, Result, Registry, Runner, Schema, Catalog, Untrusted]
 
   alias Trinity.Sessions.Message
   alias Trinity.Tools.Registry

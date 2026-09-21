@@ -75,6 +75,10 @@ config :trinity, :tools,
     Trinity.Tools.SessionSearch,
     # Slice 032: hybrid recall over semantic memories and past messages.
     Trinity.Tools.Recall,
+    # Slice 040: the skills' progressive disclosure.
+    Trinity.Skills.Tools.List,
+    Trinity.Skills.Tools.View,
+    Trinity.Skills.Tools.File,
     # Slice 030: the always-on memory tiers.
     Trinity.Tools.Memory,
     Trinity.Tools.Shell.Run
@@ -84,8 +88,15 @@ config :trinity, :tools,
     web: ["web_fetch", "web_search"],
     shell: ["shell"],
     # Slice 031: search over past conversations.
-    memory: ["session_search", "recall", "memory"]
+    memory: ["session_search", "recall", "memory"],
+    # Slice 040: the skill tools.
+    skills: ["skills_list", "skill_view", "skill_file"]
   }
+
+# Slice 040: the skill roots. `user_dir:` and `bundled_dir:` default to the data directory's
+# `skills` and `priv/skills`; `watch: false` turns the filesystem watchers off (the reindex
+# button and `mix trinity.skills.reindex` remain); `index_tokens:` caps the prompt's index.
+config :trinity, :skills, watch: true, index_tokens: 338
 
 # Slice 022: the filesystem roots beside the data directory (always a root) and the session's
 # working directory. Empty here; config/runtime.exs reads TRINITY_FS_ROOTS (colon-separated).
