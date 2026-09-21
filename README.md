@@ -141,6 +141,7 @@ later without renumbering anything.
 | `VERSIONS.md` | The verified dependency versions, generated from `lib/trinity/versions.ex` |
 | `CLAUDE.md` | The engineering contract: slice rules, definition of done, proof standard |
 | `docs/` | Vision, architecture, tech stack, conventions, slice process, data model, risks, security model, standards; packaging, the FIPS leg, backup and restore, performance measurements |
+| `slices/059-mcp-library-spike/FINDINGS.md` | What the MCP server core (`beam_mcp`) ships, carries, refuses or leaves open against the 2026-07-28 checklist; the reference for the MCP phase |
 | `docs/adr/` | Architecture decision records. One is added whenever a decision changes |
 | `slices/` | One folder per slice: specification, notes and proof |
 | `templates/` | The templates a new slice, proof or decision record starts from |
@@ -175,11 +176,12 @@ every project space.
 ## Related projects
 
 [beam_mcp](https://github.com/ScriptKittyOS/beam_mcp) is a Model Context Protocol server core for
-the BEAM from the same organisation, on Hex as `beam_mcp`. Trinity does not depend on it today.
-Trinity's MCP layer (milestone M5a) is chosen by measurement in slice 059, where beam_mcp is one
-of the candidates for the server side; the client side and the authorization server are Trinity's
-own work whichever library is chosen. `docs/adr/0007-mcp-2026-07-28-target-and-library.md`
-records the protocol target and how the choice is made.
+the BEAM from the same organisation, on Hex as `beam_mcp`. Trinity depends on it since slice 059,
+pinned at 0.8.0 and reached only through the `Trinity.MCP` boundary; slice 059's `FINDINGS.md`
+measures what it ships against the 2026-07-28 checklist, and the MCP phase (milestone M5a) builds
+Trinity's client driver, the approval loop and authorization above it. The client side and the
+authorization server are Trinity's own work. `docs/adr/0007-mcp-2026-07-28-target-and-library.md`
+records the protocol target and the layering.
 
 ## License
 
