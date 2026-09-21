@@ -165,7 +165,8 @@ defmodule Trinity.Memory.VectorStoreTest do
     elixir = Trinity.Memory.VectorStores.Brute.elixir_scores(rows, query)
     assert Enum.max(elixir) > 0.999
 
-    if Code.ensure_loaded?(EXLA.Backend) do
+    # exla is runtime: false and started on demand; the store asks Bumblebee.exla/0 first.
+    if Code.ensure_loaded?(EXLA.Backend) and Trinity.Memory.Embedders.Bumblebee.exla() == :ok do
       exla = Trinity.Memory.VectorStores.Brute.exla_scores(rows, query)
       for {a, b} <- Enum.zip(elixir, exla), do: assert_in_delta(a, b, 1.0e-5)
       odd = %{hd(rows) | embedding: Embedder.to_binary([1.0, 0.0])}
