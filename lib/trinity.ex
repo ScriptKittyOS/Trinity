@@ -28,6 +28,7 @@ defmodule Trinity do
         LLM,
         Memory,
         Memory.Tokens,
+        Memory.Search,
         Tools,
         Permissions,
         Permissions.Approval,

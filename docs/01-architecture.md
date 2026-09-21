@@ -74,7 +74,7 @@ without anything failing.
 |---|---|---|
 | `Trinity.Sessions` | Session process, turn loop, message log | LLM, Tools, **Effects**, Permissions, Memory, Skills, Repo, PubSub |
 | `Trinity.LLM` | Provider behaviour, req_llm adapter, model registry, streaming, usage | Repo (usage), Telemetry |
-| `Trinity.Tools` | Tool behaviour, registry, execution runtime, core tools, and (as built at 024) the compile-time effect catalog `Trinity.Tools.Catalog`, because the registry reads it and Effects depends on Tools | Permissions, Sandbox, Repo |
+| `Trinity.Tools` | Tool behaviour, registry, execution runtime, core tools, and (as built at 024) the compile-time effect catalog `Trinity.Tools.Catalog`, because the registry reads it and Effects depends on Tools | Permissions, Sandbox, Repo, **Memory** (as built at 031: `session_search` reads the index; Memory never depends on Tools) |
 | `Trinity.Permissions` | Policy, tier/1 (name-only), fingerprint-bound approvals, override adjudication | Repo, PubSub |
 | `Trinity.Effects` | The membrane; the runner in force (`Effects.Runner`, the executor `Tools.Runner` takes as a function); decision and query receipts; the boot receipt | **Tools**, Permissions, Authority, Receipts, Repo |
 | `Trinity.Authority` | Behaviour; `Local` implementation (the one caller of `execute/2` for effectful tools); selection at boot; `Staged` | Receipts, Repo |

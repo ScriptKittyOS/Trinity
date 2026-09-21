@@ -27,6 +27,8 @@ defmodule TrinityWeb.Router do
       live "/s/:id", SessionLive.Show, :show
       # Slice 021: the approvals audit and the rules.
       live "/permissions", PermissionsLive, :index
+      # Slice 031: full-text search over every message.
+      live "/search", SearchLive, :index
       # Slice 024: a session's receipt chain, and the boot receipt of this run.
       live "/s/:id/receipts", ReceiptsLive, :session
       live "/receipts/boot", ReceiptsLive, :boot

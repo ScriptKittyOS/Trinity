@@ -6,5 +6,5 @@ defmodule Trinity.Memory do
   to 032 add the tiers, the search and the semantic recall. It depends on the LLM and on the
   core, never on Sessions: the Session calls it and writes what it returns.
   """
-  use Boundary, deps: [Trinity, Trinity.LLM], exports: [Tokens, Compactor]
+  use Boundary, deps: [Trinity, Trinity.LLM], exports: [Tokens, Compactor, Search]
 end

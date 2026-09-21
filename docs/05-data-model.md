@@ -48,6 +48,13 @@ turn ended that way); the role, seq and session never change.
 ### messages_fts (Slice 031): SQLite `fts5(content, session_id UNINDEXED, message_id UNINDEXED)`; on Postgres a
 `tsvector` generated column on `messages`.
 
+As built: SQLite `messages_fts` with `tokenize = 'porter unicode61'`, `rowid` equal to the message row's, kept
+by three triggers (`messages_fts_ai`, `_ad`, `_au` on `content`) and backfilled by the migration; rebuildable by
+`mix trinity.search.reindex`. Postgres: `messages.content_tsv` generated as `to_tsvector('english', content)` with
+the GIN index `messages_content_tsv_idx`; nothing to rebuild. Stemming is suffix-based on both: "running" meets
+"runs" at `run` and never "ran". `Trinity.Memory.Search.messages/2` binds the query as a parameter and quotes
+every term for FTS5, so operators are text.
+
 ### memories (Slice 030/032)
 | column | type | notes |
 |---|---|---|
