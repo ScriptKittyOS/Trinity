@@ -234,8 +234,9 @@ defmodule TrinityWeb.SkillsLive do
             <button type="submit" class="btn btn-sm btn-ghost" disabled={@learning != nil}>{gettext(
               "Learn"
             )}</button>
-            <span :if={@learning} id="learning" class="font-mono text-meta opacity-70">{gettext(
-              "learning from %{s}…", s: @learning)}</span>
+            <span :if={@learning} id="learning" class="font-mono text-meta opacity-70">
+              {gettext("learning from")} {@learning}…
+            </span>
           </form>
 
           <ul :if={@recent != []} id="recent-changes" class="font-mono text-meta opacity-70">
