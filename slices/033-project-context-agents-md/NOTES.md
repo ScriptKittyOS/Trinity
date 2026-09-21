@@ -46,3 +46,23 @@ Manual verification queue: none; every criterion is `[auto]`.
 Deviations stated before any code: (a) the context tier's budget changes from 300 to 5,800 tokens for the
 measured reason above; (b) "project root(s)" is one root per session at this slice (the column is one string);
 several roots is a follow-up until a slice needs it.
+
+## Findings, 2026-09-21
+
+1. **The context tier had no room.** 030 left it at 300 tokens; this tree's own `CLAUDE.md` is 2,849. The
+   measured budget (5,800) and the cap (16,384 bytes) are in the section above, and the arrangement mirrors
+   030's volatile tier: the cap binds first and states its cut; the tier receipt is the backstop.
+2. **`AGENTS.md` is read every turn, not cached.** A stat-and-read per turn is cheaper than a watcher and is
+   what "live reload" means here: the test edits the file between two turns and the second prompt carries the
+   new text.
+3. **AC3 is true by construction and proven end to end anyway**: the gate reads arguments, names and rules, never
+   the prompt; the hostile fixture's text reaches the model inside its untrusted block and the write still asks.
+4. **sobelow on the read**: the path is the owner's root plus a constant; skipped inline with the reason.
+5. **The working directory is the root at this slice.** `discover/2` takes a `cwd` under the root (the nested
+   fixture's test uses it); the Session passes the root for both until a slice gives a session a working
+   directory of its own below its root (the shell tool's `cd` is per call, not per session).
+
+## Follow-ups
+- 040: the skills index joins the context tier; skill discovery reads `project_root` (this slice's setting).
+- Several project roots per session (deviation b) when a slice needs it.
+- A session working directory below the root (finding 5) when the shell gains a persistent cwd.
