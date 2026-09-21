@@ -12,7 +12,7 @@ block in the volatile tier under its own cap, a `recall` tool, and the memory pa
 live run found two defects older than the slice (a whitespace-only assistant row lost, the req_llm tool-call
 encoding), both closed red-then-fix; the packaged binary showed that EXLA's NIF does not load in Burrito's
 Linux ERTS, so exla is started on demand and the Linux bundle boots with the tier off and says why (AC7's
-fallback clause). Thirteen findings and four follow-ups in NOTES.md.
+fallback clause). Fifteen findings and four follow-ups in NOTES.md.
 
 ## Gate
 ```

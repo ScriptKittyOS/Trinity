@@ -207,6 +207,18 @@ produced each vector is recorded on the row (decision 4).
     postgres job's `sessions_stress_test.exs:20` pool-starvation flake (run 35606463533) is the known one
     from earlier slices (the fix(s010) candidate), not touched here.
 
+14. **The sandbox's shared connection sheds load under the stress tests.** With the retriever running on
+    every turn, the postgres job's 100-session and 20-writer tests refused checkouts ("could not checkout the
+    connection owned by …", runs 35610164189 and 35610171809): DBConnection drops requests once its queue
+    stays over `queue_target` (50 ms) for `queue_interval` (1 s), and the sandbox funnels every process of a
+    test through one connection. The tests queue hard on purpose; `config/test.exs` now sets `queue_target:
+    5_000, queue_interval: 30_000` on the test pools so the queue waits instead. This is the flake the memory
+    file called the fix(s010) candidate; it is closed here because 032 made it frequent.
+15. **The smoke argument lost to Kernel.CLI on macOS** (package run 35608084951: "No file named --smoke",
+    exit 1, between the fourth line and the fifth). The run is now asked for with `TRINITY_SMOKE=1`, which the
+    CLI has no reason to read; `--smoke` still works where the race is won. Package run 35610163163 on the
+    variable: all three jobs green.
+
 ## Follow-ups
 
 - **A local embedding backend for the Linux bundle and for Windows.** The Linux bundle boots with the tier

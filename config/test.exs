@@ -101,21 +101,34 @@ if System.get_env("TRINITY_DB") == "postgres" do
     pool_size: 10,
     pool: Ecto.Adapters.SQL.Sandbox,
     # Slice 032: pgvector's `vector` type.
-    types: Trinity.Repo.PostgrexTypes
+    types: Trinity.Repo.PostgrexTypes,
+    # Slice 032: the sandbox shares one connection with every process a test starts, and
+    # DBConnection sheds load (refuses checkouts) when the queue stays over `queue_target`
+    # for `queue_interval`. The 100-session and 20-writer tests queue that hard on the
+    # postgres job's runner, more so once each turn also runs the retriever (runs 35610164189
+    # and 35610171809); a queue that is long on purpose should wait, not shed.
+    queue_target: 5_000,
+    queue_interval: 30_000
 
   # Slice 024: the receipts Repo shares the Postgres database (its own migrations table).
   config :trinity, Trinity.Repo.Receipts,
     url: System.get_env("DATABASE_URL"),
     pool_size: 10,
-    pool: Ecto.Adapters.SQL.Sandbox
+    pool: Ecto.Adapters.SQL.Sandbox,
+    queue_target: 5_000,
+    queue_interval: 30_000
 else
   config :trinity, Trinity.Repo,
     database: Path.expand("../trinity_test.db", __DIR__),
-    pool: Ecto.Adapters.SQL.Sandbox
+    pool: Ecto.Adapters.SQL.Sandbox,
+    queue_target: 5_000,
+    queue_interval: 30_000
 
   config :trinity, Trinity.Repo.Receipts,
     database: Path.expand("../trinity_test_receipts.db", __DIR__),
-    pool: Ecto.Adapters.SQL.Sandbox
+    pool: Ecto.Adapters.SQL.Sandbox,
+    queue_target: 5_000,
+    queue_interval: 30_000
 end
 
 # We don't run a server during test. If one is required,
