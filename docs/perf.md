@@ -46,11 +46,13 @@ its raw vectors do not separate at the slice's thresholds (slices/032-semantic-m
 
 Packaged binaries (the `package` workflow's artifacts, compressed by Burrito):
 
-| target | slice 034 (run 35556497526) | slice 032 (run 35603384655) | delta |
+| target | slice 034 (run 35556497526) | slice 032 (run 35604769356) | delta |
 |---|---|---|---|
-| linux x86_64 | 23,933,053 | see PROOF.md AC7 | |
-| macOS aarch64 | 15,176,156 | see PROOF.md AC7 | |
-| windows x86_64 | 27,551,320 | see PROOF.md AC7 (no exla on a Windows host) | |
+| linux x86_64 | 23,933,053 | 92,597,767 | +68,664,714 (the XLA library and the NIF, which do not load in this ERTS: NOTES finding 2) |
+| macOS aarch64 | 15,176,156 | 60,544,615 | +45,368,459 (the NIF loads: `TRINITY_SMOKE_EXLA=ok`) |
+| windows x86_64 | 27,551,320 | 29,640,626 | +2,089,306 (nx, bumblebee, the tokenizers NIF; no exla on a Windows host) |
+
+Sizes from `gh api repos/ScriptKittyOS/Trinity/actions/runs/<run>/artifacts`.
 
 ### CI: EXLA on the gate's legs
 

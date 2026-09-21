@@ -48,7 +48,7 @@ defmodule Trinity.Memory.Embedders.Bumblebee do
     cond do
       match?({:win32, _}, :os.type()) -> {:off, :no_local_backend}
       not Code.ensure_loaded?(EXLA) -> {:off, {:exla, :not_compiled}}
-      match?({:error, _}, exla()) -> {:off, exla()}
+      match?({:error, _}, exla()) -> {:off, elem(exla(), 1)}
       not model_present?() -> {:off, :model_missing}
       true -> :ok
     end
@@ -80,6 +80,11 @@ defmodule Trinity.Memory.Embedders.Bumblebee do
 
   # The loader's message, not the whole start_link failure tree.
   defp summarise({:exla, {reason, _}}), do: summarise(reason)
+  defp summarise({:shutdown, {:failed_to_start_child, _, reason}}), do: summarise(reason)
+
+  defp summarise({:undef, [{EXLA.NIF, fun, _, _} | _]}),
+    do: "the EXLA NIF did not load (EXLA.NIF.#{fun} undefined)"
+
   defp summarise(reason) when is_binary(reason), do: String.slice(reason, 0, 200)
   defp summarise(reason), do: reason |> inspect() |> String.slice(0, 200)
 
