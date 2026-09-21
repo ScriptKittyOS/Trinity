@@ -219,7 +219,21 @@ produced each vector is recorded on the row (decision 4).
     CLI has no reason to read; `--smoke` still works where the race is won. Package run 35610163163 on the
     variable: all three jobs green.
 
+16. **One more flake, observed and not closed.** On the fips leg of run 35613000665 (the closing correction's
+    docs commit; the gate and postgres legs of the same run green, and every earlier fips run of this branch
+    green), slice 034's archive round-trip test timed out in its `on_exit` after 60 s: its `unseed/1` waited
+    for the one SQLite connection while a `:proc_lib` process still held it inside an `Exqlite` `fetch_all`.
+    The test runs the sandbox in `:auto` mode and cleans up by deleting rows, so whatever process is mid-query
+    at that moment blocks it; which process it was is not in the log the rerun kept. Recorded as a follow-up
+    below, with the run id; the job was rerun for the head's check.
+
 ## Follow-ups
+
+- **The archive round-trip test's cleanup under `:auto` mode** (finding 16): find the process that holds
+  the SQLite connection through `on_exit` (run 35613000665, fips leg), or move the test's cleanup off the
+  shared connection (a throwaway database per test, as `Trinity.Archive` itself can open). Owner: the next
+  slice that touches `test/trinity/archive/`; lift condition: the fips leg green ten runs in a row after
+  the change.
 
 - **A local embedding backend for the Linux bundle and for Windows.** The Linux bundle boots with the tier
   off (finding 2); Windows has no EXLA at all. Candidates: a glibc-linked ERTS for Burrito's Linux target (the
