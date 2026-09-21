@@ -44,7 +44,7 @@ standards register names the rows that ask for them.
 | 024 | Effect catalog, authority selection (`TRINITY_AUTHORITY`), local receipts | 2 Tools | L | 021, 022 | approved |
 | 025 | Encryption at rest, and the key-custody seam | 2 Tools | M | 010, 024 | planned |
 | 026 | Store-and-forward receipts for disconnected operation | 2 Tools | L | 024 | planned |
-| 030 | Persona (SOUL) + always-on memory tier | 3 Memory | M | 012 | done |
+| 030 | Persona (SOUL) + always-on memory tier | 3 Memory | M | 012 | approved |
 | 031 | Session search (SQLite FTS5) | 3 Memory | S | 010 | approved |
 | 032 | Embeddings + semantic memory + hybrid retrieval | 3 Memory | L | 031 | planned |
 | 033 | Project context: AGENTS.md | 3 Memory | S | 030, 022 | planned |
