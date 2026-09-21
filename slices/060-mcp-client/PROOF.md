@@ -221,3 +221,27 @@ override, the child's environment allow list, the stdio log handler, `server/dis
 $ git log --oneline main..HEAD
 (named in the closing correction, after the final commit)
 ```
+
+## Closing correction, 2026-09-21
+
+Supersedes "named in the closing correction" above. The tree the PR is merged from is `64f4444` (`feat(s060):
+complete slice 060 (MCP client)`, the commit carrying this file). On it, CI run 35651974115: `gate` success
+(478 passed, 18 excluded), `postgres` success (458 passed, 38 excluded; the stdio child VMs and the loopback
+HTTP server ran on that leg too), `fips-tag` and `fips` success (483 passed, 13 excluded; the six FIPS tests
+by name). The coverage row stays at `49f40a4` (80.32%): `64f4444` differs from it in this file, NOTES.md,
+ROADMAP.md and coverage.tsv only.
+
+```
+$ git log --oneline main..HEAD
+64f4444 feat(s060): complete slice 060 (MCP client)
+49f40a4 docs(s060): findings at G3 and follow-ups
+d3b5398 refactor(s060): the revision pick and the elicit result as their own functions (credo)
+d0e5b6d docs(s060): AC8 proof against the public 2026-07-28 playground server; the dev script that drives it
+bca93dd docs(s060): docs 01, 05, 07, 08 and the README as built
+3ef2a1b feat(s060): the /mcp page and the input-request card: a server's question answered from the permissions page
+5cb9856 test(s060): the census reads quoted revision literals, not prose
+104b56f test(s060): AC7 census, the row's refusals, the child's environment allow list; no risk override
+be47fa8 test(s060): AC2, AC3 and AC4 green: the membrane path, the load refusal receipt, the multi-round-trip loop through a Session
+1109586 feat(s060): the thin driver: wire, stdio and HTTP transports, client, bridge, servers; AC1 and AC6 green
+4d0d430 docs(s060): G1 plan; AC5 (Tasks) deferred under 059's approved finding 4
+```
