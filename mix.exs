@@ -47,12 +47,8 @@ defmodule Trinity.MixProject do
     [
       desktop: [
         steps: [:assemble, &Burrito.wrap/1],
-        # Slice 032: exla is loaded, not started, in the release. Its application start
-        # loads the NIF, and in Burrito's musl ERTS on Linux that load fails
-        # (`__libc_single_threaded: symbol not found`, package run 35600216451), which took
-        # the whole release down at boot. `Trinity.Memory.Embedders.Bumblebee.exla/0`
-        # starts it on demand and a failure is the tier off with that reason, not a crash.
-        # On a Windows host exla is not declared at all (`exla_deps/0`).
+        # Slice 032: exla in the release, loaded and not started (see `exla_deps/0`); on a
+        # Windows host it is not declared at all.
         applications: exla_release_applications(),
         burrito: [
           targets: [
@@ -103,6 +99,14 @@ defmodule Trinity.MixProject do
   # `{:off, :no_local_backend}`, and the semantic tier is off until a Windows backend exists
   # (NOTES decision 3). The lock file carries exla either way; `mix deps.get` leaves an
   # undeclared lock entry alone.
+  #
+  # `runtime: false`: exla is compiled and on the code path but not in this application's
+  # `applications`, so nothing starts it at boot; the release carries it in `:load` mode
+  # (`exla_release_applications/0`, which Mix accepts only because no application in the
+  # release depends on it) and `Trinity.Memory.Embedders.Bumblebee.exla/0` starts it on
+  # demand. Its start loads the NIF, and in Burrito's musl ERTS on Linux that load fails
+  # (`__libc_single_threaded: symbol not found`, package run 35600216451); started at boot
+  # it took the whole release down, started on demand it is the tier's reason.
   defp exla_release_applications do
     case :os.type() do
       {:win32, _} -> []
@@ -113,7 +117,7 @@ defmodule Trinity.MixProject do
   defp exla_deps do
     case :os.type() do
       {:win32, _} -> []
-      _ -> [{:exla, "~> 0.13.1"}]
+      _ -> [{:exla, "~> 0.13.1", runtime: false}]
     end
   end
 
