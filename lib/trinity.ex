@@ -26,6 +26,8 @@ defmodule Trinity do
         Sessions.SessionRow,
         Sessions.Prompt,
         Personas,
+        Context,
+        Context.AgentsMd,
         Archive,
         Archive.Layout,
         Archive.Manifest,

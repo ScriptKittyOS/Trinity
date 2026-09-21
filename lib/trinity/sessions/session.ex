@@ -354,9 +354,11 @@ defmodule Trinity.Sessions.Session do
     # Slice 020: the declared surface of this turn, into the request and onto the row.
     tools = Trinity.Tools.to_llm_tools()
     history = Trinity.Sessions.history(id, limit: 500)
+    # Slice 033: the project's AGENTS.md, read now, so a change is in this turn (live reload).
+    context = Trinity.Context.AgentsMd.render(session.project_root, session.project_root)
 
     {request, truncations} =
-      Prompt.build_with_report(session, persona, history, tools, memory: memory)
+      Prompt.build_with_report(session, persona, history, tools, memory: memory, context: context)
 
     Enum.each(truncations, &truncation_receipt(id, &1))
     {session, persona, history, request}
@@ -659,7 +661,10 @@ defmodule Trinity.Sessions.Session do
     ref = make_ref()
     me = self()
     persona = session.persona_id && Store.get_persona(session.persona_id)
-    context = %{session_id: id, caller: id, persona: persona}
+    # Slice 033: the project root is the tools' working directory (the row is read again so
+    # a root set between turns is this turn's).
+    row = Store.get_session(id) || session
+    context = %{session_id: id, caller: id, persona: persona, cwd: row.project_root}
 
     # Slice 020: the turn's calls run at once through the runner in force.
     %Task{pid: pid} =

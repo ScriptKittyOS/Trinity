@@ -25,6 +25,9 @@ defmodule Trinity.Sessions.SessionRow do
     field :origin_ref, :map, default: %{}
     field :status, :string, default: "active"
     field :model, :string
+    # Slice 033: the directory the session's tools work in (the filesystem allowlist's cwd) and
+    # AGENTS.md is read from; nil means no project.
+    field :project_root, :string
     field :token_usage, :map, default: %{}
     field :last_activity_at, :utc_datetime_usec
     belongs_to :persona, Trinity.Sessions.Persona
@@ -53,6 +56,7 @@ defmodule Trinity.Sessions.SessionRow do
       :origin_ref,
       :status,
       :model,
+      :project_root,
       :token_usage
     ])
     |> validate_required([:persona_id, :origin, :status])
