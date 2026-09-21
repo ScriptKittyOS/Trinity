@@ -192,3 +192,20 @@ transitive dependencies). `mix versions.verify`: OK, 102 locked packages, none d
 $ git log --oneline main..HEAD
 (named in the closing correction, after the final commit)
 ```
+
+## Closing correction, 2026-09-21
+
+Supersedes "named in the closing correction" above. The tree the PR is merged from is `291fc13` (`feat(s040):
+complete slice 040`, the commit carrying this file). On it, CI gate run 35626556631: `gate` success (428
+passed, 18 excluded), `postgres` success (408 passed, 38 excluded), `fips-tag` and `fips` success (433 passed,
+13 excluded; the six FIPS tests by name). The coverage row stays at `dc9dc6b` (79.86%): `291fc13` differs from
+it in this file, NOTES.md, ROADMAP.md and coverage.tsv only (`git diff --stat dc9dc6b 291fc13` lists those four).
+
+```
+$ git log --oneline main..HEAD
+291fc13 feat(s040): complete slice 040 (skills registry and progressive disclosure)
+dc9dc6b fix(s040): the hot-reload test waits past the mtime second (the polling backend on the gate's runners); TRINITY_SKILLS_POLL=1 forces the poll
+58a253c docs(s040): docs/05 and docs/01 as built
+ccb3747 feat(s040): skills: parser, sources, registry with index rows and watchers, the three tools, the prompt index, the /skills page, three bundled skills
+fc8282b docs(s040): the format and the dependencies measured, the G1 plan, and the slice opens
+```
