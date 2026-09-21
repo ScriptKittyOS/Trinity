@@ -152,3 +152,7 @@ fccfc8b feat(s030): the personas pages, the memory page, the persona picker; doc
 e5a879b feat(s030): memories, the change log and proposals; Personas; AlwaysOn, Budget and the Consolidator
 391ef44 docs(s030): G1 plan with the tier budgets measured, the default SOUL, and the slice opens
 ```
+
+## Closing correction, 2026-09-21
+Supersedes the header's "Final commit" placeholder: the closing commit is `271dc27` (`feat(s030): complete
+slice 030 (persona and always-on memory)`), and this correction rides on the commit after it.
