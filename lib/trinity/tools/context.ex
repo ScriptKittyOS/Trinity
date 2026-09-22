@@ -19,7 +19,8 @@ defmodule Trinity.Tools.Context do
           call_id: String.t() | nil,
           tool: String.t() | nil,
           origin: String.t() | nil,
-          trace: map() | nil
+          trace: map() | nil,
+          principal: map() | nil
         }
 
   defstruct session_id: nil,
@@ -29,5 +30,6 @@ defmodule Trinity.Tools.Context do
             call_id: nil,
             tool: nil,
             origin: nil,
-            trace: nil
+            trace: nil,
+            principal: nil
 end

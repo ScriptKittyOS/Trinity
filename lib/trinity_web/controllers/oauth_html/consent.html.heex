@@ -1,0 +1,37 @@
+<Layouts.app flash={@flash}>
+  <:bar>
+    <span class="opacity-70">{gettext("Authorize a client")}</span>
+  </:bar>
+  <div id="consent" class="mx-auto flex max-w-xl flex-col gap-4 px-4 py-8">
+    <h2 class="text-lg font-semibold">
+      {gettext("%{name} asks to use Trinity", name: @pending.client_name)}
+    </h2>
+    <p class="text-ui opacity-80">
+      {gettext("Client")}: <span class="font-mono">{@pending.client_id}</span>
+    </p>
+    <p class="text-ui opacity-80">
+      {gettext("For")}: <span class="font-mono">{@pending.resource}</span>
+    </p>
+    <div>
+      <p class="text-meta uppercase tracking-wide opacity-70">{gettext("Scopes asked")}</p>
+      <ul class="mt-1 flex flex-col gap-1">
+        <li :for={s <- @pending.scope} class="font-mono text-ui">{s}</li>
+        <li :if={@pending.scope == []} class="text-ui opacity-70">{gettext("none")}</li>
+      </ul>
+    </div>
+    <p class="text-meta opacity-70">
+      {gettext(
+        "A token from this page carries the personal profile's mark and is refused wherever an external authorization server is in force. Every call it makes still passes the permission gate."
+      )}
+    </p>
+    <.form for={%{}} action={~p"/oauth/consent"} method="post" class="flex gap-2">
+      <input type="hidden" name="request_id" value={@pending.id} />
+      <button type="submit" name="decision" value="approve" class="btn btn-sm btn-primary">{gettext(
+        "Approve"
+      )}</button>
+      <button type="submit" name="decision" value="deny" class="btn btn-sm btn-ghost">{gettext(
+        "Deny"
+      )}</button>
+    </.form>
+  </div>
+</Layouts.app>

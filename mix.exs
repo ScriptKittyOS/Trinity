@@ -176,6 +176,8 @@ defmodule Trinity.MixProject do
         # Postgres; Oban Web is the dashboard, Apache-2.0 on hex since its 2.12 line.
         {:oban, "~> 2.24"},
         {:oban_web, "~> 2.13"},
+        # Slice 062: JWT validation and issuance (JWK, JWS, JWKS) over OTP's crypto.
+        {:jose, "~> 1.11"},
         # Slice 013 (owner decision, 2026-09-20): the linux package builds mdex's NIF from
         # source for musl (MDEX_NATIVE_BUILD=1 and TRINITY_NIF_TARGET in config/config.exs),
         # because neither precompiled artifact loads in Burrito's musl ERTS (NOTES finding 13).

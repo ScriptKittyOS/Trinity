@@ -128,7 +128,16 @@ defmodule Trinity.Effects.Runner do
   # and the caller's trace context rides in the meta for 090; a desktop call carries neither,
   # so every receipt written before this slice reads the same.
   defp origin(%Context{origin: nil}, subject), do: subject
-  defp origin(%Context{origin: origin}, subject), do: Map.put(subject, "origin", origin)
+
+  defp origin(%Context{origin: origin} = ctx, subject),
+    do: subject |> Map.put("origin", origin) |> principal(ctx)
+
+  # Slice 062: an MCP caller's issuer, subject and scope on every receipt its call leaves
+  # (the context carries the receipt form, string keys, never a token).
+  defp principal(subject, %Context{principal: %{} = p}) when map_size(p) > 0,
+    do: Map.put(subject, "principal", p)
+
+  defp principal(subject, _ctx), do: subject
 
   defp trace(%Context{trace: %{} = trace}, meta) when map_size(trace) > 0,
     do: Map.put(meta, "trace", trace)

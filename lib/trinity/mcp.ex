@@ -46,7 +46,7 @@ defmodule Trinity.MCP do
       Server.Plug,
       Server.Stdio,
       Server.Exports,
-      Server.Auth.Local,
+      AuthHost,
       Server.Replay
     ]
 

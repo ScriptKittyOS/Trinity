@@ -38,8 +38,14 @@ defmodule Trinity.MCP.Boot do
   defp server_side do
     Trinity.MCP.Server.Envelope.ensure_key!()
 
-    if System.get_env(Trinity.MCP.Server.Auth.Local.variable()) in [nil, ""],
-      do: Trinity.MCP.Server.Auth.Local.ensure_token!()
+    # Slice 062: the profile's configuration, and the personal profile's authorization server
+    # when chosen (refused under an external authority adapter: the raise says why); the local
+    # profile's token file when no variable sets the bearer.
+    config = Trinity.MCP.AuthHost.reload()
+    Trinity.MCP.AuthHost.boot()
+
+    if config.profile == :local and System.get_env(config.token_env) in [nil, ""],
+      do: Trinity.MCP.Auth.Local.ensure_token!(config.token_path)
 
     {entries, refusals} = Trinity.MCP.Server.Exports.resolve()
 

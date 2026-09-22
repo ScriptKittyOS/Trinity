@@ -6,7 +6,7 @@ defmodule Trinity.MCP.Server.Plug do
   mounted in the endpoint ahead of `Plug.Parsers` (the transport reads the raw body itself)
   and answering `POST /mcp` alone; every other request passes through to the router (the
   `/mcp` page keeps GET). The options: the wrapper as
-  `:server`, `Trinity.MCP.Server.Catalog`, `Trinity.MCP.Server.Auth.Local` as `:authorize`, the
+  `:server`, `Trinity.MCP.Server.Catalog`, the profile's authorization (`Trinity.MCP.AuthHost`, slice 062) before the transport and its own hook reading what it left, the
   loopback origins (a request with no `Origin`, which every CLI client sends, is served; a
   browser page on another origin is refused), and `tools_ttl_ms` and `tools_cache_scope` from
   `config :trinity, :mcp_server`. This module exists so the router, in the web boundary, never
@@ -14,7 +14,14 @@ defmodule Trinity.MCP.Server.Plug do
   """
   @behaviour Plug
 
-  alias Trinity.MCP.Server.{Auth, Catalog}
+  alias Trinity.MCP.AuthHost
+  alias Trinity.MCP.Server.Catalog
+
+  # Slice 062: the request's principal, set by this plug for the wrapper to read. The
+  # transport dispatches in the request's own process, so the process dictionary is the
+  # channel between the plug (which sees the connection) and the wrapper (which sees the
+  # message); it is set after authorization and cleared with the process.
+  @principal_key :trinity_mcp_principal
 
   @impl true
   def init(_opts) do
@@ -24,7 +31,11 @@ defmodule Trinity.MCP.Server.Plug do
       server: Trinity.MCP.Server,
       catalog: Catalog,
       dispatch: nil,
-      authorize: &Auth.Local.authorize/1,
+      # Slice 062: the profile's authorization runs in `call/2` before the transport, which
+      # then finds the principal it left; the transport's own hook is that second look.
+      authorize: fn _conn ->
+        if Process.get(@principal_key), do: :ok, else: {:error, :unauthorized}
+      end,
       allowed_origins: Keyword.get(config, :allowed_origins, loopback_origins()),
       server_name: Keyword.get(config, :server_name, "trinity"),
       tools_ttl_ms: Keyword.get(config, :tools_ttl_ms, 60_000),
@@ -33,10 +44,31 @@ defmodule Trinity.MCP.Server.Plug do
   end
 
   @impl true
-  def call(%Plug.Conn{method: "POST", path_info: ["mcp"]} = conn, opts),
-    do: conn |> BeamMCP.Transport.HTTP.call(opts) |> Plug.Conn.halt()
+  def call(%Plug.Conn{method: "POST", path_info: ["mcp"]} = conn, opts) do
+    case AuthHost.authorize(conn) do
+      {:ok, principal} ->
+        Process.put(@principal_key, principal)
+        conn |> BeamMCP.Transport.HTTP.call(opts) |> Plug.Conn.halt()
+
+      {:error, _reason} ->
+        # The reason went to the receipt and the log; the caller gets the challenge and
+        # nothing decoded (the body is unread).
+        conn
+        |> Plug.Conn.put_resp_header("www-authenticate", AuthHost.challenge(AuthHost.config()))
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(
+          401,
+          ~s({"jsonrpc":"2.0","id":null,"error":{"code":-32001,"message":"Unauthorized"}})
+        )
+        |> Plug.Conn.halt()
+    end
+  end
 
   def call(conn, _opts), do: conn
+
+  @doc "The principal the plug left for the wrapper, in this process."
+  @spec principal() :: Trinity.MCP.Auth.Principal.t() | nil
+  def principal, do: Process.get(@principal_key)
 
   @doc "The origins a browser on this machine may present."
   @spec loopback_origins() :: [String.t()]

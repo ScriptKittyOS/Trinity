@@ -154,6 +154,13 @@ defmodule Trinity.Versions do
         "Uses `Oban.Engines.Lite` on SQLite and `Oban.Engines.Basic` on Postgres (the adapter is compile time, ADR-0002, so the engine is too). ⚠️ Oban Pro Workflows/Smart engine are Postgres-only. Added at Slice 050 (2.24.1 measured on hex.pm 2026-09-22, Apache-2.0)."
     },
     %{
+      name: "jose",
+      pin: "~> 1.11",
+      lock: "jose",
+      note:
+        "JOSE (JWK, JWS, JWKS) over OTP's crypto, for the MCP resource server's token validation and the personal profile's embedded authorization server. MIT; 1.11.12 measured on hex.pm 2026-09-22. Not joken, a layer over it this tree does not need. Added at Slice 062."
+    },
+    %{
       name: "oban_web",
       pin: "~> 2.13",
       lock: "oban_web",
