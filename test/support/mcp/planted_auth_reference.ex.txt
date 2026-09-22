@@ -1,0 +1,6 @@
+# The line slice 062's PROOF.md appends to lib/trinity/mcp/auth/scopes.ex, inside the module,
+# to show the boundary compiler refusing a call from the authorization package into the tree
+# (AC7). It is kept here rather than in PROOF.md alone so that a test can assert the planted
+# line is a real call, as slice 059 does for its own planted reference.
+
+  def planted, do: Trinity.Sessions.history("x")

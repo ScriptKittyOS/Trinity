@@ -27,6 +27,9 @@ defmodule Trinity.MCP do
     # Slice 061: the server reaches the core's server, catalog, tool spec and HTTP transport.
     deps: [
       Trinity,
+      # Slice 062: the authorization package, a top-level boundary of its own with no deps on
+      # the tree (its moduledoc says why); this boundary is what receipts and boots it.
+      Trinity.MCP.Auth,
       BeamMCP.JSON,
       BeamMCP.Schema,
       BeamMCP.Server,

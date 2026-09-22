@@ -13,6 +13,17 @@ defmodule Trinity.MCP.Auth do
   `deps: []` on the tree, which is what lets slice 123 extract it.
   """
   use Boundary,
+    # `:strict`, and not the default: a sub-boundary inherits its ancestors' deps unless it says
+    # so (boundary's own rule), and `Trinity.MCP` depends on `Trinity`. Without this line
+    # `deps: []` reads as a claim the compiler never checks, which is the thing AC7 asserts.
+    # A top-level boundary, not a sub-boundary of `Trinity.MCP`: a sub-boundary inherits its
+    # ancestors' deps unless it is `:strict`, and a `:strict` one may still list only what an
+    # ancestor knows, so under `Trinity.MCP` (which depends on `Trinity`) a `deps: []` would
+    # read as a claim the compiler never checks. Top level, with no deps, it is checked: a call
+    # to anything of the tree is a compile error, which is what AC7 asserts and what lets slice
+    # 123 lift the package out. The externals it uses (Plug.Conn, Req, Jason, JOSE) are other
+    # applications, checked only where `mix.exs` says (`check: [apps: [:beam_mcp]]`).
+    top_level?: true,
     deps: [],
     exports: [
       Config,

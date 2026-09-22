@@ -2,9 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 defmodule Trinity.MCP.Auth.BoundaryTest do
   @moduledoc """
-  Slice 062 AC7: `Trinity.MCP.Auth` is a boundary with no dependency on the tree (`deps: []`,
-  read from the attribute the boundary library persists), so it has no compile-time path to
-  `Trinity.Sessions`, `Trinity.Tools`, `Trinity.Receipts` or `Trinity.Repo`; the source census
+  Slice 062 AC7: `Trinity.MCP.Auth` is a **top-level** boundary with no dependency on the tree
+  (`top_level?: true, deps: []`, read from the attribute the boundary library persists), so the
+  compiler refuses a call from it to `Trinity.Sessions`, `Trinity.Tools`, `Trinity.Receipts` or
+  `Trinity.Repo` (PROOF.md pastes that refusal from a planted line, as slice 059's boundary proof
+  does: a test cannot run the project's own compiler over a planted file without changing the
+  tree it runs in). Top level and not nested, because a sub-boundary inherits its ancestors' deps
+  and `Trinity.MCP` depends on `Trinity`: nested, the empty list would be a claim nothing checks.
+  The source census
   over the package (`git ls-files lib/trinity/mcp/auth.ex lib/trinity/mcp/auth`, the population
   PROOF.md pastes) names no module of the tree outside itself in code. And the owner's "no token
   material" constraint as a census: the one reader of the `Authorization` header under `lib/` is
@@ -30,13 +35,24 @@ defmodule Trinity.MCP.Auth.BoundaryTest do
     |> String.replace(~r/#[^\n]*/, "")
   end
 
-  test "the boundary lists no dependency and exports the package" do
+  test "the boundary is top level, lists no dependency, and exports the package" do
     [%{opts: opts, app: :trinity}] =
       Keyword.get(Trinity.MCP.Auth.module_info(:attributes), Boundary)
 
     assert Keyword.fetch!(opts, :deps) == []
+    assert Keyword.fetch!(opts, :top_level?) == true
     assert Config in Keyword.fetch!(opts, :exports)
     assert Client in Keyword.fetch!(opts, :exports)
+
+    # The tree's side names it as a dependency, which is the only way in.
+    [%{opts: mcp_opts}] = Keyword.get(Trinity.MCP.module_info(:attributes), Boundary)
+    assert Trinity.MCP.Auth in Keyword.fetch!(mcp_opts, :deps)
+  end
+
+  test "the planted line the proof compiles is a real call from the package into the tree" do
+    plant = File.read!("test/support/mcp/planted_auth_reference.ex.txt")
+    assert plant =~ "Trinity.Sessions.history"
+    assert plant =~ "lib/trinity/mcp/auth/scopes.ex"
   end
 
   test "the population is the package's files, and no file of it names a module of the tree in code" do
