@@ -125,3 +125,60 @@ automatic half.
 Not built here: Tasks (above), MCP Apps (the SLICE's follow-up), internet exposure, the OAuth resource
 server (062; `Auth.Local` is a static bearer on a loopback bind), sampling or roots requests from the
 server (never: the server asks the owner, not the client's model), the connectome surface.
+
+## Deviations while building, 2026-09-22
+
+- **The plug sits in the endpoint, not the router.** Phoenix's `Plug.Parsers` consumes a JSON body
+  before the router runs, and the core's transport reads the raw body itself (its size bound, its
+  nesting bound, its duplicate-key refusal); mounted in the router, every request answered
+  `-32700 Parse error: empty body`. `Trinity.MCP.Server.Plug` is mounted in `TrinityWeb.Endpoint`
+  ahead of the parsers, answers `POST /mcp` alone and passes everything else through.
+- **The MCP session has a persona of its own.** With the default persona, the first `memory` call from
+  an MCP client ran without asking: the default persona's settings allow the assistant its own
+  memory tool (030). An external caller inherits none of that: the "MCP server" persona has no settings.
+- **A retry before the decision does not re-enter the gate.** It did at first, and the gate minted a
+  second pending approval for the same fingerprint, which then masked the one the owner decided (the
+  policy reads the newest). A retry whose envelope names a pending approval is held again on that
+  approval under a fresh envelope; the gate is entered only once the approval is decided.
+- **The card names the actor.** "Trinity wants to run memory" was wrong for a call an MCP client made;
+  the runner puts the origin on the request and the card reads "An MCP client asks Trinity to run".
+- **The stdio entry's log handler.** The logger application installs its default handler (standard
+  output, the wire) again when the application starts, so the handler is disabled by configuration
+  before start and the standard-error handler added; `Trinity.MCP.Server.Stdio.serve/0` does it for a
+  release, `mix trinity.mcp.stdio` for the source tree.
+
+## Findings at G3, 2026-09-22
+
+1. **A defect in 030 found by AC6's probe, fixed here as `fix(s030)`.** `Trinity.Sessions.default_seed/0`
+   read the default SOUL from a module attribute computed at compile time, `_build/prod/lib/trinity/priv`,
+   which a release does not carry; the headless release's first `GET /` answered 500 on a fresh data
+   directory. The path is now resolved when read. The Burrito binary hid it because its payload keeps
+   the build tree's layout; every other `priv_dir` use in the tree (one, in `Skills.Sources`) already
+   resolved at run time.
+2. **The container.** `ci/headless/Containerfile`, built here from the tree (`docker build`, the deps and
+   exla compiled on the Elixir image, 644 MB as an image), runs as an unprivileged user with no display,
+   the data directory on a volume, the keys at 0600; `server/discover` answered through the bearer, 403
+   without, `tools/list` the five defaults (`proof/ac6-headless-container.log`).
+3. **The legacy client over stdio, measured.** `mix trinity.mcp.stdio` fed an `initialize` at 2025-11-25,
+   a `tools/list` and a `tools/call` answered all three (the call's query receipt written); standard
+   output carried the wire alone once the log handler was moved. A `mix compile` line from a stale tree
+   would reach standard output: the docs say to compile first, or to use the release's `serve/0`.
+4. **A replayed state across partitions asks again rather than running twice.** AC7's second partition
+   (a fresh replay table) admits a nonce the first partition spent; the gate's "once" is consumed, so
+   the gate holds the call on a new approval. The property, at-most-once per partition plus idempotent
+   effects, is exactly what the SLICE stated, and the test counts one `effect done` receipt.
+5. **The core's `serverInfo` on the legacy `initialize` and on `server/discover` names beam_mcp's version**
+   (`0.9.0`), since those answers are the core's; Trinity's own answers (`tools/call`) name Trinity's.
+   Recorded, not changed: a wrapper rewriting the core's answers would be the layering ADR-0007 refused.
+
+## Follow-ups
+
+- 062: `Trinity.MCP.Server.Auth.Local` is the seam for the OAuth 2.1 resource server; the web pages carry
+  no authentication in the headless profile, which is why the default bind is the loopback.
+- 090: the receipts' `meta.trace` carries the caller's `traceparent`; the catalogue should read it, and
+  the server should emit a span of its own around `tools/call`.
+- beam_mcp's board: the stdio page could say the host's log handler must not write to standard output
+  (060 finding 4, still unposted); and the `serverInfo` version on the core's answers (finding 5) is
+  worth a sentence there, since a host cannot set it.
+- MCP Apps (the SLICE's follow-up); Tasks (059 finding 4); internet exposure (behind 062).
+- The `.dockerignore` added here keeps the build context to the tree; the package workflow does not use it.
