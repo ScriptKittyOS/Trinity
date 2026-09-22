@@ -1,0 +1,10 @@
+_build
+_build_pg
+deps
+burrito_out
+src-tauri/target
+node_modules
+assets/node_modules
+*.db
+*.db-*
+.env*

@@ -17,8 +17,17 @@ defmodule Trinity.Tools.Context do
           persona: struct() | map() | nil,
           caller: term(),
           call_id: String.t() | nil,
-          tool: String.t() | nil
+          tool: String.t() | nil,
+          origin: String.t() | nil,
+          trace: map() | nil
         }
 
-  defstruct session_id: nil, cwd: nil, persona: nil, caller: nil, call_id: nil, tool: nil
+  defstruct session_id: nil,
+            cwd: nil,
+            persona: nil,
+            caller: nil,
+            call_id: nil,
+            tool: nil,
+            origin: nil,
+            trace: nil
 end

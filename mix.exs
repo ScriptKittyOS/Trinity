@@ -48,6 +48,15 @@ defmodule Trinity.MixProject do
   #     (see NOTES.md deviation D1).
   defp releases do
     [
+      # Slice 061: the headless release. The same tree assembled as an ordinary OTP release
+      # (no Burrito, no desktop shell), for a server that runs Trinity as an MCP server and
+      # the web pages on a bind address it is told (`TRINITY_MODE=headless`, `TRINITY_BIND`,
+      # `PORT`; config/runtime.exs). `ci/headless/Containerfile` builds and runs it.
+      headless: [
+        steps: [:assemble],
+        include_executables_for: [:unix],
+        applications: exla_release_applications()
+      ],
       desktop: [
         steps: [:assemble, &Burrito.wrap/1],
         # Slice 032: exla in the release, loaded and not started (see `exla_deps/0`); on a
@@ -162,7 +171,7 @@ defmodule Trinity.MixProject do
         {:file_system, "~> 1.1"},
         # Slice 059: the MCP server core (ADR-0007 decision 5), reached only through the
         # Trinity.MCP boundary; the slice measures its gap, 060 and 061 build on it.
-        {:beam_mcp, "~> 0.8"},
+        {:beam_mcp, "~> 0.9"},
         # Slice 013 (owner decision, 2026-09-20): the linux package builds mdex's NIF from
         # source for musl (MDEX_NATIVE_BUILD=1 and TRINITY_NIF_TARGET in config/config.exs),
         # because neither precompiled artifact loads in Burrito's musl ERTS (NOTES finding 13).

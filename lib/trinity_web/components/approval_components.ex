@@ -90,7 +90,7 @@ defmodule TrinityWeb.ApprovalComponents do
     >
       <div class="flex flex-wrap items-center gap-2">
         <.icon name="hero-hand-raised-micro" class="size-5 text-warning" />
-        <span class="font-semibold">{gettext("Trinity wants to run")}</span>
+        <span class="font-semibold">{actor(@approval)}</span>
         <span class="font-mono">{@approval.tool}</span>
         <.risk_badge risk={@approval.risk} />
       </div>
@@ -305,6 +305,16 @@ defmodule TrinityWeb.ApprovalComponents do
     </.link>
     """
   end
+
+  # Slice 061: who is asking. A call from an MCP client names the client as the actor; the
+  # assistant's own calls read as before.
+  defp actor(%Approval{request: %{"origin" => "mcp"}}),
+    do: gettext("An MCP client asks Trinity to run")
+
+  defp actor(%Approval{request: %{"origin" => origin}}) when is_binary(origin),
+    do: gettext("A %{origin} caller asks Trinity to run", origin: origin)
+
+  defp actor(_approval), do: gettext("Trinity wants to run")
 
   @doc "The pattern proposed for always-allow: the first path-like argument as a glob on its directory, else `*`."
   @spec suggest_pattern(Approval.t()) :: String.t()

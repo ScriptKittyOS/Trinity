@@ -52,6 +52,10 @@ defmodule Trinity do
         Tools.Context,
         Tools.Result,
         Tools.Untrusted,
+        # Slice 061: the MCP server reads the exported entries' definitions and runs calls
+        # through the membrane's runner.
+        Tools.Registry,
+        Effects.Runner,
         Permissions,
         Permissions.Approval,
         Permissions.Rule,

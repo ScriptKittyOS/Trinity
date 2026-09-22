@@ -20,17 +20,35 @@ defmodule Trinity.MCP do
   # Slice 060: the client reaches the core's decoder and validator, and Trinity's tools,
   # permissions and receipts.
   # The suite's servers under test (test/support/mcp) are the core's own transports over a
-  # test catalog, and live under this boundary too, so the modules they reach are listed
-  # for the test environment alone.
+  # test catalog, and live under this boundary too; since 061 the server side reaches the
+  # same modules, so the list is one for every environment.
   use Boundary,
     top_level?: true,
-    deps:
-      [Trinity, BeamMCP.JSON, BeamMCP.Schema] ++
-        if(Mix.env() == :test,
-          do: [BeamMCP.Catalog, BeamMCP.ToolSpec, BeamMCP.Transport.HTTP],
-          else: []
-        ),
-    exports: [Bridge, Client, Servers, ServerConfig, Supervisor, Boot]
+    # Slice 061: the server reaches the core's server, catalog, tool spec and HTTP transport.
+    deps: [
+      Trinity,
+      BeamMCP.JSON,
+      BeamMCP.Schema,
+      BeamMCP.Server,
+      BeamMCP.Catalog,
+      BeamMCP.ToolSpec,
+      BeamMCP.Transport.HTTP,
+      BeamMCP.Transport.Stdio
+    ],
+    exports: [
+      Bridge,
+      Client,
+      Servers,
+      ServerConfig,
+      Supervisor,
+      Boot,
+      Server,
+      Server.Plug,
+      Server.Stdio,
+      Server.Exports,
+      Server.Auth.Local,
+      Server.Replay
+    ]
 
   @doc "The core's version, from its application spec."
   @spec core_version() :: String.t()

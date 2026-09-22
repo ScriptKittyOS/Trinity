@@ -40,10 +40,14 @@ that means in practice:
   2025-11-25 as the fallback. Every tool a server lists becomes a tool the assistant can call,
   namespaced so it can never borrow a built-in tool's permissions, asking you until you write a
   rule; every result is marked untrusted; and when a server needs input mid-call it asks you,
-  on the permissions page, before the call continues.
+  on the permissions page, before the call continues. The other direction too: Trinity is an
+  MCP server at `POST /mcp` (and over stdio), exporting the read-only tools by default and
+  any others you name; a client's call passes the same gate and leaves the same receipts as
+  the assistant's own, and one that needs your approval waits for it on the permissions page
+  while the client carries a sealed state it can retry with. A headless release runs the same
+  tree as a server, in a container or under systemd (`docs/mcp-server.md`).
 
-Not there yet: scheduled tasks and the rest of MCP (M5a: Trinity as an MCP server with approvals,
-and the authorization roles), messaging gateways and subagents (M5b),
+Not there yet: scheduled tasks and MCP's authorization roles (M5a), messaging gateways and subagents (M5b),
 the native desktop shell and signed releases (M6), executable skills in a sandbox (M7). `ROADMAP.md` carries the live status of every
 slice, and the [Milestones](#milestones) section below explains how to read it.
 
@@ -150,6 +154,7 @@ later without renumbering anything.
 | `VERSIONS.md` | The verified dependency versions, generated from `lib/trinity/versions.ex` |
 | `CLAUDE.md` | The engineering contract: slice rules, definition of done, proof standard |
 | `docs/` | Vision, architecture, tech stack, conventions, slice process, data model, risks, security model, standards; packaging, the FIPS leg, backup and restore, performance measurements |
+| `docs/mcp-server.md` | Connecting a client to Trinity's MCP server (Claude Code, VS Code, Codex, goose), stdio, approvals over the wire, the headless profile |
 | `slices/059-mcp-library-spike/FINDINGS.md` | What the MCP server core (`beam_mcp`) ships, carries, refuses or leaves open against the 2026-07-28 checklist; the reference for the MCP phase |
 | `docs/adr/` | Architecture decision records. One is added whenever a decision changes |
 | `slices/` | One folder per slice: specification, notes and proof |

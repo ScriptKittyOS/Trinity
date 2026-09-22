@@ -56,7 +56,11 @@ Microsoft, OpenAI. Trinity targets AAIF-governed standards first; vendor-specifi
    JSON-RPC id; only requests the client declared in its capabilities may be sent, and Trinity's client
    declares form elicitation alone, so the owner answers from the permissions page and no sampling or roots
    request reaches it. The core (beam_mcp) refuses MRTR on the server side by design; Trinity's server (061)
-   speaks it above the core.
+   speaks it above the core, through the `:server` seam beam_mcp 0.9.0 shipped: `input_required` with one
+   elicitation request and a sealed `requestState`, the decision the owner's on the permissions page,
+   the retry under the envelope's call id (docs/07, "MCP server"). Over HTTP the server serves
+   2026-07-28 alone (the core's transport refuses other versions at the header); the 2025-11-25
+   compatibility is over stdio, where the core is dual-era.
 3. **Deprecated:** Roots, Sampling, Logging (use tool params/resource URIs, provider APIs directly, stderr/OTel),
    HTTP+SSE transport, DCR. Do not build new code on these.
 4. **Extensions framework** with `extensions` in capabilities. Tasks (`io.modelcontextprotocol/tasks`,

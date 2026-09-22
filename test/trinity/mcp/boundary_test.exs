@@ -12,11 +12,12 @@ defmodule Trinity.MCP.BoundaryTest do
   """
   use ExUnit.Case, async: true
 
-  test "beam_mcp is in mix.lock at 0.8.0 and the VERSIONS row reads in mix.lock" do
+  # Slice 061 bumped the pin to 0.9.0 (the :server seam); the row and the lock moved together.
+  test "beam_mcp is in mix.lock at 0.9.0 and the VERSIONS row reads in mix.lock" do
     lock = Mix.Dep.Lock.read()
-    assert {:hex, :beam_mcp, "0.8.0", _, _, _, _, _} = lock[:beam_mcp]
-    assert File.read!("VERSIONS.md") =~ ~r/`beam_mcp` \| ~> 0\.8 \| ✅ in `mix\.lock`/
-    assert Trinity.MCP.core_version() == "0.8.0"
+    assert {:hex, :beam_mcp, "0.9.0", _, _, _, _, _} = lock[:beam_mcp]
+    assert File.read!("VERSIONS.md") =~ ~r/`beam_mcp` \| ~> 0\.9 \| ✅ in `mix\.lock`/
+    assert Trinity.MCP.core_version() == "0.9.0"
   end
 
   test "the boundary compiler checks calls into beam_mcp everywhere, and Trinity.MCP is the boundary that lists it" do
@@ -28,9 +29,17 @@ defmodule Trinity.MCP.BoundaryTest do
     assert length(files) > 100
 
     referrers = for f <- files, File.read!(f) =~ ~r/\bBeamMCP\./, do: f
-    # Slice 060: the wire builder is the second referrer, under the same boundary; nothing
-    # outside `lib/trinity/mcp.ex` and `lib/trinity/mcp/` names the core.
-    assert Enum.sort(referrers) == ["lib/trinity/mcp.ex", "lib/trinity/mcp/client/wire.ex"]
+    # Slice 060: the wire builder is the second referrer, under the same boundary; 061 adds
+    # the server side (the wrapper, its catalog, the plug, the stdio entry). Nothing outside
+    # `lib/trinity/mcp.ex` and `lib/trinity/mcp/` names the core.
+    assert Enum.sort(referrers) == [
+             "lib/trinity/mcp.ex",
+             "lib/trinity/mcp/client/wire.ex",
+             "lib/trinity/mcp/server.ex",
+             "lib/trinity/mcp/server/catalog.ex",
+             "lib/trinity/mcp/server/plug.ex",
+             "lib/trinity/mcp/server/stdio.ex"
+           ]
 
     for f <- referrers,
         do: assert(f == "lib/trinity/mcp.ex" or String.starts_with?(f, "lib/trinity/mcp/"))

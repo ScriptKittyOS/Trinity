@@ -11,6 +11,8 @@ defmodule Trinity.Sessions do
   # Slice 012: Sessions reaches the LLM (docs/01: Sessions depends on LLM, Repo, PubSub).
   # Slice 020: and the tool runtime, for the declared surface and the runner in force.
   # Slice 023: and Memory, for the estimate and the compaction before a model call.
+  Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
+
   use Boundary,
     # Slice 030: Receipts, for the prompt truncation receipt (docs/01's row as built).
     deps: [Trinity, Trinity.LLM, Trinity.Tools, Trinity.Memory, Trinity.Receipts],
@@ -66,7 +68,11 @@ defmodule Trinity.Sessions do
   def archive(%SessionRow{} = session), do: Store.update_session(session, %{status: "archived"})
 
   @default_persona_name "default"
-  @default_soul_path Path.join(:code.priv_dir(:trinity), "personas/default/SOUL.md")
+  # Resolved when read, not at compile time: a module attribute baked the build tree's
+  # `_build/prod/lib/trinity/priv` into the release, where the priv directory is elsewhere,
+  # and the first page of the headless release answered 500 on a fresh data directory (slice
+  # 061 AC6's probe). The Burrito binary hid it: its payload keeps the build tree's layout.
+  @default_soul_relative "personas/default/SOUL.md"
 
   @doc """
   The persona new sessions belong to: the row named `default`, created on first use. Slice
@@ -96,10 +102,13 @@ defmodule Trinity.Sessions do
   end
 
   @doc "The default persona's seed: the SOUL file and the settings it ships with."
+  # sobelow_skip reason: Traversal.FileModule: the path is this application's priv directory
+  # plus a constant, never a request's (resolved at read time since slice 061's fix).
+  @sobelow_skip ["Traversal.FileModule"]
   @spec default_seed() :: map()
   def default_seed do
     %{
-      soul: File.read!(@default_soul_path),
+      soul: File.read!(Path.join(:code.priv_dir(:trinity), @default_soul_relative)),
       settings: %{"permissions" => %{"memory" => "allow"}}
     }
   end

@@ -246,6 +246,13 @@ One row per server the client connects to; the row's `name` is the namespace seg
 | tool_overrides | map | tool name to `{"effect": …}`; `catalog` is refused by the changeset and, on a row that carries it anyway, at load with a decision receipt on the chain scope `mcp:<name>`. No override lowers a tool's tier: it is `:ask` for every namespaced name, and a rule on the permissions page is what allows one |
 | last_error | text, nullable | |
 
+### The MCP server's files (Slice 061, not rows)
+`<data dir>/mcp-server-token` (the bearer clients present, generated once, mode 0600, overridden by
+`TRINITY_MCP_SERVER_TOKEN`) and `<keys dir>/mcp-state.key` (32 bytes, the AES-256-GCM key sealing the
+`requestState` of a held call; shared by every instance of the data directory). The MCP session is a
+`sessions` row with `origin: "mcp"` and its own persona ("MCP server", no settings); its approvals and
+receipts are ordinary rows under it.
+
 ### task_runs (Slice 050)
 `task_id`, `scheduled_at`, `session_id`, `status`, `summary`, `error`. Unique on `(task_id, scheduled_at)` so a
 run is idempotent. Oban holds the job; this holds the outcome.

@@ -49,7 +49,7 @@ attributed to a system persona with `origin: "mcp"` and crossing `Trinity.Effect
 
 ## Acceptance criteria
 1. [auto] Our 060 client connects at 2026-07-28 and lists exported tools; a 2025-11-25 test client connects to the same
-   route (tests).
+   route (tests). Amended at G1, 2026-09-22: the 2025-11-25 client connects to the same wrapper over the stdio wire, since the core's HTTP transport serves 2026-07-28 alone by its design (NOTES.md, "Read before code").
 2. [auto] `tools/list` is deterministic and carries `ttlMs`/`cacheScope`; two calls return identical order (test).
 3. [auto] `recall` via MCP yields a query receipt with `origin: "mcp"` (test).
 4. [auto] An `:artifact` tool via MCP → `input_required` → approval in UI → retry succeeds; deny → retry gets a denial

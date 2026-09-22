@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Slice 061: the headless release in a container. Two stages: the release is assembled on the
+# Elixir image whose toolchain is the tree's (.tool-versions: Erlang 28.5.0.5, Elixir 1.20.4),
+# then copied onto a slim Debian of the same generation, so the ERTS the release carries finds
+# the libc it was built against. No desktop shell, no Burrito: `mix release headless`.
+#
+#   docker build -f ci/headless/Containerfile -t trinity-headless:local .
+#   docker run --rm -p 4000:4000 -e TRINITY_MCP_SERVER_TOKEN=... trinity-headless:local
+#
+# The container binds 0.0.0.0 inside its own network namespace (TRINITY_BIND) so the published
+# port reaches it; the bearer is required on /mcp whatever the bind. The data directory is
+# /data/trinity (XDG_DATA_HOME=/data, a volume): the databases, the receipt keys, the
+# envelope key, the generated token.
+FROM hexpm/elixir:1.20.4-erlang-28.5.0.5-debian-bookworm-20260824-slim AS build
+
+RUN apt-get update -y && apt-get install -y --no-install-recommends \
+      build-essential git curl ca-certificates cmake python3 pkg-config \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+ENV MIX_ENV=prod LANG=C.UTF-8
+RUN mix local.hex --force && mix local.rebar --force
+
+COPY mix.exs mix.lock ./
+COPY config config
+RUN mix deps.get --only prod
+
+COPY lib lib
+COPY priv priv
+COPY assets assets
+RUN mix assets.deploy && mix compile && mix release headless --overwrite
+
+FROM debian:bookworm-20260824-slim AS app
+
+RUN apt-get update -y && apt-get install -y --no-install-recommends \
+      libstdc++6 openssl libncurses6 ca-certificates curl locales \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
+
+ENV LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8
+ENV TRINITY_MODE=headless TRINITY_BIND=0.0.0.0 PORT=4000 XDG_DATA_HOME=/data
+WORKDIR /app
+RUN useradd --create-home --uid 10001 trinity && mkdir -p /data && chown trinity:trinity /data /app
+COPY --from=build --chown=trinity:trinity /app/_build/prod/rel/headless ./
+USER trinity
+VOLUME ["/data"]
+EXPOSE 4000
+CMD ["bin/headless", "start"]
