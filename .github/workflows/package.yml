@@ -19,8 +19,16 @@ name: package
 # slice 001 had already proven. It now runs when a slice or release tag is pushed, on a
 # change to something packaging actually depends on, or by hand. A slice that touches
 # packaging asks for the run with `workflow_dispatch` and cites the run id in its proof.
+# Corrected again after slice 062. The tags-only trigger meant a change to a packaging input
+# (a dependency, the toolchain, the Tauri shell, config) was first packaged at the tag, which is
+# after the owner has approved the slice: slice 062 added `jose` and the first packaging run of
+# it was the tag's, which failed. Branches are added beside tags, with the same path filter, so
+# a change to those inputs is packaged on the branch that makes it. This is not the guard for a
+# prod-only code defect: the filter below does not match `lib/`, and `scripts/prod_check.sh` in
+# `mix gate` is what catches that class on every push.
 on:
   push:
+    branches: ['**']
     tags: ['slice/**', 'v*']
     paths:
       - mix.exs

@@ -284,6 +284,14 @@ defmodule Trinity.MixProject do
       gate: [
         "format --check-formatted",
         "compile --warnings-as-errors --force",
+        # The release half, added after slice 062: MIX_ENV=test says nothing about what ships.
+        # `Plug.Builder` escapes a plug's `init/1` result at compile time under prod, so a
+        # closure in those options broke the release while every gate stayed green, and the
+        # three-OS `package` workflow only found it at the tag, after approval (062 NOTES, F5).
+        # The script compiles prod, assembles the headless release and evaluates its runtime
+        # config, which is the only thing in the gate that executes runtime.exs's prod branch.
+        # `cmd`, like the two steps below: its own OS process and its own exit code.
+        "cmd ./scripts/prod_check.sh",
         "credo --strict",
         "sobelow --exit --skip",
         # `cmd` runs it as its own OS process: Hex's tasks are not reliably resolvable from
