@@ -182,3 +182,20 @@ server (never: the server asks the owner, not the client's model), the connectom
   worth a sentence there, since a host cannot set it.
 - MCP Apps (the SLICE's follow-up); Tasks (059 finding 4); internet exposure (behind 062).
 - The `.dockerignore` added here keeps the build context to the tree; the package workflow does not use it.
+
+## Two CI timing failures on this branch, 2026-09-22
+
+- Run 35676874669 (pull_request event), `postgres` job: 024's standalone census (`selection_test.exs:60`)
+  read a Bandit handler's accepted socket (this suite's own client connected to this VM's `/mcp`, the
+  client's pool keeping the connection alive past its test) as an outbound peer. The `push` event's run of
+  the same commit passed: ordering. Fixed in `f180ec1` (`test(s024)`): the census reads an accepted
+  connection on the endpoint's listener as inbound, which it is.
+- Run 35677465879 (pull_request event), `gate` job, seed 166026, max_cases 8: `archive/round_trip_test.exs:129`'s
+  `on_exit` (`unseed/1`, four `delete_all`) timed out after 60 s on a database checkout
+  (`DBConnection.Holder.checkout_call/5`). The `push` event's run of the same commit passed (468 on
+  postgres, 488 on gate), and `mix test --seed 166026` here passes (488, max_cases 64, so not the same
+  order). What held the connection is not known from the log. The job was rerun (`gh run rerun --failed`);
+  the closing correction names its result. If it recurs, the candidate is a `fix(s034)` giving that
+  module's teardown its own checkout, and the question whether this slice's suite leaves a process holding
+  one; nothing in it reaches the database after its tests end (the client is stopped on exit, the receipt
+  writers are stopped on exit), but the record is here so the next reader does not start from nothing.
