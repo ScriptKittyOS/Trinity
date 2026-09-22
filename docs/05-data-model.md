@@ -164,18 +164,35 @@ One row per request, the audit trail this slice owns; slice 024 reads it for dec
 | request | map, nullable | slice 060: a server's input request as sent (`kind`, `server`, `inputRequests`), when the approval is a multi-round-trip question and not a yes or no; the server's `requestState` is never here (it lives in the client process) |
 | answer | map, nullable | slice 060: the answer the decision carried, the revision's `inputResponses` map keyed as `inputRequests` were |
 
-### tasks (Slice 050)
+### tasks (Slice 050, as built)
 | column | type | notes |
 |---|---|---|
 | name | string | |
-| schedule | string | cron expr or ISO one-shot |
-| prompt | text | |
-| persona_id | fk | |
-| skill_names | {array, string} | |
-| deliver_to | map | `{"gateway": "telegram", "ref": {...}}` or desktop |
-| enabled | boolean | |
-| last_run_at, next_run_at | | mirrors Oban state |
-Execution history is in `oban_jobs` + a `task_runs` table (status, session_id, summary).
+| kind | string | "cron" \| "once" |
+| schedule | string | a five-field cron expression Oban's parser accepts (`@daily` and its kin too), or an ISO 8601 datetime for `once` |
+| prompt | text | the user message of the run's turn |
+| persona_id | fk personas, nullable | the default persona when unset |
+| skill_names | {array, string} | hinted to the model in the prompt |
+| deliver_to | map | `%{"kind" => "desktop"}` at 050; gateways name their kind at 070 |
+| enabled | boolean | the tick enqueues enabled tasks only; a `once` task is disabled once enqueued |
+| timeout_ms | integer | one run's bound (600 000 by default) |
+| last_run_at, next_run_at | timestamp | `next_run_at` is computed by `Trinity.Scheduler` from the schedule, not mirrored from Oban: the tick (one Cron plugin entry a minute) enqueues what is due and advances it |
+
+### task_runs (Slice 050, as built)
+| column | type | notes |
+|---|---|---|
+| task_id | fk tasks | |
+| scheduled_at | timestamp | unique with `task_id`: a tick that fires twice enqueues once |
+| session_id | fk sessions, nullable | the `origin: "cron"` session the turn ran in |
+| status | string | "queued" \| "running" \| "retrying" \| "ok" \| "failed" |
+| attempt | integer | Oban's attempt number |
+| summary | text | the assistant's answer, its first 2 000 bytes |
+| error | text | on `retrying` and `failed` |
+| started_at, finished_at, delivered_at, seen_at | timestamp | `seen_at` is set from the tasks page |
+Oban's own `oban_jobs` (and `oban_peers`) carry the jobs; the pruner keeps a week of them.
+
+The curator (slice 050) adds `stale_at` and `archived_at` to `memories` (docs above): stale is still
+recalled and shown as such; archived leaves recall and stays in the row.
 
 ### usage_events (Slice 011; the ledger and budgets that read it are Slice 090)
 One row per completed call, as built at slice 011:

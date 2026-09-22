@@ -46,8 +46,15 @@ merged with a merge commit and tagged `slice/NNN` (`git tag -l 'slice/*' | wc -l
   the assistant's own, and one that needs your approval waits for it on the permissions page
   while the client carries a sealed state it can retry with. A headless release runs the same
   tree as a server, in a container or under systemd (`docs/mcp-server.md`).
+- **Runs on a schedule.** Tasks on the `/tasks` page: a prompt, a persona, the skills to hint,
+  and when (a cron expression, a one-shot time, or a phrase like "every weekday at 9am" the
+  model turns into cron). Each run is a fresh conversation you can open, its result waits on
+  the page until you have read it, and the work is a durable job (Oban on the app's own
+  database) that survives a restart and retries a failed turn. The memory observer and a
+  curator that marks old memories stale and archives the untouched ones (never deleting)
+  run on the same queues; `/oban` shows the jobs.
 
-Not there yet: scheduled tasks and MCP's authorization roles (M5a), messaging gateways and subagents (M5b),
+Not there yet: MCP's authorization roles (M5a), messaging gateways and subagents (M5b),
 the native desktop shell and signed releases (M6), executable skills in a sandbox (M7). `ROADMAP.md` carries the live status of every
 slice, and the [Milestones](#milestones) section below explains how to read it.
 
@@ -91,7 +98,8 @@ full-text search, `/personas` and `/memory` the persona and its memory (with the
 the embedding model's download), `/skills` the skills, the changes waiting for your decision and
 the learn form, `/mcp` the MCP servers you connect to (their health and the tools they
 contribute), `/permissions` the rules and pending approvals (a server's question to you, when
-one of its tools asks for input mid-call, is answered there too), `/settings` the export. `mix trinity.export` and `mix trinity.import` do what `/settings` does from a terminal;
+one of its tools asks for input mid-call, is answered there too), `/tasks` the scheduled tasks and
+their results, `/oban` the jobs (in development, or when configured), `/settings` the export. `mix trinity.export` and `mix trinity.import` do what `/settings` does from a terminal;
 `docs/backup.md` explains the archive.
 
 Semantic recall needs the local embedding model (91 MB, downloaded from the memory page on your

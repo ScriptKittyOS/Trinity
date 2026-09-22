@@ -137,6 +137,20 @@ root loads as any other and is not scanned (a follow-up in the slice's NOTES).
 - Luerl with reduction limits, no `os`/`io`/`require`, no filesystem; explicit host functions only.
 - Native/shell code is never "sandboxed" by the BEAM: the UI says so plainly when approving `:exec`.
 
+## Scheduled tasks (Slice 050, as built)
+
+- **A run is an ordinary turn** in a fresh session with `origin: "cron"`, the persona the task names, the
+  task's prompt as the user message. It reaches tools through the same gate and the same membrane, and
+  every call it makes leaves the same receipts; the session's history is the run's record and the tasks
+  page links to it.
+- **Nobody is at the desk.** A tool call that asks for approval in a cron session waits its expiry on the
+  permissions page (021, ten minutes by default) and is denied when it passes; the turn goes on and the
+  run's summary shows the denial. A rule the owner writes beforehand is what lets a scheduled task write.
+- **The curator deletes nothing.** Marking stale is a query receipt; archiving is an effect receipt written
+  by the curator itself (as 041's promotion writes its own); both on the persona's memory scope.
+- **Oban's dashboard** at `/oban` is in the browser pipeline with no authentication, as every page is
+  until 062; it is mounted in development and where `config :trinity, :oban_web` says so.
+
 ## MCP client (Slice 060, as built)
 
 - **Every tool a server lists is a dynamic tool under `mcp:<server>:<tool>`**, registered through one bridge
