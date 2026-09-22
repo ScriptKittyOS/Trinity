@@ -112,3 +112,50 @@ browser, as 060 and 061's were; the owner's queue is to look.
 Not built here: Oban Pro, multi-step workflows, gateway deliveries (070), a task's own approval channel
 (a cron session's approvals expire, recorded above), Oban Web behind authentication (the pages have none
 yet; 062).
+
+## Deviations while building, 2026-09-22
+
+- **The suite's SQLite pool has two connections, not one.** Oban verifies its migration at start through
+  a raw checkout (`Oban.Migration.verify_migrated!/1`, `Sandbox.unboxed_run`), and at that moment the
+  sandbox is still in auto mode with the first long-lived boot process holding the one connection until
+  it exits: Oban waited 90 s and the application failed to start. `config/test.exs` gives the test pool a
+  second connection for that check; every test still shares its owner's single connection with every
+  process it starts, which is 010's property, and 010's pool-size test now reads the shipped
+  configuration from `config/config.exs` under the production environment (one connection, as before).
+- **AC1's "inserts a cron entry" is the tick's design**, decided at G1: the task carries its cron and its
+  next time; the tick enqueues it when due. The test drives the tick at the task's boundary.
+- **032's observer-through-session test drains the memory queue** instead of waiting for a task's row,
+  since the observer is a job now and the suite runs Oban manually.
+- **Oban Web's LiveView cannot mount in the suite** (it awaits `Oban.Met`, which Oban does not start in
+  manual testing mode); the route's mount is asserted on the router, and the page is AC6's screenshot.
+- **The dashboard route is mounted in the suite** through `config :trinity, :oban_web, true` in
+  config/test.exs, so the mount is a test and not a dev-only line.
+
+## Findings at G3, 2026-09-22
+
+1. **The SLICE's risk, measured: Oban's polling against the app's single writer.** `scripts/stress_010.exs`
+   in the dev environment, Oban's three queues polling at the Lite engine's default interval (1 s) and the
+   plugins running: `appends=4000 errors=0 wall_ms=1559 appends_per_s=2565.7 integrity=ok
+   wal_bytes=4165352 gapless=true sqlite=3.53.4`, against 3012.1 and 3420.3 appends per second at 010
+   (its two runs, on that tree, without Oban). No error, no lost append, the WAL the same size; a
+   throughput a fifth lower under a write storm no session produces. The poll interval stays at the
+   default; the number is here to set it from if a later slice needs to.
+2. **Three workers, one dashboard.** After one run of the "daily summary" task with the observer on,
+   `/oban/jobs` lists the completed `Tick` (maintenance), `RunTask` (agent_tasks) and `ObserverWorker`
+   (memory, the message ids in its args and no text), each once (`proof/ac6-2-oban-jobs.png`).
+3. **The session's first `:idle` is the process's, not the turn's.** A fresh session broadcasts `:idle`
+   when it starts; the worker waiting for the turn's end read that one and finished with no summary.
+   `RunTask` drains the start's idle before it sends the message (the SessionCase's `start_drained`
+   is the same lesson from 012).
+4. **`Oban.Cron.Expression.next_at/2` answers whole minutes** and an ISO string carries whatever it
+   carried; the columns are microsecond, so the context normalises every datetime it stores.
+5. **Two flakes recorded on 061's branch did not recur here**: the suite ran clean three times locally
+   (500, 501 with the new tests); CI's numbers are in the closing correction.
+
+## Follow-ups
+
+- 070: gateway deliveries implement `Trinity.Scheduler.Delivery` and name their kind in `deliver_to`.
+- 062: Oban Web and the tasks page behind authentication with the rest of the pages.
+- A task's approvals: a cron session's tool call that asks is denied at expiry; a delivery that carries
+  the pending approval to a gateway (070) or a longer expiry per task is the next step if it bites.
+- The poll interval (finding 1) is a knob without a need yet.
