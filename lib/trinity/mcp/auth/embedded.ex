@@ -30,6 +30,7 @@ defmodule Trinity.MCP.Auth.Embedded do
   @code_ttl_s 600
   @request_ttl_s 600
   @cimd_ttl_s 3_600
+  @loopback_hosts ["127.0.0.1", "localhost", "::1"]
 
   ## The behaviour (the resource server half)
 
@@ -38,7 +39,7 @@ defmodule Trinity.MCP.Auth.Embedded do
     with {:ok, token} <- Auth.bearer(conn),
          {:ok, header} <- Token.header(token),
          {:ok, entry} <- key_for(config, header["kid"]) do
-      Token.verify_with_key(token, entry.jwk, %{config | issuer: config.issuer || config.resource})
+      Token.verify_with_key(token, entry.jwk, %{config | issuer: issuer(config)})
     end
   end
 
@@ -326,18 +327,28 @@ defmodule Trinity.MCP.Auth.Embedded do
   defp same(_, _, reason), do: {:error, reason}
 
   # A client is a registered one (DCR) or a Client ID Metadata Document: the id is an https
-  # URL whose document names itself and its redirect URIs. Fetched once an hour.
+  # URL whose document names itself and its redirect URIs, fetched once an hour. The one
+  # http exception is a loopback host (RFC 8252 section 7.3's reasoning: a process on this
+  # machine, which in the personal profile is the owner's), so a local client can publish its
+  # document without a certificate; recorded in NOTES as the deviation from the CIMD draft.
   defp client(client_id, state) do
     cond do
       Map.has_key?(state.clients, client_id) ->
         {:ok, state.clients[client_id], state}
 
-      String.starts_with?(client_id, "https://") or
-          (String.starts_with?(client_id, "http://") and state.config.dcr) ->
+      cimd_url?(client_id) ->
         cimd(client_id, state)
 
       true ->
         {:error, :unknown_client, state}
+    end
+  end
+
+  defp cimd_url?(client_id) do
+    case URI.new(client_id) do
+      {:ok, %URI{scheme: "https", host: host}} when is_binary(host) and host != "" -> true
+      {:ok, %URI{scheme: "http", host: host}} -> host in @loopback_hosts
+      _ -> false
     end
   end
 
@@ -377,7 +388,7 @@ defmodule Trinity.MCP.Auth.Embedded do
   defp redirect_match?(registered, given) do
     with %URI{scheme: "http", host: rh} = r <- URI.parse(registered),
          %URI{scheme: "http", host: gh} = g <- URI.parse(given),
-         true <- rh in ["127.0.0.1", "localhost", "[::1]"] and rh == gh do
+         true <- rh in @loopback_hosts and rh == gh do
       r.path == g.path
     else
       _ -> false

@@ -22,13 +22,27 @@ defmodule Trinity.MCP.Auth.JWKS do
           {:ok, key}
 
         :error ->
-          with {:ok, keys} <- refresh(issuer, opts) do
+          with {:ok, keys} <- refresh_on_miss(issuer, opts) do
             case find(keys, kid) do
               {:ok, key} -> {:ok, key}
               :error -> {:error, {:unknown_kid, kid}}
             end
           end
       end
+    end
+  end
+
+  # A miss refreshes once; a second miss inside the floor is answered from the cache, so an
+  # unknown `kid` a caller keeps presenting is not a fetch per request.
+  defp refresh_on_miss(issuer, opts) do
+    now = System.monotonic_time(:millisecond)
+
+    case :persistent_term.get({__MODULE__, issuer}, nil) do
+      {keys, _, missed} when is_integer(missed) and now - missed < @refresh_floor_ms ->
+        {:ok, keys}
+
+      _ ->
+        refresh(issuer, Keyword.put(opts, :missed_at, now))
     end
   end
 
@@ -48,14 +62,15 @@ defmodule Trinity.MCP.Auth.JWKS do
     end
   end
 
-  @doc "Fetches the keys again; the cache is replaced (the time of the last miss-driven refresh kept)."
+  @doc "Fetches the keys again; the cache is replaced (the time of the last miss-driven refresh kept, or set by `missed_at:`)."
   @spec refresh(String.t(), keyword()) :: {:ok, [JOSE.JWK.t()]} | {:error, term()}
   def refresh(issuer, opts \\ []) do
     now = System.monotonic_time(:millisecond)
 
     missed =
-      case :persistent_term.get({__MODULE__, issuer}, nil) do
-        {_, _, m} -> m
+      case {Keyword.get(opts, :missed_at), :persistent_term.get({__MODULE__, issuer}, nil)} do
+        {at, _} when is_integer(at) -> at
+        {nil, {_, _, m}} -> m
         _ -> nil
       end
 

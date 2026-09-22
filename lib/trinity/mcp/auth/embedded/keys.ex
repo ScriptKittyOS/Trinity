@@ -45,7 +45,17 @@ defmodule Trinity.MCP.Auth.Embedded.Keys do
 
   @doc "Makes a new key, which becomes the signing key; the old ones stay for verification."
   @spec rotate!(Path.t()) :: entry()
-  def rotate!(dir), do: generate!(dir)
+  def rotate!(dir) do
+    # Strictly newer than the key in force, whatever the clock says (two keys in one second
+    # would otherwise tie, and the tie would pick the signer by file name).
+    after_at =
+      case all(dir) do
+        [newest | _] -> newest.created_at + 1
+        [] -> 0
+      end
+
+    generate!(dir, after_at)
+  end
 
   @doc "Drops keys older than `max_age_s`, keeping the newest whatever its age."
   @spec prune!(Path.t(), pos_integer()) :: [entry()]
@@ -75,11 +85,11 @@ defmodule Trinity.MCP.Auth.Embedded.Keys do
     %{"keys" => keys}
   end
 
-  defp generate!(dir) do
+  defp generate!(dir, after_at \\ 0) do
     File.mkdir_p!(dir)
     jwk = JOSE.JWK.generate_key({:ec, "P-256"})
     kid = jwk |> JOSE.JWK.thumbprint() |> binary_part(0, 12)
-    created_at = System.os_time(:second)
+    created_at = max(System.os_time(:second), after_at)
     {_, private} = JOSE.JWK.to_map(jwk)
     path = Path.join(dir, "mcp-as-#{kid}.jwk.json")
 
