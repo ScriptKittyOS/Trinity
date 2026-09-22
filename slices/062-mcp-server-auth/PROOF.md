@@ -337,3 +337,18 @@ One of them is scoped `s061`, correctly: it amends 061's own test for the `401` 
 **Not done, and deliberately.** No pull request is open, nothing is merged, and no tag exists: the
 slice's status is `done`, which is the agent's half, and `approved` is yours (G4). The `slice/062`
 tag and the three-OS `package` run that the tag triggers both come after that.
+
+## Correction, 2026-09-22, after the tag: the release build, and what this proof did not cover
+
+Appended, not rewritten. Everything above stands as measured, and it did not measure one thing: the
+`package` workflow, which this file's "Gate" section correctly said would run only at the
+`slice/062` tag. It ran (35786247006) and its linux and windows legs failed to compile the release,
+because `Plug.Builder` escapes a plug's `init/1` result at compile time under `MIX_ENV=prod` and
+this slice had put an anonymous function in those options. NOTES.md records it as **F5** with the
+reproduction on `main` at `9859fbe`, the fix (`authorize: &__MODULE__.authorized/1`) and the
+regression test, which was demonstrated red against the closure before the fix.
+
+What this says about the proof above: the AC evidence is unaffected (every criterion was measured
+through the running server in `:test`, and the fix changes no behaviour, only how the same function
+is passed). What it says about the gate is in NOTES.md as a follow-up: `mix gate` never compiles
+`:prod`, so this class of defect cannot be caught before a tag exists under the current CI.

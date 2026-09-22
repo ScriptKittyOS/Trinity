@@ -241,3 +241,48 @@ name, so the older could stay the signer (`Keys.rotate!/1` now makes the new key
 - The `TrustedHeaders` profile, only if a deployment asks (deviation 2).
 - The `[::1]` origin in `Server.Plug.loopback_origins/0` is a browser `Origin` header (bracketed there,
   rightly); F2 is about `URI.host`, not that list.
+
+## Correction, 2026-09-22, after the tag: the release build was broken
+
+**F5, found by the `package` workflow at the `slice/062` tag** (run 35786247006, the first run of
+that workflow over this slice: its push trigger is tags only). The linux and windows legs failed to
+compile:
+
+```
+== Compilation error in file lib/trinity_web/endpoint.ex ==
+** (ArgumentError) cannot escape #Function<0.132933281/1 in Trinity.MCP.Server.Plug.init/1>.
+   The supported values are: lists, tuples, maps, atoms, numbers, bitstrings, PIDs and remote
+   functions in the format &Mod.fun/arity
+```
+
+`Plug.Builder` calls a plug's `init/1` **at compile time** when `MIX_ENV=prod` and escapes what it
+returns into the compiled endpoint. Slice 062 replaced 061's `authorize: &Auth.Local.authorize/1`
+(a remote capture, which escapes) with an anonymous function closing over the process-dictionary
+key (which cannot be escaped). `mix gate` runs in `MIX_ENV=test`, where `init/1` is called per
+request, so the local gate and all three CI legs were green over a tree whose release could not
+compile. Reproduced on `main` at `9859fbe` in one command, before any fix:
+
+```
+$ MIX_ENV=prod mix compile
+== Compilation error in file lib/trinity_web/endpoint.ex ==
+** (ArgumentError) cannot escape #Function<0.132933281/1 in Trinity.MCP.Server.Plug.init/1>. …
+exit 1
+```
+
+Fixed in `fix(s062)` on `fix/s062-prod-compile`: the hook is `&__MODULE__.authorized/1`, a public
+function with the same body, as 061's was a remote capture. The regression test is
+`test/trinity/mcp/server_test.exs`, "every option the plug's init returns can be escaped, as a
+compile-time init must be": it runs `Macro.escape/1` over `Plug.init([])`, which is the compile-time
+step that failed. Demonstrated red against the closure first, with the same message CI printed.
+
+The slice is not rewritten and the tag is not moved: this is a fix commit referencing the original,
+as CLAUDE.md section 4 and docs/04 require.
+
+**Follow-up (new, and the reason this was missed): the gate never compiles `:prod`.** Nothing in
+`mix gate` or in the push-triggered CI builds a release, and `package.yml` only triggers on tags,
+so a compile-time defect in a plug's options, a release-only config error, or anything else that
+differs between `:test` and `:prod` is invisible until a tag exists, which is after approval. Two
+candidate fixes, for the owner: add a `MIX_ENV=prod mix compile` step to the gate (about a minute
+per run, catches this whole class), or give `package.yml` a `branches:` push trigger beside its
+tags one (slower, but proves the bundle too). Owner's call; not done here, since the gate is every
+slice's contract and this slice does not own it.

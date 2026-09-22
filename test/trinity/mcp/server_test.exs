@@ -313,4 +313,19 @@ defmodule Trinity.MCP.ServerTest do
     assert %{"result" => %{"supportedVersions" => ["2026-07-28"], "resultType" => "complete"}} =
              Jason.decode!(answer)
   end
+
+  # fix(s062). `Plug.Builder` calls a plug's `init/1` at compile time in `:prod` and escapes what
+  # it returns into the compiled endpoint, so an option that cannot be escaped breaks the release
+  # build and nothing else: the gate runs in `:test`, where `init/1` is called per request, and
+  # was green over it for the whole of slice 062. This is that compile-time step, in a test.
+  test "every option the plug's init returns can be escaped, as a compile-time init must be" do
+    opts = Trinity.MCP.Server.Plug.init([])
+    assert is_list(opts) or is_map(opts)
+    assert Macro.escape(opts)
+
+    # The authorize hook is the option that broke it: a remote capture escapes, a closure does not.
+    assert_raise ArgumentError, ~r/cannot escape/, fn ->
+      Macro.escape(authorize: fn _conn -> :ok end)
+    end
+  end
 end
