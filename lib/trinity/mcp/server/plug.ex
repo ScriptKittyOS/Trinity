@@ -32,10 +32,12 @@ defmodule Trinity.MCP.Server.Plug do
       catalog: Catalog,
       dispatch: nil,
       # Slice 062: the profile's authorization runs in `call/2` before the transport, which
-      # then finds the principal it left; the transport's own hook is that second look.
-      authorize: fn _conn ->
-        if Process.get(@principal_key), do: :ok, else: {:error, :unauthorized}
-      end,
+      # then finds the principal it left; the transport's own hook is that second look. A
+      # remote capture and never an anonymous function: `Plug.Builder` calls `init/1` at
+      # compile time in `:prod` and escapes what it returns into the endpoint, and a closure
+      # cannot be escaped (`fix(s062)`: the release build was broken and the gate, which runs
+      # in `:test` where `init/1` is called at runtime, could not see it).
+      authorize: &__MODULE__.authorized/1,
       allowed_origins: Keyword.get(config, :allowed_origins, loopback_origins()),
       server_name: Keyword.get(config, :server_name, "trinity"),
       tools_ttl_ms: Keyword.get(config, :tools_ttl_ms, 60_000),
@@ -65,6 +67,16 @@ defmodule Trinity.MCP.Server.Plug do
   end
 
   def call(conn, _opts), do: conn
+
+  @doc """
+  The transport's `:authorize` hook: the second look at what `call/2` decided. `call/2`
+  authorizes the request and leaves the principal in this process before the transport runs, so
+  a request that reaches the transport without one never passed the profile's check.
+  """
+  @spec authorized(Plug.Conn.t()) :: :ok | {:error, :unauthorized}
+  def authorized(_conn) do
+    if Process.get(@principal_key), do: :ok, else: {:error, :unauthorized}
+  end
 
   @doc "The principal the plug left for the wrapper, in this process."
   @spec principal() :: Trinity.MCP.Auth.Principal.t() | nil
