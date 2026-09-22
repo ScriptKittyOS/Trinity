@@ -89,7 +89,15 @@ defmodule Trinity.Authority.SelectionTest do
           {:connected, pid} <- [Port.info(port, :connected)],
           do: {port, peer, describe(pid)}
 
-    trinity_peers = Enum.filter(peers, fn {_, _, %{app: app}} -> app == {:ok, :trinity} end)
+    # An accepted connection on the endpoint's own listener (a Bandit handler's socket) is
+    # inbound, not outbound: slice 061's suite connects Trinity's MCP client to Trinity's own
+    # /mcp, and the client's pool keeps the connection alive past its test (found on run
+    # 35676874669, one ordering of the postgres job). The census asks about connections this
+    # application opened, and the endpoint opened none of those.
+    trinity_peers =
+      Enum.filter(peers, fn {_, _, %{app: app, initial_call: call}} ->
+        app == {:ok, :trinity} and not match?({Bandit.DelegatingHandler, _, _}, call)
+      end)
 
     for {port, peer, %{initial_call: call} = who} <- trinity_peers do
       assert call in [{DBConnection.Connection, :init, 1}, {Postgrex.Protocol, :init, 1}],
