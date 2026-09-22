@@ -30,7 +30,12 @@ If ROADMAP.md shows no slice `in_progress` and the previous slice is not `approv
 
 A slice is done only when ALL of these are true:
 
-1. `mix gate` passes (format check, compile with warnings-as-errors, credo --strict, boundary, tests, audits).
+1. `mix gate` passes (format check, compile with warnings-as-errors, boundary, **the release check**,
+   credo --strict, sobelow, tests, audits, plan check). The release check is `scripts/prod_check.sh`:
+   the tree compiles under `MIX_ENV=prod`, the headless release assembles, and it evaluates
+   `config/runtime.exs`'s prod branch. It exists because `MIX_ENV=test` says nothing about what
+   ships: a plug's `init/1` is called at compile time under prod, and slice 062 shipped a closure
+   there that broke the release while every gate stayed green (slice 062 NOTES, F5).
 2. Every acceptance criterion has a corresponding proof entry (command + output, or screenshot for UI).
 3. New behaviours/public modules have `@moduledoc` and `@doc`; new behaviours have typespecs.
 4. Tests exist for new logic (unit for pure code, process tests for GenServers, LiveView tests for UI).
@@ -43,6 +48,7 @@ A slice is done only when ALL of these are true:
 
 ```
 mix gate                      # the full quality gate (defined in Slice 000). Must pass before every commit.
+./scripts/prod_check.sh       # the release half of the gate, on its own: prod compile, release assemble, config eval
 mix test                      # tests
 mix test --cover              # coverage (report the line in PROOF.md)
 mix credo --strict
