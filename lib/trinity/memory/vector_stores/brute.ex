@@ -38,7 +38,7 @@ defmodule Trinity.Memory.VectorStores.Brute do
     from(e in Entry,
       where:
         e.persona_id == ^persona_id and e.tier == "semantic" and e.scope in ^scopes and
-          e.embedding_model == ^model and not is_nil(e.embedding)
+          e.embedding_model == ^model and not is_nil(e.embedding) and is_nil(e.archived_at)
     )
     |> Repo.all()
     |> score(query)
@@ -105,7 +105,7 @@ defmodule Trinity.Memory.VectorStores.Brute do
       from(e in Entry,
         where:
           e.persona_id == ^persona_id and e.tier == "semantic" and e.scope in ^scopes and
-            e.embedding_model == ^model and not is_nil(e.embedding)
+            e.embedding_model == ^model and not is_nil(e.embedding) and is_nil(e.archived_at)
       ),
       :count
     )

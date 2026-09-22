@@ -66,7 +66,10 @@ defmodule Trinity.Application do
           # Slice 061: the server's replay table, before the endpoint that serves /mcp.
           Trinity.MCP.Server.Replay,
           Trinity.MCP.Boot,
-          Trinity.Sessions.Supervisor
+          Trinity.Sessions.Supervisor,
+          # Slice 050: Oban after the sessions its workers drive (a run is a turn in a session),
+          # the engine chosen by the adapter (config.exs).
+          {Oban, Application.fetch_env!(:trinity, Oban)}
         ] ++
         Trinity.Smoke.probe(Trinity.Smoke.argv()) ++
         [

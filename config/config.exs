@@ -109,6 +109,30 @@ config :trinity, :fs, roots: []
 # without evaluating the environment-specific imports below.
 import_config "llm.exs"
 
+# Slice 050: Oban on the app's repo. The engine follows the compile-time adapter (Lite on
+# SQLite, Basic on Postgres); the queues are small because the machine's model is one; the
+# tick is the scheduler's one Cron entry and the curator its second; the pruner keeps the jobs
+# table to a week; the lifeline rescues a job orphaned by a crash. config/test.exs sets
+# `testing: :manual` so nothing runs on its own in the suite.
+config :trinity, Oban,
+  repo: Trinity.Repo,
+  engine:
+    if(System.get_env("TRINITY_DB", "sqlite") == "postgres",
+      do: Oban.Engines.Basic,
+      else: Oban.Engines.Lite
+    ),
+  notifier: Oban.Notifiers.PG,
+  queues: [agent_tasks: 1, memory: 2, maintenance: 1],
+  plugins: [
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"* * * * *", Trinity.Scheduler.Workers.Tick},
+       {"0 3 * * *", Trinity.Memory.Curator}
+     ]},
+    {Oban.Plugins.Pruner, max_age: 7 * 24 * 60 * 60},
+    {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(30)}
+  ]
+
 # Slice 010, every environment, SQLite only (the Postgres adapter ignores keys it does not
 # know, and the CI matrix proves that). One writer: the pool has exactly one connection, so the
 # single-writer rule SQLite imposes is the pool's shape rather than a hope. Each pragma is named

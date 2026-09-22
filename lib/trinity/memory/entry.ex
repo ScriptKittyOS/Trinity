@@ -31,6 +31,10 @@ defmodule Trinity.Memory.Entry do
     field :embedding, :binary
     field :embedding_model, :string
     field :embedding_dim, :integer
+    # Slice 050: the curator's marks. Stale is untouched for a while and still recalled;
+    # archived leaves recall and stays in the row (nothing is deleted by the curator).
+    field :stale_at, :utc_datetime_usec
+    field :archived_at, :utc_datetime_usec
     timestamps(type: :utc_datetime_usec)
   end
 

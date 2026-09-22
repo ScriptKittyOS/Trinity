@@ -127,9 +127,16 @@ if System.get_env("TRINITY_DB") == "postgres" do
     queue_target: 5_000,
     queue_interval: 30_000
 else
+  # Slice 050: two connections, not one. At boot the sandbox is still in auto mode and the
+  # first long-lived process to query holds a connection until it exits; Oban verifies its
+  # migration at start through a raw checkout (`unboxed_run`) and waited 90 s on the one
+  # connection (run of 2026-09-22). Every test still shares its owner's single connection
+  # with every process it starts (shared mode), so 010's "writers queue on one connection"
+  # holds within a test; the second serves the boot-time check alone.
   config :trinity, Trinity.Repo,
     database: Path.expand("../trinity_test.db", __DIR__),
     pool: Ecto.Adapters.SQL.Sandbox,
+    pool_size: 2,
     queue_target: 5_000,
     queue_interval: 30_000
 
@@ -196,3 +203,6 @@ config :trinity, :skills,
 # needs); a short backoff so the reconnect test runs in seconds.
 config :trinity, :mcp_boot, false
 config :trinity, :mcp_client, backoff_ms: 50, max_backoff_ms: 400, connect_timeout: 5_000
+
+# Slice 050: Oban runs nothing on its own in the suite; each test drives its jobs.
+config :trinity, Oban, testing: :manual

@@ -3,8 +3,9 @@
 defmodule Trinity.Memory.Observer do
   @moduledoc """
   Fills the semantic tier after a turn (slice 032). The session hands the completed turn's
-  messages to `observe/2`, which runs `run/2` under `Trinity.Memory.TaskSupervisor` so the
-  session is idle at once and a crash here is this task's alone. `run/2` asks the session's
+  messages to `observe/2`, which enqueues `Trinity.Memory.ObserverWorker` on Oban's `memory`
+  queue (slice 050; a task under `Trinity.Memory.TaskSupervisor` before it) so the session is
+  idle at once, a crash here is the job's alone, and a model error is retried. `run/2` asks the session's
   own model (`Trinity.LLM.generate_object/3`, the one the operator chose for the conversation:
   no text goes anywhere new, NOTES decision 5) for 0 to 3 durable facts, preferences or
   decisions, embeds them in one batch, drops each whose cosine to a memory already in the
@@ -67,9 +68,21 @@ defmodule Trinity.Memory.Observer do
 
   @doc "Runs `run/2` under the memory task supervisor; `:off` when the observer is off."
   @spec observe(turn(), [message()]) :: {:ok, pid()} | :off
+  # Slice 050: a job on the `memory` queue rather than a task under the supervisor, so the
+  # extraction survives a restart and is retried on a model error (`Trinity.Memory.ObserverWorker`).
+  # The job carries the message ids, never their text.
   def observe(turn, messages) do
     if on?(turn) do
-      Task.Supervisor.start_child(Trinity.Memory.TaskSupervisor, fn -> run(turn, messages) end)
+      %{
+        "turn" => %{
+          "session_id" => turn.session_id,
+          "persona_id" => turn.persona_id,
+          "model" => turn.model
+        },
+        "message_ids" => Enum.map(messages, & &1.id)
+      }
+      |> Trinity.Memory.ObserverWorker.new()
+      |> Oban.insert()
     else
       :off
     end

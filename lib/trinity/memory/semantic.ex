@@ -146,7 +146,9 @@ defmodule Trinity.Memory.Semantic do
   @spec entries(String.t(), [String.t()], keyword()) :: [Entry.t()]
   def entries(persona_id, scopes, opts \\ []) do
     from(e in Entry,
-      where: e.persona_id == ^persona_id and e.tier == "semantic" and e.scope in ^scopes,
+      where:
+        e.persona_id == ^persona_id and e.tier == "semantic" and e.scope in ^scopes and
+          is_nil(e.archived_at),
       order_by: [desc: e.inserted_at],
       limit: ^Keyword.get(opts, :limit, 200)
     )
