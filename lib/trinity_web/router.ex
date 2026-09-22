@@ -18,6 +18,23 @@ defmodule TrinityWeb.Router do
     plug :accepts, ["json"]
   end
 
+  # Slice 062: the OAuth surfaces a client or another server reads without a browser session
+  # (metadata, keys, the token and registration endpoints; the body form-encoded or JSON).
+  pipeline :oauth do
+    plug :accepts, ["json"]
+  end
+
+  scope "/", TrinityWeb do
+    pipe_through :oauth
+
+    get "/.well-known/oauth-protected-resource", OAuthController, :protected_resource
+    get "/.well-known/oauth-protected-resource/*path", OAuthController, :protected_resource
+    get "/.well-known/oauth-authorization-server", OAuthController, :authorization_server
+    get "/.well-known/jwks.json", OAuthController, :jwks
+    post "/oauth/token", OAuthController, :token
+    post "/oauth/register", OAuthController, :register
+  end
+
   # Slice 013: the chat. One local user, so no scope is fetched; the session id is the URL.
   scope "/", TrinityWeb do
     pipe_through :browser
@@ -46,6 +63,12 @@ defmodule TrinityWeb.Router do
       live "/s/:id/receipts", ReceiptsLive, :session
       live "/receipts/boot", ReceiptsLive, :boot
     end
+
+    # Slice 062: the owner's pages of the authorization flows (a session and CSRF: the consent
+    # is a form the owner submits; the callback lands in the browser).
+    get "/oauth/authorize", OAuthController, :authorize
+    post "/oauth/consent", OAuthController, :consent
+    get "/oauth/callback", OAuthController, :callback
   end
 
   # Other scopes may use custom stacks.

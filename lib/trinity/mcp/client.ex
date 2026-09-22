@@ -152,6 +152,7 @@ defmodule Trinity.MCP.Client do
       attempts: 0,
       backoff_ms: Keyword.get(opts, :backoff_ms, @default_backoff_ms),
       ttl_ms: nil,
+      auth_challenge: nil,
       relist_timer: nil,
       reconnect_timer: nil
     }
@@ -170,7 +171,9 @@ defmodule Trinity.MCP.Client do
           "mcp #{state.config.name}: connected at #{state.revision}, #{map_size(state.tools)} tools"
         )
 
-        {:noreply, %{state | status: :ready, attempts: 0, last_error: nil} |> schedule_relist()}
+        {:noreply,
+         %{state | status: :ready, attempts: 0, last_error: nil, auth_challenge: nil}
+         |> schedule_relist()}
 
       {:refused, reason, state} ->
         Logger.warning("mcp #{state.config.name}: refused: #{inspect(reason)}")
@@ -178,9 +181,28 @@ defmodule Trinity.MCP.Client do
 
       {:error, reason, state} ->
         Logger.warning("mcp #{state.config.name}: connect failed: #{inspect(reason)}")
-        {:noreply, retry_later(%{state | status: :down, last_error: inspect(reason)})}
+
+        state = %{
+          state
+          | status: :down,
+            last_error: inspect(reason),
+            auth_challenge: challenge_of(reason)
+        }
+
+        {:noreply, retry_later(state)}
     end
   end
+
+  # Slice 062: a 401 whose challenge names a resource metadata URL is what the client role
+  # starts from; the page shows "authorize" when this is set.
+  defp challenge_of({:discover_failed, {:unauthorized, header}}) do
+    case Trinity.MCP.Auth.Client.challenge(header) do
+      {:ok, url} -> url
+      :error -> nil
+    end
+  end
+
+  defp challenge_of(_), do: nil
 
   @impl true
   def handle_call(:info, _from, state) do
@@ -201,7 +223,8 @@ defmodule Trinity.MCP.Client do
         registered: state.registered,
         last_error: state.last_error,
         attempts: state.attempts,
-        transport_os_pid: os_pid(state)
+        transport_os_pid: os_pid(state),
+        auth_challenge: state.auth_challenge
       }}, state}
   end
 

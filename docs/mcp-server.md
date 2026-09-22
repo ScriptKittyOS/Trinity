@@ -21,6 +21,39 @@ Two files the server keeps in the data directory: `mcp-server-token`, the bearer
 (generated once, mode 0600; `TRINITY_MCP_SERVER_TOKEN` overrides it), and `keys/mcp-state.key`, the
 key that seals the state a held call carries between round trips (docs/07, "MCP server").
 
+## Authorization profiles (slice 062)
+
+`TRINITY_MCP_AUTH_PROFILE` (or `config :trinity, :mcp_auth, profile:`) chooses how `/mcp` knows who is
+calling. Whatever it says, every call still goes through the permission gate: a token says who you are
+and what you may ask for, never that a thing may happen.
+
+- **`local`** (the default): the static bearer above, on the loopback. No JWT anywhere.
+- **`production`**: Trinity is an OAuth 2.1 resource server for an authorization server you already run.
+  Set `TRINITY_MCP_AUTH_ISSUER` (its issuer URL; Trinity reads its RFC 8414 or OpenID metadata and its
+  JWKS) and `TRINITY_MCP_AUTH_RESOURCE` (this server's `/mcp` URL as clients reach it: the audience every
+  token must carry). A request without a valid token is `401` with `WWW-Authenticate: Bearer
+  resource_metadata="…/.well-known/oauth-protected-resource/mcp"`, which is how a 2026-07-28 client finds
+  your authorization server on its own. `TRINITY_MCP_AUTH_INTROSPECTION=1` asks the issuer about opaque
+  tokens instead (RFC 7662; `_INTROSPECTION_CLIENT` and `_SECRET` when it wants credentials). Trinity
+  issues nothing in this profile and holds no signing key; the static bearer is not a token here. A
+  token's scopes decide what it may ask for: `trinity:tools:read` for the read-only tools,
+  `trinity:tools:artifact` for the ones that write (and then the gate asks you, as always).
+- **`personal`**: the same resource server plus a small authorization server of Trinity's own, for your
+  own MCP clients on your own machine. Set `TRINITY_MCP_AUTH_RESOURCE`; the issuer is that URL's origin.
+  A client that supports Client ID Metadata Documents connects with no registration (its id is the URL of
+  its document); `TRINITY_MCP_AUTH_DCR=1` opens RFC 7591 registration for the rest. Each authorization is a
+  consent page in your browser (`/oauth/authorize`), the token lives ten minutes, and it carries a mark
+  (`"profile": "personal"`) that the production profile refuses whatever key signed it. This profile
+  refuses to start when an external authority adapter is selected (`TRINITY_AUTHORITY` other than
+  `local`): a regulated deployment has no embedded issuer.
+
+Trinity as a client of a protected server: add the server on the `/mcp` page as usual; when it answers
+`401` with resource metadata, the row shows the challenge and an "authorize" button that sends you to
+that server's authorization server and back to `/oauth/callback`. The token is stored under
+`<data dir>/secrets/oauth/` (mode 0600) and presented on every request; `TRINITY_MCP_AUTH_CLIENT_ID` is the
+client id you registered there (or `_CLIENT_METADATA_URL` for a metadata document; `_DCR=1` to register on
+the spot when the server allows it).
+
 ## Connecting a client over HTTP
 
 The URL is `http://127.0.0.1:<port>/mcp` (the port the app prints at start, `4000` in the headless

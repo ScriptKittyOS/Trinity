@@ -1,0 +1,23 @@
+# The personal profile, live (scripts/dev_mcp_auth_consent.sh), 2026-09-22
+
+$ curl -s http://127.0.0.1:35717/.well-known/oauth-protected-resource/mcp
+{"authorization_servers":["http://127.0.0.1:35717"],"bearer_methods_supported":["header"],"resource":"http://127.0.0.1:35717/mcp","scopes_supported":["trinity:tools:read","trinity:recall","trinity:tools:artifact"]}
+
+$ curl -s http://127.0.0.1:35717/.well-known/oauth-authorization-server
+{"authorization_endpoint":"http://127.0.0.1:35717/oauth/authorize","authorization_response_iss_parameter_supported":true,"client_id_metadata_document_supported":true,"code_challenge_methods_supported":["S256"],"grant_types_supported":["authorization_code"],"issuer":"http://127.0.0.1:35717","jwks_uri":"http://127.0.0.1:35717/.well-known/jwks.json","resource_indicators_supported":true,"response_types_supported":["code"],"scopes_supported":["trinity:tools:read","trinity:recall","trinity:tools:artifact"],"token_endpoint":"http://127.0.0.1:35717/oauth/token","token_endpoint_auth_methods_supported":["none"]}
+
+$ curl -s http://127.0.0.1:35717/.well-known/jwks.json
+{"keys":[{"alg":"ES256","crv":"P-256","kid":"eTYaRRGaUDQq","kty":"EC","use":"sig","x":"YJlkroicSdIUNDqUP6SSPpcMkaKY_IcFKBma5G7l4Zk","y":"NcsbQmMg6MPZyISsDAd4YUm-mvqs_kSkU1c5AOAjUPU"}]}
+
+$ curl -si -X POST http://127.0.0.1:35717/mcp -H 'content-type: application/json' -H 'mcp-protocol-version: 2026-07-28' -H 'mcp-method: server/discover' -d '{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{}}'
+HTTP/1.1 401 Unauthorized
+content-length: 76
+vary: accept-encoding
+cache-control: max-age=0, private, must-revalidate
+www-authenticate: Bearer resource_metadata="http://127.0.0.1:35717/.well-known/oauth-protected-resource/mcp"
+content-type: application/json; charset=utf-8
+
+{"jsonrpc":"2.0","id":null,"error":{"code":-32001,"message":"Unauthorized"}}
+
+$ curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:35717/oauth/register -H 'content-type: application/json' -d '{"redirect_uris":["http://127.0.0.1/cb"]}'   # DCR off by default
+404

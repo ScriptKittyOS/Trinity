@@ -16,6 +16,15 @@ indicators, CIMD first with DCR as the legacy fallback, RFC 9207 `iss` checking,
 beam_mcp, whose will-not-implement entry 8 keeps OAuth out of the core; the `:authorize` and `:authorize_body`
 hooks are where the RS attaches.
 
+**Amended 2026-09-22 under the owner's decision (NOTES.md, "Amendment: EMA leaves the slice").** Quoted:
+"production profile is OAuth client + resource server against an external enterprise AS. Embedded AS is a
+non-default personal profile and must not be the path that can mint authority for healthcare or DoD effects."
+Component (3) below, Enterprise Managed Authorization, is removed from this slice: Trinity does not redeem an
+ID-JAG and does not issue production access tokens; the external authorization server does both, and Trinity's
+resource server accepts what it issues. The embedded authorization server is the `:personal` profile, not the
+default, refused at boot under an external authority adapter, and every token it mints is marked and refused in
+`:production`. AC3 and AC6 are removed (below); the goal's text above them is history, not the spec.
+
 **Non-person identity, noted for a later amendment.** A deployment that requires it gives each Trinity instance
 an X.509 credential from the deployment's own PKI, and the boot receipt carries a sponsor field naming the
 accountable person. SPIFFE is an issuance path for that credential, not an identity model of its own. No
@@ -48,13 +57,15 @@ clients (CIMD URLs), scopes; conformance tests modelled on the spec's flows; doc
 1. [auto] RS: unauthenticated → 401 with `resource_metadata`; PRM lists our AS; wrong `aud`/expired → 401; each receipted (tests).
 2. [auto] AS: a CIMD-registered test client completes authorization-code + PKCE with resource indicator and receives an
    audience-bound token that the RS accepts; DCR path works only when explicitly enabled (tests).
-3. [auto] EMA: a fake enterprise IdP (in-repo, publishes OIDC discovery + JWKS) issues an ID-JAG for user `u@example.com`;
+3. [removed] EMA: a fake enterprise IdP (in-repo, publishes OIDC discovery + JWKS) issues an ID-JAG for user `u@example.com`;
    our AS validates it, maps domain → org and group → scopes, issues an access token; the RS accepts it; a token for an
-   unverified domain is refused; a replayed/expired ID-JAG is refused (tests, with the exact claim checks named).
+   unverified domain is refused; a replayed/expired ID-JAG is refused (tests, with the exact claim checks named). Paused at G1, 2026-09-22, under the owner's decision that Trinity is not the issuer of production authority (NOTES.md, "Paused"); the owner's answer decides whether it leaves the slice.
+   Removed 2026-09-22 by the owner's answer (NOTES.md, "Amendment: EMA leaves the slice"): Trinity is not the issuer; the external AS redeems the ID-JAG and AC1 covers the token it issues. Deferred, not built in any profile.
+
 4. [auto] Scope mapping: `trinity:recall` cannot call an `:artifact` tool; `trinity:tools:artifact` can, subject to the gate (tests).
 5. [auto] Key rotation: rotate the AS signing key; old tokens verify until expiry via JWKS `kid`; new tokens use the new key (test).
-6. [manual] Manual: one real MCP client that supports EMA (per the MCP client matrix at the time) connects through the fake IdP
-   flow; screenshots. If none is available on the developer machine, recorded as not measured.
+6. [removed] Manual: one real MCP client that supports EMA (per the MCP client matrix at the time) connects through the fake IdP
+   flow; screenshots. If none is available on the developer machine, recorded as not measured. Removed 2026-09-22 with AC3.
 7. [auto] The library boundary: `Trinity.MCP.Auth.*` has no dependency on `Trinity.Sessions`/`Trinity.Tools` (boundary check),
    so it can be extracted as its own package (slice 123).
 8. [auto] Client role: against a test AS (in-repo fake supporting CIMD, PKCE and resource indicators), the client
@@ -65,12 +76,16 @@ clients (CIMD URLs), scopes; conformance tests modelled on the spec's flows; doc
 Every `[manual]` criterion below needs a person. Listed here so the owner sees the queue at G1 rather
 than at review time.
 - **AC6**: Manual: one real MCP client that supports EMA (per the MCP client matrix at the time) connects through the fake IdP.
+  Removed 2026-09-22 with AC3. The queue is empty; the personal profile's consent page is in `proof/` as a
+  screenshot for the owner's eye, not as a criterion.
 
 ## Definition of Done
-- [ ] gate green · [ ] AC1–8 proven · [ ] docs/08 synced · [ ] ROADMAP → done · [ ] commit + tag
+- [ ] gate green · [ ] AC1–8 proven (3 and 6 removed, recorded as such) · [ ] docs/08 synced · [ ] ROADMAP → done · [ ] commit + tag
 
 ## Commit & tag
-`feat(s062): complete slice 062 (MCP authorization: RS, embedded AS, EMA)` · tag `slice/062`
+`feat(s062): complete slice 062 (MCP authorization: client role, resource server, personal-profile AS)` · tag `slice/062`
+(amended 2026-09-22; was "RS, embedded AS, EMA")
 
 ## Risks / open questions
-- R23: ID-JAG draft revision pinned in NOTES.md; re-check at each phase boundary.
+- R23: ID-JAG draft revision pinned in NOTES.md; re-check at each phase boundary. Moot for this slice since
+  2026-09-22: no ID-JAG is redeemed here (docs/06 re-scopes the row).

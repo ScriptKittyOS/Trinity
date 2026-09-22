@@ -288,10 +288,14 @@ defmodule Trinity.MCP.ServerTest do
       {"mcp-method", "server/discover"}
     ]
 
-    assert {:ok, %Req.Response{status: 403}} =
+    # Slice 062: a refusal is 401 with a WWW-Authenticate challenge (RFC 6750), decided by the
+    # profile before the transport; 061's transport-side refusal answered 403.
+    assert {:ok, %Req.Response{status: 401} = r} =
              Req.post(url, headers: headers, body: body, retry: false)
 
-    assert {:ok, %Req.Response{status: 403}} =
+    assert ["Bearer" <> _] = Req.Response.get_header(r, "www-authenticate")
+
+    assert {:ok, %Req.Response{status: 401}} =
              Req.post(url,
                headers: [{"authorization", "Bearer nope"} | headers],
                body: body,

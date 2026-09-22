@@ -7,11 +7,14 @@ defmodule TrinityWeb.MCPLive do
   remove; the tools of a server with their effect and tier; and a form to add a server
   (stdio: a command with arguments and the environment variables to pass; http: a URL).
   Everything here is `Trinity.MCP.Servers`; the page refreshes itself every two seconds
-  while open, since a client's health changes on its own.
+  while open, since a client's health changes on its own. Slice 062: a server that answered
+  `401` with a resource metadata URL shows the challenge and "authorize", which begins the
+  client role's flow (`Trinity.MCP.AuthHost.client_begin/2`) and sends the owner to the
+  authorization server; the callback lands at `/oauth/callback` and returns here.
   """
   use TrinityWeb, :live_view
 
-  alias Trinity.MCP.{Client, ServerConfig, Servers}
+  alias Trinity.MCP.{AuthHost, Client, ServerConfig, Servers}
   alias Trinity.Tools
 
   @refresh_ms 2_000
@@ -73,6 +76,21 @@ defmodule TrinityWeb.MCPLive do
       {:noreply, socket |> assign(viewing: nil) |> load()}
     else
       _ -> {:noreply, put_flash(socket, :error, gettext("Not removed."))}
+    end
+  end
+
+  def handle_event("authorize", %{"prm" => prm_url}, socket) do
+    case AuthHost.client_begin(prm_url, redirect_uri: url(~p"/oauth/callback")) do
+      {:ok, authorize_url} ->
+        {:noreply, redirect(socket, external: authorize_url)}
+
+      {:error, reason} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext("Authorization could not begin: %{reason}", reason: AuthHost.describe(reason))
+         )}
     end
   end
 
@@ -199,6 +217,20 @@ defmodule TrinityWeb.MCPLive do
               <p :if={info && info.last_error} class="font-mono text-meta text-error">
                 {info.last_error}
               </p>
+              <div
+                :if={info && info.auth_challenge}
+                class="flex flex-wrap items-center gap-2 text-meta"
+              >
+                <span class="opacity-70">{gettext("Needs authorization")}</span>
+                <span class="font-mono opacity-70">{info.auth_challenge}</span>
+                <button
+                  phx-click="authorize"
+                  phx-value-prm={info.auth_challenge}
+                  class="btn btn-xs btn-primary"
+                >
+                  {gettext("authorize")}
+                </button>
+              </div>
               <div :if={@viewing == c.name} class="flex flex-col gap-1 border-t border-base-300 pt-2">
                 <div class="flex items-center gap-2">
                   <span class="text-meta opacity-70">{gettext("Tools")}</span>

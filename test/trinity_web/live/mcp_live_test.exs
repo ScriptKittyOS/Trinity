@@ -139,6 +139,48 @@ defmodule TrinityWeb.MCPLiveTest do
     refute has_element?(view, "#answer-#{aid}")
   end
 
+  # Slice 062: the client role's one piece of page: the challenge and "authorize".
+  test "a server that answered 401 with resource metadata shows the challenge; authorize sends the owner to the AS",
+       %{conn: conn} do
+    as = Trinity.MCP.FakeAS.start!()
+    {:ok, {_, port}} = TrinityWeb.Endpoint.server_info(:http)
+    resource = "http://127.0.0.1:#{port}/mcp"
+    store = Path.join(System.tmp_dir!(), "oauth-store-#{System.unique_integer([:positive])}")
+
+    Application.put_env(:trinity, :mcp_auth,
+      profile: :production,
+      issuer: as.issuer,
+      resource: resource,
+      client_id: "trinity-page",
+      store_dir: store
+    )
+
+    Trinity.MCP.AuthHost.reload()
+
+    on_exit(fn ->
+      Application.delete_env(:trinity, :mcp_auth)
+      Trinity.MCP.AuthHost.reload()
+      Trinity.MCP.Auth.JWKS.forget(as.issuer)
+      File.rm_rf(store)
+    end)
+
+    start!("prot", {:http, resource})
+    await("prot", :down)
+
+    {:ok, view, _} = live(conn, ~p"/mcp")
+    assert has_element?(view, "#server-prot", "Needs authorization")
+    assert has_element?(view, "#server-prot", "/.well-known/oauth-protected-resource/mcp")
+
+    assert {:error, {:redirect, %{to: url}}} =
+             view |> element("#server-prot button", "authorize") |> render_click()
+
+    assert String.starts_with?(url, as.issuer <> "/authorize?")
+    query = url |> URI.parse() |> Map.get(:query) |> URI.decode_query()
+    assert query["client_id"] == "trinity-page" and query["resource"] == resource
+    assert query["redirect_uri"] == TrinityWeb.Endpoint.url() <> "/oauth/callback"
+    assert query["code_challenge_method"] == "S256"
+  end
+
   test "declining a server's request denies the approval", %{conn: conn} do
     request = %{
       "kind" => "mcp_input",

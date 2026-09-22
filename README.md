@@ -46,6 +46,17 @@ them: 23 slices, each merged with a merge commit and tagged `slice/NNN` (`git ta
   the assistant's own, and one that needs your approval waits for it on the permissions page
   while the client carries a sealed state it can retry with. A headless release runs the same
   tree as a server, in a container or under systemd (`docs/mcp-server.md`).
+- **Knows who is calling.** Trinity's MCP server is an OAuth 2.1 resource server for the
+  authorization server you already run (`production`: a valid audience-bound token or `401`
+  with the metadata a client needs to find that server; every refusal and every call is
+  receipted with the caller's issuer, subject and scope, and the token itself never reaches a
+  tool, a message or a receipt) or, for your own clients on your own machine, a small
+  authorization server of its own (`personal`: a consent page in your browser, short-lived
+  tokens that no production deployment accepts). A token's scope says what it may ask for;
+  the permission gate still decides whether it happens. As a client, Trinity answers a
+  protected server's `401` with "authorize" on the `/mcp` page and keeps the token it obtains.
+  Trinity issues no production authority: the personal issuer refuses to start under an
+  external authority adapter, by construction (`docs/07-security-model.md`).
 - **Runs on a schedule.** Tasks on the `/tasks` page: a prompt, a persona, the skills to hint,
   and when (a cron expression, a one-shot time, or a phrase like "every weekday at 9am" the
   model turns into cron). Each run is a fresh conversation you can open, its result waits on
@@ -54,7 +65,7 @@ them: 23 slices, each merged with a merge commit and tagged `slice/NNN` (`git ta
   curator that marks old memories stale and archives the untouched ones (never deleting)
   run on the same queues; `/oban` shows the jobs.
 
-Not there yet: MCP's authorization roles (M5a), messaging gateways and subagents (M5b),
+Not there yet: messaging gateways and subagents (M5b),
 the native desktop shell and signed releases (M6), executable skills in a sandbox (M7). `ROADMAP.md` carries the live status of every
 slice, and the [Milestones](#milestones) section below explains how to read it.
 
@@ -203,8 +214,9 @@ pinned at 0.8.0 and reached only through the `Trinity.MCP` boundary; slice 059's
 measures what it ships against the 2026-07-28 checklist, and the MCP phase (milestone M5a) builds
 Trinity's client driver (slice 060: a thin driver over the core's decoder and validator, stdio
 and Streamable HTTP, 2026-07-28 preferred and 2025-11-25 as the fallback, a server's mid-call
-question answered as an approval), the approval loop and authorization above it. The client side
-and the authorization server are Trinity's own work. `docs/adr/0007-mcp-2026-07-28-target-and-library.md`
+question answered as an approval), the approval loop and authorization above it (slice 062: the
+resource server, the client role and the personal profile's authorization server, all above the
+core). The client side and the authorization roles are Trinity's own work. `docs/adr/0007-mcp-2026-07-28-target-and-library.md`
 records the protocol target and the layering.
 
 ## License

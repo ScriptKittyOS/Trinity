@@ -103,7 +103,8 @@ defmodule Trinity.MCP.Server do
 
       entry ->
         with :ok <- validate(args, entry),
-             {:ok, ctx, pending} <- context(name, args, params) do
+             {:ok, ctx, pending} <- context(name, args, params),
+             :ok <- scope_allows(ctx, entry) do
           run_or_hold(id, era, state, entry, args, ctx, pending)
         else
           {:error, {:invalid_arguments, reason}} ->
@@ -111,7 +112,41 @@ defmodule Trinity.MCP.Server do
 
           {:error, {:state, reason}} ->
             error(id, -32_602, "requestState #{reason}")
+
+          {:error, {:insufficient_scope, needed}} ->
+            error(id, -32_001, "insufficient scope: this tool needs #{needed}")
         end
+    end
+  end
+
+  # Slice 062: the token's scopes must cover the tool's effect before the gate is asked; a
+  # refusal here is a decision receipt of outcome deny, basis scope, on the session's scope.
+  defp scope_allows(%Context{principal: nil}, _entry), do: :ok
+
+  defp scope_allows(%Context{principal: principal} = ctx, entry) do
+    scopes = Trinity.MCP.Auth.Principal.scopes(principal["scope"])
+
+    if Trinity.MCP.Auth.Scopes.covers?(scopes, entry.effect) do
+      :ok
+    else
+      needed = Trinity.MCP.Auth.Scopes.required(entry.effect)
+
+      Trinity.Receipts.append(Trinity.Receipts.session_scope(ctx.session_id), %{
+        kind: "decision",
+        subject: %{
+          "session_id" => ctx.session_id,
+          "call_id" => ctx.call_id,
+          "tool" => entry.name,
+          "effect" => Atom.to_string(entry.effect),
+          "origin" => "mcp",
+          "principal" => principal
+        },
+        decision: %{"outcome" => "deny", "basis" => "scope", "reason" => "needs #{needed}"},
+        subject_ref: "decision:#{ctx.session_id}:#{ctx.call_id}",
+        meta: %{}
+      })
+
+      {:error, {:insufficient_scope, needed}}
     end
   end
 
@@ -159,6 +194,8 @@ defmodule Trinity.MCP.Server do
 
   # The persona is the session's, as the Session process hands its tools (the memory tools
   # take the persona from the context and nowhere else).
+  # The principal is what the plug left for this process (slice 062); over stdio, where no
+  # bearer exists, it is nil and the local owner is the caller.
   defp ctx(session, name, call_id, trace) do
     %Context{
       session_id: session.id,
@@ -167,9 +204,13 @@ defmodule Trinity.MCP.Server do
       call_id: call_id,
       tool: name,
       origin: "mcp",
-      trace: trace
+      trace: trace,
+      principal: principal_map(Trinity.MCP.Server.Plug.principal())
     }
   end
+
+  defp principal_map(nil), do: nil
+  defp principal_map(p), do: Trinity.MCP.Auth.Principal.to_receipt(p)
 
   defp open(state) do
     case Envelope.open(state) do

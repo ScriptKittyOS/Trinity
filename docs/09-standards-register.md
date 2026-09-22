@@ -46,7 +46,9 @@ document, a PROOF.md line) or `none`; the status; who decides the status. Status
 | Control | Where Trinity satisfies it | Evidence path | Status | Decider |
 |---|---|---|---|---|
 | Non-person entity identity from the deployment's PKI, with an accountable sponsor | X.509 per instance; sponsor field in the boot receipt; SPIFFE as an issuance path only | slice 062 amendment note | `not claimed`; no criterion yet | owner |
-| Identity is not authority | OAuth and EMA answer who; the gate and the authority adapter answer whether | slice 062, slice 024 | `:unknown` until both land | owner |
+| Identity is not authority | OAuth answers who (slice 062: the resource server hands the tool layer a principal, never the token; scope is checked before the gate and is never an allow rule); the gate and the authority adapter answer whether (slice 024) | `test/trinity/mcp/auth/resource_server_test.exs` (a scoped token still reaches the gate), `test/trinity/mcp/auth/boundary_test.exs` (the auth boundary reaches nothing of the tree) | tree property, held by tests since 2026-09-22; the deployment's adapter is the real-world half | owner |
+| Trinity issues no production authority | The production profile validates the external issuer's tokens and mints none; the personal profile's issuer refuses to start under an external authority adapter and its tokens are marked and refused in production | `test/trinity/mcp/auth/embedded_test.exs` (refused at boot; no key material in production), `test/trinity/mcp/auth/token_test.exs` (the mark refused) | tree property, held by tests since 2026-09-22 | owner |
+| Enterprise Managed Authorization (ID-JAG) | Not in this tree: the external authorization server redeems the assertion (owner decision 2026-09-22, slice 062 NOTES "Deferred") | docs/08 row; slice 062 NOTES | `not claimed`; deferred with a lift condition | owner |
 
 ## Supply chain
 

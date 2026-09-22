@@ -58,6 +58,57 @@ if config_env() != :test do
   config :trinity, :web, search_provider: Trinity.Tools.Web.SearchProvider.Brave
 end
 
+# Slice 062: the MCP authorization profile. `TRINITY_MCP_AUTH_PROFILE` is `local` (the default:
+# 061's static bearer on the loopback, no JWT anywhere), `production` (an OAuth 2.1 resource
+# server against the external authorization server `TRINITY_MCP_AUTH_ISSUER` names, for this
+# server's identifier `TRINITY_MCP_AUTH_RESOURCE`, its `/mcp` URL; Trinity issues nothing) or
+# `personal` (the same resource server plus the embedded authorization server on the owner's
+# machine; refused at boot under an external authority adapter). `TRINITY_MCP_AUTH_INTROSPECTION=1`
+# asks the issuer about opaque tokens (RFC 7662) instead of validating JWTs, with
+# `TRINITY_MCP_AUTH_INTROSPECTION_CLIENT` and `_SECRET` as the resource server's credentials when
+# the issuer wants them; `TRINITY_MCP_AUTH_DCR=1` enables RFC 7591 registration (the embedded
+# server's endpoint; the client role's registration when an issuer offers it);
+# `TRINITY_MCP_AUTH_CLIENT_ID` is the client role's pre-registered identity at the enterprise
+# authorization server, `TRINITY_MCP_AUTH_CLIENT_METADATA_URL` its Client ID Metadata Document.
+# The suite sets `config :trinity, :mcp_auth` itself (docs/07-security-model.md).
+auth_profile = System.get_env("TRINITY_MCP_AUTH_PROFILE")
+
+if config_env() != :test and auth_profile not in [nil, ""] do
+  present = fn name ->
+    case System.get_env(name) do
+      nil -> nil
+      "" -> nil
+      value -> value
+    end
+  end
+
+  introspection_credentials =
+    case {present.("TRINITY_MCP_AUTH_INTROSPECTION_CLIENT"),
+          present.("TRINITY_MCP_AUTH_INTROSPECTION_SECRET")} do
+      {id, secret} when is_binary(id) and is_binary(secret) -> {id, secret}
+      _ -> nil
+    end
+
+  profile_atom =
+    case auth_profile do
+      "local" -> :local
+      "production" -> :production
+      "personal" -> :personal
+      other -> raise "TRINITY_MCP_AUTH_PROFILE is not local, production or personal: #{other}"
+    end
+
+  config :trinity, :mcp_auth,
+    profile: profile_atom,
+    issuer: present.("TRINITY_MCP_AUTH_ISSUER"),
+    resource: present.("TRINITY_MCP_AUTH_RESOURCE"),
+    audience: present.("TRINITY_MCP_AUTH_AUDIENCE"),
+    introspection: System.get_env("TRINITY_MCP_AUTH_INTROSPECTION") in ["1", "true"],
+    introspection_credentials: introspection_credentials,
+    dcr: System.get_env("TRINITY_MCP_AUTH_DCR") in ["1", "true"],
+    client_id: present.("TRINITY_MCP_AUTH_CLIENT_ID"),
+    client_metadata_url: present.("TRINITY_MCP_AUTH_CLIENT_METADATA_URL")
+end
+
 # Slice 013. `TRINITY_FAKE_PROVIDER=1 mix phx.server` runs the chat on the scripted provider:
 # the registry becomes the fake's two entries and a fresh stream answers with its markdown
 # demo, so the UI can be exercised and screenshotted with no key and no egress. Development
