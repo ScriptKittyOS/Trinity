@@ -49,6 +49,22 @@ plan_check: PASS
 gate exit 0
 ```
 
+On CI, at `d2e9bab` (the tree PROOF describes), all four checks green:
+
+```
+$ gh run view 35735635653 --json conclusion,jobs
+{"conclusion":"success",
+ "jobs":["fips-tag: success","gate: success","postgres: success","fips: success"],
+ "sha":"d2e9bab239785262fc9a4e9f5ccdcd49f0648b3b"}
+```
+
+https://github.com/ScriptKittyOS/Trinity/actions/runs/35735635653 — the SQLite gate, the Postgres
+leg and the FIPS leg (slice 003's image, the mode entered) each ran this slice's suites. The
+`package` workflow did not run and was not expected to: its push trigger is tags only
+(`slice/**`, `v*`), so although this slice changes `mix.exs`, `mix.lock` and `config/runtime.exs`
+for the `jose` row, the three-OS packaging evidence arrives with the `slice/062` tag, as it has for
+every slice.
+
 Sobelow's traversal findings on this slice's file paths are skipped in the source with a reason
 each (`# sobelow_skip reason:` above every `@sobelow_skip`, which `test/sobelow_skips_test.exs`
 requires): every path is the host's own (the data directory, the key directory, the token store),
