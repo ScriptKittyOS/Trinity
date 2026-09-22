@@ -140,15 +140,16 @@ defmodule Trinity.MCP.ServerMrtrTest do
       retry(a, "v9.nope")
 
     # Expired: sealed for zero seconds, opened a second later.
-    expired =
-      Envelope.seal(
-        %{
-          approval_id: aid,
-          session_id: Trinity.MCP.Server.Session.id(),
-          call_id: Trinity.UUID.generate(),
-          tool: "memory",
-          args_digest: Envelope.args_digest(@args)
-        }, ttl_s: 0)
+    # The formatter does not converge on `f(%{multi-line}, kw: v)`: the map is bound first.
+    payload = %{
+      approval_id: aid,
+      session_id: Trinity.MCP.Server.Session.id(),
+      call_id: Trinity.UUID.generate(),
+      tool: "memory",
+      args_digest: Envelope.args_digest(@args)
+    }
+
+    expired = Envelope.seal(payload, ttl_s: 0)
 
     Process.sleep(1_100)
 
