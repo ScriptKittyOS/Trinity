@@ -50,9 +50,11 @@ defmodule Trinity.Memory.AlwaysOn do
   def entries(persona_id, session_id) do
     scopes = chain(persona_id, session_id)
 
+    # Slice 050: an archived entry (the curator's mark) is not part of what a session sees.
     from(e in Entry,
       where:
-        e.persona_id == ^persona_id and e.scope in ^scopes and e.tier in ^Entry.always_on_tiers(),
+        e.persona_id == ^persona_id and e.scope in ^scopes and e.tier in ^Entry.always_on_tiers() and
+          is_nil(e.archived_at),
       order_by: [e.tier, e.key]
     )
     |> Repo.all()

@@ -47,7 +47,7 @@ defmodule Trinity.Memory.VectorStores.Pgvector do
       from(e in Entry,
         where:
           e.persona_id == ^persona_id and e.tier == "semantic" and e.scope in ^scopes and
-            e.embedding_model == ^model and not is_nil(e.embedding),
+            e.embedding_model == ^model and not is_nil(e.embedding) and is_nil(e.archived_at),
         order_by: fragment("embedding_vector <=> ?", ^vec),
         limit: ^k,
         select: {e, fragment("1 - (embedding_vector <=> ?)", ^vec)}

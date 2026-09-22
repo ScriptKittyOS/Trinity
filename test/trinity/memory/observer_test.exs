@@ -184,17 +184,14 @@ defmodule Trinity.Memory.ObserverTest do
     {:ok, _} = Session.send_user_message(pid, "I live in Lisbon")
     _ = collect(row.id, &match?({:state, :idle}, &1))
 
-    # The observer's task is not the session's: wait for the row, not for the session.
-    entries =
-      Enum.find_value(1..50, fn _ ->
-        case Semantic.entries(persona.id, [pscope]) do
-          [] -> Process.sleep(20) && nil
-          found -> found
-        end
-      end)
+    # Slice 050: the observer is a job on the memory queue, enqueued off the session's path;
+    # the suite runs Oban manually, so the queue is drained here and the job runs in this
+    # process (the 032 version waited for a task's row).
+    assert %{success: 1, failure: 0} = Oban.drain_queue(queue: :memory, with_safety: false)
+    entries = Semantic.entries(persona.id, [pscope])
 
     assert [%{body: "Lives in Lisbon.", by_session: nil} = e] =
-             Enum.map(entries || [], &Map.put(&1, :by_session, nil))
+             Enum.map(entries, &Map.put(&1, :by_session, nil))
 
     assert e.source_message_id != nil
     [log | _] = AlwaysOn.changes(persona.id)

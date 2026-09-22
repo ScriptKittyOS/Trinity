@@ -48,6 +48,9 @@ defmodule TrinityWeb.SessionLive.Index do
         <.link id="mcp-link" navigate={~p"/mcp"} class="text-meta opacity-70 hover:opacity-100">
           {gettext("mcp")}
         </.link>
+        <.link id="tasks-link" navigate={~p"/tasks"} class="text-meta opacity-70 hover:opacity-100">
+          {gettext("tasks")}
+        </.link>
       </:bar>
       <div
         id="index"

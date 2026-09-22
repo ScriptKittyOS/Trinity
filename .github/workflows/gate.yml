@@ -96,9 +96,12 @@ jobs:
       - run: mix deps.get
 
       # The adapter is chosen at compile time (config/config.exs); this proves the build
-      # under TRINITY_DB=postgres links the Postgres adapter and nothing SQLite.
+      # under TRINITY_DB=postgres links the Postgres adapter and nothing SQLite. `--no-start`
+      # since slice 050: the check needs the compiled module, not a booted application, and
+      # Oban refuses to start before its table is migrated (run 35711666503, this step booted
+      # the application before `ecto.reset`).
       - name: The compiled adapter is Postgres
-        run: mix run -e 'Ecto.Adapters.Postgres = Trinity.Repo.__adapter__()'
+        run: mix run --no-start -e 'Ecto.Adapters.Postgres = Trinity.Repo.__adapter__()'
 
       - run: mix ecto.reset
       - run: mix test --exclude sqlite

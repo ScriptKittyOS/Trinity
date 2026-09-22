@@ -11,8 +11,15 @@ defmodule Trinity.RepoConfigTest do
   @moduletag :sqlite
 
   describe "the write pool" do
-    test "has exactly one connection" do
-      assert Trinity.Repo.config()[:pool_size] == 1
+    # Slice 050: the shipped configuration is read from the file under the production
+    # environment, since the suite's own pool has two connections (config/test.exs says why:
+    # Oban verifies its migration at boot through a raw checkout while a boot process holds
+    # the sandbox's first connection in auto mode). What every test still gets is one
+    # connection shared with every process it starts.
+    test "has exactly one connection in the shipped configuration" do
+      config = Config.Reader.read!("config/config.exs", env: :prod)
+      assert config[:trinity][Trinity.Repo][:pool_size] == 1
+      assert config[:trinity][Trinity.Repo.Receipts][:pool_size] == 1
     end
   end
 
