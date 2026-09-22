@@ -48,6 +48,15 @@ defmodule Trinity.MixProject do
   #     (see NOTES.md deviation D1).
   defp releases do
     [
+      # Slice 061: the headless release. The same tree assembled as an ordinary OTP release
+      # (no Burrito, no desktop shell), for a server that runs Trinity as an MCP server and
+      # the web pages on a bind address it is told (`TRINITY_MODE=headless`, `TRINITY_BIND`,
+      # `PORT`; config/runtime.exs). `ci/headless/Containerfile` builds and runs it.
+      headless: [
+        steps: [:assemble],
+        include_executables_for: [:unix],
+        applications: exla_release_applications()
+      ],
       desktop: [
         steps: [:assemble, &Burrito.wrap/1],
         # Slice 032: exla in the release, loaded and not started (see `exla_deps/0`); on a

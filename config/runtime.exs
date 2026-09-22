@@ -28,7 +28,10 @@ smoke? =
   "--smoke" in Enum.map(:init.get_plain_arguments(), &to_string/1) or
     System.get_env("TRINITY_SMOKE") == "1"
 
-if System.get_env("PHX_SERVER") || smoke? do
+# Slice 061: the headless profile is a server by definition.
+headless? = System.get_env("TRINITY_MODE") == "headless"
+
+if System.get_env("PHX_SERVER") || smoke? || headless? do
   config :trinity, TrinityWeb.Endpoint, server: true
 end
 
@@ -156,9 +159,28 @@ if config_env() == :prod do
   # LAN without asking. PORT still wins where it is set, which is how ex_tauri drives it.
   desktop_port = String.to_integer(System.get_env("PORT") || "0")
 
+  # Slice 061: the headless profile binds the address it is told (`TRINITY_BIND`, loopback by
+  # default: a server on a LAN is the operator's decision, made by setting it) on `PORT`,
+  # 4000 by default, since nobody reads an ephemeral port off a headless machine. The bearer
+  # on /mcp (`TRINITY_MCP_SERVER_TOKEN`, or the generated token file) is required whatever
+  # the bind; the web pages carry no authentication yet, which is why the default stays on
+  # the loopback (docs/mcp-server.md).
+  {bind_ip, bind_port} =
+    if System.get_env("TRINITY_MODE") == "headless" do
+      ip =
+        case System.get_env("TRINITY_BIND", "127.0.0.1") |> String.to_charlist() |> :inet.parse_address() do
+          {:ok, ip} -> ip
+          {:error, _} -> raise "TRINITY_BIND is not an IP address: #{System.get_env("TRINITY_BIND")}"
+        end
+
+      {ip, String.to_integer(System.get_env("PORT") || "4000")}
+    else
+      {{127, 0, 0, 1}, desktop_port}
+    end
+
   config :trinity, TrinityWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
-    http: [ip: {127, 0, 0, 1}, port: desktop_port],
+    http: [ip: bind_ip, port: bind_port],
     secret_key_base: secret_key_base
 
   # ## SSL Support
