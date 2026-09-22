@@ -27,6 +27,8 @@ defmodule Trinity.MCP.Auth.Embedded do
   alias Trinity.MCP.Auth.{Config, Discovery, Principal, Scopes, Token}
   alias Trinity.MCP.Auth.Embedded.Keys
 
+  Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
+
   @code_ttl_s 600
   @request_ttl_s 600
   @cimd_ttl_s 3_600
@@ -259,23 +261,25 @@ defmodule Trinity.MCP.Auth.Embedded do
     do: {:reply, {:error, :registration_disabled}, state}
 
   def handle_call({:register, metadata}, _from, state) do
-    with {:ok, uris} <- redirect_uris(metadata["redirect_uris"]) do
-      client_id = "dcr-" <> random()
+    case redirect_uris(metadata["redirect_uris"]) do
+      {:ok, uris} ->
+        client_id = "dcr-" <> random()
 
-      client = %{
-        "client_id" => client_id,
-        "client_name" => metadata["client_name"] || client_id,
-        "redirect_uris" => uris,
-        "token_endpoint_auth_method" => "none",
-        "grant_types" => ["authorization_code"],
-        "response_types" => ["code"]
-      }
+        client = %{
+          "client_id" => client_id,
+          "client_name" => metadata["client_name"] || client_id,
+          "redirect_uris" => uris,
+          "token_endpoint_auth_method" => "none",
+          "grant_types" => ["authorization_code"],
+          "response_types" => ["code"]
+        }
 
-      state = put_in(state.clients[client_id], client)
-      save_clients(state)
-      {:reply, {:ok, client}, state}
-    else
-      {:error, reason} -> {:reply, {:error, reason}, state}
+        state = put_in(state.clients[client_id], client)
+        save_clients(state)
+        {:reply, {:ok, client}, state}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
     end
   end
 
@@ -477,6 +481,8 @@ defmodule Trinity.MCP.Auth.Embedded do
 
   defp clients_path(%Config{key_dir: dir}), do: Path.join(dir, "mcp-as-clients.json")
 
+  # sobelow_skip reason: Traversal.FileModule: the path is the key directory's plus a constant name, never a request's.
+  @sobelow_skip ["Traversal.FileModule"]
   defp load_clients(config) do
     case File.read(clients_path(config)) do
       {:ok, json} ->
@@ -490,6 +496,8 @@ defmodule Trinity.MCP.Auth.Embedded do
     end
   end
 
+  # sobelow_skip reason: Traversal.FileModule: the path is the key directory's plus a constant name, never a request's.
+  @sobelow_skip ["Traversal.FileModule"]
   defp save_clients(%{config: config, clients: clients}) do
     path = clients_path(config)
     File.write!(path, Jason.encode!(clients))

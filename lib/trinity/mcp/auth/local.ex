@@ -13,6 +13,8 @@ defmodule Trinity.MCP.Auth.Local do
   alias Trinity.MCP.Auth
   alias Trinity.MCP.Auth.{Config, Principal, Scopes}
 
+  Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
+
   @impl true
   def authorize(conn, %Config{} = config) do
     expected = token(config)
@@ -28,6 +30,8 @@ defmodule Trinity.MCP.Auth.Local do
   def resource_metadata(_config), do: nil
 
   @doc "The token in force: the environment variable, else the file's."
+  # sobelow_skip reason: Traversal.FileModule: the path is the host's token file (Config.token_path), never a request's.
+  @sobelow_skip ["Traversal.FileModule"]
   @spec token(Config.t()) :: String.t()
   def token(%Config{token_env: env, token_path: path}) do
     case env && System.get_env(env) do
@@ -37,6 +41,8 @@ defmodule Trinity.MCP.Auth.Local do
   end
 
   @doc "Generates the token file when absent (mode 0600); returns its path."
+  # sobelow_skip reason: Traversal.FileModule: the path is the host's token file, never a request's.
+  @sobelow_skip ["Traversal.FileModule"]
   @spec ensure_token!(Path.t()) :: Path.t()
   def ensure_token!(path) when is_binary(path) do
     unless File.exists?(path) do

@@ -102,43 +102,33 @@ defmodule Trinity.MCP.FakeAS do
   def call(conn, agent) do
     state = Agent.get(agent, & &1)
     path = String.replace_prefix(conn.request_path, state.path, "")
-
-    case {conn.method, path} do
-      {"GET", "/.well-known/oauth-authorization-server"} ->
-        json(conn, 200, metadata(state))
-
-      {"GET", "/.well-known/oauth-authorization-server" <> _} ->
-        json(conn, 200, metadata(state))
-
-      {"GET", "/jwks"} ->
-        Agent.update(agent, &Map.update(&1, :jwks_fetches, 1, fn n -> n + 1 end))
-        json(conn, 200, %{"keys" => Enum.map(state.keys, &public_jwk/1)})
-
-      {"GET", "/authorize"} ->
-        authorize(conn, agent, state)
-
-      {"POST", "/token"} ->
-        token(conn, agent, state)
-
-      {"POST", "/introspect"} ->
-        introspect(conn, state)
-
-      {"POST", "/register"} ->
-        register(conn, agent)
-
-      # A Client ID Metadata Document a test client publishes (the personal profile's CIMD path).
-      {"GET", "/client.json"} ->
-        json(conn, 200, %{
-          "client_id" => state.issuer <> "/client.json",
-          "client_name" => "Fake CIMD client",
-          "redirect_uris" => ["http://127.0.0.1/callback"],
-          "token_endpoint_auth_method" => "none"
-        })
-
-      _ ->
-        send_resp(conn, 404, "")
-    end
+    route(conn.method, path, conn, agent, state)
   end
+
+  defp route("GET", "/.well-known/oauth-authorization-server" <> _, conn, _agent, state),
+    do: json(conn, 200, metadata(state))
+
+  defp route("GET", "/jwks", conn, agent, state) do
+    Agent.update(agent, &Map.update(&1, :jwks_fetches, 1, fn n -> n + 1 end))
+    json(conn, 200, %{"keys" => Enum.map(state.keys, &public_jwk/1)})
+  end
+
+  defp route("GET", "/authorize", conn, agent, state), do: authorize(conn, agent, state)
+  defp route("POST", "/token", conn, agent, state), do: token(conn, agent, state)
+  defp route("POST", "/introspect", conn, _agent, state), do: introspect(conn, state)
+  defp route("POST", "/register", conn, agent, _state), do: register(conn, agent)
+
+  # A Client ID Metadata Document a test client publishes (the personal profile's CIMD path).
+  defp route("GET", "/client.json", conn, _agent, state) do
+    json(conn, 200, %{
+      "client_id" => state.issuer <> "/client.json",
+      "client_name" => "Fake CIMD client",
+      "redirect_uris" => ["http://127.0.0.1/callback"],
+      "token_endpoint_auth_method" => "none"
+    })
+  end
+
+  defp route(_method, _path, conn, _agent, _state), do: send_resp(conn, 404, "")
 
   defp metadata(state) do
     iss = state.issuer

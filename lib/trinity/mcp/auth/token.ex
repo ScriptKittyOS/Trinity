@@ -77,32 +77,37 @@ defmodule Trinity.MCP.Auth.Token do
     _ -> {:error, :bad_signature}
   end
 
-  @doc "The claim checks, named."
+  @doc "The claim checks, named: who issued it and for whom, then when it is good, then the mark."
   @spec check(map(), Config.t(), integer()) :: :ok | {:error, term()}
   def check(claims, %Config{} = config, now) do
-    cond do
-      claims["iss"] != config.issuer ->
-        {:error, {:wrong_issuer, claims["iss"]}}
-
-      not audience?(claims["aud"], config.audience) ->
-        {:error, {:wrong_audience, claims["aud"]}}
-
-      not is_integer(claims["exp"]) ->
-        {:error, :no_expiry}
-
-      claims["exp"] + @leeway_s <= now ->
-        {:error, :expired}
-
-      is_integer(claims["nbf"]) and claims["nbf"] - @leeway_s > now ->
-        {:error, :not_yet_valid}
-
-      config.profile == :production and claims["profile"] == "personal" ->
-        {:error, :personal_token_in_production}
-
-      true ->
-        :ok
+    with :ok <- check_parties(claims, config),
+         :ok <- check_time(claims, now) do
+      check_mark(claims, config)
     end
   end
+
+  defp check_parties(claims, config) do
+    cond do
+      claims["iss"] != config.issuer -> {:error, {:wrong_issuer, claims["iss"]}}
+      not audience?(claims["aud"], config.audience) -> {:error, {:wrong_audience, claims["aud"]}}
+      true -> :ok
+    end
+  end
+
+  defp check_time(claims, now) do
+    cond do
+      not is_integer(claims["exp"]) -> {:error, :no_expiry}
+      claims["exp"] + @leeway_s <= now -> {:error, :expired}
+      is_integer(claims["nbf"]) and claims["nbf"] - @leeway_s > now -> {:error, :not_yet_valid}
+      true -> :ok
+    end
+  end
+
+  # The personal profile's issuer never mints production authority, whatever key signed it.
+  defp check_mark(%{"profile" => "personal"}, %Config{profile: :production}),
+    do: {:error, :personal_token_in_production}
+
+  defp check_mark(_claims, _config), do: :ok
 
   defp audience?(aud, expected) when is_binary(aud), do: aud == expected
   defp audience?(aud, expected) when is_list(aud), do: expected in aud

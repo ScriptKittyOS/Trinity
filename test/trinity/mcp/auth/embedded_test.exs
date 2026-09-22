@@ -11,8 +11,8 @@ defmodule Trinity.MCP.Auth.EmbeddedTest do
   use Trinity.DataCase, async: false
   @moduletag :capture_log
 
-  alias Trinity.MCP.AuthHost
   alias Trinity.MCP.Auth.{Config, Embedded, Token}
+  alias Trinity.MCP.AuthHost
   alias Trinity.MCP.FakeAS
   alias Trinity.MCP.Server.Replay
 
@@ -41,7 +41,7 @@ defmodule Trinity.MCP.Auth.EmbeddedTest do
     Replay.reset()
 
     on_exit(fn ->
-      if pid = Process.whereis(Embedded), do: GenServer.stop(pid)
+      AuthHost.stop_embedded()
       Application.delete_env(:trinity, :mcp_auth)
       AuthHost.reload()
       File.rm_rf(key_dir)
@@ -176,6 +176,10 @@ defmodule Trinity.MCP.Auth.EmbeddedTest do
 
     assert 401 == discover(base, nil)
 
+    # The authorization server is a supervised child, not a process tied to whoever booted it.
+    pids = for {_, pid, _, _} <- DynamicSupervisor.which_children(Trinity.MCP.Supervisor), do: pid
+    assert Process.whereis(Embedded) in pids
+
     {:consent, %{"code" => code, "state" => "xyz", "iss" => ^base}, verifier} =
       code_flow(base, resource, client_id)
 
@@ -246,7 +250,7 @@ defmodule Trinity.MCP.Auth.EmbeddedTest do
     )
 
     AuthHost.reload()
-    GenServer.stop(Embedded)
+    AuthHost.stop_embedded()
     :ok = AuthHost.boot()
 
     {:ok, r} =
@@ -288,7 +292,7 @@ defmodule Trinity.MCP.Auth.EmbeddedTest do
     # At boot: with an external adapter selected (the test adapter stands in), the host's
     # configuration, the first thing the MCP boot builds, raises, and no authorization
     # server is running afterwards.
-    GenServer.stop(Embedded)
+    AuthHost.stop_embedded()
     :persistent_term.put({Trinity.Authority.Selection, :selected}, Trinity.TestAuthority.Full)
 
     on_exit(fn ->
@@ -318,7 +322,7 @@ defmodule Trinity.MCP.Auth.EmbeddedTest do
 
   test "the production profile holds no key material of its own: no keys, no JWKS, no AS metadata",
        %{base: base, resource: resource, key_dir: key_dir} do
-    GenServer.stop(Embedded)
+    AuthHost.stop_embedded()
     File.rm_rf!(key_dir)
 
     Application.put_env(:trinity, :mcp_auth,

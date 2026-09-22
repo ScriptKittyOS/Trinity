@@ -12,6 +12,8 @@ defmodule Trinity.MCP.Auth.Client.Store do
 
   @pending_ttl_s 600
 
+  Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
+
   @doc "The stored token for a resource, when it has not expired."
   @spec token(Path.t(), String.t()) :: {:ok, map()} | :error
   def token(dir, resource) do
@@ -29,6 +31,9 @@ defmodule Trinity.MCP.Auth.Client.Store do
   def put_token(dir, resource, %{} = entry), do: write!(token_path(dir, resource), entry)
 
   @doc "Forgets a resource's token."
+  # sobelow_skip reason: Traversal.FileModule: the directory is the host's store and the name
+  # a sha256 of the resource, never a path of the caller's.
+  @sobelow_skip ["Traversal.FileModule"]
   @spec delete_token(Path.t(), String.t()) :: :ok
   def delete_token(dir, resource) do
     _ = File.rm(token_path(dir, resource))
@@ -41,6 +46,9 @@ defmodule Trinity.MCP.Auth.Client.Store do
     do: write!(pending_path(dir, state), Map.put(pending, "created_at", System.os_time(:second)))
 
   @doc "Takes a pending request by state (removed once taken; refused when expired)."
+  # sobelow_skip reason: Traversal.FileModule: the directory is the host's store and the name
+  # a sha256 of the state, never a path of the caller's.
+  @sobelow_skip ["Traversal.FileModule"]
   @spec take_pending(Path.t(), String.t()) :: {:ok, map()} | :error
   def take_pending(dir, state) when is_binary(state) do
     path = pending_path(dir, state)
@@ -75,10 +83,14 @@ defmodule Trinity.MCP.Auth.Client.Store do
   defp hash(s),
     do: :crypto.hash(:sha256, s) |> Base.url_encode64(padding: false) |> binary_part(0, 22)
 
+  # sobelow_skip reason: Traversal.FileModule: every path given is the store's plus a sha256-derived name.
+  @sobelow_skip ["Traversal.FileModule"]
   defp read(path) do
     with {:ok, json} <- File.read(path), {:ok, %{} = map} <- Jason.decode(json), do: {:ok, map}
   end
 
+  # sobelow_skip reason: Traversal.FileModule: every path given is the store's plus a sha256-derived name.
+  @sobelow_skip ["Traversal.FileModule"]
   defp write!(path, map) do
     File.mkdir_p!(Path.dirname(path))
     File.write!(path, Jason.encode!(map))

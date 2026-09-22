@@ -11,6 +11,8 @@ defmodule Trinity.MCP.Auth.Embedded.Keys do
 
   @type entry :: %{kid: String.t(), jwk: JOSE.JWK.t(), created_at: integer(), path: Path.t()}
 
+  Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
+
   @doc "Every key in the directory, newest first; a fresh one is made when there is none."
   @spec ensure!(Path.t()) :: [entry()]
   def ensure!(dir) do
@@ -58,6 +60,8 @@ defmodule Trinity.MCP.Auth.Embedded.Keys do
   end
 
   @doc "Drops keys older than `max_age_s`, keeping the newest whatever its age."
+  # sobelow_skip reason: Traversal.FileModule: the paths are the key directory's own files, listed by this module.
+  @sobelow_skip ["Traversal.FileModule"]
   @spec prune!(Path.t(), pos_integer()) :: [entry()]
   def prune!(dir, max_age_s) do
     now = System.os_time(:second)
@@ -85,6 +89,9 @@ defmodule Trinity.MCP.Auth.Embedded.Keys do
     %{"keys" => keys}
   end
 
+  # sobelow_skip reason: Traversal.FileModule: the directory is the host's key directory and
+  # the name a thumbprint's, never a request's.
+  @sobelow_skip ["Traversal.FileModule"]
   defp generate!(dir, after_at \\ 0) do
     File.mkdir_p!(dir)
     jwk = JOSE.JWK.generate_key({:ec, "P-256"})
@@ -102,6 +109,8 @@ defmodule Trinity.MCP.Auth.Embedded.Keys do
     %{kid: kid, jwk: JOSE.JWK.from_map(private), created_at: created_at, path: path}
   end
 
+  # sobelow_skip reason: Traversal.FileModule: the path is one the wildcard over the key directory returned.
+  @sobelow_skip ["Traversal.FileModule"]
   defp read!(path) do
     %{"kid" => kid, "created_at" => created_at, "jwk" => private} =
       path |> File.read!() |> Jason.decode!()

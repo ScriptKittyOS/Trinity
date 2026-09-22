@@ -17,8 +17,8 @@ defmodule Trinity.MCP.Auth.Client do
   behind `dcr: true` and only when the AS offers registration, by registering once.
   """
 
-  alias Trinity.MCP.Auth.{Config, Discovery}
   alias Trinity.MCP.Auth.Client.Store
+  alias Trinity.MCP.Auth.{Config, Discovery}
 
   @default_scope "trinity:tools:read"
 

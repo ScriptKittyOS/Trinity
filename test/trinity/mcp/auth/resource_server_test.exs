@@ -13,8 +13,8 @@ defmodule Trinity.MCP.Auth.ResourceServerTest do
   use Trinity.DataCase, async: false
   @moduletag :capture_log
 
-  alias Trinity.MCP.AuthHost
   alias Trinity.MCP.Auth.JWKS
+  alias Trinity.MCP.AuthHost
   alias Trinity.MCP.FakeAS
   alias Trinity.MCP.Server.{Exports, Replay}
   alias Trinity.Permissions
@@ -84,7 +84,7 @@ defmodule Trinity.MCP.Auth.ResourceServerTest do
 
   test "AC1: 401 with resource_metadata; the PRM names the AS; wrong audience, expired and the static bearer are 401; each refusal receipted",
        %{as: as, resource: resource, scope: scope, port: port} do
-    assert {401, ["Bearer resource_metadata=\"" <> rest], %{"error" => %{"code" => -32001}}} =
+    assert {401, ["Bearer resource_metadata=\"" <> rest], %{"error" => %{"code" => -32_001}}} =
              post(resource, nil, "server/discover", %{})
 
     prm_url = String.trim_trailing(rest, "\"")
@@ -154,7 +154,7 @@ defmodule Trinity.MCP.Auth.ResourceServerTest do
     assert {200, _,
             %{
               "error" => %{
-                "code" => -32001,
+                "code" => -32_001,
                 "message" => "insufficient scope: this tool needs trinity:tools:artifact"
               }
             }} =

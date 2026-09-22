@@ -16,19 +16,14 @@ defmodule Trinity.MCP.Auth.JWKS do
   @doc "The key for a `kid` (or the only key, when the token names none) of an issuer."
   @spec key(String.t(), String.t() | nil, keyword()) :: {:ok, JOSE.JWK.t()} | {:error, term()}
   def key(issuer, kid, opts \\ []) do
-    with {:ok, keys} <- keys(issuer, opts) do
-      case find(keys, kid) do
-        {:ok, key} ->
-          {:ok, key}
-
-        :error ->
-          with {:ok, keys} <- refresh_on_miss(issuer, opts) do
-            case find(keys, kid) do
-              {:ok, key} -> {:ok, key}
-              :error -> {:error, {:unknown_kid, kid}}
-            end
-          end
-      end
+    with {:ok, keys} <- keys(issuer, opts),
+         :error <- find(keys, kid),
+         {:ok, keys} <- refresh_on_miss(issuer, opts),
+         :error <- find(keys, kid) do
+      {:error, {:unknown_kid, kid}}
+    else
+      {:ok, %JOSE.JWK{} = key} -> {:ok, key}
+      {:error, _} = error -> error
     end
   end
 

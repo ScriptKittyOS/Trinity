@@ -19,9 +19,9 @@ defmodule Trinity.MCP.Auth.ClientRoleTest do
   import Bitwise
   import Trinity.MCP.ServersUnderTest
 
-  alias Trinity.MCP.{AuthHost, Client, FakeAS, ServerConfig}
   alias Trinity.MCP.Auth.Client.Store
   alias Trinity.MCP.Auth.{JWKS, Token}
+  alias Trinity.MCP.{AuthHost, Client, FakeAS, ServerConfig}
   alias Trinity.MCP.Server.{Exports, Replay}
   alias Trinity.Receipts
 

@@ -48,12 +48,15 @@ defmodule Trinity.MCP.AuthHost do
     config
   end
 
-  @doc "Starts what the profile needs at boot: the personal profile's authorization server."
+  @doc """
+  Starts what the profile needs at boot: the personal profile's authorization server, as a
+  child of `Trinity.MCP.Supervisor` (supervised, and not tied to whoever called this).
+  """
   @spec boot() :: :ok
   def boot do
     case config() do
       %Config{profile: :personal} = c ->
-        case Auth.Embedded.start_link(c) do
+        case DynamicSupervisor.start_child(Trinity.MCP.Supervisor, {Auth.Embedded, c}) do
           {:ok, _pid} ->
             Logger.info("mcp auth: personal profile, issuer #{Auth.Embedded.issuer(c)}")
             :ok
@@ -68,6 +71,15 @@ defmodule Trinity.MCP.AuthHost do
       %Config{profile: profile} ->
         Logger.info("mcp auth: #{profile} profile")
         :ok
+    end
+  end
+
+  @doc "Stops the personal profile's authorization server, if it runs (a test's reset)."
+  @spec stop_embedded() :: :ok
+  def stop_embedded do
+    case Process.whereis(Auth.Embedded) do
+      nil -> :ok
+      pid -> DynamicSupervisor.terminate_child(Trinity.MCP.Supervisor, pid)
     end
   end
 
