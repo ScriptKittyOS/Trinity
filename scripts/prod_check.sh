@@ -22,6 +22,10 @@
 # the `package` workflow's job and it stays the `package` workflow's job.
 #
 # POSIX sh, like scripts/plan_check.sh, and like it not run on a Windows developer's machine.
+# The gate invokes it as `cmd env ERL_AFLAGS= ./scripts/prod_check.sh`: on the FIPS leg it runs
+# outside FIPS mode, because compiling prod builds the dependencies and `tokenizers` fetches a
+# precompiled NIF over TLS, which OTP's ssl cannot do in the mode. Compiling for release is not
+# a FIPS property; the FIPS properties are `mix test --trace test/fips`, which stays in the mode.
 set -eu
 cd "$(dirname "$0")/.."
 

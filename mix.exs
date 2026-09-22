@@ -291,7 +291,14 @@ defmodule Trinity.MixProject do
         # The script compiles prod, assembles the headless release and evaluates its runtime
         # config, which is the only thing in the gate that executes runtime.exs's prod branch.
         # `cmd`, like the two steps below: its own OS process and its own exit code.
-        "cmd ./scripts/prod_check.sh",
+        # `env ERL_AFLAGS=` for the same reason `hex.audit` below carries it: on the FIPS leg
+        # this step runs outside FIPS mode. Compiling prod builds the dependencies in that
+        # environment, and `tokenizers` fetches a precompiled NIF over TLS, which OTP's ssl
+        # cannot do in the mode (docs/fips-leg.md, finding 1: the same HelloRetryRequest
+        # problem that stops Hex reaching hex.pm). Whether the tree compiles for release is not
+        # a FIPS property, so measuring it outside the mode loses nothing; 024's FIPS
+        # properties are measured by `mix test --trace test/fips`, which stays in the mode.
+        "cmd env ERL_AFLAGS= ./scripts/prod_check.sh",
         "credo --strict",
         "sobelow --exit --skip",
         # `cmd` runs it as its own OS process: Hex's tasks are not reliably resolvable from
