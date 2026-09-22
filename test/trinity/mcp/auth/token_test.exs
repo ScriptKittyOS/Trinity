@@ -106,6 +106,64 @@ defmodule Trinity.MCP.Auth.TokenTest do
     assert {:ok, _} = Token.verify(new_token, config)
   end
 
+  test "introspection: an opaque token is asked about at the issuer (RFC 7662), the answer's claims checked as a JWT's are",
+       %{as: as, config: config} do
+    config = %{config | introspection: true, introspection_credentials: {"trinity-rs", "secret"}}
+
+    conn = fn token ->
+      Plug.Test.conn(:post, "/mcp")
+      |> Plug.Conn.put_req_header("authorization", "Bearer " <> token)
+    end
+
+    now = System.os_time(:second)
+
+    assert {:ok, p} = Trinity.MCP.Auth.External.authorize(conn.(FakeAS.mint(as, %{})), config)
+    assert p.iss == as.issuer and p.sub == "u@example.com" and p.profile == :production
+
+    assert {:error, :inactive} =
+             Trinity.MCP.Auth.External.authorize(
+               conn.(FakeAS.mint(as, %{"exp" => now - 120})),
+               config
+             )
+
+    assert {:error, :inactive} =
+             Trinity.MCP.Auth.External.authorize(conn.("opaque-and-unknown"), config)
+
+    assert {:error, {:wrong_audience, "http://other/mcp"}} =
+             Trinity.MCP.Auth.External.authorize(
+               conn.(FakeAS.mint(as, %{"aud" => "http://other/mcp"})),
+               config
+             )
+
+    assert {:error, :personal_token_in_production} =
+             Trinity.MCP.Auth.External.authorize(
+               conn.(FakeAS.mint(as, %{"profile" => "personal"})),
+               config
+             )
+
+    assert {:error, :no_bearer} =
+             Trinity.MCP.Auth.External.authorize(Plug.Test.conn(:post, "/mcp"), config)
+  end
+
+  test "the configuration refuses an incomplete production profile", %{as: as} do
+    assert {:error, {:issuer, _}} = Config.new(profile: :production, resource: @resource)
+
+    assert {:error, {:issuer, _}} =
+             Config.new(profile: :production, issuer: "not a url", resource: @resource)
+
+    assert {:error, {:resource, _}} = Config.new(profile: :production, issuer: as.issuer)
+
+    assert {:error, {:profile, _}} =
+             Config.new(profile: :enterprise, issuer: as.issuer, resource: @resource)
+
+    assert {:ok, %Config{audience: @resource}} =
+             Config.new(profile: :production, issuer: as.issuer, resource: @resource)
+
+    assert_raise ArgumentError, ~r/mcp auth configuration/, fn ->
+      Config.new!(profile: :production)
+    end
+  end
+
   test "the issuer's metadata is refused when it names another issuer", %{as: as} do
     assert {:ok, %{"issuer" => iss}} = Trinity.MCP.Auth.Discovery.authorization_server(as.issuer)
     assert iss == as.issuer

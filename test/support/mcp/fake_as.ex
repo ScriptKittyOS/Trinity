@@ -185,8 +185,9 @@ defmodule Trinity.MCP.FakeAS do
     p = URI.decode_query(body)
 
     with %{} = entry <-
-           Agent.get_and_update(agent, fn s -> Map.pop(s.codes, p["code"]) end)
-           |> then(&elem(&1, 0)),
+           Agent.get_and_update(agent, fn s ->
+             {s.codes[p["code"]], %{s | codes: Map.delete(s.codes, p["code"])}}
+           end),
          true <- pkce_ok?(entry.challenge, p["code_verifier"]),
          true <- entry.resource == p["resource"] do
       now = System.os_time(:second)

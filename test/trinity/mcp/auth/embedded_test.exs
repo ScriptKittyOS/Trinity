@@ -284,6 +284,65 @@ defmodule Trinity.MCP.Auth.EmbeddedTest do
                key_dir: key_dir,
                local_authority?: false
              })
+
+    # At boot: with an external adapter selected (the test adapter stands in), the host's
+    # configuration, the first thing the MCP boot builds, raises, and no authorization
+    # server is running afterwards.
+    GenServer.stop(Embedded)
+    :persistent_term.put({Trinity.Authority.Selection, :selected}, Trinity.TestAuthority.Full)
+
+    on_exit(fn ->
+      :persistent_term.put({Trinity.Authority.Selection, :selected}, Trinity.Authority.Local)
+    end)
+
+    assert Trinity.Authority.impl() == Trinity.TestAuthority.Full
+
+    assert_raise ArgumentError,
+                 ~r/no embedded issuer under an external authority adapter/,
+                 fn -> AuthHost.reload() end
+
+    assert Process.whereis(Embedded) == nil
+
+    # The production profile under the same adapter boots: Trinity issues nothing there.
+    Application.put_env(:trinity, :mcp_auth,
+      profile: :production,
+      issuer: "https://as.example",
+      resource: resource
+    )
+
+    assert %Config{profile: :production, local_authority?: false} = AuthHost.reload()
+    assert :ok = AuthHost.boot()
+    assert Process.whereis(Embedded) == nil
+    assert AuthHost.as_metadata() == nil and AuthHost.jwks() == nil
+  end
+
+  test "the production profile holds no key material of its own: no keys, no JWKS, no AS metadata",
+       %{base: base, resource: resource, key_dir: key_dir} do
+    GenServer.stop(Embedded)
+    File.rm_rf!(key_dir)
+
+    Application.put_env(:trinity, :mcp_auth,
+      profile: :production,
+      issuer: "https://as.example",
+      resource: resource,
+      key_dir: key_dir
+    )
+
+    AuthHost.reload()
+    :ok = AuthHost.boot()
+    assert Path.wildcard(Path.join(key_dir, "mcp-as-*")) == []
+    assert AuthHost.jwks() == nil
+    {:ok, r} = Req.get(base <> "/.well-known/jwks.json", retry: false)
+    assert r.status == 404
+    {:ok, r} = Req.get(base <> "/.well-known/oauth-authorization-server", retry: false)
+    assert r.status == 404
+
+    {:ok, r} =
+      Req.post(base <> "/oauth/token", form: [grant_type: "authorization_code"], retry: false)
+
+    assert r.status == 404
+    {:ok, r} = Req.get(base <> "/oauth/authorize?client_id=x", retry: false, redirect: false)
+    assert r.status == 404
   end
 
   test "rotating the signing key: a token the old key signed verifies by kid; new tokens use the new key",

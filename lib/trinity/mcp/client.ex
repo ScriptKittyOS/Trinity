@@ -171,7 +171,9 @@ defmodule Trinity.MCP.Client do
           "mcp #{state.config.name}: connected at #{state.revision}, #{map_size(state.tools)} tools"
         )
 
-        {:noreply, %{state | status: :ready, attempts: 0, last_error: nil} |> schedule_relist()}
+        {:noreply,
+         %{state | status: :ready, attempts: 0, last_error: nil, auth_challenge: nil}
+         |> schedule_relist()}
 
       {:refused, reason, state} ->
         Logger.warning("mcp #{state.config.name}: refused: #{inspect(reason)}")
