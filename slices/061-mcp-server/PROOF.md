@@ -18,21 +18,55 @@ deviations in NOTES.md.
 
 ## Gate
 ```
-$ mix gate                                   (GATE_TREE, this machine, OTP 28.5.0.5, Elixir 1.20.4, under a 32 GiB cgroup)
-GATE_OUTPUT
+$ mix gate                                   (tree c6b6faa, before this file and the coverage row were added, this machine, OTP 28.5.0.5, Elixir 1.20.4, under a 32 GiB cgroup)
+2548 mods/funs, found no issues.
+... SCAN COMPLETE ...
+No retired or security advisory packages found
+No vulnerabilities found.
+versions.verify: OK. 103 locked packages, none disagreeing with 53 pins
+versions.gen: VERSIONS.md already matches Trinity.Versions and mix.lock
+trinity.version_form: OK
+trinity.names: OK over 637 tracked files
+trinity.secrets.scan: OK over 637 files
+trinity.reuse: OK. Every commentable tracked file carries an SPDX header
+Result: 488 passed, 18 excluded
+trinity.coverage: 060 80.32% vs 059 80.54%: OK
+plan_check: PASS
+exit=0
 ```
 CI: named in the closing correction.
 
 ## Tests
 ```
-$ mix test --cover                           (COVER_TREE)
-COVER_OUTPUT
+$ mix test --cover                           (tree c6b6faa)
+Result: 488 passed, 18 excluded
+|     75.00% | Trinity.MCP.Server                     |
+|     84.85% | Trinity.MCP.Server.Envelope            |
+|     92.31% | Trinity.MCP.Server.Replay              |
+|     91.67% | Trinity.MCP.Server.Exports             |
+|     66.67% | Trinity.MCP.Server.Catalog             |
+|     40.00% | Trinity.MCP.Server.Auth.Local          |   (the generated token file: the suite sets the variable)
+|      0.00% | Trinity.MCP.Server.Stdio               |   (measured by hand, NOTES finding 3: a stdio loop is not a test)
+|    100.00% | Trinity.MCP.Server.Plug                |
+|     80.05% | Total                                  |
 ```
-`coverage.tsv` row: `COVER_ROW`.
+`coverage.tsv` row: `061  80.05  c6b6faa  2026-09-22` (from 80.32 at 060: the stdio entry and the token file)
+
+The gate line `trinity.coverage: 060 80.32% vs 059 80.54%` is the gate run before this row was appended; `mix trinity.coverage` on the row reads `061 80.05% vs 060 80.32%: OK``.
 
 The slice's tests (`mix test test/trinity/mcp/server_test.exs test/trinity/mcp/server_mrtr_test.exs --trace`):
 ```
-SLICE_TESTS
+* test a replay inside the partition, one tampered byte, an expired envelope and a state bound to other arguments are refused; a missing state is a first call
+  * test AC7: begun on instance A, decided by the owner, completed on instance B with the state alone; the effect ran once
+  * test AC2: tools/list is sorted, identical across two calls, and carries ttlMs and cacheScope
+  * test the trace context in _meta rides into the receipts' meta
+  * test AC4: an artifact tool is held as input_required with a sealed state; approving on the permissions page lets the retry complete; denying makes the retry an error with its receipt
+  * test AC3: recall over /mcp yields a decision and a query receipt whose subject carries origin mcp
+  * test AC1: a 2025-11-25 client connects to the wrapper with initialize and calls a tool; the answers carry no resultType
+  * test the bearer: a wrong or absent one is refused before anything is decoded; the right one reaches discover
+  * test AC1: our client connects at 2026-07-28 over /mcp and lists the exported tools under mcp:self:*
+  * test AC5: a catalog tool is not exportable; an unknown name and a dynamic name are refused too
+Result: 10 passed
 ```
 
 ## Acceptance criteria evidence
