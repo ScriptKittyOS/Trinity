@@ -48,28 +48,26 @@ defmodule Trinity.MCP.Auth.JWKS do
     end
   end
 
-  @doc "Fetches the keys again (at most once a minute after a miss); the cache is replaced."
+  @doc "Fetches the keys again; the cache is replaced (the time of the last miss-driven refresh kept)."
   @spec refresh(String.t(), keyword()) :: {:ok, [JOSE.JWK.t()]} | {:error, term()}
   def refresh(issuer, opts \\ []) do
     now = System.monotonic_time(:millisecond)
-    force? = Keyword.get(opts, :force, false)
 
-    case :persistent_term.get({__MODULE__, issuer}, nil) do
-      {keys, _at, refreshed}
-      when is_integer(refreshed) and now - refreshed < @refresh_floor_ms and not force? ->
-        {:ok, keys}
+    missed =
+      case :persistent_term.get({__MODULE__, issuer}, nil) do
+        {_, _, m} -> m
+        _ -> nil
+      end
 
-      _ ->
-        with {:ok, meta} <- Discovery.authorization_server(issuer, opts),
-             {:ok, uri} <- Map.fetch(meta, "jwks_uri") |> ok_or(:no_jwks_uri),
-             {:ok, %{"keys" => raw}} when is_list(raw) <- Discovery.fetch_json(uri, opts) do
-          keys = for k <- raw, is_map(k), do: JOSE.JWK.from_map(k)
-          :persistent_term.put({__MODULE__, issuer}, {keys, now, now})
-          {:ok, keys}
-        else
-          {:error, _} = error -> error
-          _ -> {:error, :no_keys_in_document}
-        end
+    with {:ok, meta} <- Discovery.authorization_server(issuer, opts),
+         {:ok, uri} <- Map.fetch(meta, "jwks_uri") |> ok_or(:no_jwks_uri),
+         {:ok, %{"keys" => raw}} when is_list(raw) <- Discovery.fetch_json(uri, opts) do
+      keys = for k <- raw, is_map(k), do: JOSE.JWK.from_map(k)
+      :persistent_term.put({__MODULE__, issuer}, {keys, now, missed})
+      {:ok, keys}
+    else
+      {:error, _} = error -> error
+      _ -> {:error, :no_keys_in_document}
     end
   end
 
