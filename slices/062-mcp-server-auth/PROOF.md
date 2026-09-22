@@ -295,5 +295,45 @@ changed; `joken` was considered and not taken (NOTES, "Read before code").
 $ git log --oneline main..HEAD
 ```
 
-(The branch's commits, in order, are listed by that command; the closing commit's sha is appended
-below when the slice closes, as the house rule requires.)
+## Closing correction, 2026-09-22
+
+Appended, not rewritten: the header above says "Final commit: written at the close, below", and
+this is that line. **The closing commit is `73b2b02`** (`feat(s062): complete slice 062 (MCP
+authorization: client role, resource server, personal-profile AS)`), which carries `ROADMAP.md`'s
+row at `done` and the CI section of this file. Its own CI run is green on all four checks:
+
+```
+$ gh run view 35736404050 --json conclusion,jobs,headSha
+{"conclusion":"success",
+ "jobs":["gate: success","fips-tag: success","postgres: success","fips: success"],
+ "sha":"73b2b02837b6d082e90d026bd0f4873343f3bdd9"}
+```
+
+https://github.com/ScriptKittyOS/Trinity/actions/runs/35736404050
+
+The run named under "Gate" above (35735635653, at `d2e9bab`) measured the same tree without the
+ROADMAP row and this section; both are green and both are left standing, since a record is not
+rewritten. The branch, in order:
+
+```
+$ git log --oneline main..HEAD
+73b2b02 feat(s062): complete slice 062 (MCP authorization: client role, resource server, personal-profile AS)
+d2e9bab docs(s062): PROOF.md: the gate, the coverage, and the evidence for AC1, AC2, AC4, AC5, AC7 and AC8 …
+9490ffa fix(s062): AC7's compile-time half actually holds: the authorization package is a top-level boundary …
+4a90248 fix(s062): the personal profile's authorization server is a child of the MCP supervisor …
+d03e15d docs(s062): the amendment: EMA leaves the slice as a deferral under the owner's decision …
+601bac1 feat(s062): the /mcp page shows a server's 401 challenge and 'authorize' …
+c9a7f55 test(s062): AC7 …, AC8 …, introspection (RFC 7662), the configuration's refusals …
+274ad20 test(s062): AC2 green through the personal profile's endpoints …
+a29dcb4 test(s062): the fake enterprise AS; AC1, AC4 and AC5 green; the receipts name the principal …
+e18e3c9 test(s061): a refused bearer is 401 with a challenge since 062
+34e56d2 feat(s062): the authorization boundary (profiles local, production, personal), the host …
+08c2014 docs(s062): G1 plan under the owner's profile decision; EMA paused as the issuer question
+```
+
+Twelve commits: the first four are the crashed session's (NOTES, "Recovery"), the rest this one's.
+One of them is scoped `s061`, correctly: it amends 061's own test for the `401` this slice brings.
+
+**Not done, and deliberately.** No pull request is open, nothing is merged, and no tag exists: the
+slice's status is `done`, which is the agent's half, and `approved` is yours (G4). The `slice/062`
+tag and the three-OS `package` run that the tag triggers both come after that.
