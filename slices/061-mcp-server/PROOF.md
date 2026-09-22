@@ -165,3 +165,35 @@ checksum `2bf9615c…`, the one beam_mcp's release record names). No other depen
 $ git log --oneline main..HEAD
 (named in the closing correction, after the final commit)
 ```
+
+## Closing correction, 2026-09-22
+
+Supersedes "named in the closing correction" above. The tree the PR is merged from is `a0d4bbf`; the code is
+`00ed5a3` (`feat(s061): complete slice 061 (MCP server)`, the commit carrying this file) plus `f180ec1`
+(`test(s024)`, the standalone census reading an accepted connection as inbound) and `a0d4bbf` (NOTES.md:
+the two CI timing failures recorded). On `a0d4bbf`, CI run 35678149570: `gate` success (488 passed, 18
+excluded), `postgres` success (468 passed, 38 excluded), `fips-tag` and `fips` success (493 passed, 13
+excluded; the six FIPS tests by name); the `push` event's run 35678146729 the same numbers. The two earlier
+runs on this branch each had one job red on one event and green on the other (NOTES.md, "Two CI timing
+failures"); the rerun of run 35677465879's `gate` job passed (488). The coverage row stays at `c6b6faa`
+(80.05%): the commits after it change tests, NOTES.md, ROADMAP.md, coverage.tsv and this file only.
+
+```
+$ git log --oneline main..HEAD
+a0d4bbf docs(s061): the two CI timing failures on this branch, recorded
+f180ec1 test(s024): the standalone census reads an accepted connection on the endpoint's listener as inbound
+00ed5a3 feat(s061): complete slice 061 (MCP server)
+c6b6faa chore(s061): sobelow skips with their reasons on the four file reads and the catalog's atom
+7211fe2 refactor(s061): credo: the alias order, the run-or-hold clause, any? over count
+64ae767 test(s061): the expired envelope's payload bound first (formatter convergence)
+6eba5b8 docs(s061): deviations, findings at G3, follow-ups
+1cd53f4 test(s061): the boundary census names the server side's referrers
+077923a feat(s061): the approval card names the actor of an MCP call; AC4 screenshots; AC6 rerun on the fixed image; the README
+ace5fc3 docs(s061): docs/mcp-server.md (clients, stdio, approvals over the wire, the headless profile), docs 01, 05, 07, 08; the AC6 container log
+5e240ac fix(s030): the default persona's SOUL path is resolved when read, not at compile time
+1b87836 feat(s061): the headless release, its bind and port, the stdio server and task, the container recipe
+c0d9091 test(s061): AC7 green: an exchange begun on one instance completes on another; replay, tamper, expiry and binding refused
+4a364a4 feat(s061): Trinity as an MCP server: the wrapper above the core, the catalog, the MCP session, the sealed requestState, the bearer; AC1 to AC5 green
+c85950e docs(s061): G1 plan; AC1's legacy half over the stdio wire; Tasks out under 059's finding 4
+18b3bc9 feat(s061): beam_mcp pinned at ~> 0.9 (the :server seam); ROADMAP row 061 in progress
+```
