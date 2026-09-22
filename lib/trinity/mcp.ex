@@ -24,13 +24,30 @@ defmodule Trinity.MCP do
   # for the test environment alone.
   use Boundary,
     top_level?: true,
+    # Slice 061: the server reaches the core's server, catalog, tool spec and HTTP transport.
     deps:
-      [Trinity, BeamMCP.JSON, BeamMCP.Schema] ++
-        if(Mix.env() == :test,
-          do: [BeamMCP.Catalog, BeamMCP.ToolSpec, BeamMCP.Transport.HTTP],
-          else: []
-        ),
-    exports: [Bridge, Client, Servers, ServerConfig, Supervisor, Boot]
+      [
+        Trinity,
+        BeamMCP.JSON,
+        BeamMCP.Schema,
+        BeamMCP.Server,
+        BeamMCP.Catalog,
+        BeamMCP.ToolSpec,
+        BeamMCP.Transport.HTTP
+      ] ++ if(Mix.env() == :test, do: [BeamMCP.Transport.Stdio], else: []),
+    exports: [
+      Bridge,
+      Client,
+      Servers,
+      ServerConfig,
+      Supervisor,
+      Boot,
+      Server,
+      Server.Plug,
+      Server.Exports,
+      Server.Auth.Local,
+      Server.Replay
+    ]
 
   @doc "The core's version, from its application spec."
   @spec core_version() :: String.t()

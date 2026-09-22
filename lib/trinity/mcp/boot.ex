@@ -25,8 +25,29 @@ defmodule Trinity.MCP.Boot do
       rescue
         e -> Logger.warning("mcp boot: servers not started: #{Exception.message(e)}")
       end
+
+      server_side()
     end
 
     :ok
+  end
+
+  # Slice 061: the server side's files (the envelope key, the bearer token when no variable
+  # sets it) and the export list's refusals, said once at boot rather than on a client's first
+  # request.
+  defp server_side do
+    Trinity.MCP.Server.Envelope.ensure_key!()
+
+    if System.get_env(Trinity.MCP.Server.Auth.Local.variable()) in [nil, ""],
+      do: Trinity.MCP.Server.Auth.Local.ensure_token!()
+
+    {entries, refusals} = Trinity.MCP.Server.Exports.resolve()
+
+    for {name, reason} <- refusals,
+        do: Logger.warning("mcp server: tool #{name} not exported: #{reason}")
+
+    Logger.info("mcp server: exporting #{length(entries)} tools at /mcp")
+  rescue
+    e -> Logger.warning("mcp server: not prepared: #{Exception.message(e)}")
   end
 end

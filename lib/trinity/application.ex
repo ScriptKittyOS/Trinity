@@ -63,6 +63,8 @@ defmodule Trinity.Application do
           # Slice 060: the MCP clients, one per enabled server row, after the tools they
           # register into and the gate their approvals go through.
           Trinity.MCP.Supervisor,
+          # Slice 061: the server's replay table, before the endpoint that serves /mcp.
+          Trinity.MCP.Server.Replay,
           Trinity.MCP.Boot,
           Trinity.Sessions.Supervisor
         ] ++

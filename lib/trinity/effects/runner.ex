@@ -88,12 +88,13 @@ defmodule Trinity.Effects.Runner do
        ) do
     Receipts.append(scope, %{
       kind: "decision",
-      subject: %{
-        "session_id" => ctx.session_id,
-        "call_id" => ctx.call_id,
-        "tool" => name,
-        "effect" => Atom.to_string(effect)
-      },
+      subject:
+        origin(ctx, %{
+          "session_id" => ctx.session_id,
+          "call_id" => ctx.call_id,
+          "tool" => name,
+          "effect" => Atom.to_string(effect)
+        }),
       decision: %{
         "outcome" => Atom.to_string(decision),
         "basis" => basis,
@@ -101,7 +102,7 @@ defmodule Trinity.Effects.Runner do
       },
       fingerprint: fp,
       subject_ref: "decision:#{ctx.session_id || "none"}:#{ctx.call_id || "none"}",
-      meta: %{"tool_definition_digest" => digest}
+      meta: trace(ctx, %{"tool_definition_digest" => digest})
     })
   end
 
@@ -115,10 +116,22 @@ defmodule Trinity.Effects.Runner do
 
     Receipts.append(scope, %{
       kind: "query",
-      subject: %{"session_id" => ctx.session_id, "call_id" => ctx.call_id, "tool" => name},
+      subject:
+        origin(ctx, %{"session_id" => ctx.session_id, "call_id" => ctx.call_id, "tool" => name}),
       decision: outcome,
       subject_ref: "query:#{ctx.session_id || "none"}:#{ctx.call_id || "none"}",
-      meta: %{"tool_definition_digest" => digest}
+      meta: trace(ctx, %{"tool_definition_digest" => digest})
     })
   end
+
+  # Slice 061: a call that did not come from the desktop says where it came from (`"mcp"`),
+  # and the caller's trace context rides in the meta for 090; a desktop call carries neither,
+  # so every receipt written before this slice reads the same.
+  defp origin(%Context{origin: nil}, subject), do: subject
+  defp origin(%Context{origin: origin}, subject), do: Map.put(subject, "origin", origin)
+
+  defp trace(%Context{trace: %{} = trace}, meta) when map_size(trace) > 0,
+    do: Map.put(meta, "trace", trace)
+
+  defp trace(_ctx, meta), do: meta
 end

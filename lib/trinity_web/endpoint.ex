@@ -45,6 +45,11 @@ defmodule TrinityWeb.Endpoint do
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
+  # Slice 061: Trinity as an MCP server, at POST /mcp, ahead of the parsers: the core's
+  # transport reads the raw body itself (its size bound, its nesting bound, its duplicate-key
+  # refusal), so the body must reach it unread. Every other request passes through.
+  plug Trinity.MCP.Server.Plug
+
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
