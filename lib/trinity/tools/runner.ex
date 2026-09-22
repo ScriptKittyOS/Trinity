@@ -143,8 +143,11 @@ defmodule Trinity.Tools.Runner do
 
   defp ask(%Context{session_id: sid, cwd: cwd} = ctx, %{name: name} = entry, args) do
     risk = Permissions.effective_tier(name, escalation(entry, args, ctx))
+    # Slice 061: a call that did not come from the desktop says so on the request, so the card
+    # names the right actor ("an MCP client asks" rather than "Trinity wants to run").
+    request = if ctx.origin, do: %{"kind" => "call", "origin" => ctx.origin}, else: nil
 
-    case Permissions.request_approval(sid, name, args, cwd: cwd, risk: risk) do
+    case Permissions.request_approval(sid, name, args, cwd: cwd, risk: risk, request: request) do
       {:ok, approval} -> {:approval_required, approval.id}
       {:error, reason} -> {:request_failed, reason}
     end

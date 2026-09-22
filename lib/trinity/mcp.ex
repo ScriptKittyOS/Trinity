@@ -25,17 +25,16 @@ defmodule Trinity.MCP do
   use Boundary,
     top_level?: true,
     # Slice 061: the server reaches the core's server, catalog, tool spec and HTTP transport.
-    deps:
-      [
-        Trinity,
-        BeamMCP.JSON,
-        BeamMCP.Schema,
-        BeamMCP.Server,
-        BeamMCP.Catalog,
-        BeamMCP.ToolSpec,
-        BeamMCP.Transport.HTTP,
-        BeamMCP.Transport.Stdio
-      ],
+    deps: [
+      Trinity,
+      BeamMCP.JSON,
+      BeamMCP.Schema,
+      BeamMCP.Server,
+      BeamMCP.Catalog,
+      BeamMCP.ToolSpec,
+      BeamMCP.Transport.HTTP,
+      BeamMCP.Transport.Stdio
+    ],
     exports: [
       Bridge,
       Client,

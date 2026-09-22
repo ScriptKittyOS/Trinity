@@ -168,9 +168,14 @@ if config_env() == :prod do
   {bind_ip, bind_port} =
     if System.get_env("TRINITY_MODE") == "headless" do
       ip =
-        case System.get_env("TRINITY_BIND", "127.0.0.1") |> String.to_charlist() |> :inet.parse_address() do
-          {:ok, ip} -> ip
-          {:error, _} -> raise "TRINITY_BIND is not an IP address: #{System.get_env("TRINITY_BIND")}"
+        case System.get_env("TRINITY_BIND", "127.0.0.1")
+             |> String.to_charlist()
+             |> :inet.parse_address() do
+          {:ok, ip} ->
+            ip
+
+          {:error, _} ->
+            raise "TRINITY_BIND is not an IP address: #{System.get_env("TRINITY_BIND")}"
         end
 
       {ip, String.to_integer(System.get_env("PORT") || "4000")}
