@@ -26,8 +26,8 @@ defmodule Trinity.MCP.Server do
   @behaviour BeamMCP.Server
 
   alias Trinity.Effects
-  alias Trinity.MCP.Server.{Envelope, Exports, Replay, Session}
   alias Trinity.MCP.Client.Wire
+  alias Trinity.MCP.Server.{Envelope, Exports, Replay, Session}
   alias Trinity.Tools.{Context, Result}
 
   @version_key "io.modelcontextprotocol/protocolVersion"
@@ -104,10 +104,7 @@ defmodule Trinity.MCP.Server do
       entry ->
         with :ok <- validate(args, entry),
              {:ok, ctx, pending} <- context(name, args, params) do
-          case pending do
-            nil -> run(id, era, state, entry, args, ctx)
-            approval_id -> approval_required(id, era, state, entry, args, ctx, approval_id)
-          end
+          run_or_hold(id, era, state, entry, args, ctx, pending)
         else
           {:error, {:invalid_arguments, reason}} ->
             error(id, -32_602, "invalid arguments: #{reason}")
@@ -117,6 +114,12 @@ defmodule Trinity.MCP.Server do
         end
     end
   end
+
+  defp run_or_hold(id, era, state, entry, args, ctx, nil),
+    do: run(id, era, state, entry, args, ctx)
+
+  defp run_or_hold(id, era, state, entry, args, ctx, approval_id),
+    do: approval_required(id, era, state, entry, args, ctx, approval_id)
 
   defp validate(args, entry) do
     case Wire.validate_arguments(args, Trinity.Tools.Registry.schema(entry)) do

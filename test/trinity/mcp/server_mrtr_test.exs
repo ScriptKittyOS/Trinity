@@ -170,6 +170,6 @@ defmodule Trinity.MCP.ServerMrtrTest do
     {200, %{"result" => %{"resultType" => "input_required"}}} = memory(b)
     assert_receive {:approval, :requested, %{id: other}}, 2_000
     assert other != aid
-    assert Enum.count(Receipts.list(scope), &(&1.kind == "effect")) == 0
+    refute Enum.any?(Receipts.list(scope), &(&1.kind == "effect"))
   end
 end
