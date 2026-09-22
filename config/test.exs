@@ -206,3 +206,5 @@ config :trinity, :mcp_client, backoff_ms: 50, max_backoff_ms: 400, connect_timeo
 
 # Slice 050: Oban runs nothing on its own in the suite; each test drives its jobs.
 config :trinity, Oban, testing: :manual
+# Slice 050: the dashboard route is mounted in the suite so its mount is a test.
+config :trinity, :oban_web, true

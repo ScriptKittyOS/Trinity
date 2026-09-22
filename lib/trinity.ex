@@ -69,6 +69,11 @@ defmodule Trinity do
         Skills.Promotion,
         Skills.Manager,
         Skills.Learn,
+        # Slice 050: the tasks page reads and writes the scheduler.
+        Scheduler,
+        Scheduler.Task,
+        Scheduler.Run,
+        Scheduler.Parse,
         CorePolicy,
         Receipts,
         Receipts.Receipt,

@@ -40,6 +40,8 @@ defmodule TrinityWeb.Router do
       live "/skills", SkillsLive, :index
       # Slice 060: the MCP servers and their health.
       live "/mcp", MCPLive, :index
+      # Slice 050: scheduled tasks, their runs and the results to read.
+      live "/tasks", TasksLive, :index
       # Slice 024: a session's receipt chain, and the boot receipt of this run.
       live "/s/:id/receipts", ReceiptsLive, :session
       live "/receipts/boot", ReceiptsLive, :boot
@@ -50,6 +52,18 @@ defmodule TrinityWeb.Router do
   # scope "/api", TrinityWeb do
   #   pipe_through :api
   # end
+
+  # Slice 050: Oban's dashboard, in development and wherever `config :trinity, :oban_web` is
+  # set (the pages carry no authentication yet; the same rule as every other page).
+  if Application.compile_env(:trinity, :dev_routes) ||
+       Application.compile_env(:trinity, :oban_web, false) do
+    import Oban.Web.Router
+
+    scope "/" do
+      pipe_through :browser
+      oban_dashboard("/oban", csp_nonce_assign_key: :csp_nonce)
+    end
+  end
 
   # Enable LiveDashboard in development
   if Application.compile_env(:trinity, :dev_routes) do
