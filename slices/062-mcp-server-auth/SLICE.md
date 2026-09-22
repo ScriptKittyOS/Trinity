@@ -48,12 +48,13 @@ clients (CIMD URLs), scopes; conformance tests modelled on the spec's flows; doc
 1. [auto] RS: unauthenticated → 401 with `resource_metadata`; PRM lists our AS; wrong `aud`/expired → 401; each receipted (tests).
 2. [auto] AS: a CIMD-registered test client completes authorization-code + PKCE with resource indicator and receives an
    audience-bound token that the RS accepts; DCR path works only when explicitly enabled (tests).
-3. [auto] EMA: a fake enterprise IdP (in-repo, publishes OIDC discovery + JWKS) issues an ID-JAG for user `u@example.com`;
+3. [paused] EMA: a fake enterprise IdP (in-repo, publishes OIDC discovery + JWKS) issues an ID-JAG for user `u@example.com`;
    our AS validates it, maps domain → org and group → scopes, issues an access token; the RS accepts it; a token for an
-   unverified domain is refused; a replayed/expired ID-JAG is refused (tests, with the exact claim checks named).
+   unverified domain is refused; a replayed/expired ID-JAG is refused (tests, with the exact claim checks named). Paused at G1, 2026-09-22, under the owner's decision that Trinity is not the issuer of production authority (NOTES.md, "Paused"); the owner's answer decides whether it leaves the slice.
+
 4. [auto] Scope mapping: `trinity:recall` cannot call an `:artifact` tool; `trinity:tools:artifact` can, subject to the gate (tests).
 5. [auto] Key rotation: rotate the AS signing key; old tokens verify until expiry via JWKS `kid`; new tokens use the new key (test).
-6. [manual] Manual: one real MCP client that supports EMA (per the MCP client matrix at the time) connects through the fake IdP
+6. [paused] Manual: one real MCP client that supports EMA (per the MCP client matrix at the time) connects through the fake IdP
    flow; screenshots. If none is available on the developer machine, recorded as not measured.
 7. [auto] The library boundary: `Trinity.MCP.Auth.*` has no dependency on `Trinity.Sessions`/`Trinity.Tools` (boundary check),
    so it can be extracted as its own package (slice 123).
