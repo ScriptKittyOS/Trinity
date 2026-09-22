@@ -145,3 +145,29 @@ with it (Apache-2.0). `mix versions.verify`: named in the gate output above.
 $ git log --oneline main..HEAD
 (named in the closing correction, after the final commit)
 ```
+
+## Closing correction, 2026-09-22
+
+Supersedes "named in the closing correction" above. The tree the PR is merged from is `abcfcd0`; the code
+is `e382fc0` (`feat(s050): complete slice 050`, the commit carrying this file) plus `abcfcd0` (the postgres
+job's adapter check run with `--no-start`: its first run, 35711666503, booted the application before
+`ecto.reset` and Oban refused to start without its table; the SQLite suite never hits that because its
+`mix test` alias migrates first). On `abcfcd0`, CI run 35712404770: `gate` success (501 passed, 18
+excluded), `postgres` success (481 passed, 38 excluded; the Basic engine and Oban's Postgres migration
+on that leg), `fips-tag` and `fips` success (506 passed, 13 excluded; the six FIPS tests by name); the
+`push` event's run 35712400033 the same numbers. The coverage row stays at `c01466d` (80.31%): the
+commits after it change this file, the workflow, ROADMAP.md and coverage.tsv only.
+
+```
+$ git log --oneline main..HEAD
+abcfcd0 ci(s050): the adapter check runs without booting the application (Oban needs its table first)
+e382fc0 feat(s050): complete slice 050 (scheduler with Oban cron agent tasks)
+c01466d chore(s050): VERSIONS.md regenerated (oban, oban_web rows in mix.lock)
+228e361 docs(s050): deviations, findings at G3 (the stress measurement with Oban polling), follow-ups
+4d7dd97 docs(s050): AC2, AC6 and AC7 proof (the results list, Oban Web with the three workers, the task's GIF); the dev script
+89f5249 docs(s050): docs 01, 05, 07 and the README as built
+9be8540 test(s010): the pool-size property reads the shipped configuration (the suite's pool is two for Oban's boot check)
+384d2c0 feat(s050): the /tasks page (list, form with suggest, run now, results to read, run history), Oban Web at /oban; the curator and observer tests
+2152a5d feat(s050): Oban on the app's repo; tasks and runs; the tick, the run worker, the desktop delivery, the schedule helper; the observer as a job; the curator; AC1 to AC5 green
+b73184a docs(s050): G1 plan; oban and oban_web pinned and fetched
+```
