@@ -29,9 +29,17 @@ defmodule Trinity.MCP.BoundaryTest do
     assert length(files) > 100
 
     referrers = for f <- files, File.read!(f) =~ ~r/\bBeamMCP\./, do: f
-    # Slice 060: the wire builder is the second referrer, under the same boundary; nothing
-    # outside `lib/trinity/mcp.ex` and `lib/trinity/mcp/` names the core.
-    assert Enum.sort(referrers) == ["lib/trinity/mcp.ex", "lib/trinity/mcp/client/wire.ex"]
+    # Slice 060: the wire builder is the second referrer, under the same boundary; 061 adds
+    # the server side (the wrapper, its catalog, the plug, the stdio entry). Nothing outside
+    # `lib/trinity/mcp.ex` and `lib/trinity/mcp/` names the core.
+    assert Enum.sort(referrers) == [
+             "lib/trinity/mcp.ex",
+             "lib/trinity/mcp/client/wire.ex",
+             "lib/trinity/mcp/server.ex",
+             "lib/trinity/mcp/server/catalog.ex",
+             "lib/trinity/mcp/server/plug.ex",
+             "lib/trinity/mcp/server/stdio.ex"
+           ]
 
     for f <- referrers,
         do: assert(f == "lib/trinity/mcp.ex" or String.starts_with?(f, "lib/trinity/mcp/"))
