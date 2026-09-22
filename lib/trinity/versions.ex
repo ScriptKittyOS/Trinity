@@ -151,7 +151,14 @@ defmodule Trinity.Versions do
       pin: "~> 2.24",
       lock: "oban",
       note:
-        "Uses `Oban.Engines.Lite` on SQLite. ⚠️ Oban Pro Workflows/Smart engine are Postgres-only. Added at Slice 050."
+        "Uses `Oban.Engines.Lite` on SQLite and `Oban.Engines.Basic` on Postgres (the adapter is compile time, ADR-0002, so the engine is too). ⚠️ Oban Pro Workflows/Smart engine are Postgres-only. Added at Slice 050 (2.24.1 measured on hex.pm 2026-09-22, Apache-2.0)."
+    },
+    %{
+      name: "oban_web",
+      pin: "~> 2.13",
+      lock: "oban_web",
+      note:
+        "The Oban dashboard, a LiveView mounted at /oban (dev, and behind `config :trinity, :oban_web, true` elsewhere). Apache-2.0 on hex.pm since the 2.12 line (2.13.0 measured 2026-09-22); the plan of 2026-09-05 wrote it in when it was commercial. Added at Slice 050."
     },
     %{name: "req", pin: "~> 0.5", lock: "req", note: "HTTP client."},
     %{
