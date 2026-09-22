@@ -14,6 +14,8 @@ defmodule Trinity.MCP.Server.Catalog do
   """
   @behaviour BeamMCP.Catalog
 
+  Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
+
   alias BeamMCP.ToolSpec
   alias Trinity.MCP.Server.Exports
   alias Trinity.Tools.Registry
@@ -29,7 +31,10 @@ defmodule Trinity.MCP.Server.Catalog do
   @impl true
   def get_prompt(_name, _args), do: {:error, "no prompts"}
 
-  # The name is the core tool's name, a finite set from configuration, so the atom is safe.
+  # The name is a core tool's, from the registry's core entries the operator's configuration
+  # named (Exports refuses anything else), a finite set fixed at boot, so the atom is safe.
+  # sobelow_skip reason: DOS.StringToAtom: the input is the export list, never a request.
+  @sobelow_skip ["DOS.StringToAtom"]
   defp spec(%{name: name, effect: effect} = entry) do
     %ToolSpec{
       name: String.to_atom(name),

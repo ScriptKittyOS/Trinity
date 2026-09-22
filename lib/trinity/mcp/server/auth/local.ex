@@ -36,6 +36,9 @@ defmodule Trinity.MCP.Server.Auth.Local do
   end
 
   @doc "The token in force: the environment variable, else the generated file's."
+  # sobelow_skip reason: Traversal.FileModule: the path is the data directory's plus a constant
+  # name (token_path/0), never a request's.
+  @sobelow_skip ["Traversal.FileModule"]
   @spec token() :: String.t()
   def token do
     case System.get_env(@env) do

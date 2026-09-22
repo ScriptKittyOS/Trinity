@@ -117,6 +117,9 @@ defmodule Trinity.MCP.Server.Envelope do
 
   # Read once per VM, the file being the record; a missing file is generated (a fresh data
   # directory) rather than refused, since no envelope minted under another key can open anyway.
+  # sobelow_skip reason: Traversal.FileModule: the path is the keys directory's plus a constant
+  # name (key_path/0), never a request's.
+  @sobelow_skip ["Traversal.FileModule"]
   defp key do
     case :persistent_term.get({__MODULE__, :key}, nil) do
       nil ->

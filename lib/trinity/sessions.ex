@@ -11,6 +11,8 @@ defmodule Trinity.Sessions do
   # Slice 012: Sessions reaches the LLM (docs/01: Sessions depends on LLM, Repo, PubSub).
   # Slice 020: and the tool runtime, for the declared surface and the runner in force.
   # Slice 023: and Memory, for the estimate and the compaction before a model call.
+  Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
+
   use Boundary,
     # Slice 030: Receipts, for the prompt truncation receipt (docs/01's row as built).
     deps: [Trinity, Trinity.LLM, Trinity.Tools, Trinity.Memory, Trinity.Receipts],
@@ -100,6 +102,9 @@ defmodule Trinity.Sessions do
   end
 
   @doc "The default persona's seed: the SOUL file and the settings it ships with."
+  # sobelow_skip reason: Traversal.FileModule: the path is this application's priv directory
+  # plus a constant, never a request's (resolved at read time since slice 061's fix).
+  @sobelow_skip ["Traversal.FileModule"]
   @spec default_seed() :: map()
   def default_seed do
     %{
