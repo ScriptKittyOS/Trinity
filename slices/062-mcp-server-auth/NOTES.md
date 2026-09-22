@@ -144,3 +144,100 @@ empty. Recorded now so the queue is known at G1.
 Not built here: SAML, MCP Apps, refresh tokens for EMA, the OIDC upstream login for the personal profile's
 consent (the local owner is the user), the keychain (slice 100), non-person X.509 identity (the SLICE's own
 "later amendment").
+
+## Amendment: EMA leaves the slice, 2026-09-22
+
+The owner's answer to the G1 question, quoted: "Remove Enterprise Managed Authorization from this slice.
+Do not implement Trinity-as-issuer of production access tokens from an ID-JAG. The external enterprise AS
+already issues audience-bound tokens the resource server accepts. ID-JAG/EMA stays out of 062; record it in
+NOTES as deferred, not 'personal-profile EMA.'" And the profile table the owner set, as the tree holds it:
+
+| Profile | Default | Trinity issues tokens? | Allowed under an external authority adapter |
+|---|---|---|---|
+| `:local` | yes | no (061's static bearer) | yes |
+| `:production` | no | never | required for a regulated deployment |
+| `:personal` | no | only the embedded AS, on the owner's machine | no: `Config.new/1` errors and the boot raises when `Trinity.Authority.impl/0` is not `Trinity.Authority.Local` |
+
+Answer (a) of the G1 question, so: AC3 and AC6 are `[removed]` in SLICE.md in this commit (the slice
+process: the amendment here, the criteria there, one commit); the SLICE's goal paragraph keeps its EMA
+text as history under an amendment note. Nothing of EMA was built, in any profile.
+
+**Deferred: Enterprise Managed Authorization (ID-JAG redemption at Trinity's authorization server).**
+Owner: the product owner. Since: 2026-09-22. Lift condition, checkable by a stranger: a row in
+docs/09-standards-register.md that asks Trinity to be the issuer of an access token for an enterprise
+identity, carrying the owner's written reversal of the 2026-09-22 decision. Until then the standards row
+for EMA reads "satisfied by the external authorization server" (docs/08), R23 in docs/06 is re-scoped to
+that server, and no slice builds the redemption.
+
+## Recovery, 2026-09-22
+
+The session that built the tree above crashed mid-implementation. Found on `slice/062-mcp-auth` at
+recovery: four commits past `b4a7bb9` (`git log --oneline main..HEAD`: `08c2014` the G1 plan, `34e56d2`
+the boundary and the host, `e18e3c9` 061's test at 401, `a29dcb4` the fake AS with AC1, AC4, AC5 green) and
+one untracked file, `test/trinity/mcp/auth/embedded_test.exs`, the AC2 test that was red. No stash. The
+compile under `--warnings-as-errors` failed on one unused attribute (`@refresh_floor_ms` in JWKS, the
+floor its moduledoc promised and the code never wired); a forced compile cleared a stale boundary manifest
+naming the deleted `Server.Auth.Local`. The four AC2 failures had two causes, both in the tree and neither
+in the test's flow: the personal profile's resource-server half checked `iss` against the resource
+identifier while its issuing half wrote the resource's origin (`Embedded.issuer/1` is now the one source),
+and the CIMD path accepted an `http://` document URL only under `dcr: true`, which the fake client on a
+loopback port never had. The rotation test then found a tie: two keys made in one second sorted by file
+name, so the older could stay the signer (`Keys.rotate!/1` now makes the new key strictly newer).
+
+## Deviations from SLICE.md and the G1 plan (recorded before the commits that carry them)
+
+1. **EMA and its admin UI (trusted IdPs, domain and group mapping) are out**, above. With them the
+   SLICE's "admin UI for IdPs, clients (CIMD URLs), scopes": a CIMD client needs no registration (its id
+   is its document's URL), DCR clients are a file beside the keys, and the scopes are the three
+   `Trinity.MCP.Auth.Scopes` knows. No settings page was built for the profile either: the profile is
+   configuration (`config :trinity, :mcp_auth`; `TRINITY_MCP_AUTH_*` in `config/runtime.exs`), and the
+   `/mcp` page carries the client role's one control, "authorize" on a server that answered `401`. The
+   owner's instruction at recovery: no product UI beyond that.
+2. **`TrustedHeaders` (a gateway that authenticates ahead of Trinity) is not a profile.** The production
+   profile has two modes, JWT validation and RFC 7662 introspection; a gateway that strips the bearer and
+   asserts identity in headers would be the one profile where the token is not what the resource server
+   reads, and the owner's constraint "no tool dispatch without an audience-bound token" is why it is not
+   here. A follow-up if a deployment asks.
+3. **The principal travels in the request process's dictionary** from `Trinity.MCP.Server.Plug` (which
+   sees the connection) to `Trinity.MCP.Server` (which sees the message), because the core's transport
+   dispatches in the conn's process and offers no per-request context. The G1 plan said NOTES would say
+   so. It is set after authorization, read once into `Trinity.Tools.Context.principal`, and dies with the
+   process; the wrapper never sees the conn.
+4. **`Trinity.Tools.Context.principal` is a map in receipt form** (`%{"iss", "sub", "scope", "client_id",
+   "profile"}`), not the `Principal` struct: `Trinity.Tools` does not depend on `Trinity.MCP.Auth` and
+   need not; the map is what the receipts carry, so nothing converts on the way out.
+5. **A CIMD document over `http://` is accepted on a loopback host and nowhere else.** The CIMD draft
+   wants `https`; the personal profile runs on the owner's machine, where a local client publishing its
+   metadata on `127.0.0.1` is a process of the owner's (RFC 8252 section 7.3's reasoning for loopback
+   redirects, applied to the document). The `dcr: true` coupling the crashed session had is gone.
+6. **No `mix trinity.mcp.rotate_key` task.** `Trinity.MCP.AuthHost.rotate_key!/0` rotates (the test
+   drives it); a task is a follow-up, since the personal profile has no operator to hand it to yet.
+7. **The keys and the client role's store are files**, under 024's key custody directory
+   (`mcp-as-<kid>.jwk.json`, mode 0600) and `<data dir>/secrets/oauth/` (mode 0600, one file per
+   resource), named in every moduledoc as what stands until slice 100's keychain.
+8. **The JWKS cache is a `:persistent_term` per issuer**, refreshed on an unknown `kid` at most once a
+   minute per issuer (the floor the moduledoc promised, wired at recovery). A flood of unknown kids is
+   answered from the cache; a rotation is one fetch.
+
+## Findings
+
+- **F1.** The fake AS's token endpoint (`test/support/mcp/fake_as.ex`) replaced its whole state with the
+  codes map on the first exchange (`Agent.get_and_update` with `Map.pop`'s tuple); the crashed session had
+  not reached it. Found by the AC8 test, fixed in the same commit.
+- **F2.** `URI.parse/1` gives `"::1"` as the host of `http://[::1]/…`, so a loopback list holding `"[::1]"`
+  never matched it. One list (`@loopback_hosts`) holds the three now.
+- **F3.** 060's client kept `auth_challenge` after a successful reconnect; the page would have offered
+  "authorize" on a ready server. Cleared on connect.
+- **F4.** The consent page's CSRF input renders `name="_csrf_token" type="hidden" hidden value=…`; the AC2
+  test's first regex assumed `name … value` adjacent.
+
+## Follow-ups
+
+- A `mix trinity.mcp.rotate_key` task and a prune schedule for the personal profile's old keys
+  (`Keys.prune!/2` exists; nothing calls it).
+- Refresh tokens for the client role (the store holds an access token and its expiry; when it expires the
+  owner authorizes again). The enterprise AS decides whether it issues them.
+- The web pages' own authentication (the reverse proxy stands in; docs/07 "MCP server").
+- The `TrustedHeaders` profile, only if a deployment asks (deviation 2).
+- The `[::1]` origin in `Server.Plug.loopback_origins/0` is a browser `Origin` header (bracketed there,
+  rightly); F2 is about `URI.host`, not that list.

@@ -193,10 +193,12 @@ root loads as any other and is not scanned (a follow-up in the slice's NOTES).
 - **Exports are a closed list** the operator configures: core entries with effect `:none` or
   `:artifact`; `:catalog` is refused at boot and never listed; the list is sorted, so `tools/list` is
   deterministic.
-- **A bearer before the body.** `Trinity.MCP.Server.Auth.Local`: the token from the environment or the
-  generated file, compared in constant time in the transport's `:authorize` hook; a refusal decodes
-  nothing. Loopback is the default bind; a wider bind is the operator's setting and belongs behind a
-  proxy that authenticates the web pages too (062 brings the OAuth resource server).
+- **A bearer before the body.** At 061 `Trinity.MCP.Server.Auth.Local`: the token from the environment or
+  the generated file, compared in constant time in the transport's `:authorize` hook; a refusal decodes
+  nothing. Since 062 that module is `Trinity.MCP.Auth.Local`, the `:local` profile behind the
+  authorization boundary (next section), and the plug authorizes ahead of the transport; a refusal is
+  `401` with a challenge rather than 061's `403`. Loopback is the default bind; a wider bind is the
+  operator's setting and belongs behind a proxy that authenticates the web pages too.
 - **Approvals over the wire are the owner's, never the client's.** A held call answers `input_required`
   with a `requestState` sealed by `Trinity.MCP.Server.Envelope`: AES-256-GCM under
   `<keys dir>/mcp-state.key`, binding the approval id, the session, the call id, the tool, a digest of
@@ -215,6 +217,64 @@ root loads as any other and is not scanned (a follow-up in the slice's NOTES).
 - **stdio has no bearer**, as the core's page says: whoever writes to the process's standard input
   already has the host's privileges. Its standard output is the wire and the VM's log is moved to
   standard error.
+
+## MCP authorization (Slice 062, as built)
+
+Identity is not authority (ADR-0008 decision 4). Everything in this section answers *who is calling and
+with what scopes*; whether an effect happens is the gate's answer, or the selected authority adapter's,
+and nothing here changes that. The owner's decision of 2026-09-22 shapes the profiles: production is an
+OAuth client and resource server against an external enterprise authorization server; the embedded
+authorization server is a non-default personal profile that cannot be the path minting authority for a
+regulated effect.
+
+- **Three profiles, one behaviour.** `config :trinity, :mcp_auth, profile:` names `:local` (the default:
+  061's static bearer on the loopback, no JWT anywhere), `:production` (Trinity as an OAuth 2.1 resource
+  server for the external issuer the configuration names; Trinity issues nothing) or `:personal` (the same
+  resource server plus a small authorization server for the owner's own clients on the owner's machine).
+  `Trinity.MCP.Auth` is the boundary: `authorize/2` answers with a principal (issuer, subject, scopes,
+  client, profile) and never with the token; `deps: []` on the tree, so nothing of sessions, tools or
+  receipts is reachable from it (AC7, held by the boundary compiler and a census test).
+- **Audience-bound or 401.** In the production and personal profiles a bearer is a JWT validated before
+  the body is read: `alg` in the allow list (ES256, ES384, EdDSA, RS256; never `none`, never a shared
+  secret), the signature under the issuer's published key by `kid` (RFC 8414 or OIDC discovery of the
+  issuer, its JWKS cached and refreshed once on an unknown `kid`), `iss` equal to the configured issuer,
+  `aud` holding this server's resource identifier, `exp` present and future, `nbf` honoured when present.
+  With `introspection: true` an opaque token is asked about at the issuer's RFC 7662 endpoint and its
+  answer is checked the same way. A refusal is `401` with `WWW-Authenticate: Bearer resource_metadata=…`
+  (RFC 9728; the metadata names the issuer), a decision receipt of outcome `deny`, basis `auth`, on the
+  MCP session's scope, naming the reason and what could be read of the caller (an unverified `iss` and
+  `sub`, marked so), and nothing decoded. 061's static bearer means nothing in these profiles.
+- **The personal profile cannot mint production authority.** It refuses to start (the configuration
+  errors, the boot raises) when `Trinity.Authority.impl/0` is not `Trinity.Authority.Local`: a regulated
+  deployment has no embedded issuer by construction. Every token it mints carries `"profile": "personal"`,
+  and the production profile refuses that claim whatever key signed it. Under the production profile no
+  signing key exists, the JWKS and the authorization-server metadata answer `404`, and the token and
+  registration endpoints do too.
+- **The personal profile's authorization server**, when chosen: RFC 8414 metadata, authorization code with
+  PKCE (S256 only), RFC 8707 `resource` required and equal to this server, RFC 9207 `iss` on every
+  response, the owner's consent in the browser as the login, Client ID Metadata Documents (the client id is
+  the `https` URL of its document; `http` only on a loopback host) with RFC 7591 registration only behind
+  `dcr: true`, ES256 tokens of ten minutes bound to this server, keys under the custody directory rotated
+  by `kid` (an old key's tokens verify until they expire; AC5).
+- **Scope before the gate.** A `tools/call` under a principal is checked against the tool's effect before
+  the gate is asked: `trinity:tools:read` (or `trinity:recall`) for a `:none` tool, `trinity:tools:artifact`
+  for an `:artifact` one, nothing for `:catalog` (never exportable). A miss is a JSON-RPC error and a
+  decision receipt of outcome `deny`, basis `scope`; the gate is not consulted. A hit reaches the gate as
+  any call does: a scope is what the token may ask for, never an allow rule.
+- **No token material past the boundary.** The principal rides in `Trinity.Tools.Context.principal` in
+  its receipt form; every decision and query receipt of the call carries `subject.principal` with `iss`,
+  `sub`, `scope`, `client_id` and `profile`. The one reader of the `Authorization` header under `lib/` is
+  `Trinity.MCP.Auth.bearer/1` (a census test); the tests scan receipts, the MCP session's messages and the
+  client's state for a JWT prefix and find none.
+- **The client role** (`Trinity.MCP.Auth.Client`, above 060's driver): on a `401` naming resource metadata
+  the driver records the challenge and the `/mcp` page offers "authorize"; the host fetches the PRM and the
+  issuer's metadata (its `issuer` must equal the one asked for), begins the code flow with PKCE, `state`
+  and `resource`, sends the owner to the authorization server, and finishes at `/oauth/callback` (`iss`
+  checked against the issuer, the code exchanged with the verifier). The token is stored per resource
+  under `<data dir>/secrets/oauth/` (mode 0600, until slice 100's keychain) and the driver presents it,
+  performing no flow of its own (a census over its files). The client identifies itself by the configured
+  `client_id` (pre-registered at the enterprise server), by a Client ID Metadata Document URL, or by
+  registering once when the server offers it and `dcr: true`.
 
 ## Secrets
 
