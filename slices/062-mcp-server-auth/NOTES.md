@@ -286,3 +286,21 @@ candidate fixes, for the owner: add a `MIX_ENV=prod mix compile` step to the gat
 per run, catches this whole class), or give `package.yml` a `branches:` push trigger beside its
 tags one (slower, but proves the bundle too). Owner's call; not done here, since the gate is every
 slice's contract and this slice does not own it.
+
+### F5 verified on all three platforms, 2026-09-22
+
+The `package` workflow, dispatched by hand against `main` at `16be4d1` (the fix merged), is green
+on every leg:
+
+```
+$ gh run view 35788732106 --json conclusion,jobs
+{"conclusion":"success",
+ "jobs":["windows x86_64: success","linux x86_64: success","macOS aarch64: success"],
+ "sha":"16be4d16f7501309be315fe8f86cfeb0307cccf3"}
+```
+
+https://github.com/ScriptKittyOS/Trinity/actions/runs/35788732106 — each leg compiles the release,
+builds the Burrito binary and the Tauri shell, and smokes it. The same workflow at the `slice/062`
+tag (`9859fbe`, run 35786247006) failed all three on the compile step, so the pair is the before and
+after. The tag is not moved: `slice/062` still names the tree as it was approved, and the fix is
+`16be4d1` above it.
