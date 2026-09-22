@@ -166,6 +166,42 @@ root loads as any other and is not scanned (a follow-up in the slice's NOTES).
   argument validation are the core's public functions (`BeamMCP.JSON.decode/1`, `BeamMCP.Schema.validate/2`),
   and a census test holds the population to that (060 AC7).
 
+## MCP server (Slice 061, as built)
+
+- **A stateless Plug above beam_mcp's core**, handed to the transport through its `:server` option;
+  the core answers every method but `tools/call`, which Trinity answers through the same gate and
+  membrane as the assistant's own calls. Will-not-implement entry 12 stands on the core: the approval
+  loop lives above it.
+- **Every call is attributed** to one session with `origin: "mcp"` and a persona of its own (no
+  permission settings: an MCP client inherits none of the default persona's allowances), and every
+  decision and query receipt carries `"origin" => "mcp"`. A `traceparent` in the request's `_meta`
+  rides into the receipts' meta.
+- **Exports are a closed list** the operator configures: core entries with effect `:none` or
+  `:artifact`; `:catalog` is refused at boot and never listed; the list is sorted, so `tools/list` is
+  deterministic.
+- **A bearer before the body.** `Trinity.MCP.Server.Auth.Local`: the token from the environment or the
+  generated file, compared in constant time in the transport's `:authorize` hook; a refusal decodes
+  nothing. Loopback is the default bind; a wider bind is the operator's setting and belongs behind a
+  proxy that authenticates the web pages too (062 brings the OAuth resource server).
+- **Approvals over the wire are the owner's, never the client's.** A held call answers `input_required`
+  with a `requestState` sealed by `Trinity.MCP.Server.Envelope`: AES-256-GCM under
+  `<keys dir>/mcp-state.key`, binding the approval id, the session, the call id, the tool, a digest of
+  the arguments, a nonce and an expiry (15 minutes by default). The client's `inputResponses` decide
+  nothing: the decision is the row on the permissions page. A retry opens the envelope and is refused
+  when expired, tampered, replayed or bound to another call, with a reason that names only which; a
+  retry before the decision is held again on the same approval under a fresh state and never re-enters
+  the gate; a retry after it runs under the envelope's call id, so the decision consumed is the one
+  made and a second run is the membrane's duplicate effect.
+- **Replay defence is at-most-once per partition plus idempotent effects**, stated as such:
+  `Trinity.MCP.Server.Replay` holds every nonce this instance has seen until its expiry window passes;
+  another instance has its own table, and across instances the gate's consumed "once" and the
+  membrane's idempotency key are the backstop (a replayed state there asks the owner again rather than
+  running twice). Tests hold the four reds: a replay inside the window, a replay across partitions, an
+  expired envelope, one tampered byte.
+- **stdio has no bearer**, as the core's page says: whoever writes to the process's standard input
+  already has the host's privileges. Its standard output is the wire and the VM's log is moved to
+  standard error.
+
 ## Secrets
 
 - Env vars in dev; OS keychain via `Trinity.Secrets` from Slice 100 (Tauri stronghold/store or a keychain NIF).

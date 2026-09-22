@@ -31,6 +31,17 @@ defmodule Trinity.MCP.Server.Stdio do
     )
   end
 
+  @doc """
+  For a release: moves the log to standard error, starts the application and runs the loop
+  (`bin/headless eval 'Trinity.MCP.Server.Stdio.serve()'`). Under Mix, `mix trinity.mcp.stdio`.
+  """
+  @spec serve() :: :ok
+  def serve do
+    log_to_stderr()
+    {:ok, _} = Application.ensure_all_started(:trinity)
+    run()
+  end
+
   # The default log handler writes to standard output, which is the wire here (a logged line
   # is an undecodable message to the client); it is replaced after the application started,
   # since the logger application installs it again on start. Idempotent.

@@ -1,0 +1,62 @@
+01:27:23.384 [warning] ExTauri currently targets OTP 27 but you are running OTP 28.
+Burrito may not have pre-compiled ERTS for OTP 28 yet.
+Production builds may fail. Development should work if Burrito is skipped.
+
+01:27:23.401 [info] [ExTauri.ShutdownManager] Started - heartbeat monitoring active on /tmp/tauri_heartbeat_trinity.sock
+01:27:23.532 [info] execute "CREATE VIRTUAL TABLE messages_fts USING fts5(\n  content,\n  session_id UNINDEXED,\n  message_id UNINDEXED,\n  tokenize = 'porter unicode61'\n)\n"
+01:27:23.532 [info] execute "CREATE TRIGGER messages_fts_ad AFTER DELETE ON messages BEGIN\n  DELETE FROM messages_fts WHERE rowid = old.rowid;\nEND\n"
+01:27:23.534 [info] execute "CREATE TABLE approvals_new (\n  \"id\" TEXT PRIMARY KEY,\n  \"session_id\" TEXT CONSTRAINT \"approvals_session_id_fkey\" REFERENCES \"sessions\"(\"id\") ON DELETE CASCADE,\n  \"tool\" TEXT NOT NULL,\n  \"args\" TEXT DEFAULT ('{}') NOT NULL,\n  \"risk\" TEXT NOT NULL,\n  \"fingerprint\" TEXT NOT NULL,\n  \"status\" TEXT DEFAULT 'pending' NOT NULL,\n  \"decision\" TEXT,\n  \"decided_at\" TEXT,\n  \"decided_by\" TEXT,\n  \"consumed_at\" TEXT,\n  \"expires_at\" TEXT NOT NULL,\n  \"inserted_at\" TEXT NOT NULL,\n  \"updated_at\" TEXT NOT NULL\n)\n"
+01:27:23.535 [info] execute "DROP TABLE approvals"
+01:27:23.535 [info] execute "ALTER TABLE approvals_new RENAME TO approvals"
+01:27:23.535 [info] execute "CREATE INDEX approvals_session_id_status_index ON approvals (session_id, status)"
+01:27:23.535 [info] execute "CREATE INDEX approvals_status_expires_at_index ON approvals (status, expires_at)"
+01:27:23.535 [info] execute "CREATE INDEX approvals_fingerprint_index ON approvals (fingerprint)"
+01:27:23.567 [info] memory: semantic recall is unavailable: the local model is not downloaded
+01:27:23.584 [info] receipts: signer ed25519, key XMjK9iEVDvlWhj7h8fvTIrgY2T48vLUTpgBuPE0nizI
+01:27:23.592 [info] Polling file changes every 1000ms...
+01:27:23.593 [info] receipts: boot receipt boot/1 6f2aba1e6dd5ba94c7dbbe5ad4504f6651b20a20173d163bb78e9d41e2b07bc3
+01:27:23.593 [info] mcp server: exporting 5 tools at /mcp
+01:27:23.595 [info] Running TrinityWeb.Endpoint with Bandit 1.12.5 at 0.0.0.0:4000 (http)
+01:27:23.595 [info] Access TrinityWeb.Endpoint at https://example.com
+01:27:24.441 request_id=GNeATNiFKH3SZJUAAAIG [info] GET /
+01:27:24.442 request_id=GNeATNiFKH3SZJUAAAIG [info] Sent 500 in 892µs
+01:27:24.443 request_id=GNeATNiFKH3SZJUAAAIG [error] ** (File.Error) could not read file "/app/_build/prod/lib/trinity/priv/personas/default/SOUL.md": no such file or directory
+    (elixir 1.20.4) lib/file.ex:451: File.read!/2
+    (trinity 0.1.0) lib/trinity/sessions.ex:102: Trinity.Sessions.default_seed/0
+    (trinity 0.1.0) lib/trinity/sessions.ex:83: Trinity.Sessions.default_persona/0
+    (trinity 0.1.0) lib/trinity_web/live/session_live/index.ex:16: TrinityWeb.SessionLive.Index.mount/3
+    (phoenix_live_view 1.2.12) lib/phoenix_live_view/utils.ex:357: anonymous fn/6 in Phoenix.LiveView.Utils.maybe_call_live_view_mount!/5
+    (telemetry 1.4.2) /app/deps/telemetry/src/telemetry.erl:359: :telemetry.span/3
+    (phoenix_live_view 1.2.12) lib/phoenix_live_view/static.ex:324: Phoenix.LiveView.Static.call_mount_and_handle_params!/5
+    (phoenix_live_view 1.2.12) lib/phoenix_live_view/static.ex:155: Phoenix.LiveView.Static.do_render/4
+
+01:27:24.446 request_id=GNeATNjX1oUfqFIAAAAC [info] POST /mcp
+01:27:24.447 request_id=GNeATNjX1oUfqFIAAAAC [info] Sent 200 in 309µs
+01:27:24.451 request_id=GNeATNkXD07bTyYAAACC [info] POST /mcp
+01:27:24.451 request_id=GNeATNkXD07bTyYAAACC [info] beam_mcp: refused by host authorize/1: :no_bearer
+01:27:24.451 request_id=GNeATNkXD07bTyYAAACC [info] Sent 403 in 161µs
+01:27:24.455 request_id=GNeATNlVUOh49fUAAAEC [info] POST /mcp
+01:27:24.456 request_id=GNeATNlVUOh49fUAAAEC [info] Sent 200 in 1ms
+/data/trinity:
+total 616
+drwxr-xr-x 4 trinity trinity   4096 Sep 22 01:27 .
+drwxr-xr-x 3 trinity trinity   4096 Sep 22 01:27 ..
+drwx------ 2 trinity trinity   4096 Sep 22 01:27 keys
+-rw-r--r-- 1 trinity trinity     70 Sep 22 01:27 LOCK
+drwxr-xr-x 3 trinity trinity   4096 Sep 22 01:27 models
+-rw-r--r-- 1 trinity trinity   4096 Sep 22 01:27 receipts.db
+-rw-r--r-- 1 trinity trinity  32768 Sep 22 01:27 receipts.db-shm
+-rw-r--r-- 1 trinity trinity  78312 Sep 22 01:27 receipts.db-wal
+-rw-r--r-- 1 trinity trinity   4096 Sep 22 01:27 trinity.db
+-rw-r--r-- 1 trinity trinity  32768 Sep 22 01:27 trinity.db-shm
+-rw-r--r-- 1 trinity trinity 453232 Sep 22 01:27 trinity.db-wal
+
+/data/trinity/keys:
+total 20
+drwx------ 2 trinity trinity 4096 Sep 22 01:27 .
+drwxr-xr-x 4 trinity trinity 4096 Sep 22 01:27 ..
+-rw------- 1 trinity trinity   32 Sep 22 01:27 mcp-state.key
+-rw------- 1 trinity trinity  199 Sep 22 01:27 receipts-ed25519.key
+-rw------- 1 trinity trinity  442 Sep 22 01:27 registry.json
+DISPLAY=unset
+uid=10001(trinity) gid=10001(trinity) groups=10001(trinity)
