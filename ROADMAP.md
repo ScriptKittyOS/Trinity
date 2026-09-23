@@ -56,7 +56,7 @@ standards register names the rows that ask for them.
 | 060 | MCP client: Trinity's thin driver (2026-07-28 preferred, 2025-11-25 compat, MRTR, Tasks) | 6 MCP | L | 059, 021 | approved |
 | 061 | MCP server (stateless 2026-07-28 + compat, MRTR approvals, headless profile) | 6 MCP | M | 060, 024 | approved |
 | 062 | MCP authorization: OAuth client role, resource server, personal-profile authorization server (EMA removed 2026-09-22) | 6 MCP | L | 061 | approved |
-| 070 | Gateway core: adapter behaviour, routing, PubSub fan-out | 7 Gateways | M | 012 | done |
+| 070 | Gateway core: adapter behaviour, routing, PubSub fan-out | 7 Gateways | M | 012 | approved |
 | 071 | Gateway: Telegram | 7 Gateways | S | 070 | planned |
 | 072 | Gateway: Discord (Nostrum) | 7 Gateways | S | 070 | planned |
 | 080 | Subagents + delegation | 8 Orchestration | M | 020, 023 | planned |
