@@ -19,6 +19,12 @@ If any one maintainer becomes unavailable, for any reason, the others hold the a
 keep the project running: each can create and close issues, accept proposed changes, and publish a
 release. Nothing in the ordinary workflow requires a specific individual.
 
+Access is not given informally. Every account with write access to the repository must have
+two-factor authentication enabled, and the organisation enforces that rather than asking for it:
+an account without it loses access instead of being reminded. This is a requirement on the people
+who can change what this project ships, and it is stated here because a project whose maintainers
+can be phished has no supply chain integrity regardless of what the rest of this document says.
+
 The exceptions are named here rather than left to be discovered. Administration of the GitHub
 organisation, the domain, and the security mailbox rest with the author. Restoring those to a
 surviving maintainer is a legal and administrative matter, not a technical one, and it is the first

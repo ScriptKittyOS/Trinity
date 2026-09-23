@@ -9,9 +9,9 @@
 
 Three maintainers as of 2026-09-23, up from one. Any of them can accept a proposed change, close
 an issue and cut a release; administration of the GitHub organisation rests with the author.
-Repository access for @mikehostetler was granted on 2026-09-23 and is pending acceptance at the
-time of writing, which is recorded rather than glossed because a maintainers file is the sort of
-document people check against the repository itself.
+
+**Two-factor authentication is required** for everyone with write access to this repository,
+enforced by the organisation rather than asked for in a document.
 
 That asymmetry is written down rather than smoothed over, because "three maintainers" and "three
 people who can do everything" are different claims and only the first is true. `GOVERNANCE.md`
