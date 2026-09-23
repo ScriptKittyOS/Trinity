@@ -14,7 +14,7 @@ defmodule Trinity.Gateways do
   """
   use Boundary,
     deps: [Trinity, Trinity.Sessions],
-    exports: [Adapter, Console, Format]
+    exports: [Adapter, Cap, Console, Format, Identities, Identity, Router]
 
   @doc "The adapter modules in force."
   @spec adapters() :: [module()]
