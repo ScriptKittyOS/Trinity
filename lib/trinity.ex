@@ -13,8 +13,11 @@ defmodule Trinity do
   # boundary writes it), CorePolicy (the boot receipt reads it) and the Receipts, Authority
   # and Effects sub-boundaries. Slice 032 exports Memory.Semantic, Memory.Retriever and
   # Memory.Embedders.Bumblebee (the memory page's semantic tab and its download action).
+  # Slice 025 adds `Trinity.Keys`, which is a top-level boundary with `deps: []` of its own so it
+  # stays extractable. It is listed here because this boundary's code calls into it; the arrow
+  # points one way and the compiler holds it that way.
   use Boundary,
-    deps: [],
+    deps: [Trinity.Keys],
     exports:
       [
         Paths,

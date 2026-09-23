@@ -264,6 +264,8 @@ defmodule Trinity.Keys.Local do
 
   defp load_or_create(:tpm), do: {:error, {:tpm_unsealing_not_built, :slice_025_out_of_scope}}
 
+  # sobelow_skip reason: Traversal.FileModule: this clause touches the salt only, through
+  # salt_path/0, which is keys_dir/0 plus a constant. No part of it comes from a request.
   @sobelow_skip ["Traversal.FileModule"]
   defp load_or_create(:passphrase) do
     case passphrase() do
@@ -280,6 +282,8 @@ defmodule Trinity.Keys.Local do
     end
   end
 
+  # sobelow_skip reason: Traversal.FileModule: the path is salt_path/0, the keys directory plus
+  # the constant "root.salt", and the directory is configuration rather than input.
   @sobelow_skip ["Traversal.FileModule"]
   defp ensure_salt do
     path = salt_path()
@@ -338,6 +342,8 @@ defmodule Trinity.Keys.Local do
   # A retired root is kept wrapped by nothing: it is the material itself, at 0600, because the
   # alternative is a chain of keys each wrapping the last, and losing any link loses everything
   # after it. The file is exactly as sensitive as the active key and is documented as such.
+  # sobelow_skip reason: Traversal.FileModule: the path is retired_path/0, the keys directory
+  # plus a constant filename; the only caller is rotate/1 and it passes no path.
   @sobelow_skip ["Traversal.FileModule"]
   defp retire(root) do
     rows = read_retired()
@@ -353,6 +359,8 @@ defmodule Trinity.Keys.Local do
     end
   end
 
+  # sobelow_skip reason: Traversal.FileModule: the path is retired_path/0, a constant under the
+  # configured keys directory, and this function takes no argument at all.
   @sobelow_skip ["Traversal.FileModule"]
   defp read_retired do
     case File.read(retired_path()) do
@@ -367,6 +375,8 @@ defmodule Trinity.Keys.Local do
     end
   end
 
+  # sobelow_skip reason: Traversal.FileModule: removes salt_path/0, the keys directory plus a
+  # constant. The key material argument is ignored by this clause and no path is derived from it.
   @sobelow_skip ["Traversal.FileModule"]
   defp store_root(:passphrase, _new) do
     # A passphrase-derived root cannot be replaced without replacing the passphrase; rotating it
