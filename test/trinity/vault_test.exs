@@ -117,6 +117,53 @@ defmodule Trinity.VaultTest do
     assert {:error, :malformed_blob} = Vault.open(Vault.version() <> <<200::8>> <> "short")
   end
 
+  describe "AC2: the blob classes, sealed only where a deployment asks" do
+    test "sealing is off unless configured, and the call site reads the same either way" do
+      refute Vault.sealing?(:staged_skills)
+      assert Vault.maybe_seal!(@secret, :staged_skills) == @secret
+
+      Application.put_env(:trinity, :vault, seal: [:staged_skills])
+      on_exit(fn -> Application.delete_env(:trinity, :vault) end)
+
+      assert Vault.sealing?(:staged_skills)
+      sealed = Vault.maybe_seal!(@secret, :staged_skills)
+      assert Vault.sealed?(sealed)
+      assert {:ok, @secret} = Vault.open(sealed)
+
+      # A class that was not named is still untouched, so turning one on does not turn on the rest.
+      refute Vault.sealing?(:exports)
+      assert Vault.maybe_seal!(@secret, :exports) == @secret
+    end
+
+    test "a staged skill change is ciphertext on disk and reads back through the seam", %{
+      dir: dir
+    } do
+      Application.put_env(:trinity, :vault, seal: [:staged_skills])
+      on_exit(fn -> Application.delete_env(:trinity, :vault) end)
+
+      # The shape the staging writes and reads: a tree of relative paths to contents.
+      change_dir = Path.join(dir, "change-1")
+      File.mkdir_p!(change_dir)
+      path = Path.join(change_dir, "SKILL.md")
+      File.write!(path, Vault.maybe_seal!(@secret, :staged_skills))
+
+      refute String.contains?(File.read!(path), @secret)
+      assert Vault.sealed?(File.read!(path))
+      assert {:ok, @secret} = Vault.open(File.read!(path))
+    end
+
+    test "an export manifest is ciphertext on disk when exports are sealed", %{dir: dir} do
+      Application.put_env(:trinity, :vault, seal: [:exports])
+      on_exit(fn -> Application.delete_env(:trinity, :vault) end)
+
+      path = Path.join(dir, "manifest.json")
+      File.write!(path, Vault.maybe_seal!(@secret, :exports))
+
+      refute String.contains?(File.read!(path), @secret)
+      assert {:ok, @secret} = Vault.open(File.read!(path))
+    end
+  end
+
   test "an unsealed blob passes through, so the two paths are the same code" do
     refute Vault.sealed?("plain text written before this slice")
 

@@ -36,6 +36,36 @@ defmodule Trinity.Vault do
   @tag_bytes 16
   @key_bytes 32
 
+  @doc """
+  Whether a class of blob is sealed on write.
+
+  Configured per class and **off by default**:
+
+      config :trinity, :vault, seal: [:staged_skills, :exports]
+
+  Off by default because sealing is not free in ways that matter to the person using this. A
+  sealed export can only be restored where the key is, which is exactly what a regulated
+  deployment wants and exactly what someone moving their data to a new laptop does not. A sealed
+  skill file cannot be edited in a text editor. The mechanism is built, tested and available; which
+  blobs it applies to is the deployment's call rather than this slice's, and `open/1` passes
+  unsealed blobs through unchanged so the choice can be made later without a migration.
+  """
+  @spec sealing?(atom()) :: boolean()
+  def sealing?(class) when is_atom(class) do
+    class in (Application.get_env(:trinity, :vault, [])[:seal] || [])
+  end
+
+  @doc """
+  Seals a blob if its class is configured for sealing, and returns it unchanged if not.
+
+  The call site reads the same either way, which is the point: a path that has to branch on whether
+  encryption is on is a path where one branch is less tested than the other.
+  """
+  @spec maybe_seal!(binary(), atom()) :: binary()
+  def maybe_seal!(plaintext, class) when is_binary(plaintext) and is_atom(class) do
+    if sealing?(class), do: seal!(plaintext), else: plaintext
+  end
+
   @doc "The marker a sealed blob starts with, so a caller can tell one without decrypting it."
   @spec version() :: binary()
   def version, do: @version

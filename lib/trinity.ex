@@ -21,6 +21,8 @@ defmodule Trinity do
     exports:
       [
         Paths,
+        # Slice 025: the skills staging and the archive export seal through it.
+        Vault,
         Repo,
         Repo.Receipts,
         UUID,
