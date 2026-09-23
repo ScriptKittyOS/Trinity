@@ -1,11 +1,36 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-# Trinity
+<div align="center">
+
+<img src="docs/assets/trinity-icon.png" alt="" width="132">
+
+<picture>
+  <source media="(max-width: 600px)" srcset="docs/assets/wordmark-sm.svg">
+  <img src="docs/assets/wordmark.svg" alt="TRINITY" width="520">
+</picture>
+
+### A personal AI agent that runs on your own machine
+
+It remembers you, learns procedures, acts through tools under a permission gate,<br>
+reaches you on whatever surface you are using, and does not lose your work when something crashes.
+
+<br>
 
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14772/badge)](https://www.bestpractices.dev/projects/14772)
+[![Gate](https://img.shields.io/github/actions/workflow/status/ScriptKittyOS/Trinity/gate.yml?branch=main&style=flat-square&label=gate&labelColor=1b2420&color=2ea043)](https://github.com/ScriptKittyOS/Trinity/actions/workflows/gate.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-2ea043?style=flat-square&labelColor=1b2420)](LICENSE)
+[![Elixir](https://img.shields.io/badge/Elixir%20%2F%20OTP-on%20the%20BEAM-2ea043?style=flat-square&labelColor=1b2420)](#why-the-beam)
 
-A personal AI agent that runs on your own machine. It remembers you, learns procedures, acts
-through tools under a permission gate, reaches you on whatever surface you are using, and does
-not lose your work when something crashes.
+<br>
+
+**[Quick start](#running-from-source)** &nbsp;·&nbsp;
+**[Architecture](docs/01-architecture.md)** &nbsp;·&nbsp;
+**[Security model](docs/07-security-model.md)** &nbsp;·&nbsp;
+**[Assurance case](docs/10-assurance-case.md)** &nbsp;·&nbsp;
+**[Roadmap](ROADMAP.md)**
+
+</div>
+
+---
 
 Trinity is built on Elixir and the BEAM, with Phoenix LiveView for the interface, and ships as a
 desktop application. Apache-2.0, developed in the open from the first commit.
@@ -14,8 +39,9 @@ desktop application. Apache-2.0, developed in the open from the first commit.
 
 Pre-alpha, and usable from source. Milestones M0 to M4 are approved, **M5a Automates** with them
 (050, the scheduler; 059, the MCP measurement; 060, the MCP client; 061, the MCP server; 062, MCP
-authorization), and the first slice of M5b (070, the gateway core): 25 slices, each merged with a
-merge commit and tagged `slice/NNN` (`git tag -l 'slice/*' | wc -l` → 25, on 2026-09-23). What
+authorization), and the first slice of M5b (070, the gateway core), with 002 (the supply chain
+slice) beside them: 26 slices, each merged with a merge commit and tagged `slice/NNN`
+(`git tag -l 'slice/*' | wc -l` → 26, on 2026-09-23). What
 that means in practice:
 
 **Assessed against a recognised baseline.** Trinity holds the
