@@ -27,10 +27,15 @@ defmodule Trinity.Gateways.ApprovalsTest do
     :ok
   end
 
+  # The opening turn is waited out here, not just started: its reply lands asynchronously, and a
+  # later assertion on "the last thing the channel was shown" is otherwise racing it. Two tests
+  # failed exactly that way when the suite ran as a whole and passed when run alone.
   defp session_for_conversation do
     Fake.scripts([script_deltas(1, "hi ")])
     {:ok, :placed} = Router.inbound(@adapter, @conv, @user, "start a session")
-    await(fn -> Router.session_of(@adapter, @conv) end)
+    session_id = await(fn -> Router.session_of(@adapter, @conv) end)
+    await_shown("hi")
+    session_id
   end
 
   defp await(fun, timeout \\ 5_000) do
@@ -75,7 +80,7 @@ defmodule Trinity.Gateways.ApprovalsTest do
     assert {:ok, :command} =
              Router.inbound(@adapter, @conv, @user, "/approve #{String.slice(id, 0, 8)}")
 
-    assert last_text() =~ "Approved #{String.slice(id, 0, 8)}"
+    assert shown() =~ "Approved #{String.slice(id, 0, 8)}"
 
     approval = Permissions.get_approval(id)
     assert approval.status == "allowed" and approval.decision == "once"
@@ -95,11 +100,11 @@ defmodule Trinity.Gateways.ApprovalsTest do
     assert {:ok, :command} =
              Router.inbound(@adapter, @conv, @user, "/deny #{String.slice(id, 0, 8)}")
 
-    assert last_text() =~ "Denied"
+    assert shown() =~ "Denied"
     assert %Approval{status: "denied"} = Permissions.get_approval(id)
 
     assert {:ok, :command} = Router.inbound(@adapter, @conv, @user, "/approve zzzzzzzz")
-    assert last_text() =~ "No pending approval starts with zzzzzzzz"
+    assert shown() =~ "No pending approval starts with zzzzzzzz"
   end
 
   test "AC8: a destructive request is refused by the cap, receipted, and left for the desktop" do
@@ -121,7 +126,7 @@ defmodule Trinity.Gateways.ApprovalsTest do
     assert {:ok, :command} =
              Router.inbound(@adapter, @conv, @user, "/approve #{String.slice(id, 0, 8)}")
 
-    assert last_text() =~ "That is a destructive request"
+    assert shown() =~ "That is a destructive request"
 
     # The gate was never asked: the request is still pending for the desktop.
     assert %Approval{status: "pending", decided_by: nil} = Permissions.get_approval(id)
@@ -163,7 +168,6 @@ defmodule Trinity.Gateways.ApprovalsTest do
 
     # Wait for this conversation's own turn to finish first, or "nothing new arrived" is only a
     # statement about how fast the assertion ran.
-    await_shown("hi")
     before = Console.text(@conv)
 
     {:ok, _} = Permissions.request_approval(other.id, "write_note", %{}, risk: :write)
