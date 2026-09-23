@@ -282,17 +282,39 @@ regulated effect.
 - Never in DB, never in logs, never in prompts. `mix gate` runs a regex secret scan on the diff.
 - Provider keys are read at call time by the provider module; not held in Session state.
 
-## Gateways
+## Gateways (Slice 070, as built)
 
-- Allowlist of external user ids; DM pairing code flow (Slice 070). Unknown senders get a pairing prompt, nothing else.
-- Rate limits per external user.
+- **An unknown sender gets a pairing prompt and nothing else.** No session is created, no model is
+  called and nothing of the message is read but the code it might be: `Trinity.Gateways.Router`
+  asks `Identities.admit/3` before anything else happens. The code is six characters from an
+  alphabet without the pairs a person misreads, lives ten minutes, and is compared in constant
+  time. It is shown on `/gateways` and nowhere else, which is the whole of the proof: a sender
+  who can read it is at the owner's desktop. A configured allowlist
+  (`config :trinity, :gateways, allowlist: [{adapter, id}]`) pairs a known id at first sight.
+- **An identity is `(adapter, external_user_id)`**, because an id means nothing outside the
+  platform that issued it, and a revoked row is kept rather than deleted: turning someone away is
+  a thing the page records rather than a thing it forgets.
+- **Rate limits per external user**: a token bucket in the router's own state, above the session,
+  so a flood costs a row lookup and nothing more. A throttled sender is told, not dropped.
+- **An adapter carries text and nothing else.** It never calls the LLM, never touches a session
+  and never decides an approval; that rule is what lets a platform be added as one module and a
+  configuration entry. A command that raises costs its own message: the router holds every
+  conversation's binding and rescues rather than dying with them.
 - **Channel trust cap.** The allowlist, pairing and rate limits control *who may talk to the bot*. They do not
   control *what an approval arriving from that channel may authorise*, and an approval surface is exactly as
   trustworthy as the account behind it. So each channel carries a cap on the risk tier it can approve, and the
   cap is applied after the gate's own decision, never instead of it. Default: `:read`, `:network` and `:write`
-  are approvable from any paired gateway; `:exec` and `:destructive` are **desktop or console only**. The cap is
-  configurable and the default is the safe one. A capped request is not silently dropped: the requester is told
-  the decision must be made on the desktop, and the refusal is receipted like any other.
+  are approvable from any paired gateway; `:exec` and `:destructive` are **desktop only**. The cap is
+  configurable per adapter (`config :trinity, :gateways, caps: %{"console" => :write}`) and the default is the
+  safe one. A capped request is not silently dropped: the requester is told the decision must be made on the
+  desktop, and the refusal is receipted like any other (`Trinity.Gateways.Receipts`, basis `channel_cap`, on the
+  session's own chain).
+
+  **Amended at 070**: this paragraph read "desktop or console only" when it was written, before there was a
+  console adapter. There is one now, and it is capped like every other channel rather than exempted: an
+  in-process adapter is still a channel, and making it the one that may approve a destructive effect would be a
+  hole shaped exactly like the thing the cap exists for. `Trinity.Gateways.Cap` applies the ceiling to every
+  adapter, `Console` included, and an unknown tier is refused rather than waved through.
 
 ## Effects and receipts (Slice 024, as built)
 

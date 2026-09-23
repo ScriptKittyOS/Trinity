@@ -55,11 +55,9 @@ defmodule Trinity.Gateways.ApprovalsTest do
     end
   end
 
-  # "" and not nil when the channel has nothing yet: `nil =~ "x"` raises, which turns a wait into
-  # an immediate failure and hides the race it was written to wait out.
-  defp last_text, do: Console.text(@conv) |> List.last() || ""
-
-  # Everything the channel has been shown. A wait looks here and not at the last message alone:
+  # Everything the channel has been shown, joined. "" and not nil when there is nothing yet:
+  # `nil =~ "x"` raises, which turns a wait into an immediate failure and hides the race it was
+  # written to wait out. A wait looks here and not at the last message alone:
   # the turn's reply and an approval raised during it arrive in either order, and a wait that
   # reads only the last one waits forever for whichever came first.
   defp shown, do: Console.text(@conv) |> Enum.join("\n")

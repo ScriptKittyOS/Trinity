@@ -73,3 +73,63 @@ Both are screenshots this machine can take with the cached headless chromium, as
 
 Not built here: the real platform adapters (071, 072), voice transcription, media beyond images,
 and any change to the gate's own decision (the cap is applied after it, never instead of it).
+
+## Deviations from SLICE.md and the G1 plan (recorded before the commit that carries them)
+
+1. **The channel trust cap applies to `Console` too, and docs/07 is amended to say so.** That
+   paragraph read "`:exec` and `:destructive` are desktop or console only", written before there
+   was a console adapter. There is one now. Exempting it would make the in-process channel the one
+   channel that may approve a destructive effect, which is a hole shaped exactly like the thing
+   the cap exists for, and it would leave AC8 with nothing to test against. So `Cap` applies a
+   ceiling to every adapter, configurable per adapter, `:write` by default; docs/07 now reads
+   "desktop only" with an amendment note naming this slice.
+2. **No `hammer`.** SLICE.md said "Hammer or a simple token bucket". The bucket is in the router's
+   own state, so the slice adds no dependency and `VERSIONS.md` gains no row. AC6 measures the
+   behaviour rather than the library.
+3. **`/attach` binds through a pure state transition** (`Router.bind_state/4`), not through
+   `Router.attach/3`. Commands run inside the router process, so a command calling the router's
+   own API is that process calling itself: the suite found the deadlock the first time `/attach`
+   ran. `attach/3` stays for callers outside the process.
+4. **`Trinity.Gateways` is a boundary under `Trinity`**, and the `/gateways` page reaches it
+   through `Trinity`'s exports, the way the tasks page reaches `Scheduler`. `TrinityWeb` could not
+   list it as a dependency directly: the library allows only a sibling, a parent, or an ancestor's
+   dependency, and the compiler said so.
+5. **The adapter's name is derived, not declared** (`Adapter.name/1`: the last segment of the
+   module, underscored). A declared name a module can contradict is a second source of truth
+   (CLAUDE.md section 8).
+6. **No adapter supervisor of its own.** The slice's tree listed `Trinity.Gateways.Supervisor`;
+   `Console` and `Router` are ordinary supervised children and a platform adapter will be one too,
+   so a supervisor whose only job is to hold one child was not written. docs/01's tree is updated
+   to what exists.
+
+## Findings
+
+- **F1.** `Commands` runs inside the router's process, so `/attach` calling `Router.attach/3`
+  deadlocked ("process attempted to call itself"). Fixed by making the binding a pure state
+  transition. Found by the AC3 test the first time it ran.
+- **F2.** `/attach <prefix>` reached `Sessions.get_session/1` with something that is not a UUID,
+  and Ecto raised `Ecto.Query.CastError` **inside the router**, taking every conversation's
+  binding down with it. Two fixes, because the second is the one that matters: the prefix is
+  resolved without a cast, and `dispatch/2` now rescues, so a command that raises costs its own
+  message and nothing else. A test holds the router's pid across a malformed command.
+- **F3.** `Console.text/1` renumbered message references per conversation while `deliver/2` hands
+  out a counter global to the process, so an edit landed on a different message and a later reply
+  could overwrite an earlier one. The reference is now recorded beside the message. Found by the
+  approvals suite, where a cap refusal overwrote the turn's reply.
+- **F4.** `Format.plain/1` used `^\s*[-*]\s+` for a list marker; `\s` matches a newline, so the
+  blank line before a list was eaten and two paragraphs became one. `[ \t]` now.
+- **F5.** Two approval tests asserted on "the last thing the channel was shown" while the opening
+  turn's reply was still in flight: they passed alone and failed when the suite ran whole. The
+  helper waits the opening turn out and reads everything shown rather than the last message.
+
+## Follow-ups
+
+- The real platforms (071, 072). This slice's `Console` is the shape they implement; nothing of
+  the router should need to change for them, and if one does, that is the finding to record.
+- `Router` holds every conversation in one process. Fifty conversations are fine (AC7); a
+  deployment with thousands would want one process per conversation under a registry, which is a
+  slice of its own rather than a change to make on a guess.
+- The `/gateways` page shows no per-identity message counts or last-seen time; 090's observability
+  is where that belongs.
+- `Console.capabilities/0` carries `images: false`: an adapter that carries images needs a path
+  for them, which the SLICE's "Out" line already defers.

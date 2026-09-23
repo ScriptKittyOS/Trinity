@@ -57,6 +57,14 @@ MCP authorization): 24 slices, each merged with a merge commit and tagged `slice
   protected server's `401` with "authorize" on the `/mcp` page and keeps the token it obtains.
   Trinity issues no production authority: the personal issuer refuses to start under an
   external authority adapter, by construction (`docs/07-security-model.md`).
+- **Reachable from elsewhere.** A gateway is a channel Trinity answers from: the adapter carries
+  text, and everything else (the session, the gate, the receipts) is the same machinery the
+  desktop uses. A sender Trinity does not know gets a pairing code shown on the `/gateways` page
+  and nothing else, no session and no model; once paired they get slash commands, the answer
+  streaming back as the turn runs, and any approval the turn raises rendered into the same
+  conversation. What a channel may approve is capped below what the desktop may: a `write` at
+  most by default, so an `exec` or a `destructive` request is decided at the machine, and the
+  refusal is receipted. The console adapter ships (`mix trinity.console`); the platforms are next.
 - **Runs on a schedule.** Tasks on the `/tasks` page: a prompt, a persona, the skills to hint,
   and when (a cron expression, a one-shot time, or a phrase like "every weekday at 9am" the
   model turns into cron). Each run is a fresh conversation you can open, its result waits on
@@ -65,7 +73,7 @@ MCP authorization): 24 slices, each merged with a merge commit and tagged `slice
   curator that marks old memories stale and archives the untouched ones (never deleting)
   run on the same queues; `/oban` shows the jobs.
 
-Not there yet: messaging gateways and subagents (M5b),
+Not there yet: the messaging platforms themselves and subagents (M5b),
 the native desktop shell and signed releases (M6), executable skills in a sandbox (M7). `ROADMAP.md` carries the live status of every
 slice, and the [Milestones](#milestones) section below explains how to read it.
 
@@ -107,7 +115,7 @@ model registry is `config/llm.exs`; keys come from the environment (`.env` is gi
 pages: `/` conversations, `/s/:id` a conversation and `/s/:id/receipts` its receipts, `/search`
 full-text search, `/personas` and `/memory` the persona and its memory (with the semantic tab and
 the embedding model's download), `/skills` the skills, the changes waiting for your decision and
-the learn form, `/mcp` the MCP servers you connect to (their health and the tools they
+the learn form, `/gateways` the channels you can reach Trinity from, `/mcp` the MCP servers you connect to (their health and the tools they
 contribute), `/permissions` the rules and pending approvals (a server's question to you, when
 one of its tools asks for input mid-call, is answered there too), `/tasks` the scheduled tasks and
 their results, `/oban` the jobs (in development, or when configured), `/settings` the export. `mix trinity.export` and `mix trinity.import` do what `/settings` does from a terminal;
