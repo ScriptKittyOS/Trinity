@@ -118,21 +118,43 @@ defmodule Trinity.VaultTest do
   end
 
   describe "AC2: the blob classes, sealed only where a deployment asks" do
-    test "sealing is off unless configured, and the call site reads the same either way" do
-      refute Vault.sealing?(:staged_skills)
-      assert Vault.maybe_seal!(@secret, :staged_skills) == @secret
+    test "the defaults differ by class, and each default is the researched one" do
+      # Sealed by default: machine-local, discardable, so secure-by-default costs nothing.
+      assert Vault.sealed_by_default() == [:staged_skills]
+      assert Vault.sealing?(:staged_skills)
 
-      Application.put_env(:trinity, :vault, seal: [:staged_skills])
+      # Not sealed by default: an export exists to move to another machine, and sealing it by
+      # default is the SC-12(1) availability failure for no compliance gain; a skill file is meant
+      # to be opened in an editor.
+      refute Vault.sealing?(:exports)
+      refute Vault.sealing?(:skills)
+    end
+
+    test "configuration overrides the defaults in both directions" do
       on_exit(fn -> Application.delete_env(:trinity, :vault) end)
 
-      assert Vault.sealing?(:staged_skills)
-      sealed = Vault.maybe_seal!(@secret, :staged_skills)
+      # Turning a class on.
+      Application.put_env(:trinity, :vault, seal: [:staged_skills, :exports])
+      assert Vault.sealing?(:exports)
+      sealed = Vault.maybe_seal!(@secret, :exports)
       assert Vault.sealed?(sealed)
       assert {:ok, @secret} = Vault.open(sealed)
 
-      # A class that was not named is still untouched, so turning one on does not turn on the rest.
-      refute Vault.sealing?(:exports)
-      assert Vault.maybe_seal!(@secret, :exports) == @secret
+      # And off again, including a class that is on by default: a deployment that cannot afford
+      # the key-loss risk must be able to say so, or the default is a trap rather than a default.
+      Application.put_env(:trinity, :vault, seal: [])
+      refute Vault.sealing?(:staged_skills)
+      assert Vault.maybe_seal!(@secret, :staged_skills) == @secret
+    end
+
+    test "the call site reads the same whether sealing is on or off" do
+      on_exit(fn -> Application.delete_env(:trinity, :vault) end)
+
+      Application.put_env(:trinity, :vault, seal: [])
+      assert Vault.maybe_seal!(@secret, :staged_skills) == @secret
+
+      Application.put_env(:trinity, :vault, seal: [:staged_skills])
+      assert {:ok, @secret} = Vault.open(Vault.maybe_seal!(@secret, :staged_skills))
     end
 
     test "a staged skill change is ciphertext on disk and reads back through the seam", %{

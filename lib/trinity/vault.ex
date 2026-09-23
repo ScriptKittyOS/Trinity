@@ -31,7 +31,12 @@ defmodule Trinity.Vault do
 
   alias Trinity.Keys
 
+  require Logger
+
   @version "TVLT1"
+  # See `sealing?/1`: chosen per class against secure-by-default, the "encrypted once" rule for
+  # data at rest, and SC-12(1)'s requirement to keep information available when keys are lost.
+  @sealed_by_default [:staged_skills]
   @iv_bytes 12
   @tag_bytes 16
   @key_bytes 32
@@ -39,31 +44,113 @@ defmodule Trinity.Vault do
   @doc """
   Whether a class of blob is sealed on write.
 
-  Configured per class and **off by default**:
+  Overridable per class, and the defaults differ by class on purpose:
 
-      config :trinity, :vault, seal: [:staged_skills, :exports]
+      config :trinity, :vault, seal: [:staged_skills]   # the default, stated
 
-  Off by default because sealing is not free in ways that matter to the person using this. A
-  sealed export can only be restored where the key is, which is exactly what a regulated
-  deployment wants and exactly what someone moving their data to a new laptop does not. A sealed
-  skill file cannot be edited in a text editor. The mechanism is built, tested and available; which
-  blobs it applies to is the deployment's call rather than this slice's, and `open/1` passes
-  unsealed blobs through unchanged so the choice can be made later without a migration.
+  ## Why not simply on for everything
+
+  CISA's secure-by-default guidance says the secure configuration should be the baseline and that
+  deviating from it should be a deliberate act. That argues for sealing everything. Three findings
+  argue against applying it uniformly, and the split below is where they land.
+
+  **Layering adds no compliance value.** For CUI at rest, NIST SP 800-171 3.13.16 is satisfied by
+  encrypting once; full-disk encryption on the endpoint is the ordinary implementation, and
+  `docs/encryption-at-rest.md` measures what it costs. Application-level sealing on top of a
+  volume that is already encrypted protects against a different threat, not the same one twice.
+
+  **Availability under key loss is its own control.** NIST SP 800-53 SC-12(1) requires maintaining
+  the availability of information when a user loses cryptographic keys. This slice puts key escrow
+  and recovery explicitly out of scope, so a default that seals data whose whole purpose is to
+  leave this machine would trade a confidentiality gain the frameworks do not ask for against an
+  availability failure they name.
+
+  **This module's cryptography is not FIPS-validated except on the FIPS leg.** 3.13.11 requires a
+  validated *module*, not merely an approved algorithm, and the requirement is inherited by
+  3.13.16 wherever encryption is the means of protecting CUI. A default that sealed everything
+  would invite a deployment to believe its CUI-at-rest control lives here. It does not; it lives
+  in the volume, and this module must not be the thing a reader mistakes for it.
+
+  ## The defaults, and the reason for each
+
+    * `:staged_skills` - **sealed by default.** Machine-local, short-lived, and discarding a staged
+      change is already a supported operation, so losing the key costs a proposal that can be made
+      again. Secure-by-default costs nothing here, so it is taken.
+    * `:exports` - **not sealed by default.** An export exists in order to move to another machine.
+      Sealing it by default produces exactly the SC-12(1) failure, for no compliance gain, since
+      the destination is where that data's at-rest control belongs. A deployment that exports only
+      within its own custody turns it on.
+    * `:skills` - **not sealed by default.** Skill files are meant to be opened in an editor. An
+      encrypted file that a person cannot read is not a safer skill, it is a broken one.
   """
   @spec sealing?(atom()) :: boolean()
   def sealing?(class) when is_atom(class) do
-    class in (Application.get_env(:trinity, :vault, [])[:seal] || [])
+    case Application.get_env(:trinity, :vault, [])[:seal] do
+      nil -> class in @sealed_by_default
+      configured -> class in configured
+    end
   end
 
+  @doc "The classes sealed when nothing is configured. See `sealing?/1` for why these and not others."
+  @spec sealed_by_default() :: [atom()]
+  def sealed_by_default, do: @sealed_by_default
+
   @doc """
-  Seals a blob if its class is configured for sealing, and returns it unchanged if not.
+  Seals a blob if its class is sealed and a key source exists; returns it unchanged otherwise.
 
   The call site reads the same either way, which is the point: a path that has to branch on whether
   encryption is on is a path where one branch is less tested than the other.
+
+  ## Why this degrades instead of failing
+
+  Sealing `:staged_skills` by default was written first as "seal, and raise if you cannot", which
+  is what secure-by-default sounds like it should mean. It broke ten tests immediately, all with
+  the same error: a machine with no passphrase, no systemd credential and no TPM tooling - which
+  is every developer machine and most first runs - could no longer stage a skill proposal at all.
+
+  That is the wrong reading of the principle. CISA's wording is that a product should be resilient
+  out of the box **without end-users having to take additional steps**; requiring a key source to
+  be configured before a core feature works is precisely such a step. A default that turns an
+  unconfigured install into a broken one is not a secure default, it is an outage with a rationale.
+
+  So: where custody exists, blobs are sealed with no action required, which is the secure default
+  doing its job. Where it does not, the blob is written in the clear and the fact is logged once
+  per class rather than hidden, because an operator who believed sealing was on needs to find out
+  from the logs and not from an incident. The blob format itself carries the answer too -
+  `sealed?/1` reports what a given blob actually is, so nothing has to be inferred from
+  configuration.
   """
   @spec maybe_seal!(binary(), atom()) :: binary()
   def maybe_seal!(plaintext, class) when is_binary(plaintext) and is_atom(class) do
-    if sealing?(class), do: seal!(plaintext), else: plaintext
+    if sealing?(class), do: seal_or_warn(plaintext, class), else: plaintext
+  end
+
+  defp seal_or_warn(plaintext, class) do
+    case seal(plaintext) do
+      {:ok, sealed} ->
+        sealed
+
+      {:error, {:no_key_source, refusals}} ->
+        warn_once(class, refusals)
+        plaintext
+
+      {:error, reason} ->
+        # Any other failure is a real one: a key source exists and sealing still did not work.
+        raise ArgumentError, "cannot seal #{inspect(class)}: #{inspect(reason)}"
+    end
+  end
+
+  defp warn_once(class, refusals) do
+    key = {__MODULE__, :warned, class}
+
+    if :persistent_term.get(key, nil) == nil do
+      :persistent_term.put(key, true)
+
+      Logger.warning(
+        "vault: #{inspect(class)} is configured to be sealed but no key source is available, " <>
+          "so blobs of this class are being written in the clear. Refusals: #{inspect(refusals)}"
+      )
+    end
   end
 
   @doc "The marker a sealed blob starts with, so a caller can tell one without decrypting it."
