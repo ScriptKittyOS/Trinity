@@ -1,0 +1,67 @@
+<!-- SPDX-FileCopyrightText: Sudo Apt Holdings LLC -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 550 102" width="550" height="102" role="img" aria-label="TRINITY">
+  <title>TRINITY</title>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c2ff57"/>
+      <stop offset="45%" stop-color="#5ae62a"/>
+      <stop offset="100%" stop-color="#1f9c0d"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-50%" width="140%" height="200%">
+      <feGaussianBlur stdDeviation="2.6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#glow)" fill="url(#g)">
+      <rect x="16" y="16" width="70" height="14"/>
+      <rect x="100" y="16" width="56" height="14"/>
+      <rect x="184" y="16" width="42" height="14"/>
+      <rect x="324" y="16" width="42" height="14"/>
+      <rect x="380" y="16" width="70" height="14"/>
+      <rect x="240" y="30" width="28" height="14"/>
+      <rect x="100" y="44" width="56" height="14"/>
+      <rect x="282" y="58" width="28" height="14"/>
+      <rect x="184" y="72" width="42" height="14"/>
+      <rect x="324" y="72" width="42" height="14"/>
+      <rect x="16" y="16" width="14" height="14"/>
+      <rect x="30" y="16" width="14" height="14"/>
+      <rect x="44" y="16" width="14" height="70"/>
+      <rect x="58" y="16" width="14" height="14"/>
+      <rect x="72" y="16" width="14" height="14"/>
+      <rect x="100" y="16" width="14" height="70"/>
+      <rect x="114" y="16" width="14" height="14"/>
+      <rect x="114" y="44" width="14" height="14"/>
+      <rect x="128" y="16" width="14" height="14"/>
+      <rect x="128" y="44" width="14" height="14"/>
+      <rect x="142" y="16" width="14" height="14"/>
+      <rect x="142" y="44" width="14" height="28"/>
+      <rect x="156" y="30" width="14" height="14"/>
+      <rect x="156" y="72" width="14" height="14"/>
+      <rect x="184" y="16" width="14" height="14"/>
+      <rect x="184" y="72" width="14" height="14"/>
+      <rect x="198" y="16" width="14" height="70"/>
+      <rect x="212" y="16" width="14" height="14"/>
+      <rect x="212" y="72" width="14" height="14"/>
+      <rect x="240" y="16" width="14" height="70"/>
+      <rect x="254" y="30" width="14" height="14"/>
+      <rect x="268" y="44" width="14" height="14"/>
+      <rect x="282" y="58" width="14" height="14"/>
+      <rect x="296" y="16" width="14" height="70"/>
+      <rect x="324" y="16" width="14" height="14"/>
+      <rect x="324" y="72" width="14" height="14"/>
+      <rect x="338" y="16" width="14" height="70"/>
+      <rect x="352" y="16" width="14" height="14"/>
+      <rect x="352" y="72" width="14" height="14"/>
+      <rect x="380" y="16" width="14" height="14"/>
+      <rect x="394" y="16" width="14" height="14"/>
+      <rect x="408" y="16" width="14" height="70"/>
+      <rect x="422" y="16" width="14" height="14"/>
+      <rect x="436" y="16" width="14" height="14"/>
+      <rect x="464" y="16" width="14" height="14"/>
+      <rect x="478" y="30" width="14" height="14"/>
+      <rect x="492" y="44" width="14" height="42"/>
+      <rect x="506" y="30" width="14" height="14"/>
+      <rect x="520" y="16" width="14" height="14"/>
+  </g>
+</svg>
