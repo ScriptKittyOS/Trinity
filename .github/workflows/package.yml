@@ -41,9 +41,40 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Slice 002. The bill of materials is derived from `mix.lock` alone: it is the same document
+  # whichever runner produces it, and `mix trinity.sbom` needs the project compiled in the dev
+  # environment, which the three packaging jobs do not otherwise do. Generating it once here and
+  # handing it to each of them keeps the bill travelling with every binary without paying for a
+  # second full compile on three operating systems, and without giving Windows a chance to
+  # produce a bill that differs from Linux's for no reason a reader could act on.
+  sbom:
+    name: bill of materials
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        with:
+          version-file: .tool-versions
+          version-type: strict
+
+      - run: mix deps.get
+
+      - name: Generate the bill of materials
+        run: mix trinity.sbom
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sbom
+          path: sbom.cdx.json
+          if-no-files-found: error
+
   package:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    needs: sbom
     permissions:
       contents: read
       # Slice 002: build provenance is an attestation signed through GitHub's OIDC identity for
@@ -329,8 +360,9 @@ jobs:
       # Slice 002. The bill of materials travels with the binary rather than being published
       # somewhere a reader has to go and find: whoever has the artifact has the list of what is
       # in it, and the bill states in its own metadata what it does not cover.
-      - name: Generate the bill of materials
-        run: mix trinity.sbom
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: sbom
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
