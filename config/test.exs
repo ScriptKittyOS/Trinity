@@ -133,18 +133,28 @@ else
   # connection (run of 2026-09-22). Every test still shares its owner's single connection
   # with every process it starts (shared mode), so 010's "writers queue on one connection"
   # holds within a test; the second serves the boot-time check alone.
+  # `busy_timeout` for the same reason the Postgres branch above raises `queue_target`: a writer
+  # queued behind another on purpose should wait, not fail. DBConnection's queue settings govern
+  # checkouts, but SQLite's own lock contention is governed by this, and the driver's default of
+  # two seconds is short for a suite that deliberately runs fifty concurrent conversations
+  # (slice 070 AC7). Leaving it at the default produced an intermittent `Database busy` on the
+  # loaded CI runners and never locally: runs 35864366007 and 35878… on pull requests 67 and 70,
+  # in a different test each time, which is the signature of contention rather than a defect in
+  # the test that happened to lose.
   config :trinity, Trinity.Repo,
     database: Path.expand("../trinity_test.db", __DIR__),
     pool: Ecto.Adapters.SQL.Sandbox,
     pool_size: 2,
     queue_target: 5_000,
-    queue_interval: 30_000
+    queue_interval: 30_000,
+    busy_timeout: 30_000
 
   config :trinity, Trinity.Repo.Receipts,
     database: Path.expand("../trinity_test_receipts.db", __DIR__),
     pool: Ecto.Adapters.SQL.Sandbox,
     queue_target: 5_000,
-    queue_interval: 30_000
+    queue_interval: 30_000,
+    busy_timeout: 30_000
 end
 
 # We don't run a server during test. If one is required,
