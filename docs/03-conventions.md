@@ -22,9 +22,9 @@
 - Tagged tests: `@tag :live` (real providers, opt-in), `@tag :desktop` (needs Tauri), `@tag :slow`.
   Default `mix test` excludes `:live` and `:desktop`.
 - Every crash-safety claim has a test that actually kills a process.
-- Coverage: reported in PROOF.md each slice and written to `coverage.tsv` in the repo root, one row per slice,
+- Coverage: written to `coverage.tsv` in the repository root, one row per increment,
   so there is a baseline to compare against. The gate reads that file: a drop of more than 3 points against the
-  previous slice fails until a NOTES.md justification names the reason. The rule as originally written stored no
+  previous increment fails until a justification names the reason. The rule as originally written stored no
   baseline, so nothing could check it, which is the pattern the rules of evidence forbid.
 
 ## Tools (slice 020)
