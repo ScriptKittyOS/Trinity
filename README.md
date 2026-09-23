@@ -18,6 +18,15 @@ authorization), and the first slice of M5b (070, the gateway core): 25 slices, e
 merge commit and tagged `slice/NNN` (`git tag -l 'slice/*' | wc -l` → 25, on 2026-09-23). What
 that means in practice:
 
+**Assessed against a recognised baseline.** Trinity holds the
+[OpenSSF Best Practices passing badge](https://www.bestpractices.dev/projects/14772), the Open
+Source Security Foundation's published bar for basics, change control, reporting, quality,
+security and analysis, and the prerequisite the Linux Foundation names for a project entering
+Incubation. Every required criterion is met; three *suggested* ones are recorded as unmet rather
+than stretched, because a sheet with nothing on it survives a spot check less well than one that
+says where the gaps are. The [assurance posture](#assurance-posture) below states what the build
+enforces and what enforces it.
+
 - **Talks.** Streaming chat with any provider behind one behaviour (`Trinity.LLM`), switched by
   configuration; the assistant's text is persisted as a draft every 500 ms or 2 KB while it
   streams, so a crash mid-turn loses at most that much. Context compaction with lineage when a conversation outgrows the
