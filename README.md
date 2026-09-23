@@ -145,6 +145,14 @@ documents themselves for consistency.
 Packaging as a single binary is documented in `docs/packaging.md`, with measured sizes and
 start-up times for each target; `docs/fips-leg.md` describes the FIPS build leg.
 
+**Transport and message authentication.** Outbound connections use Erlang/OTP's TLS, whose default
+client versions on the pinned toolchain are TLS 1.3 and TLS 1.2: **1.2 is the floor**, and Trinity
+does not lower it (TLS 1.1 and 1.0 are available in the runtime but are not in the default set). The
+only message authentication code Trinity itself mints is the **AES-256-GCM** tag over the state
+envelope a held tool call carries between round trips, which is an approved algorithm in **FIPS**
+mode. Both statements are pinned by a test against the runtime and the source rather than against
+the sentence, so the line cannot outlive the fact.
+
 ## How the work is organised
 
 Trinity is built in reviewed increments. Each one is small enough to review in one sitting and

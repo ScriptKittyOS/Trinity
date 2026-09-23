@@ -44,6 +44,13 @@ jobs:
   package:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      # Slice 002: build provenance is an attestation signed through GitHub's OIDC identity for
+      # this workflow run, recorded in the public transparency log. `id-token` mints that
+      # identity and `attestations` writes the record; neither grants anything else.
+      id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
@@ -319,11 +326,44 @@ jobs:
             [ -n "$CHILD" ] && kill "$CHILD" 2>/dev/null || true
           fi
 
+      # Slice 002. The bill of materials travels with the binary rather than being published
+      # somewhere a reader has to go and find: whoever has the artifact has the list of what is
+      # in it, and the bill states in its own metadata what it does not cover.
+      - name: Generate the bill of materials
+        run: mix trinity.sbom
+
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ matrix.artifact }}
-          path: burrito_out/${{ matrix.artifact }}
+          path: |
+            burrito_out/${{ matrix.artifact }}
+            sbom.cdx.json
           if-no-files-found: error
+
+      # Build provenance: a signed statement of which workflow, at which commit, produced these
+      # exact bytes. It proves where the artifact came from, not what it does. Verified in this
+      # same job, because an attestation nobody checks is a file rather than an assurance.
+      - name: Attest the artifact's provenance
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: burrito_out/${{ matrix.artifact }}
+
+      - name: Verify the attestation, and record the result in the run summary
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -o pipefail
+          gh attestation verify "burrito_out/${{ matrix.artifact }}" \
+            --repo "${{ github.repository }}" 2>&1 | tee attestation.txt
+          {
+            echo "### Build provenance: ${{ matrix.artifact }}"
+            echo
+            echo '```'
+            cat attestation.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
