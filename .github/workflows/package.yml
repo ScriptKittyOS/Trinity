@@ -40,6 +40,12 @@ on:
       - .github/workflows/package.yml
   workflow_dispatch:
 
+# Least privilege for the workflow's token (2026-09-23, OpenSSF Scorecard Token-Permissions). The
+# default is read; the one job that needs more, the attesting one, declares it at the job level
+# where a reviewer sees it beside the step that uses it.
+permissions:
+  contents: read
+
 jobs:
   # Slice 002. The bill of materials is derived from `mix.lock` alone: it is the same document
   # whichever runner produces it, and `mix trinity.sbom` needs the project compiled in the dev

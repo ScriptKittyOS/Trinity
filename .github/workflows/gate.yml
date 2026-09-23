@@ -6,6 +6,14 @@ on:
   push:
   pull_request:
 
+# Least privilege for the workflow's token, added 2026-09-23 after OpenSSF Scorecard scored this
+# repository 0 on Token-Permissions: neither this workflow nor `package.yml` declared any
+# top-level permissions, so both ran with whatever the repository default happened to be. Every
+# job here reads the tree and writes nothing back, so the whole workflow gets read and any job
+# that later needs more has to say so itself and be seen saying it in review.
+permissions:
+  contents: read
+
 jobs:
   gate:
     runs-on: ubuntu-latest
@@ -108,6 +116,17 @@ jobs:
   # files that define it; this job never builds it.
   fips-tag:
     runs-on: ubuntu-latest
+    # `packages: read` is not decoration. The workflow-level block above narrows every job's token
+    # to what it names, and before that block existed these two jobs inherited the repository
+    # default, which grants read on every scope. Declaring `contents: read` at the top therefore
+    # took `packages: read` away, and this job's `docker login` to the registry stopped being able
+    # to see the FIPS image: it polled for the full thirty minutes and failed with "was not
+    # published", while the fips-image workflow had already reported the tag as present. Two
+    # checks disagreeing about whether an image exists is what an authorization failure looks like
+    # from the outside. Measured on this branch before it was merged.
+    permissions:
+      contents: read
+      packages: read
     outputs:
       ref: ${{ steps.tag.outputs.ref }}
     steps:
@@ -149,6 +168,11 @@ jobs:
   fips:
     needs: fips-tag
     runs-on: ubuntu-latest
+    # The runner pulls this container before the job's first step, using the credentials below,
+    # so without `packages: read` the job fails with `manifest unknown` and no output at all.
+    permissions:
+      contents: read
+      packages: read
     container:
       image: ${{ needs.fips-tag.outputs.ref }}
       credentials:
