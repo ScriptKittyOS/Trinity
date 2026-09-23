@@ -133,18 +133,38 @@ else
   # connection (run of 2026-09-22). Every test still shares its owner's single connection
   # with every process it starts (shared mode), so 010's "writers queue on one connection"
   # holds within a test; the second serves the boot-time check alone.
+  # `busy_timeout` raised above the shipped 5 s (config/config.exs), for the same reason the
+  # Postgres branch above raises `queue_target`: a writer queued behind another on purpose should
+  # wait, not fail. DBConnection's queue settings govern checkouts; SQLite's own lock contention
+  # is governed by this. Five seconds is right for a desktop application and short for a suite
+  # that deliberately runs fifty concurrent conversations (slice 070 AC7) on a loaded shared
+  # runner, where it produced an intermittent `Database busy` that never appeared locally, in a
+  # different test each time - the signature of contention rather than of a defect in whichever
+  # test lost. The shipped value is unchanged and is still guarded by
+  # test/trinity/repo_config_test.exs, which reads it from the file rather than from this
+  # override.
+  #
+  # Measured afterwards and recorded here rather than left implied: raising this did **not** stop
+  # the intermittent failure (run 35889922107 failed on the very commit that raised it, while the
+  # pull-request run on the same commit passed). SQLite returns SQLITE_BUSY immediately, without
+  # consulting the busy handler, when a connection holding a read transaction tries to upgrade to
+  # a write while another connection holds the write lock, because waiting there could deadlock.
+  # No timeout affects that path. The raise is kept because it does help ordinary lock waiting,
+  # but it is not the fix for what is recorded as R26 in docs/06-risk-register.md.
   config :trinity, Trinity.Repo,
     database: Path.expand("../trinity_test.db", __DIR__),
     pool: Ecto.Adapters.SQL.Sandbox,
     pool_size: 2,
     queue_target: 5_000,
-    queue_interval: 30_000
+    queue_interval: 30_000,
+    busy_timeout: 30_000
 
   config :trinity, Trinity.Repo.Receipts,
     database: Path.expand("../trinity_test_receipts.db", __DIR__),
     pool: Ecto.Adapters.SQL.Sandbox,
     queue_target: 5_000,
-    queue_interval: 30_000
+    queue_interval: 30_000,
+    busy_timeout: 30_000
 end
 
 # We don't run a server during test. If one is required,

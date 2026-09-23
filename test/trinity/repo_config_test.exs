@@ -36,13 +36,23 @@ defmodule Trinity.RepoConfigTest do
       assert %{rows: [[1]]} = Trinity.Repo.query!("PRAGMA foreign_keys")
     end
 
-    test "busy_timeout is the configured 5000 ms, and the pragma cannot show it" do
+    test "busy_timeout is the shipped 5000 ms, and the pragma cannot show it" do
       # exqlite installs its own busy handler through sqlite3_busy_handler and applies the
       # timeout with sqlite3_busy_timeout on its side of that handler, so `PRAGMA busy_timeout`
       # reads 0 on every connection it opens (deps/exqlite/lib/exqlite/connection.ex, the
       # comment above set_busy_timeout/2, at the locked 0.40.0). The config value is the one
       # the driver applies; contention itself is exercised by the slice 010 stress test.
-      assert Trinity.Repo.config()[:busy_timeout] == 5000
+      # The shipped value is read from the file under the production environment, as the pool
+      # size above is and for the same kind of reason: the suite raises this one, because tests
+      # that queue fifty writers on one connection on purpose (slice 070 AC7) should wait rather
+      # than fail on a loaded runner. Asserting the live value here would assert the suite's
+      # override and stop guarding what ships.
+      config = Config.Reader.read!("config/config.exs", env: :prod)
+      assert config[:trinity][Trinity.Repo][:busy_timeout] == 5000
+      assert config[:trinity][Trinity.Repo.Receipts][:busy_timeout] == 5000
+
+      # And the suite's own value is at least the shipped one, never below it.
+      assert Trinity.Repo.config()[:busy_timeout] >= 5000
       assert %{rows: [[0]]} = Trinity.Repo.query!("PRAGMA busy_timeout")
     end
 

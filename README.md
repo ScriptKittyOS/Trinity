@@ -1,6 +1,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Trinity
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14772/badge)](https://www.bestpractices.dev/projects/14772)
+
 A personal AI agent that runs on your own machine. It remembers you, learns procedures, acts
 through tools under a permission gate, reaches you on whatever surface you are using, and does
 not lose your work when something crashes.
@@ -15,6 +17,15 @@ Pre-alpha, and usable from source. Milestones M0 to M4 are approved, **M5a Autom
 authorization), and the first slice of M5b (070, the gateway core): 25 slices, each merged with a
 merge commit and tagged `slice/NNN` (`git tag -l 'slice/*' | wc -l` → 25, on 2026-09-23). What
 that means in practice:
+
+**Assessed against a recognised baseline.** Trinity holds the
+[OpenSSF Best Practices passing badge](https://www.bestpractices.dev/projects/14772), the Open
+Source Security Foundation's published bar for basics, change control, reporting, quality,
+security and analysis, and the prerequisite the Linux Foundation names for a project entering
+Incubation. Every required criterion is met; three *suggested* ones are recorded as unmet rather
+than stretched, because a sheet with nothing on it survives a spot check less well than one that
+says where the gaps are. The [assurance posture](#assurance-posture) below states what the build
+enforces and what enforces it.
 
 - **Talks.** Streaming chat with any provider behind one behaviour (`Trinity.LLM`), switched by
   configuration; the assistant's text is persisted as a draft every 500 ms or 2 KB while it
@@ -169,6 +180,8 @@ rather than described by it.
 | Approved cryptography | A dedicated CI leg builds from source and runs the cryptographic properties inside a FIPS-mode container, so statements about approved algorithms are measured on that leg rather than asserted. |
 | Supply chain | Dependency and licence audits run on every commit; dependency versions are pinned in `VERSIONS.md` and verified against the lock file by the gate. |
 | Provenance | Every commit carries a Developer Certificate of Origin sign-off, enforced by a hook and independently by CI. |
+| Independent self-certification | The project holds the [OpenSSF Best Practices passing badge](https://www.bestpractices.dev/projects/14772), assessed against the Open Source Security Foundation's published criteria for basics, change control, reporting, quality, security and analysis. Three suggested criteria are recorded as unmet rather than stretched: semantic versioning, which begins at the first supported release, and two concerning dynamic analysis tooling, which the project does not yet run. |
+| Argued, not asserted | `docs/10-assurance-case.md` decomposes the top-level security claim into ten claims, each with its argument, the evidence a reader can check, and the limit on what it covers; the assumptions the case rests on are named rather than implied. |
 | Claim discipline | `docs/09-standards-register.md` records one row per control a regulated deployment might ask about, each with an evidence path and a status. No public claim about a regulation or requirement is made without a row there saying it is true. |
 
 ## Milestones
@@ -198,6 +211,7 @@ later without renumbering anything.
 | `docs/` | Vision, architecture, tech stack, conventions, data model, risks, security model, standards register; packaging, the FIPS leg, backup and restore, performance measurements |
 | `docs/mcp-server.md` | Connecting a client to Trinity's MCP server (Claude Code, VS Code, Codex, goose), stdio, approvals over the wire, the headless profile |
 | `docs/adr/` | Architecture decision records. One is added whenever a decision changes |
+| `docs/10-assurance-case.md` | The structured argument that the security claims hold, with the evidence for each and the assumptions and limits named |
 | `docs/09-standards-register.md` | One row per control a regulated deployment may ask about, with its evidence path and status |
 | `lib/`, `test/`, `config/` | The application |
 | `src-tauri/` | The native desktop shell |
