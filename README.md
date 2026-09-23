@@ -10,10 +10,11 @@ desktop application. Apache-2.0, developed in the open from the first commit.
 
 ## Status
 
-Pre-alpha, and usable from source. Milestones M0 to M4 are approved, and **M5a Automates** with
-them (050, the scheduler; 059, the MCP measurement; 060, the MCP client; 061, the MCP server; 062,
-MCP authorization): 24 slices, each merged with a merge commit and tagged `slice/NNN`
-(`git tag -l 'slice/*' | wc -l` → 24, on 2026-09-22). What that means in practice:
+Pre-alpha, and usable from source. Milestones M0 to M4 are approved, **M5a Automates** with them
+(050, the scheduler; 059, the MCP measurement; 060, the MCP client; 061, the MCP server; 062, MCP
+authorization), and the first slice of M5b (070, the gateway core): 25 slices, each merged with a
+merge commit and tagged `slice/NNN` (`git tag -l 'slice/*' | wc -l` → 25, on 2026-09-23). What
+that means in practice:
 
 - **Talks.** Streaming chat with any provider behind one behaviour (`Trinity.LLM`), switched by
   configuration; the assistant's text is persisted as a draft every 500 ms or 2 KB while it
@@ -170,7 +171,7 @@ engineering contract that every change is held to.
 | M7 Sandboxed | Executable skills in an in-VM sandbox | 110 approved |
 | M9 Donatable | Open-source hygiene audited, supply chain signed, shared libraries extracted | 002 and 120 to 123 approved |
 
-M0 to M5a are approved as of 2026-09-22. Slice numbers have gaps on purpose (000, 001, 010, 011 and so on) so that a slice can be inserted
+M0 to M5a are approved as of 2026-09-22, and 070 of M5b on 2026-09-23. Slice numbers have gaps on purpose (000, 001, 010, 011 and so on) so that a slice can be inserted
 later without renumbering anything.
 
 ## What is in the repository
