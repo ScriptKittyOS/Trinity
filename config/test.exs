@@ -143,6 +143,14 @@ else
   # test lost. The shipped value is unchanged and is still guarded by
   # test/trinity/repo_config_test.exs, which reads it from the file rather than from this
   # override.
+  #
+  # Measured afterwards and recorded here rather than left implied: raising this did **not** stop
+  # the intermittent failure (run 35889922107 failed on the very commit that raised it, while the
+  # pull-request run on the same commit passed). SQLite returns SQLITE_BUSY immediately, without
+  # consulting the busy handler, when a connection holding a read transaction tries to upgrade to
+  # a write while another connection holds the write lock, because waiting there could deadlock.
+  # No timeout affects that path. The raise is kept because it does help ordinary lock waiting,
+  # but it is not the fix for what is recorded as R26 in docs/06-risk-register.md.
   config :trinity, Trinity.Repo,
     database: Path.expand("../trinity_test.db", __DIR__),
     pool: Ecto.Adapters.SQL.Sandbox,
