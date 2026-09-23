@@ -212,3 +212,37 @@ on the gate's `fips` job: OTP built from source with `--enable-fips` against a U
 whole gate run with the mode on, and the algorithms the mode removes listed in the tree. `docs/fips-leg.md` has
 the image, how the mode is entered, the diff, and the findings (two of them about reaching hex.pm and GitHub
 from inside the mode).
+
+## Build reproducibility, measured
+
+Measured 2026-09-23, on this machine, for the OpenSSF Best Practices criterion `build_repeatable`,
+which asks whether repeating the build from the same sources gives the same bit-for-bit result.
+Recorded here because the answer is "partly", and a criterion answered "partly" is worth a
+measurement rather than an adjective.
+
+**Method.** `MIX_ENV=prod mix compile --force` twice from the same tree, with the sha256 of every
+`.beam` in `_build/prod/lib/trinity/ebin` compared between the two runs, and each differing file
+then compared chunk by chunk with `:beam_lib.all_chunks/1`.
+
+**Result.**
+
+| | |
+|---|---|
+| Modules compiled | 243 |
+| Byte-identical across two builds | 219 |
+| Differing | 24 |
+| Chunks responsible | `Dbgi` (debug info) in 18, `ExCk` (Elixir compile metadata) in 3; three more differ in container layout alone |
+| **`Code` chunk, the executable bytecode** | **identical in all 243** |
+
+**What that means.** The compiled behaviour of this project is reproducible: recompiling the same
+sources produces the same instructions every time. What is not reproducible is the metadata the
+compiler attaches beside them, which is a known property of the BEAM toolchain rather than
+something this project introduced, and which this project already had to account for elsewhere:
+`Trinity.CorePolicy` hashes **stripped** beams precisely because the `Dbgi` chunk varies between
+builds and between virtual machines, so a policy hash taken over unstripped beams would change
+without the policy changing.
+
+**What is not measured here.** The packaged binary. A Burrito artifact wraps the release with a
+launcher and embeds build-time information, and no claim is made that two package runs produce the
+same bytes. That claim belongs with the signed release pipeline, where reproducibility becomes
+something a third party might want to check rather than an internal property.

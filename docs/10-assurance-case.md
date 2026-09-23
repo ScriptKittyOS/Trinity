@@ -21,6 +21,123 @@ deployment supplies, each of which is named as an assumption at the end.
 
 ---
 
+## The threat model
+
+Who this system is defended against, what they want, and what they are assumed to be able to do.
+Claims C1 to C10 are the argument that these adversaries do not get what they want; naming them
+first is what makes those claims checkable rather than decorative.
+
+**A1. The model, manipulated.** The primary adversary is not a person but a text stream. An agent
+reads web pages, files, tool results, messages from chat platforms and responses from external
+tool servers, and any of those can carry instructions written by someone who wants the agent to act
+on their behalf rather than the user's. This adversary does not need to breach anything: it only
+needs the system to treat what it reads as what it was told. **Capability assumed:** full control
+of the content of anything the agent reads from outside the machine, including the ability to
+imitate the user, the system, or an internal record.
+
+**A2. A confused deputy inside the loop.** An adversary who cannot get the agent to act directly
+may instead get it to ask for something reasonable and then change what that request means: widen a
+path after it is approved, alter arguments between approval and execution, or reuse a decision made
+for one thing to authorise another. **Capability assumed:** the ability to influence the arguments
+of a call between the moment a decision is made and the moment it runs.
+
+**A3. A caller without authority.** Anything that speaks to Trinity's own interfaces: a client of
+the MCP server, a message arriving at a gateway from an unknown account, a process on the machine
+that finds an open port. **Capability assumed:** the ability to send well-formed requests, to
+present a token it obtained somewhere, and to retry.
+
+**A4. The supply chain.** A dependency, a build action, or an artifact substituted between build
+and use. **Capability assumed:** publishing a malicious version of a package the project depends
+on, or moving a tag an action was referenced by.
+
+**A5. An observer after the fact.** Someone disputing what the system did, or altering the record
+of it. Included because a system that acts on a user's behalf is worth little if what it did cannot
+be established later. **Capability assumed:** read and write access to the machine's filesystem,
+including the records themselves.
+
+**Explicitly outside the model, and therefore outside every claim below.** A compromised host
+operating system or kernel; a user acting against their own interest with full local privileges; a
+model provider that is itself hostile; physical access; and the correctness of any external
+authorization server a deployment chooses to trust. These are listed again under **Assumptions**
+with the reason each is excluded.
+
+## Trust boundaries
+
+The boundaries are drawn in `docs/07-security-model.md` and restated here, because an assurance
+case that points elsewhere for its own boundaries is asking to be read twice and understood once.
+
+```
+[The user]                                              trusted
+[Persona, user-authored skills, configuration]          trusted, but validated
+[Model output]                                          UNTRUSTED
+[Tool results, web pages, files, MCP servers,
+ gateway messages, skills from a hub]                   UNTRUSTED
+```
+
+Three of those lines do the work.
+
+**Model output is untrusted.** Not because the provider is assumed hostile, but because the model
+reads untrusted things and its output is downstream of them. A system that trusts model output has
+no boundary at all, only a longer path to the same place.
+
+**Everything crossing inward is labelled at the crossing, not later.** Every content part carries
+its origin, a source reference, a digest and a taint. Summaries and compactions inherit the maximum
+taint of their inputs, so nothing launders its provenance by being summarised.
+
+**Authority never crosses a boundary with data.** A credential establishes who is calling; it never
+decides what may happen. That decision belongs to the permission gate and the selected authority
+adapter, on the trusted side, and a session carries no authority that survives a reset.
+
+The boundary that matters most at runtime is the one effects cross: a compile-time effect catalogue
+with a single execution path, described in C1.
+
+## Secure design principles, and where each one is applied
+
+The principles are the classical ones (Saltzer and Schroeder, as the OpenSSF criteria use them).
+Each row names where in this tree the principle is realised, so that "we applied it" can be
+checked rather than believed.
+
+| Principle | Where it is applied |
+|---|---|
+| **Economy of mechanism** | One side-effect membrane. Every effect passes a single compile-time catalogue and one execution path, rather than each subsystem deciding for itself. A small mechanism is one a reviewer can hold in their head. |
+| **Fail-safe defaults** | A tool with no explicit tier is treated as asking for approval. An approval whose arguments no longer match the ones it was granted for is denied, not repaired. No approved cryptographic algorithm available means the effect is refused, never signed with a weaker one and never written unsigned. |
+| **Complete mediation** | The gate is in the execution path, not beside it. An approval is re-derived from a canonical hash of the exact call at the moment of execution rather than checked once and remembered, which is what closes A2. |
+| **Least privilege** | Channel trust caps: what a messaging gateway may approve is bounded below what the desktop may, and a capped request is refused in words and receipted rather than dropped. Tokens are audience-bound. Workflow tokens grant read, with writes declared by the one job that needs them. |
+| **Separation of privilege** | Identity and authority are separate concerns with separate modules (C2). Holding a valid credential is not sufficient to cause an effect. |
+| **Open design** | The whole tree is public, including this document, the risk register with its unfixed entries, and the engineering records of changes that went wrong. Security does not rest on any of it being unread. |
+| **Defence in depth** | Untrusted content is framed *and* the gate decides *and* effects pass one membrane *and* what happened is receipted. No single one of these is load-bearing alone. |
+| **Psychological acceptability** | A refusal says what was refused and why, in the channel where it was asked. A silent refusal teaches a user that the system is broken, and a user who believes that routes around it. |
+| **Work factor** | Argument-bound approvals and audience-bound tokens are chosen over name-based checks specifically because the cheap attacks against the latter are the ones that actually occur. |
+
+## Common implementation weaknesses, and how each is countered
+
+The classes below are the ones that apply to what this project is: an Elixir application on the
+BEAM with a web interface, a database, an HTTP client and a protocol server. Each names the counter
+and, where the counter is incomplete, says so.
+
+| Weakness | Counter in this tree |
+|---|---|
+| **Prompt injection** (the injection class that actually applies here) | Untrusted content is framed at the boundary with its origin and taint and is never treated as instruction; model output is itself untrusted; and no instruction in content can reach an effect without passing the gate. This is the weakness this project is mostly *about*. |
+| **Memory-safety defects** (CWE-787, CWE-125, CWE-416) | Do not arise in the application tree: Elixir on the BEAM, and Rust in the desktop shell. There is no C or C++ in the project's own code (C9). |
+| **SQL injection** (CWE-89) | All database access goes through Ecto's parameterised queries. Sobelow, which includes checks for interpolated SQL, runs on every commit as a gate step (`sobelow --exit`). |
+| **Cross-site scripting** (CWE-79) | Phoenix templates escape by default. Rendered Markdown goes through `TrinityWeb.Markdown`, which sets `unsafe: false` so raw HTML in the source is not emitted, and applies the renderer's sanitizer on top of that. The previous renderer was dropped at slice 013 for a retired package with an open XSS advisory, which the dependency audit refuses. Sobelow runs on every commit. |
+| **Cross-site request forgery** (CWE-352) | Phoenix's CSRF protection on the endpoint; the protocol server's own transport is authenticated separately and does not use cookie authority. |
+| **Path traversal** (CWE-22) | Filesystem tools validate against configured roots, and a manifest path that escapes its root is rejected rather than normalised. |
+| **Unsafe deserialisation** (CWE-502) | No `:erlang.binary_to_term` on external input. External data arrives as JSON and is decoded to plain data, never to atoms from untrusted keys. |
+| **Hard-coded and leaked secrets** (CWE-798, CWE-532) | A secret scan runs in the gate; tests assert that no token material appears in records or model context; keys live in files separate from configuration and can be replaced without recompilation (C10). |
+| **Broken authentication of the protocol server** (CWE-287, CWE-863) | Tokens are validated for issuer, audience, expiry and not-before against an algorithm allow-list, with `none` and symmetric algorithms refused; the scope check precedes the permission gate; a token minted by the non-default personal profile is refused in production. |
+| **Weak cryptography** (CWE-327) | No SHA-1, no ECB, no unauthenticated cipher modes; a test sweeps the tree for them. Algorithms are measured inside a FIPS-mode container on a dedicated build leg rather than asserted (C7). |
+| **Missing authorization on an approved action** (CWE-862) | Approvals bind a canonical hash of the exact call, re-derived at execution. |
+| **Server-side request forgery** (CWE-918) | Every web fetch passes the permission gate, so a person decides each one, and the decision binds the exact arguments rather than the tool's name. **This is the weakest row in the table and it is not counted as solved.** There is no egress allow-list, and no restriction by resolved address, so an approved fetch to a host that resolves to a private or link-local address is not blocked by construction. `Trinity.NetworkGuard` blocks outbound connections during the test suite and is not a production control; describing it as one would be an overstatement, and it was one in the first draft of this table. |
+| **Denial of service through unbounded work** (CWE-400) | Iteration, token and wall-clock caps are owned by the code rather than passed in as arguments; reaching one is a recorded outcome rather than a crash. |
+
+Static analysis for these classes runs on every commit (Sobelow for the Phoenix-specific ones,
+Credo in strict mode, the compiler with warnings as errors, plus the dependency and licence
+audits). What none of them cover is the first row of this table, which is why the argument for it
+is structural rather than a tool.
+
+---
+
 ## C1. No effect happens without a decision
 
 **Argument.** Every tool call is decided before it runs. The decision is made by one component,

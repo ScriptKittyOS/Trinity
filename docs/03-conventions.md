@@ -15,6 +15,27 @@
 
 ## Tests
 
+### The policy
+
+Stated as a policy rather than left as a habit, because a habit cannot be pointed at in a review.
+
+1. **Major new functionality is accompanied by tests for it in the automated suite, in the same
+   change.** Not afterwards, not in a follow-up. A change that adds behaviour and no test for that
+   behaviour is incomplete, and the reviewer's question is "which test fails if this is reverted?"
+2. **A fixed bug gets a regression test naming the defect**, so the same defect cannot return
+   silently. The test is committed failing first, by name, and the fix commit refers to it.
+3. **A claimed property has a test that could fail.** A test that passes whatever the code does
+   proves nothing; where it is not obvious that a test discriminates, it is demonstrated red once
+   and the output recorded.
+4. **The population comes from the tree.** Any claim about "every X" is tested against a list the
+   command produces, not against a list someone typed.
+
+The gate enforces what can be enforced mechanically: the suite runs on every commit and every push,
+and the coverage floor in `coverage.tsv` refuses a drop. The rest is enforced in review, and this
+section is what review points at.
+
+### The practice
+
 - Unit tests for pure modules; process tests for GenServers/gen_statem (start under a test supervisor, send
   messages, assert state via public API, not `:sys.get_state` except in recovery tests).
 - LiveView tests use `Phoenix.LiveViewTest`; prefer `element/3` with text filters.

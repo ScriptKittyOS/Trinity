@@ -39,6 +39,11 @@ evidence. The short version:
   wrong line stays and is corrected below it, saying what it supersedes.
 - **A failing test comes before the fix.** A test for a claimed property is committed failing
   first, by name, and the fix commit refers to it.
+- **Major new functionality comes with tests for it, in the same change.** This is a policy, not a
+  preference: a change that adds behaviour and no test for that behaviour is incomplete, and the
+  question a reviewer will ask is which test fails if the change is reverted. A fixed bug gets a
+  regression test naming the defect. The full policy is the *Tests* section of
+  `docs/03-conventions.md`.
 
 ## Commit messages
 
