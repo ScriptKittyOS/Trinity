@@ -62,21 +62,22 @@ defmodule Trinity.Gateways.Console do
   def clear(conversation), do: GenServer.call(__MODULE__, {:clear, conversation})
 
   @impl GenServer
-  def handle_call({:deliver, conversation, outbound}, _from, state) do
-    log = Map.get(state.conversations, conversation, [])
-    state = put_in(state.conversations[conversation], log ++ [outbound])
-
-    case outbound do
-      {:message, _} ->
-        {:reply, {:ok, state.next_ref}, %{state | next_ref: state.next_ref + 1}}
-
-      _ ->
-        {:reply, :ok, state}
-    end
+  def handle_call({:deliver, conversation, {:message, _} = outbound}, _from, state) do
+    # The reference is recorded beside the message, not recomputed when the log is read: the
+    # counter is global to this process and an edit names the reference `deliver/2` returned, so
+    # renumbering per conversation makes an edit land on a different message (found by the
+    # approvals suite, where a refusal overwrote an earlier reply).
+    ref = state.next_ref
+    state = append(state, conversation, {outbound, ref})
+    {:reply, {:ok, ref}, %{state | next_ref: ref + 1}}
   end
 
+  def handle_call({:deliver, conversation, outbound}, _from, state),
+    do: {:reply, :ok, append(state, conversation, {outbound, nil})}
+
   def handle_call({:delivered, conversation}, _from, state),
-    do: {:reply, Map.get(state.conversations, conversation, []), state}
+    do:
+      {:reply, state.conversations |> Map.get(conversation, []) |> Enum.map(&elem(&1, 0)), state}
 
   def handle_call({:text, conversation}, _from, state),
     do: {:reply, state.conversations |> Map.get(conversation, []) |> visible(), state}
@@ -84,19 +85,24 @@ defmodule Trinity.Gateways.Console do
   def handle_call({:clear, conversation}, _from, state),
     do: {:reply, :ok, %{state | conversations: Map.delete(state.conversations, conversation)}}
 
-  # A message is what was sent; an edit replaces the message it names, which is how a stream
-  # looks to a person watching the channel rather than reading the log.
+  defp append(state, conversation, entry) do
+    log = Map.get(state.conversations, conversation, [])
+    put_in(state.conversations[conversation], log ++ [entry])
+  end
+
+  # A message is what was sent; an edit replaces the message whose reference it names, which is
+  # how a stream looks to a person watching the channel rather than reading the log. An edit
+  # naming a message this conversation never had is ignored rather than invented.
   defp visible(log) do
     log
     |> Enum.reduce({[], %{}}, fn
-      {:message, text}, {order, by_ref} ->
-        ref = map_size(by_ref) + 1
+      {{:message, text}, ref}, {order, by_ref} ->
         {order ++ [ref], Map.put(by_ref, ref, text)}
 
-      {:edit, ref, text}, {order, by_ref} ->
-        {order, Map.put(by_ref, ref, text)}
+      {{:edit, ref, text}, _}, {order, by_ref} ->
+        {order, if(Map.has_key?(by_ref, ref), do: Map.put(by_ref, ref, text), else: by_ref)}
 
-      {:typing, _}, acc ->
+      {{:typing, _}, _}, acc ->
         acc
     end)
     |> then(fn {order, by_ref} -> Enum.map(order, &Map.fetch!(by_ref, &1)) end)

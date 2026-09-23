@@ -21,7 +21,8 @@ defmodule Trinity.Gateways.Router do
   """
   use GenServer
 
-  alias Trinity.Gateways.{Adapter, Commands, Format, Identities}
+  alias Trinity.Gateways.{Adapter, Cap, Commands, Format, Identities}
+  alias Trinity.Permissions
   alias Trinity.Sessions
 
   require Logger
@@ -116,6 +117,12 @@ defmodule Trinity.Gateways.Router do
       conv_key -> {:noreply, stream(event, conv_key, state)}
     end
   end
+
+  def handle_info({:approval, :requested, approval}, state) do
+    {:noreply, render_approval(approval, state)}
+  end
+
+  def handle_info({:approval, :decided, _approval}, state), do: {:noreply, state}
 
   def handle_info({:flush, conv_key}, state), do: {:noreply, flush(conv_key, state)}
   def handle_info(_other, state), do: {:noreply, state}
@@ -240,6 +247,9 @@ defmodule Trinity.Gateways.Router do
   def bind_state(state, adapter, conversation, session_id) do
     conv_key = key(adapter, conversation)
     :ok = Sessions.subscribe(session_id)
+    # The approvals a turn in this session raises are rendered into the conversation that
+    # started it, so the person who asked is the person who answers (docs/07's approval channel).
+    :ok = Permissions.subscribe(session_id)
 
     conversation_state = %{
       adapter: adapter,
@@ -355,6 +365,28 @@ defmodule Trinity.Gateways.Router do
     case get_in(state.conversations, [conv_key, :timer]) do
       nil -> state
       timer -> Process.cancel_timer(timer) && put_in(state.conversations[conv_key][:timer], nil)
+    end
+  end
+
+  # A request is rendered into the conversation bound to its session, and nowhere else: an
+  # approval belongs to the surface that asked for it. A tier this channel may not answer is said
+  # so here, so the person is not left typing /approve at something that will refuse them.
+  defp render_approval(approval, state) do
+    case Map.get(state.sessions, approval.session_id) do
+      nil ->
+        state
+
+      conv_key ->
+        conv = Map.fetch!(state.conversations, conv_key)
+        {:message, text} = conv.adapter.render_approval(approval, conv.adapter.capabilities())
+
+        text =
+          if Cap.allows?(conv.adapter, approval.risk),
+            do: text,
+            else: text <> "\n\n" <> Cap.refusal(conv.adapter, approval.risk)
+
+        _ = conv.adapter.deliver(conv.conversation, {:message, text})
+        state
     end
   end
 
