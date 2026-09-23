@@ -3,9 +3,26 @@
 
 ## Today
 
-**One maintainer**, named in `MAINTAINERS.md`, who is also the author and the sole reviewer.
-Every change is gated on that person's review. This is stated rather than dressed up: the
-review queue is the project's real critical path.
+**Three maintainers**, named in `MAINTAINERS.md`. Any of them may review a change, merge it, tag it
+and cut a release. Every change still lands through a pull request against a protected branch with
+the full gate green, which is the rule that has not changed and is not going to.
+
+This is stated rather than dressed up. The project went from one maintainer to three on 2026-09-23,
+and names in a file are not the same thing as people who have carried the work. What is true today
+is that the project no longer stops if any one person does. What is not yet true is that any of
+them could pick up any part of it cold: every commit in the tree to date has one author.
+`docs/06-risk-register.md` R22 tracks that difference and states what would close it.
+
+## Continuity
+
+If any one maintainer becomes unavailable, for any reason, the others hold the access needed to
+keep the project running: each can create and close issues, accept proposed changes, and publish a
+release. Nothing in the ordinary workflow requires a specific individual.
+
+The exceptions are named here rather than left to be discovered. Administration of the GitHub
+organisation, the domain, and the security mailbox rest with the author. Restoring those to a
+surviving maintainer is a legal and administrative matter, not a technical one, and it is the first
+thing a reader evaluating this project's continuity should ask about.
 
 ## Decisions
 
