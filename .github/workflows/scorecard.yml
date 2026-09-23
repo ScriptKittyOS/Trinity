@@ -10,9 +10,27 @@
 # configuration and history, which change slowly, and because the analysis reads the GitHub API
 # rather than the tree. The results are uploaded to the code-scanning dashboard, so a regression
 # in the repository's posture is visible in the same place as a code finding.
+#
+# History worth keeping, because the failure mode is not obvious and will recur. From the day it
+# was added until 2026-09-23 this workflow never ran: four `startup_failure` results with no job,
+# no log and the message "This run likely failed because of a workflow file issue". The file was
+# not the issue. `actionlint` passed it, all three pinned commits resolved, and three stripped-down
+# copies on a throwaway branch failed identically, including one that was nothing but a checkout
+# and the action. The cause was the repository's Actions policy: `allowed_actions` was `selected`
+# with GitHub-owned actions and two `setup-*` patterns permitted, and `ossf/scorecard-action` is
+# neither GitHub-owned nor was it listed, so the run was refused before a job existed. Every other
+# action in this tree lives under `actions/` or `github/`, which is why nothing else ever hit it.
+# **Adding an action from a new owner to any workflow here requires adding it to that allow-list,
+# or the workflow silently never starts.**
 name: scorecard
 
 on:
+  # Added 2026-09-23 after this workflow had failed to start four times in a row without anyone
+  # being able to retry it: a run that ends in `startup_failure` cannot be re-run, and the only
+  # other triggers here are a push to the default branch and a weekly schedule, so every attempt
+  # to diagnose it cost a commit on `main`. A workflow that cannot be triggered on demand is a
+  # workflow that cannot be tested, which is how it stayed broken from the day it was added.
+  workflow_dispatch:
   branch_protection_rule:
   schedule:
     # Mondays, 07:00 UTC. A fixed day makes a drop in the score attributable to the week it
