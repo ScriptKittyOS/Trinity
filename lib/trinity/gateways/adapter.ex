@@ -46,7 +46,7 @@ defmodule Trinity.Gateways.Adapter do
   @doc """
   The adapter's name as rows and receipts carry it: the last segment of its module, underscored,
   so `Trinity.Gateways.Console` is `"console"`. It is derived and not declared, because a name a
-  module can contradict is a second source of truth (CLAUDE.md section 8: a name is a claim).
+  module can contradict is a second source of truth (docs/03: a name is a claim).
   """
   @spec name(module()) :: String.t()
   def name(adapter) when is_atom(adapter) do

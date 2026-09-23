@@ -33,8 +33,9 @@ defmodule NetworkGuardTest do
     :gen_tcp.close(socket)
   end
 
-  test "the live path exists because docs/03 and CLAUDE.md both define it" do
-    assert File.read!("docs/03-conventions.md") =~ "@tag :live"
-    assert File.read!("CLAUDE.md") =~ "mix test --only live"
+  test "the opt-in live path is the one the conventions define" do
+    conventions = File.read!("docs/03-conventions.md")
+    assert conventions =~ "@tag :live"
+    assert conventions =~ "Tests do not reach the network"
   end
 end

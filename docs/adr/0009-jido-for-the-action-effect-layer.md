@@ -38,7 +38,7 @@ takes; the register carries the row and the argument, and no slice here does.
 ## Decision, appended 2026-09-20 (later): no Jido at all
 
 The Slice 012 checkpoint ran on 2026-09-20 against `jido` 2.3.3, `jido_action` 2.3.2 and `jido_signal` 2.2.0,
-read from their Hex tarballs (the measurements and the commands are in `slices/012-*/NOTES.md`). Its findings:
+read from their Hex tarballs. Its findings:
 (a) M4 is assertable against `Jido.Action` and M3 only with a census, because `Jido.Exec.run/4` takes caps as
 call-site options; (b) `Jido.Agent` adds sensors, a scheduler, signal routing and worker pools the plan assigns
 elsewhere, and an `AgentServer` that executes tools through `Jido.Exec`, a second path beside

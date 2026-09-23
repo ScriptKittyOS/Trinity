@@ -3,7 +3,7 @@
 #
 # Dependabot opens a pull request only when a dependency has a security advisory. Version
 # bumps are not raised: VERSIONS.md is the pin list, and a version lands only after it is
-# proposed in a slice's NOTES.md and approved (CLAUDE.md section 5). On its first run, with
+# proposed and reviewed, never adopted silently (docs/03-conventions.md). On its first run, with
 # the limit above zero, it opened five version-bump pull requests inside two minutes; one of
 # them was merged by mistake. An open-pull-requests-limit of 0 keeps the security updates and
 # drops the rest. The value here is a security alert arriving as a diff with the gate run

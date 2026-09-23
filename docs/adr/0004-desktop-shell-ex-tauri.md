@@ -127,7 +127,7 @@ What has been established about the *shell*, as opposed to the sidecar:
 
 * **`mix ex_tauri.dev` opens a real window showing the scaffold** — on **one** operating system,
   Linux, run by the owner on 2026-09-07, with a screenshot at
-  `slices/001-packaging-spike/proof/ac4-linux-window.png`. That is the first evidence in this
+  the packaging spike's own screenshot. That is the first evidence in this
   project that the chosen shell does the thing it was chosen for.
 * The shell **compiles** on all three targets in CI. Compiling is not running, and no job claims
   otherwise.

@@ -15,13 +15,12 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          fetch-depth: 0 # plan_check rule 8 reads the whole history
+          fetch-depth: 0 # the DCO check below reads the whole history
           # On a pull request the default checkout is a merge commit GitHub makes on the fly,
-          # authored by nobody and signed off by nobody. plan_check rule 8 refused it on the
-          # first pull request this repository ever had (run 35477492177). The branch head is
-          # what was written and signed, so that is what the gate reads. The ruleset's strict
-          # policy requires the branch to be current with main before it can merge, so the
-          # head is also what main will contain.
+          # authored by nobody and signed off by nobody, which the DCO check below rightly
+          # refuses. The branch head is what was written and signed, so that is what the gate
+          # reads. The repository ruleset requires a branch to be current with main before it
+          # can merge, so the head is also what main will contain.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
@@ -39,11 +38,7 @@ jobs:
 
       - run: mix deps.get
 
-      # The plan's own consistency, checked before the code's.
-      - run: ./scripts/plan_check.sh
-
-      # DCO. plan_check rule 8 also asserts every commit is signed off; this fails earlier
-      # and more legibly on a pull request.
+      # Developer Certificate of Origin: every commit carries a sign-off (ADR-0012).
       - name: DCO sign-off present on every commit
         run: |
           git log --format=%B ${{ github.event.pull_request.base.sha || 'HEAD~1' }}..HEAD 2>/dev/null \
@@ -120,6 +115,37 @@ jobs:
       - id: tag
         run: echo "ref=$(scripts/fips_image_tag.sh --ref)" >> "$GITHUB_OUTPUT"
 
+      # The image tag is a hash of the files that define the image, so any change to them -
+      # including a comment - names an image that has to be built before it can be pulled. The
+      # `fips` job below takes that image as its container, which GitHub pulls before the job's
+      # first step runs, so the job cannot retry the pull itself: it fails with `manifest
+      # unknown` and no output. The fips-image workflow builds and pushes on the same event, so
+      # the two race, and the loser is always this one.
+      #
+      # Waiting here turns that race into a wait. The image is a function of its inputs, so the
+      # one being waited for is exactly the one this commit needs, and a build from source is
+      # slow enough that the ceiling is generous. A timeout fails with the reason rather than
+      # with a pull error, because "the image is still building" and "the image will never
+      # exist" need different responses from whoever reads it.
+      - name: Wait for the FIPS image to be published
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ref='${{ steps.tag.outputs.ref }}'
+          echo "$GH_TOKEN" | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+          for attempt in $(seq 1 60); do
+            if docker manifest inspect "$ref" >/dev/null 2>&1; then
+              echo "$ref is published (attempt $attempt)"
+              exit 0
+            fi
+            echo "attempt $attempt: $ref is not published yet; waiting 30s"
+            sleep 30
+          done
+          echo "::error::$ref was not published within 30 minutes. It is built by the" \
+               "fips-image workflow, which runs when ci/fips/Containerfile, .tool-versions or" \
+               "scripts/fips_image_tag.sh changes. Check that workflow's run for this commit."
+          exit 1
+
   fips:
     needs: fips-tag
     runs-on: ubuntu-latest
@@ -146,10 +172,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       # The checkout action marks the workspace safe under a temporary HOME it removes when
-      # it is done; every later git call in the container (plan_check, the names, secrets and
+      # it is done; every later git call in the container (the names, secrets and
       # reuse censuses, all of which read `git ls-files`) then hits git's dubious-ownership
-      # refusal and reads an empty tree. Found on run 35537462271: plan_check rule 4 named
-      # every slice as missing its SLICE.md.
+      # refusal and reads an empty tree, which makes every census pass over nothing.
       - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -184,8 +209,6 @@ jobs:
         env:
           ERL_AFLAGS: "-eval application:load(crypto)"
         run: elixir scripts/crypto_supports.exs | diff - docs/fips-leg/supports-default.txt
-
-      - run: ./scripts/plan_check.sh
 
       - name: DCO sign-off present on every commit
         run: |

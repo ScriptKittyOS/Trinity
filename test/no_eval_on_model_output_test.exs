@@ -5,7 +5,7 @@ defmodule NoEvalOnModelOutputTest do
   alias Trinity.Credo.NoEvalOnModelOutput
 
   @moduledoc """
-  CLAUDE.md §5 names one function. One function has an obvious bypass, so the check covers the
+  The conventions name one function. One function has an obvious bypass, so the check covers the
   family, and there is one test per function.
   """
 

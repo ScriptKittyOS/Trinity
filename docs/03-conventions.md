@@ -25,7 +25,7 @@
 - Coverage: reported in PROOF.md each slice and written to `coverage.tsv` in the repo root, one row per slice,
   so there is a baseline to compare against. The gate reads that file: a drop of more than 3 points against the
   previous slice fails until a NOTES.md justification names the reason. The rule as originally written stored no
-  baseline, so nothing could check it, which is the pattern CLAUDE.md §8 forbids.
+  baseline, so nothing could check it, which is the pattern the rules of evidence forbid.
 
 ## Tools (slice 020)
 
@@ -62,6 +62,54 @@
   inline script needs the request's nonce (`@csp_nonce`), and there is one, the theme script in the root layout.
 - The chat runs without a key in development: `TRINITY_FAKE_PROVIDER=1 mix phx.server`.
 
+## Engineering rules
+
+These are enforced by the gate where a tool can enforce them, and by review where none can.
+
+- **Modularity.** Every pluggable concern is a `@behaviour` behind a registry. Adding a tool, a
+  model provider or a gateway is a new module and a configuration entry, never an edit to a core
+  module.
+- **Boundaries.** The dependency rules in `docs/01-architecture.md` are compiled, not advisory:
+  `boundary` reports a violation as a warning and the gate compiles with warnings as errors, so an
+  architectural violation fails the build. This is what makes the layering in that document a
+  property of the tree rather than a diagram.
+- **OTP first.** One process per session; everything supervised; no bare `spawn`; work that can
+  fail runs under a `Task.Supervisor`.
+- **No runtime evaluation of model output.** `Code.eval_string` and its family are never applied to
+  anything a model produced. A custom Credo check (`credo_checks/no_eval_on_model_output.ex`)
+  enforces it over the whole tree. Sandboxed execution goes through `Trinity.Sandbox`.
+- **Persistence.** All writes go through the repository owner; schema changes need migrations, and
+  a migration must work on SQLite (primary) without breaking PostgreSQL (secondary).
+- **Streaming.** Model output streams over PubSub topics and is never accumulated unbounded in a
+  LiveView's state.
+- **Types.** Elixir's type checker is part of the gate; public functions carry typespecs.
+- **Dependency versions** come from `VERSIONS.md`. A newer release is proposed and reviewed, never
+  adopted silently.
+- **Tests do not reach the network.** Provider calls are mocked against behaviours; an opt-in
+  tag exists for tests that deliberately exercise a real provider.
+
+## Rules of evidence
+
+The standard a change is held to, and the reason the proof sections of this repository can be
+checked by a stranger.
+
+- **A failing test comes before the fix.** A test for a claimed property is committed failing
+  first, by name, and the fix references it. A failure that occurs at an earlier fault than the
+  claim has demonstrated nothing.
+- **Populations come from the tree.** Any statement of the form "every X" names the command that
+  enumerates X. A hand-written list whose membership is the thing in question is the defect.
+- **"Verified" names its command and its exit code**, from the process that ran it. A pipeline's
+  exit status is not the command's.
+- **Corrections append.** Records grow by dated append; a wrong line stays and is corrected below
+  it. Nothing is rewritten to look as though it was always right.
+- **Values come from the tree or from a person.** No date, count, commit hash, digest or line
+  number is written from memory; the deriving command is named.
+- **A deferral carries an owner, an absolute date and a lift condition** a stranger can check.
+- **A name is a claim.** A function called `verify` that records without verifying is renamed or
+  fixed.
+- **Every egress is enumerated.** Anything the system sends off the machine is listed with what
+  crosses in the clear and what crosses hashed.
+
 ## Git
 
 - `main` is always green (gate passes) and always releasable.
@@ -81,22 +129,22 @@
 
 ## Definition of Done
 
-See `CLAUDE.md` §2. The short version: gate green, every acceptance criterion proven, tests present, docs updated,
-PROOF.md written, ROADMAP updated, final commit + tag.
+Gate green, every acceptance criterion proven, tests present, docs updated,
+the engineering record written, and the change tagged.
 
 ## Proof standard
 
-`PROOF.md` follows `templates/PROOF-TEMPLATE.md`. Each acceptance criterion gets:
+Each acceptance criterion of a change gets:
 - the command(s) run,
 - the relevant output (trim long output; keep the lines that prove the point),
-- for UI: a screenshot/GIF path under `slices/NNN-*/proof/`,
+- for UI: a screenshot or short GIF held with the change's engineering record,
 - for process/crash behaviour: the test name and its output.
 Plus: `mix gate` output, `mix test --cover` summary line, `git log --oneline main..HEAD`.
 
 ## ADRs
 
 Any decision that changes architecture, stack, data model, or process gets an ADR in `docs/adr/` using
-`templates/ADR-TEMPLATE.md`, numbered sequentially, status `proposed` / `accepted` / `superseded by ADR-XXXX`. `proposed` is a real state: ADR-0004, 0007 and 0009 each wait on a measurement from a named slice.
+a consistent template, numbered sequentially, status `proposed` / `accepted` / `superseded by ADR-XXXX`. `proposed` is a real state: ADR-0004, 0007 and 0009 each wait on a measurement from a named slice.
 
 ## Documentation hygiene
 

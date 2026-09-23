@@ -195,7 +195,7 @@ if config_env() == :prod do
   # limit, not an oversight: sessions and signed cookies do not survive a restart of the
   # packaged app. Persisting a secret means writing a credential to the user's disk and
   # deciding its file mode, its rotation and what happens when it is copied to another machine
-  # (CLAUDE.md section 7 puts that in front of the owner, and slice 100 owns the desktop
+  # (a decision of that kind belongs to the operator, and the desktop keychain is later work
   # session story. A spike that quietly invented a credential store would be the larger sin.
   secret_key_base =
     System.get_env("SECRET_KEY_BASE") || Base.encode64(:crypto.strong_rand_bytes(48))

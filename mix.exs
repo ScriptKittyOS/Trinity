@@ -275,7 +275,7 @@ defmodule Trinity.MixProject do
         "phx.digest"
       ],
       precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"],
-      # The quality gate. `mix gate` must exit 0 before every commit (CLAUDE.md section 2).
+      # The quality gate. `mix gate` must exit 0 before every commit (CONTRIBUTING.md).
       #
       # The compile step MUST carry --warnings-as-errors. Measured at slice 000 G1: boundary
       # reports violations as warnings, so without that flag a boundary violation exits 0 and
@@ -320,17 +320,7 @@ defmodule Trinity.MixProject do
         "trinity.secrets.scan",
         "trinity.reuse",
         "test",
-        "trinity.coverage",
-        # The plan's own consistency, as the gate's final step rather than a second command
-        # with a second exit code. Added at slice 001 G4, for a mistake made three times in
-        # this slice: `mix gate` and `scripts/plan_check.sh` were run as a pair, the gate's
-        # `exit=0` was read, and `plan_check exit=1` on the line below it was not: twice
-        # reaching the remote. Two results printed and one read is a reporting failure the
-        # tooling can remove, so it is removed: **one command, one exit code.**
-        #
-        # `cmd` runs it as its own OS process, the same reason `hex.audit` uses it: the step
-        # gets its own exit code rather than sharing the alias's.
-        "cmd ./scripts/plan_check.sh"
+        "trinity.coverage"
       ]
     ]
   end

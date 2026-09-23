@@ -21,7 +21,7 @@
 # musl (slice 013's mdex finding), builds the Tauri shell, or runs on macOS or Windows. That is
 # the `package` workflow's job and it stays the `package` workflow's job.
 #
-# POSIX sh, like scripts/plan_check.sh, and like it not run on a Windows developer's machine.
+# POSIX sh, and so not run on a Windows developer's machine; CI covers it there.
 # The gate invokes it as `cmd env ERL_AFLAGS= ./scripts/prod_check.sh`: on the FIPS leg it runs
 # outside FIPS mode, because compiling prod builds the dependencies and `tokenizers` fetches a
 # precompiled NIF over TLS, which OTP's ssl cannot do in the mode. Compiling for release is not

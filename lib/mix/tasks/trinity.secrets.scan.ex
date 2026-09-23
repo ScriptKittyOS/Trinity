@@ -5,7 +5,7 @@ defmodule Mix.Tasks.Trinity.Secrets.Scan do
 
   @moduledoc """
   Scans tracked files for common API-key shapes. Deliberately shallow: it is a tripwire, not a
-  secret manager, and `CLAUDE.md` §4 keeps real keys in the environment or the OS keychain.
+  secret manager; real keys live in the environment or the OS keychain, never in the tree.
   """
 
   use Boundary, classify_to: Trinity

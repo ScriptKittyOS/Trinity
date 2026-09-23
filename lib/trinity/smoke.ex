@@ -161,7 +161,7 @@ defmodule Trinity.Smoke do
   Appended **after** `TrinityWeb.Endpoint` in `Trinity.Application`, because the task asks the
   endpoint which port it bound and a child cannot ask that of a sibling that has not started.
 
-  It is a supervised child rather than a `Task.start/1` because CLAUDE.md section 5 says
+  It is a supervised child rather than a `Task.start/1` because docs/03's engineering rules say
   supervise everything and no bare spawn, and because running it inside `start/2` would halt
   the VM from within the OTP boot sequence: a boot crash rather than a clean exit. `ps`
   cannot tell those apart from the outside; the exit code can, and AC7 reads both.
