@@ -21,7 +21,7 @@ ARG OTP_SHA256=5231ba18f31f8041c2d6514cc8842e46954d3b39a53f1617f03f2abe6fea59c7
 ARG ELIXIR_SHA256=ea7ff98bc1ed76c663a5d034c863c6fd37e65c9c855b6bbf6ccb2034d806673c
 
 # The toolchain OTP's configure needs, plus what the gate's steps call from the shell: git
-# (plan_check, the names and secrets census), python3 with PyYAML (plan_check rule 12), gcc
+# (the names and secrets censuses), python3 with PyYAML, gcc
 # (exqlite compiles SQLite; mdex_native's precompiled artifact loads on glibc), procps-ng (the
 # shell tool's tests read `ps`), diffutils (the leg diffs the supports listing; UBI's base has no
 # `diff`, found on the leg's first run). Kept in the image on purpose: it is a CI image, not a runtime.

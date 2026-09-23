@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 defmodule Trinity.Credo.NoEvalOnModelOutput do
   @moduledoc """
-  CLAUDE.md §5: "No `Code.eval_string` on model output. Ever."
+  docs/03-conventions.md, Engineering rules: `Code.eval_string` and its family are never applied
+  to anything a model produced.
 
   The rule names one function, and one function has an obvious bypass, so this check covers the
   whole evaluation family. Sandboxed execution goes through `Trinity.Sandbox` (slice 110), never
@@ -64,7 +65,7 @@ defmodule Trinity.Credo.NoEvalOnModelOutput do
 
   defp issue_for(issue_meta, line_no, trigger) do
     format_issue(issue_meta,
-      message: "#{trigger} evaluates code at runtime; forbidden on model output (CLAUDE.md §5)",
+      message: "#{trigger} evaluates code at runtime; forbidden on model output (docs/03)",
       trigger: trigger,
       line_no: line_no
     )

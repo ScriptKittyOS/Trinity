@@ -192,7 +192,7 @@ priv/repo/migrations/
 priv/skills/               bundled skills (SKILL.md)
 priv/personas/             default SOUL.md
 test/support/              Mox definitions, factories, fake tools/providers
-slices/                    this plan's per-slice specs and proofs
+docs/                      architecture, data model, security model, standards, ADRs
 docs/                      this plan's docs and ADRs
 tauri/                     desktop shell (Slice 001+)
 ```

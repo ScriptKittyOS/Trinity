@@ -155,7 +155,7 @@ end
 # through the plug pipeline without a socket. It is wrong for the one thing this slice has to
 # establish: `Trinity.Smoke` asks the endpoint which port it actually bound, and against a
 # non-serving endpoint that question returns `{:error, :no_server_found}`: a red at an
-# earlier fault than the claim, which under CLAUDE.md section 8 demonstrates nothing.
+# earlier fault than the claim, which under docs/03's rules of evidence demonstrates nothing.
 #
 # `port: 0` is the same ephemeral bind the packaged binary uses, so the test exercises the
 # real path rather than a fixed 4002 that a second run or a stray process can take. Nothing

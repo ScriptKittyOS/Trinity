@@ -75,8 +75,8 @@ that means in practice:
   run on the same queues; `/oban` shows the jobs.
 
 Not there yet: the messaging platforms themselves and subagents (M5b),
-the native desktop shell and signed releases (M6), executable skills in a sandbox (M7). `ROADMAP.md` carries the live status of every
-slice, and the [Milestones](#milestones) section below explains how to read it.
+the native desktop shell and signed releases (M6), executable skills in a sandbox (M7). The [Milestones](#milestones) section below sets out the order the
+remaining work is being built in.
 
 The interface is a local web page; the desktop shell exists as a packaging spike, not a product.
 If you want to follow along, watch the roadmap and the tags.
@@ -136,25 +136,40 @@ start-up times for each target; `docs/fips-leg.md` describes the FIPS build leg.
 
 ## How the work is organised
 
-Trinity is built in slices. A slice is one unit of planning, work, proof, review and history:
-small enough to review in one sitting and large enough to deserve a tag.
+Trinity is built in reviewed increments. Each one is small enough to review in one sitting and
+large enough to deserve a tag, and each is merged through a pull request with the quality gate
+green, then tagged. `CHANGELOG.md` records what every tag delivered and how it was verified.
 
-Each slice has a folder under `slices/` holding its specification (`SLICE.md`), the working notes
-and deviations recorded while it was built (`NOTES.md`), and the evidence that it met its
-acceptance criteria (`PROOF.md`). Proof means the command that was run and the output it produced,
-pasted in, or a screenshot for anything visual. A sentence saying something works is not proof.
+**Evidence, not assertion.** A claim that something works is not accepted in place of the command
+that was run and the output it produced. Anything described as verified names its command and its
+exit code; any statement of the form "every X" names the command that enumerates X; and no count,
+hash, date or version is written from memory. Records are appended to and never rewritten: a wrong
+line stays where it is and is corrected below it, saying what it supersedes. A test for a claimed
+property is committed failing first, so that the fix is shown to be the thing that made it pass.
 
-A slice moves through `planned`, `ready`, `in_progress`, `done` and `approved`. Only the
-maintainer sets `approved`, after reading the proof. Each approved slice is merged with a merge
-commit and tagged `slice/NNN`, so the history is the audit log.
+**The gate.** `mix gate` is the same command locally and in CI. It runs formatting, a compile with
+warnings as errors, the architectural boundary check, a release build check, Credo (strict),
+Sobelow, dependency and licence audits, the full test suite, and a coverage floor that fails on a
+drop. Continuous integration runs it on SQLite and PostgreSQL, and again inside a FIPS-mode
+container. `docs/03-conventions.md` carries the engineering rules, the proof standard and the
+rules of evidence every change is held to.
 
-Two rules shape everything else. Records are appended to and never rewritten: a wrong line stays
-where it is and is corrected below it, saying what it supersedes. And a count, a hash, a date or
-a version is never typed from memory; it is derived from the tree by a command that is named next
-to it.
+## Assurance posture
 
-`docs/04-slice-process.md` has the full lifecycle and the review gates. `CLAUDE.md` is the
-engineering contract that every change is held to.
+For readers evaluating this project for adoption, the properties below are enforced by the build
+rather than described by it.
+
+| Property | How it is enforced |
+|---|---|
+| Memory safety | The application is Elixir on the BEAM; the desktop shell is Rust. Both are memory-safe by construction, so the classes of defect named in current national guidance on memory safety do not arise in the application tree. |
+| Architectural integrity | Module dependency rules are compiled: a violation of the layering in `docs/01-architecture.md` fails the build, so the architecture is a property of the tree rather than a diagram. |
+| Least privilege for effects | Every tool call is decided by a permission gate before it runs, and side effects pass one membrane. Identity is separated from authority: a credential establishes who is calling; the gate and the selected authority adapter decide whether an effect may happen. |
+| Auditability | Decisions and effects are recorded in an Ed25519-signed hash chain with checkpoints and a verifier, so an operator can reconstruct what was done, by whom and under what decision. |
+| Untrusted content | Anything arriving from outside the machine is marked untrusted at the boundary and is never treated as instruction. |
+| Approved cryptography | A dedicated CI leg builds from source and runs the cryptographic properties inside a FIPS-mode container, so statements about approved algorithms are measured on that leg rather than asserted. |
+| Supply chain | Dependency and licence audits run on every commit; dependency versions are pinned in `VERSIONS.md` and verified against the lock file by the gate. |
+| Provenance | Every commit carries a Developer Certificate of Origin sign-off, enforced by a hook and independently by CI. |
+| Claim discipline | `docs/09-standards-register.md` records one row per control a regulated deployment might ask about, each with an evidence path and a status. No public claim about a regulation or requirement is made without a row there saying it is true. |
 
 ## Milestones
 
@@ -178,20 +193,17 @@ later without renumbering anything.
 
 | Path | Purpose |
 |---|---|
-| `ROADMAP.md` | Every slice with its phase, milestone, dependencies and current status |
+| `CHANGELOG.md` | What each tag delivered and how it was verified |
 | `VERSIONS.md` | The verified dependency versions, generated from `lib/trinity/versions.ex` |
-| `CLAUDE.md` | The engineering contract: slice rules, definition of done, proof standard |
-| `docs/` | Vision, architecture, tech stack, conventions, slice process, data model, risks, security model, standards; packaging, the FIPS leg, backup and restore, performance measurements |
+| `docs/` | Vision, architecture, tech stack, conventions, data model, risks, security model, standards register; packaging, the FIPS leg, backup and restore, performance measurements |
 | `docs/mcp-server.md` | Connecting a client to Trinity's MCP server (Claude Code, VS Code, Codex, goose), stdio, approvals over the wire, the headless profile |
-| `slices/059-mcp-library-spike/FINDINGS.md` | What the MCP server core (`beam_mcp`) ships, carries, refuses or leaves open against the 2026-07-28 checklist; the reference for the MCP phase |
 | `docs/adr/` | Architecture decision records. One is added whenever a decision changes |
-| `slices/` | One folder per slice: specification, notes and proof |
-| `templates/` | The templates a new slice, proof or decision record starts from |
+| `docs/09-standards-register.md` | One row per control a regulated deployment may ask about, with its evidence path and status |
 | `lib/`, `test/`, `config/` | The application |
 | `src-tauri/` | The native desktop shell |
-| `scripts/`, `credo_checks/` | The plan checker, the benchmark scripts and this project's own Credo checks |
+| `scripts/`, `credo_checks/` | The release check, the benchmark scripts and this project's own Credo checks |
 | `ci/fips/` | The container the FIPS leg builds its toolchain in |
-| `coverage.tsv` | Test coverage per slice, appended at each close |
+| `coverage.tsv` | Test coverage per increment, appended at each close |
 
 ## Connecting Trinity to the platform
 

@@ -11,7 +11,8 @@
       requires: [],
       checks: %{
         extra: [
-          # CLAUDE.md §5: no runtime evaluation of model output. Covers the whole family,
+          # docs/03-conventions.md, Engineering rules: no runtime evaluation of model output.
+          # Covers the whole family,
           # because naming one function leaves an obvious bypass.
           {Trinity.Credo.NoEvalOnModelOutput, []}
         ],

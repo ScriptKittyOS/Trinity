@@ -34,17 +34,21 @@ defmodule GateAliasTest do
     end
   end
 
-  test "plan_check is the gate's final step, so there is one exit code to read" do
+  test "the release check runs inside the gate, so a green gate cannot coexist with a broken release" do
     steps = Mix.Project.config()[:aliases][:gate]
 
-    assert List.last(steps) =~ "plan_check.sh",
-           "the gate's last step is #{inspect(List.last(steps))}. scripts/plan_check.sh runs " <>
-             "inside `mix gate` so that a green gate cannot coexist with a failing plan " <>
-             "check, which happened three times in slice 001, twice reaching the remote, " <>
-             "because two commands printed two exit codes and only one was read."
+    assert Enum.any?(steps, &(&1 =~ "prod_check.sh")),
+           "the gate does not run scripts/prod_check.sh. MIX_ENV=test says nothing about what " <>
+             "ships: a plug's init/1 is called at compile time under prod, and a closure there " <>
+             "once broke the release build while every gate stayed green."
 
-    assert Enum.count(steps, &(&1 =~ "plan_check.sh")) == 1,
-           "plan_check appears more than once in the gate"
+    assert Enum.count(steps, &(&1 =~ "prod_check.sh")) == 1,
+           "the release check appears more than once in the gate"
+
+    # One command, one exit code: the gate is the whole contract rather than one of two things
+    # a person has to remember to run and read.
+    assert List.last(steps) == "trinity.coverage",
+           "the gate's last step is #{inspect(List.last(steps))}"
   end
 
   test "sobelow blocks rather than advises" do

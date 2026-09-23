@@ -6,8 +6,8 @@
 # because a trailer that reaches a tag is permanent (CLAUDE.md §4).
 #
 # Enable with:  git config core.hooksPath .githooks
-# Enforced by:  scripts/plan_check.sh rule 8, which checks the history itself,
-#               so a bypassed or unconfigured hook still fails the gate.
+# Enforced by:  the gate's DCO check in CI, which reads the history itself, so a
+#               bypassed or unconfigured hook still fails the build.
 set -eu
 msg_file="$1"
 tmp="$msg_file.stripped"
@@ -24,9 +24,8 @@ rm -f "$tmp"
 # Warning only: does every repo path the message names appear in the staged diff?
 #
 # Added at slice 001 G4, for a mistake this slice made three times: a commit whose message ran
-# ahead of its tree. Twice it was an unread `plan_check exit=1`; once a message and a NOTES
-# line said `src-tauri/Cargo.lock` had been added to REUSE.toml when the edit had failed on a
-# stale anchor, in the same output as a green gate. `mix gate` does not check that a commit
+# ahead of its tree: a message said `src-tauri/Cargo.lock` had been added to REUSE.toml
+# when the edit had failed on a stale anchor, in the same output as a green gate. `mix gate` does not check that a commit
 # message is true, and nothing else did either.
 #
 # **It warns and never blocks**, deliberately. A message legitimately names paths it does not

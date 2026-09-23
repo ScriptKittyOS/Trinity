@@ -1,7 +1,7 @@
 # Performance measurements
 
 Numbers this tree is built on, each with the command or run that produced it and the date. A slice that
-changes a number appends a dated row; nothing here is typed from memory (CLAUDE.md section 8).
+changes a number appends a dated row; nothing here is typed from memory (docs/03-conventions.md, rules of evidence).
 
 ## Semantic memory (slice 032)
 
@@ -26,7 +26,7 @@ scripts/embed_bench.exs`) unless a row names another command.
 
 The hosted alternative (`nvidia:embed`, nemotron-3-embed-1b, opt-in only): 2048 dimensions, 208 ms p50 and
 314 ms max over 5 single embeds, 627 ms for a batch of 32, and cosines 0.71 and 0.752 on the two pairs above:
-its raw vectors do not separate at the slice's thresholds (slices/032-semantic-memory/NOTES.md).
+its raw vectors do not separate at the thresholds this measurement uses.
 
 ### Memory
 
