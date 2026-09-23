@@ -94,10 +94,22 @@ defmodule Trinity.Gateways.Identities do
     )
   end
 
-  @doc "A fresh pairing code."
+  @doc """
+  A fresh pairing code, from the cryptographically secure generator.
+
+  The code is a credential: it is the whole of the proof that the person holding a channel is the
+  person at this machine, so it is generated with `:crypto.strong_rand_bytes/1` and not with
+  `Enum.random/1`, which draws from `:rand` and is predictable from observed output. The alphabet
+  has 32 characters and a byte has 256 values, so mapping a byte with `rem/2` is uniform: 256 is
+  exactly eight whole cycles of the alphabet, and no value is more likely than another.
+  """
   @spec generate_code() :: String.t()
   def generate_code do
-    for _ <- 1..@code_length, into: "", do: <<Enum.random(@alphabet)>>
+    size = length(@alphabet)
+
+    for <<byte <- :crypto.strong_rand_bytes(@code_length)>>,
+      into: "",
+      do: <<Enum.at(@alphabet, rem(byte, size))>>
   end
 
   @doc "How long a code lives, in seconds."

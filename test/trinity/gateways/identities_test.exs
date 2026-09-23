@@ -87,6 +87,44 @@ defmodule Trinity.Gateways.IdentitiesTest do
     assert {:ok, _, :pending} = Identities.admit("other", "same-id")
   end
 
+  # A pairing code is a credential, so where it comes from is a property worth holding rather than
+  # a detail. `Enum.random/1` draws from `:rand`, which is predictable from observed output; this
+  # was the generator until the security audit for the OpenSSF criteria caught it.
+  test "pairing codes come from the cryptographically secure generator, over the whole alphabet" do
+    codes = for _ <- 1..200, do: Identities.generate_code()
+
+    assert Enum.all?(codes, &(String.length(&1) == 6))
+    assert Enum.all?(codes, &(&1 =~ ~r/^[A-HJ-NP-Z2-9]+$/))
+
+    # Distinct: 200 draws from 32^6 collide with negligible probability, so a repeat means the
+    # generator is not drawing from the space it claims to.
+    assert length(Enum.uniq(codes)) == 200
+
+    # The alphabet excludes the characters a person reads for one another (I, O, 0, 1), and the
+    # draw reaches the rest of it: a generator stuck on a subset would fail here.
+    seen = codes |> Enum.join() |> String.graphemes() |> Enum.uniq()
+    assert length(seen) > 24, "only #{length(seen)} distinct characters in 1,200 draws"
+    refute Enum.any?(seen, &(&1 in ["I", "O", "0", "1"]))
+  end
+
+  test "no security value in the gateway package is drawn from the non-cryptographic generator" do
+    {out, 0} = System.cmd("git", ["ls-files", "lib/trinity/gateways"])
+
+    for file <- String.split(out, "\n", trim: true) do
+      # Comments and docs are stripped first: a moduledoc explaining why the non-cryptographic
+      # generator is not used names it, and naming it is not calling it.
+      source =
+        file
+        |> File.read!()
+        |> String.replace(~r/@(module)?doc\s+"""(.|\n)*?"""/, "")
+        |> String.replace(~r/#[^\n]*/, "")
+
+      refute source =~ ~r/Enum\.random|:rand\./,
+             "#{file} draws from the non-cryptographic generator; use :crypto.strong_rand_bytes/1 " <>
+               "for anything that is a credential, a nonce or a key"
+    end
+  end
+
   test "the desktop can pair and revoke without a code" do
     {:ok, identity, :pending} = Identities.admit(@adapter, @user)
     assert {:ok, allowed} = Identities.allow(identity)
