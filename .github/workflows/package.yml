@@ -389,6 +389,10 @@ jobs:
           set -o pipefail
           gh attestation verify "burrito_out/${{ matrix.artifact }}" \
             --repo "${{ github.repository }}" 2>&1 | tee attestation.txt
+          # `gh attestation verify` draws its result with carriage returns, which the log
+          # viewer collapses to nothing. One plain line the log keeps, reached only because
+          # `set -e` and `pipefail` end the step on a failed verification.
+          echo "gh attestation verify: PASS for ${{ matrix.artifact }}"
           {
             echo "### Build provenance: ${{ matrix.artifact }}"
             echo
