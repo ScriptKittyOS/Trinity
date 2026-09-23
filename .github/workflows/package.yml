@@ -366,12 +366,18 @@ jobs:
           path: burrito_out
 
       # The bill is placed beside the binary rather than listed as a second upload path, so that
-      # both land at the root of the artifact. Uploading the two paths separately made
-      # upload-artifact take the workspace as their common ancestor and file the binary under
-      # `burrito_out/` inside the zip, and `gh run download --name` on the gh in Ubuntu's archive
-      # (2.45.0) then refuses the whole artifact with "would result in path traversal". Measured
-      # on run 35898448972 against a pre-slice-002 artifact that downloads cleanly with the same
-      # client. Whoever is at fault, a reviewer's first attempt to fetch a binary must not fail.
+      # both land at the root of the artifact. Listing them separately makes upload-artifact take
+      # the workspace as their common ancestor and file the binary under `burrito_out/` inside the
+      # zip, which is a layout change every earlier release's consumers would have to absorb for
+      # no benefit.
+      #
+      # Corrected 2026-09-23, because the first version of this comment named a cause that is not
+      # true. It said `gh run download --name` refuses the two-path layout with "would result in
+      # path traversal". It does refuse, but the layout has nothing to do with it: gh 2.45.0 (the
+      # version in Ubuntu's archive) raises that error for any artifact when extracting into the
+      # current directory, including a pre-slice-002 single-file one, and passing `-D <dir>`
+      # succeeds for both. gh 2.63.2 downloads both without `-D`. The error was measured against
+      # unlike invocations and read as a regression it was not.
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ matrix.artifact }}
