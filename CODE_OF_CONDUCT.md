@@ -16,10 +16,10 @@ Project spaces, and anywhere someone is representing the project.
 
 ## Reporting
 
-Email **security@scriptkittyos.com**: the same address, because there is one maintainer and a
-second address would be theatre. Reports are read by that maintainer. If your report concerns
-the maintainer, say so in the subject; there is no independent body today, and pretending
-otherwise would be worse than admitting it.
+Email **security@scriptkittyos.com**: one address, because a second one nobody reads would be
+theatre. Reports are read by the maintainers named in `MAINTAINERS.md`. If your report concerns
+one of them, say so in the subject and it will be handled by the others. If it concerns all of
+them, there is no independent body today, and saying so is better than implying one exists.
 
 ## Enforcement
 

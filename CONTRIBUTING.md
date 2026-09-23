@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Contributing
 
-Trinity is pre-alpha with one maintainer. The most useful contributions right now are bug
+Trinity is pre-alpha, with the maintainers named in `MAINTAINERS.md`. The most useful contributions right now are bug
 reports against a tagged release, corrections to the documents, and review of the engineering
 records behind a change. If you want to take on a larger piece of work, open an issue describing
 it first, so two people do not build the same thing.
