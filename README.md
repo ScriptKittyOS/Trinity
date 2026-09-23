@@ -210,6 +210,9 @@ rather than described by it.
 M0 to M5a are approved as of 2026-09-22, and 070 of M5b on 2026-09-23. Slice numbers have gaps on purpose (000, 001, 010, 011 and so on) so that a slice can be inserted
 later without renumbering anything.
 
+**[`ROADMAP.md`](ROADMAP.md)** sets out what the project intends to do and what it intends not to
+do over the next year, and why the order is what it is.
+
 ## What is in the repository
 
 | Path | Purpose |
