@@ -39,11 +39,54 @@ evidence. The short version:
   wrong line stays and is corrected below it, saying what it supersedes.
 - **A failing test comes before the fix.** A test for a claimed property is committed failing
   first, by name, and the fix commit refers to it.
+- **Review has a written standard.** What a reviewer checks, and what makes a change acceptable, is
+  the *Code review* section of `docs/03-conventions.md`. Read it before opening a pull request: it
+  is the list your change will be held against, and most of it is about evidence rather than style.
 - **Major new functionality comes with tests for it, in the same change.** This is a policy, not a
   preference: a change that adds behaviour and no test for that behaviour is incomplete, and the
   question a reviewer will ask is which test fails if the change is reverted. A fixed bug gets a
   regression test naming the defect. The full policy is the *Tests* section of
   `docs/03-conventions.md`.
+
+## Good first tasks
+
+Small, self-contained pieces of work suitable for someone who has not worked on this project
+before. Each is real: it came out of the tree rather than being invented to fill this list, and
+each names where to start.
+
+**Documentation and records**
+
+- **Check a document against the code it describes.** Pick any file in `docs/` and verify its
+  claims against the tree; anything that has drifted is a defect worth a pull request. Start with a
+  document whose slice number is old, since those have had the most time to drift.
+- **Add a worked example to `docs/mcp-server.md`.** Connecting a client to Trinity's protocol
+  server is documented as configuration; an end-to-end transcript would be more use than another
+  paragraph.
+
+**Tests**
+
+- **Widen a population test.** `test/workflows_test.exs` and `test/spdx_headers_test.exs` each take
+  their population from `git ls-files`. Other rules in `docs/03-conventions.md` are still enforced
+  by review alone and could be enforced by a test the same way. Pick one and write it.
+- **Add a test for a module below the coverage line.** `mix test --cover` prints per-module
+  coverage; anything well under the project total is a candidate. Small, useful, and it moves a
+  number the project tracks in `coverage.tsv`.
+
+**Code**
+
+- **Improve a refusal message.** The project's own rule is that a refusal says what was refused and
+  why, in the channel where it was asked. Some messages say less than that. `Trinity.Gateways.Cap`
+  and `Trinity.Permissions` are where to look.
+- **Fix a `shellcheck` style note in a workflow.** `actionlint` reports two, both in
+  `.github/workflows/`. Small, visible, and it teaches the build.
+
+**If you want something larger,** the risk register (`docs/06-risk-register.md`) lists open risks
+with their lift conditions, and R26 in particular is an unfixed intermittent test failure with
+three candidate fixes recorded and none taken. That one is not a first task, but it is a real one.
+
+Before starting anything larger than a correction, open an issue describing it, so that two people
+do not build the same thing. There is no expectation that a first contribution be large: a
+documentation fix that makes the next reader's life easier is a contribution this project wants.
 
 ## Commit messages
 
