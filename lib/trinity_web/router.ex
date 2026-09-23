@@ -57,6 +57,8 @@ defmodule TrinityWeb.Router do
       live "/skills", SkillsLive, :index
       # Slice 060: the MCP servers and their health.
       live "/mcp", MCPLive, :index
+      # Slice 070: the channels Trinity can be reached from, and who may.
+      live "/gateways", GatewaysLive, :index
       # Slice 050: scheduled tasks, their runs and the results to read.
       live "/tasks", TasksLive, :index
       # Slice 024: a session's receipt chain, and the boot receipt of this run.

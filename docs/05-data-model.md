@@ -173,7 +173,7 @@ One row per request, the audit trail this slice owns; slice 024 reads it for dec
 | prompt | text | the user message of the run's turn |
 | persona_id | fk personas, nullable | the default persona when unset |
 | skill_names | {array, string} | hinted to the model in the prompt |
-| deliver_to | map | `%{"kind" => "desktop"}` at 050; gateways name their kind at 070 |
+| deliver_to | map | `%{"kind" => "desktop"}` at 050; at 070 `%{"kind" => "gateway", "adapter" => "console", "conversation" => "c-1"}` names a channel |
 | enabled | boolean | the tick enqueues enabled tasks only; a `once` task is disabled once enqueued |
 | timeout_ms | integer | one run's bound (600 000 by default) |
 | last_run_at, next_run_at | timestamp | `next_run_at` is computed by `Trinity.Scheduler` from the schedule, not mirrored from Oban: the tick (one Cron plugin entry a minute) enqueues what is due and advances it |
@@ -193,6 +193,26 @@ Oban's own `oban_jobs` (and `oban_peers`) carry the jobs; the pruner keeps a wee
 
 The curator (slice 050) adds `stale_at` and `archived_at` to `memories` (docs above): stale is still
 recalled and shown as such; archived leaves recall and stays in the row.
+
+### gateway_identities (Slice 070, as built)
+Who outside this machine may talk to Trinity. The key is the pair, because an external id means
+nothing outside the platform that issued it.
+
+| column | type | notes |
+|---|---|---|
+| adapter | string | the adapter's own name (`Trinity.Gateways.Adapter.name/1`: "console"), half the key |
+| external_user_id | string | the platform's id for the person; unique with `adapter` |
+| display_name | string, nullable | whatever the platform offered, for the page |
+| state | string | "pending" (a code was shown) \| "paired" \| "revoked"; a revoked row is kept, so turning someone away is recorded rather than forgotten |
+| code | string, nullable | the six-character pairing code, shown on `/gateways` and nowhere else; cleared once spent |
+| code_expires_at | timestamp, nullable | ten minutes; a pending sender who comes back later is shown a new code rather than locked out |
+| paired_at, revoked_at | timestamp, nullable | |
+| last_conversation | string, nullable | where the pairing was asked from, so the answer goes back there |
+
+A gateway session is an ordinary session with `origin` = the adapter's name and `origin_ref`
+`%{"adapter", "conversation", "external_user_id"}` (010's columns; this slice adds no column to
+`sessions`). A scheduled task delivers to one with
+`deliver_to: %{"kind" => "gateway", "adapter" => …, "conversation" => …}`.
 
 ### usage_events (Slice 011; the ledger and budgets that read it are Slice 090)
 One row per completed call, as built at slice 011:

@@ -214,3 +214,7 @@ config :phoenix, :json_library, Jason
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"
+
+# Slice 070: a scheduled run can be delivered to a gateway conversation; `deliver_to`'s "kind"
+# names the implementation (slice 050's `Trinity.Scheduler.Delivery.for/1`).
+config :trinity, :deliveries, %{"gateway" => Trinity.Scheduler.Delivery.Gateway}

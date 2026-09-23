@@ -70,6 +70,16 @@ defmodule Trinity do
         Skills.Manager,
         Skills.Learn,
         # Slice 050: the tasks page reads and writes the scheduler.
+        # Slice 070: the /gateways page reads the channels, the identities and the cap; the
+        # scheduler's gateway delivery reaches the adapter through these too. `Gateways` is a
+        # boundary of its own under this one, as `Scheduler` is.
+        Gateways,
+        Gateways.Adapter,
+        Gateways.Cap,
+        Gateways.Console,
+        Gateways.Identities,
+        Gateways.Identity,
+        Gateways.Router,
         Scheduler,
         Scheduler.Task,
         Scheduler.Run,

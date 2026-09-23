@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 7 Gateways |
-| Milestone | M5 Always-on |
+| Milestone | M5b Reaches |
 | Size | M |
 | Depends on | 012 |
 
