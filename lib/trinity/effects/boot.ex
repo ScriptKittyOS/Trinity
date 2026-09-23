@@ -21,6 +21,7 @@ defmodule Trinity.Effects.Boot do
     subject = %{
       "authority" => Trinity.Authority.selected_name(),
       "signer" => signer_subject(),
+      "key_custody" => key_custody_subject(),
       "otp_release" => List.to_string(:erlang.system_info(:otp_release)),
       "fips" => Atom.to_string(:crypto.info_fips()),
       "node" => Atom.to_string(node())
@@ -49,6 +50,29 @@ defmodule Trinity.Effects.Boot do
       {:error, reason} ->
         Logger.error("receipts: boot receipt not written: #{inspect(reason)}")
         {:error, reason}
+    end
+  end
+
+  # Slice 025 AC1: the boot receipt names the custody adapter and the source it chose, so a reader
+  # of the chain can tell whether the signing key was held by a passphrase, a systemd credential or
+  # a TPM without asking anyone. It carries the key id and never key material.
+  @doc """
+  What the boot receipt records about key custody. Public so the test that asserts it carries no
+  key material can call the thing the receipt actually uses rather than a copy of it.
+  """
+  @spec key_custody_subject() :: map()
+  def key_custody_subject do
+    case Trinity.Keys.describe() do
+      %{adapter: adapter, source: source, key_id: key_id, detail: detail} ->
+        %{
+          "adapter" => inspect(adapter),
+          "source" => Atom.to_string(source),
+          "key_id" => key_id,
+          "detail" => detail
+        }
+
+      {:error, reason} ->
+        %{"unavailable" => inspect(reason)}
     end
   end
 
