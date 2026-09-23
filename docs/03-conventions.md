@@ -109,6 +109,69 @@ These are enforced by the gate where a tool can enforce them, and by review wher
 - **Tests do not reach the network.** Provider calls are mocked against behaviours; an opt-in
   tag exists for tests that deliberately exercise a real provider.
 
+## Code review
+
+What a reviewer does, what they check, and what makes a change acceptable. Written down because a
+review standard that lives in one person's head is not a standard, and because the first question
+a reviewer of *this project* will ask is how its own changes are reviewed.
+
+### How review is conducted
+
+Every change reaches `main` through a pull request against a protected branch, with the full gate
+green. There is no direct push and no exception for a one-line fix; a change small enough not to
+need review is small enough not to need an exception.
+
+A pull request states what it changes and what it proves. The body carries the evidence: commands
+and their output, or named tests and their results. A reviewer who has to run the change to find
+out what it does is being asked to do the author's work.
+
+The reviewer is someone other than the author wherever the maintainer list allows it. Where it
+does not, the change is still gated on the full build, and the project says plainly in
+`docs/06-risk-register.md` (R22) that this is a gap rather than pretending the gate substitutes
+for a second pair of eyes.
+
+### What must be checked
+
+A reviewer is responsible for forming an opinion on each of these, not for confirming that a tool
+ran:
+
+1. **Is the change worth making?** Scope first. A change that does something nobody asked for is
+   rejected however well it is written, and anything found outside the stated scope belongs in a
+   follow-up rather than folded in quietly.
+2. **Does the evidence support the claim?** Every "verified" names its command and its exit code.
+   A summary of output is not output. Where a test is claimed to prove a property, the reviewer
+   asks which test fails if the change is reverted, and whether that test could fail at all.
+3. **Is the security argument still true?** If the change touches an effect, a permission, a
+   boundary, a token, a key or anything crossing a trust boundary, the reviewer checks it against
+   `docs/07-security-model.md` and `docs/10-assurance-case.md`, and rejects a change that makes a
+   statement in either of those documents false without correcting it.
+4. **Does it fail safe?** A new default that permits, a new path that skips the gate, an error
+   handler that repairs malformed input instead of refusing it: each of these is a defect even
+   when every test passes.
+5. **Is untrusted content still treated as untrusted?** Anything that moves content toward the
+   model, the prompt or an effect is checked for whether it preserves origin and taint.
+6. **Do the records stay honest?** Corrections append; a document is not rewritten to look as
+   though it had always been right. A commit message that describes changes the commit does not
+   make, or omits changes it does make, is sent back.
+7. **Is what is *not* done stated?** A change that leaves a gap and says so is acceptable. One that
+   leaves a gap silently is not.
+
+### What makes a change acceptable
+
+All of the following, together:
+
+- the gate is green, on the change as it will land rather than on an earlier version of it;
+- the evidence in the pull request is reproducible by the reviewer from what is written there;
+- major new functionality has tests in the same change, and a fixed defect has a regression test
+  naming it;
+- documents affected by the change are updated in the same change, including the risk register and
+  the assurance case when the change touches what they claim;
+- nothing in the change is outside its stated scope;
+- the reviewer can say what the change does without reading the diff twice.
+
+A change failing any of these is returned with the reason. "Looks fine" is not a review, and
+approving something a reviewer has not understood is worse than declining to review it.
+
 ## Rules of evidence
 
 The standard a change is held to, and the reason the proof sections of this repository can be

@@ -215,34 +215,67 @@ from inside the mode).
 
 ## Build reproducibility, measured
 
-Measured 2026-09-23, on this machine, for the OpenSSF Best Practices criterion `build_repeatable`,
-which asks whether repeating the build from the same sources gives the same bit-for-bit result.
-Recorded here because the answer is "partly", and a criterion answered "partly" is worth a
-measurement rather than an adjective.
+Measured 2026-09-23 for the OpenSSF Best Practices criteria `build_repeatable` (silver) and
+`build_reproducible` (gold), which ask whether independent parties repeating the build from the
+same sources get the same bit-for-bit result. Re-runnable by anyone: **`./scripts/check_reproducible.sh`**.
+A reproducibility claim that cannot be re-run by the person doubting it is not worth making.
 
-**Method.** `MIX_ENV=prod mix compile --force` twice from the same tree, with the sha256 of every
-`.beam` in `_build/prod/lib/trinity/ebin` compared between the two runs, and each differing file
-then compared chunk by chunk with `:beam_lib.all_chunks/1`.
+### The release: reproducible
 
-**Result.**
+Two release builds, each from a removed `_build`, compared file by file across the whole release
+tree:
 
-| | |
-|---|---|
-| Modules compiled | 243 |
-| Byte-identical across two builds | 219 |
-| Differing | 24 |
-| Chunks responsible | `Dbgi` (debug info) in 18, `ExCk` (Elixir compile metadata) in 3; three more differ in container layout alone |
-| **`Code` chunk, the executable bytecode** | **identical in all 243** |
+```
+$ ./scripts/check_reproducible.sh
+files in the release: 4561
+files differing:      4
 
-**What that means.** The compiled behaviour of this project is reproducible: recompiling the same
-sources produces the same instructions every time. What is not reproducible is the metadata the
-compiler attaches beside them, which is a known property of the BEAM toolchain rather than
-something this project introduced, and which this project already had to account for elsewhere:
-`Trinity.CorePolicy` hashes **stripped** beams precisely because the `Dbgi` chunk varies between
-builds and between virtual machines, so a policy hash taken over unstripped beams would change
-without the policy changing.
+expected, by design:
+  releases/COOKIE  (a per-release secret; a fixed one would be the defect)
 
-**What is not measured here.** The packaged binary. A Burrito artifact wraps the release with a
-launcher and embeds build-time information, and no claim is made that two package runs produce the
-same bytes. That claim belongs with the signed release pipeline, where reproducibility becomes
-something a third party might want to check rather than an internal property.
+non-deterministic dependencies (upstream's, not this project's):
+  lib/llm_db-2026.9.4/ebin/Elixir.LLMDB.Model.beam
+  lib/nx-0.13.1/ebin/Elixir.Nx.Defn.Kernel.beam
+  lib/req_llm-1.24.0/ebin/Elixir.ReqLLM.beam
+
+check_reproducible: PASS - every module this project compiles is bit-for-bit identical
+across two independent builds from a clean tree.
+```
+
+**All 243 modules this project compiles are byte-identical.** Three things are not, and each is a
+different kind of thing, which is why the script separates them rather than reporting one number:
+
+- `releases/COOKIE` is the Erlang distribution cookie, generated fresh per release. It is a secret
+  and it is *meant* to differ; a build that produced the same cookie every time would be a security
+  defect wearing reproducibility as a disguise.
+- Three or four modules from `llm_db`, `nx` and `req_llm` vary between builds. The count itself
+  varies between runs, which says the non-determinism is in those dependencies' compile-time code
+  generation rather than in anything this project does. Nothing here can fix them; the honest
+  position is to name them.
+
+### The intermediate build tree: not reproducible, and why
+
+`_build` before the release step is a different matter, and the difference is instructive. Two
+forced `MIX_ENV=prod mix compile --force` runs leave 24 of 243 modules differing, entirely in the
+`Dbgi` (debug info) and `ExCk` (compile metadata) chunks; the `Code` chunk, the executable
+bytecode, is identical in all 243. Setting `ERL_COMPILER_OPTIONS=deterministic` reduces that from
+24 to 18 and does not close it, because what remains is abstract code carrying map literals whose
+ordering follows the atom table, which differs between two separate virtual machines.
+
+The release is reproducible anyway, and not by accident: `mix release` strips beams by default, and
+the chunks it strips are exactly the ones that varied. The project already depended on this fact
+from a different direction, long before the criterion was looked at: `Trinity.CorePolicy` hashes
+**stripped** beams, because a policy hash taken over unstripped ones would change without the
+policy changing.
+
+### What is not claimed
+
+**The packaged desktop binary.** Burrito wraps the release with a launcher and embeds build-time
+information, and no claim is made that two package runs produce the same bytes. That belongs with
+the signed release pipeline, where reproducibility stops being an internal property and becomes
+something a third party has reason to check.
+
+**A build environment pinned for others.** Reproducibility here is measured on one machine with the
+toolchain in `.tool-versions`. Making it reproducible *for an independent party* additionally
+requires that party to have the same toolchain, which the FIPS container leg already demonstrates
+is expressible as an image digest, but which is not yet published as the defined build environment.
