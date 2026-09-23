@@ -181,6 +181,7 @@ rather than described by it.
 | Supply chain | Dependency and licence audits run on every commit; dependency versions are pinned in `VERSIONS.md` and verified against the lock file by the gate. |
 | Provenance | Every commit carries a Developer Certificate of Origin sign-off, enforced by a hook and independently by CI. |
 | Independent self-certification | The project holds the [OpenSSF Best Practices passing badge](https://www.bestpractices.dev/projects/14772), assessed against the Open Source Security Foundation's published criteria for basics, change control, reporting, quality, security and analysis. Three suggested criteria are recorded as unmet rather than stretched: semantic versioning, which begins at the first supported release, and two concerning dynamic analysis tooling, which the project does not yet run. |
+| Argued, not asserted | `docs/10-assurance-case.md` decomposes the top-level security claim into ten claims, each with its argument, the evidence a reader can check, and the limit on what it covers; the assumptions the case rests on are named rather than implied. |
 | Claim discipline | `docs/09-standards-register.md` records one row per control a regulated deployment might ask about, each with an evidence path and a status. No public claim about a regulation or requirement is made without a row there saying it is true. |
 
 ## Milestones
@@ -210,6 +211,7 @@ later without renumbering anything.
 | `docs/` | Vision, architecture, tech stack, conventions, data model, risks, security model, standards register; packaging, the FIPS leg, backup and restore, performance measurements |
 | `docs/mcp-server.md` | Connecting a client to Trinity's MCP server (Claude Code, VS Code, Codex, goose), stdio, approvals over the wire, the headless profile |
 | `docs/adr/` | Architecture decision records. One is added whenever a decision changes |
+| `docs/10-assurance-case.md` | The structured argument that the security claims hold, with the evidence for each and the assumptions and limits named |
 | `docs/09-standards-register.md` | One row per control a regulated deployment may ask about, with its evidence path and status |
 | `lib/`, `test/`, `config/` | The application |
 | `src-tauri/` | The native desktop shell |

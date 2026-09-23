@@ -1,5 +1,8 @@
 # 07: Security model
 
+The structured argument that these mechanisms deliver what they claim, with the evidence for
+each claim and the assumptions it rests on, is `docs/10-assurance-case.md`.
+
 ## Trust boundaries
 
 ```
