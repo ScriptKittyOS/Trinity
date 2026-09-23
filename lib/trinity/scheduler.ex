@@ -15,8 +15,19 @@ defmodule Trinity.Scheduler do
   `tasks` carries `{:task_run, %Run{}}` when a run is delivered.
   """
   use Boundary,
-    deps: [Trinity, Trinity.Sessions, Trinity.LLM],
-    exports: [Task, Run, Delivery, Delivery.Desktop, Parse, Workers.Tick, Workers.RunTask]
+    # Slice 070: a run can be delivered to a channel, which is the one thing the scheduler asks
+    # of the gateway layer (docs/01's row said so when 050 was built).
+    deps: [Trinity, Trinity.Sessions, Trinity.LLM, Trinity.Gateways],
+    exports: [
+      Task,
+      Run,
+      Delivery,
+      Delivery.Desktop,
+      Delivery.Gateway,
+      Parse,
+      Workers.Tick,
+      Workers.RunTask
+    ]
 
   import Ecto.Query, only: [from: 2]
 
