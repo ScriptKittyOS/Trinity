@@ -124,7 +124,10 @@ defmodule Trinity.Skills.Staging do
     |> Path.join("**")
     |> Path.wildcard(match_dot: true)
     |> Enum.filter(&File.regular?/1)
-    |> Map.new(fn p -> {Path.relative_to(p, dir), File.read!(p)} end)
+    |> Map.new(fn p ->
+      {:ok, content} = Trinity.Vault.open(File.read!(p))
+      {Path.relative_to(p, dir), content}
+    end)
   end
 
   @doc "Removes a change's staged files (a rejection, or after a promotion)."
@@ -295,7 +298,10 @@ defmodule Trinity.Skills.Staging do
     for {rel, content} <- tree do
       path = Path.join(dir, rel)
       File.mkdir_p!(Path.dirname(path))
-      File.write!(path, content)
+      # Slice 025: staged changes are one of the blob classes the vault can seal. Sealing is off
+      # unless a deployment turns it on, and `read_tree/1` opens either kind, so this is the only
+      # place that has to know.
+      File.write!(path, Trinity.Vault.maybe_seal!(content, :staged_skills))
     end
 
     :ok

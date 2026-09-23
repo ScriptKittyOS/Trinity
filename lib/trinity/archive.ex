@@ -42,7 +42,11 @@ defmodule Trinity.Archive do
     try do
       with {:ok, staged} <- stage(layout, tmp, keys?),
            manifest = Manifest.build(staged, schema_versions(layout), keys?),
-           :ok <- File.write(Path.join(tmp, Manifest.file_name()), Manifest.encode(manifest)),
+           :ok <-
+             File.write(
+               Path.join(tmp, Manifest.file_name()),
+               Trinity.Vault.maybe_seal!(Manifest.encode(manifest), :exports)
+             ),
            entries = [
              {~c"manifest.json", String.to_charlist(Path.join(tmp, Manifest.file_name()))}
              | staged_entries(staged)

@@ -161,6 +161,14 @@ defmodule Trinity.Receipts.KeyCustody do
     {pub, priv} = impl.generate_key()
     jwk = impl.jwk(pub)
 
+    # Slice 025: the private half is sealed by the key custody seam before it is written, so the
+    # file on disk is ciphertext and the thing that opens it is whatever the deployment's adapter
+    # holds. When no key source is available the key is written unsealed rather than not at all:
+    # refusing to boot because encryption at rest is unconfigured would trade a working signer for
+    # a stronger one nobody asked for, and the registry row records which of the two it is.
+    encoded = impl.encode_private(priv)
+    {private_b64, custody} = seal_private(encoded)
+
     {key_id, kid_scheme} =
       case jwk do
         nil -> {:crypto.hash(:sha256, pub) |> Base.url_encode64(padding: false), "sha256-raw"}
@@ -177,14 +185,15 @@ defmodule Trinity.Receipts.KeyCustody do
       "fingerprint" => :crypto.hash(:sha256, pub) |> Base.encode16(case: :lower),
       "valid_from" => DateTime.utc_now() |> DateTime.to_iso8601(),
       "status" => "active",
-      "custody" => "file"
+      "custody" => custody
     }
 
     file =
       JSON.encode!(%{
         "algorithm" => Atom.to_string(impl.algorithm()),
         "key_id" => key_id,
-        "private_b64" => Base.encode64(impl.encode_private(priv)),
+        "private_b64" => private_b64,
+        "custody" => custody,
         "public_b64" => Base.encode64(pub)
       })
 
@@ -195,13 +204,30 @@ defmodule Trinity.Receipts.KeyCustody do
     end
   end
 
+  # Slice 025. The signer holds no key-opening logic of its own: it hands bytes to the seam and
+  # takes bytes back. Swapping the custody adapter for a KMS changes `Trinity.Keys` and nothing
+  # here, which is the whole reason the seam exists.
+  defp seal_private(encoded) do
+    case Trinity.Keys.wrap(encoded) do
+      {:ok, wrapped} -> {Base.encode64(wrapped), "sealed"}
+      {:error, _reason} -> {Base.encode64(encoded), "file"}
+    end
+  end
+
+  # A key file written before slice 025 carries no `custody` field and holds the private bytes
+  # directly. It still opens: a slice that made every existing installation unbootable to gain a
+  # property would not be an improvement.
+  defp open_private(stored, %{"custody" => "sealed"}), do: Trinity.Keys.unwrap(stored)
+  defp open_private(stored, _row), do: {:ok, stored}
+
   # sobelow_skip reason: Traversal.FileModule: `path` is the selection's key path, built by
   # key_path/2 at boot from the keys directory and the algorithm, never input.
   @sobelow_skip ["Traversal.FileModule"]
   defp read_private(path, impl, key_id) do
     with {:ok, bin} <- File.read(path),
-         {:ok, %{"private_b64" => b64, "key_id" => ^key_id}} <- JSON.decode(bin),
-         {:ok, encoded} <- Base.decode64(b64) do
+         {:ok, %{"private_b64" => b64, "key_id" => ^key_id} = row} <- JSON.decode(bin),
+         {:ok, stored} <- Base.decode64(b64),
+         {:ok, encoded} <- open_private(stored, row) do
       {:ok, impl.decode_private(encoded)}
     else
       {:error, :enoent} -> {:error, :signer_unavailable}
