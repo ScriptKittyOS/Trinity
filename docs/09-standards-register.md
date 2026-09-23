@@ -50,6 +50,20 @@ document, a PROOF.md line) or `none`; the status; who decides the status. Status
 | Trinity issues no production authority | The production profile validates the external issuer's tokens and mints none; the personal profile's issuer refuses to start under an external authority adapter and its tokens are marked and refused in production | `test/trinity/mcp/auth/embedded_test.exs` (refused at boot; no key material in production), `test/trinity/mcp/auth/token_test.exs` (the mark refused) | tree property, held by tests since 2026-09-22 | owner |
 | Enterprise Managed Authorization (ID-JAG) | Not in this tree: the external authorization server redeems the assertion (owner decision 2026-09-22, slice 062 NOTES "Deferred") | docs/08 row; slice 062 NOTES | `not claimed`; deferred with a lift condition | owner |
 
+## Open source assurance
+
+| Control | Where Trinity satisfies it | Evidence path | Status | Decider |
+|---|---|---|---|---|
+| Recognised open-source security baseline | The OpenSSF Best Practices criteria at the passing level: basics, change control, reporting, quality, security and analysis | https://www.bestpractices.dev/projects/14772 | **passing, self-certified 2026-09-23.** Three suggested criteria are recorded unmet rather than stretched: `version_semver`, `dynamic_analysis`, `dynamic_analysis_enable_assertions` | maintainer |
+| Linux Foundation Incubation prerequisite | The same badge; LF Incubation requires it at passing, alongside documented technical governance and a README per repository | https://www.bestpractices.dev/projects/14772, `GOVERNANCE.md`, `MAINTAINERS.md` | badge held; neutral asset hosting is not yet in place and is a foundation-side step | owner |
+
+**Time-bound answers in that self-certification.** Three of the answers were true on the date given
+and are not permanent: `report_responses` and `enhancement_responses` ("no external reports received
+yet"), `vulnerability_report_response` ("none in the last 6 months"), and
+`vulnerabilities_fixed_60_days`, which depends on the age of the open `glib` advisory recorded as R25
+in `docs/06-risk-register.md`. They are re-checked when the badge is revisited rather than assumed to
+still hold.
+
 ## Supply chain
 
 | Control | Where Trinity satisfies it | Evidence path | Status | Decider |

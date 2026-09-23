@@ -1,6 +1,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Trinity
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14772/badge)](https://www.bestpractices.dev/projects/14772)
+
 A personal AI agent that runs on your own machine. It remembers you, learns procedures, acts
 through tools under a permission gate, reaches you on whatever surface you are using, and does
 not lose your work when something crashes.
@@ -169,6 +171,7 @@ rather than described by it.
 | Approved cryptography | A dedicated CI leg builds from source and runs the cryptographic properties inside a FIPS-mode container, so statements about approved algorithms are measured on that leg rather than asserted. |
 | Supply chain | Dependency and licence audits run on every commit; dependency versions are pinned in `VERSIONS.md` and verified against the lock file by the gate. |
 | Provenance | Every commit carries a Developer Certificate of Origin sign-off, enforced by a hook and independently by CI. |
+| Independent self-certification | The project holds the [OpenSSF Best Practices passing badge](https://www.bestpractices.dev/projects/14772), assessed against the Open Source Security Foundation's published criteria for basics, change control, reporting, quality, security and analysis. Three suggested criteria are recorded as unmet rather than stretched: semantic versioning, which begins at the first supported release, and two concerning dynamic analysis tooling, which the project does not yet run. |
 | Claim discipline | `docs/09-standards-register.md` records one row per control a regulated deployment might ask about, each with an evidence path and a status. No public claim about a regulation or requirement is made without a row there saying it is true. |
 
 ## Milestones
