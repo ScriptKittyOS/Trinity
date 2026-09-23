@@ -43,6 +43,16 @@ defmodule Trinity.Gateways.Adapter do
   @typedoc "Whatever the adapter uses to name a message it sent, opaque to the router."
   @type reference_id :: term()
 
+  @doc """
+  The adapter's name as rows and receipts carry it: the last segment of its module, underscored,
+  so `Trinity.Gateways.Console` is `"console"`. It is derived and not declared, because a name a
+  module can contradict is a second source of truth (CLAUDE.md section 8: a name is a claim).
+  """
+  @spec name(module()) :: String.t()
+  def name(adapter) when is_atom(adapter) do
+    adapter |> Module.split() |> List.last() |> Macro.underscore()
+  end
+
   @doc "The adapter's child specification; the gateway supervisor starts it with its configuration."
   @callback child_spec(keyword()) :: Supervisor.child_spec()
 
