@@ -54,6 +54,7 @@ defmodule TrinityWeb.SessionLive.Show do
             models: LLM.models(),
             default_model: LLM.default_model(),
             approvals: [],
+            subagents: [],
             patterns: %{},
             pending_count: 0,
             context_used: 0,
@@ -99,6 +100,7 @@ defmodule TrinityWeb.SessionLive.Show do
     |> assign(status: status, draft: text, last_seq: last_seq)
     |> assign(
       approvals: Permissions.pending(id),
+      subagents: Trinity.Subagents.children(id),
       pending_count: length(Permissions.pending(:all))
     )
     |> assign_context(rows)
@@ -134,6 +136,46 @@ defmodule TrinityWeb.SessionLive.Show do
   defp content(nil), do: nil
   defp content(%Message{content: content}), do: content
 
+  # Slice 080 AC7. The subagent tree for this session: what was delegated, how each child ended,
+  # and a way to stop one. It renders nothing when there are none, because an empty panel on every
+  # session teaches people to ignore the space it occupies.
+  attr :panel, :list, required: true
+
+  defp subagents(assigns) do
+    ~H"""
+    <section :if={@panel != []} id="subagents" class="rounded-box border border-base-300 p-3">
+      <h2 class="mb-2 text-meta uppercase tracking-wide opacity-70">
+        {gettext("Subagents")} ({length(@panel)})
+      </h2>
+      <ul class="flex flex-col gap-1">
+        <li :for={child <- @panel} class="flex items-center gap-2 text-sm">
+          <span class={[
+            "rounded px-1.5 py-0.5 font-mono text-meta",
+            child.status == "active" && "bg-warning/20 text-warning",
+            child.status != "active" && "bg-base-200 opacity-70"
+          ]}>
+            {child.status}
+          </span>
+          <.link navigate={~p"/s/#{child.id}"} class="min-w-0 flex-1 truncate hover:underline">
+            {child.title || gettext("untitled brief")}
+          </.link>
+          <span class="font-mono text-meta opacity-50">{String.slice(child.id, 0, 8)}</span>
+          <button
+            :if={child.status == "active"}
+            type="button"
+            phx-click="cancel_subagent"
+            phx-value-id={child.id}
+            class="btn btn-ghost btn-xs"
+            title={gettext("Stop this subagent and anything it delegated")}
+          >
+            {gettext("stop")}
+          </button>
+        </li>
+      </ul>
+    </section>
+    """
+  end
+
   ## Events from the page
 
   @impl true
@@ -145,6 +187,13 @@ defmodule TrinityWeb.SessionLive.Show do
     else
       send_message(socket, content)
     end
+  end
+
+  # Slice 080 AC5. Cancelling a subagent cancels its whole subtree, not just the child named: a
+  # child cancelled while its own children run leaves work nobody is waiting for.
+  def handle_event("cancel_subagent", %{"id" => id}, socket) do
+    _ = Trinity.Subagents.cancel_subtree(id)
+    {:noreply, assign(socket, subagents: Trinity.Subagents.children(socket.assigns.session.id))}
   end
 
   def handle_event("cancel", _params, socket) do
@@ -414,6 +463,7 @@ defmodule TrinityWeb.SessionLive.Show do
           />
         </div>
         <div class="flex flex-col gap-2 border-t border-base-300 bg-base-100/60 px-4 py-3">
+          <.subagents panel={@subagents} />
           <.approval_card :for={a <- @approvals} approval={a} pattern={Map.get(@patterns, a.id)} />
           <.banner kind={@banner} />
           <.composer status={@status} disabled={@status != :idle} />

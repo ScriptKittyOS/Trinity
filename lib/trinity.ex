@@ -23,6 +23,8 @@ defmodule Trinity do
         Paths,
         # Slice 025: the skills staging and the archive export seal through it.
         Vault,
+        # Slice 080: the delegate tool and the session view's subagent panel call it.
+        Subagents,
         Repo,
         Repo.Receipts,
         UUID,
