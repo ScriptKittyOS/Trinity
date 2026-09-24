@@ -63,6 +63,14 @@ defmodule Trinity.Sessions do
   @spec history(session_id(), keyword()) :: [Message.t()]
   def history(session_id, opts \\ []), do: Store.history(session_id, opts)
 
+  @doc """
+  The most recent `limit` rows, ascending: the window a prompt is built from (slice 014).
+
+  Not `history/2`, which pages forwards from the beginning and returns the oldest rows when limited.
+  """
+  @spec recent_history(session_id(), keyword()) :: [Message.t()]
+  def recent_history(session_id, opts \\ []), do: Store.recent_history(session_id, opts)
+
   @doc "Marks a session archived."
   @spec archive(SessionRow.t()) :: {:ok, SessionRow.t()} | {:error, Ecto.Changeset.t()}
   def archive(%SessionRow{} = session), do: Store.update_session(session, %{status: "archived"})

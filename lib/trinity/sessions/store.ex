@@ -113,6 +113,30 @@ defmodule Trinity.Sessions.Store do
     |> Repo.all()
   end
 
+  @doc """
+  The most recent `limit` rows, in ascending order (slice 014).
+
+  `history/2` above orders ascending and then limits, so it returns the **oldest** rows: it is the
+  forward pager the interface and the export walk a session with, and it is right for that. It is
+  wrong for building a prompt. A session that holds more rows than the window would otherwise be
+  answered from its opening, with the current exchange missing from the request entirely, and
+  compaction handed the same stale window would re-summarise ground it had already covered.
+
+  Descending with a limit takes the newest; the reverse puts them back in the order a conversation
+  has to be read in.
+  """
+  @spec recent_history(String.t(), keyword()) :: [Message.t()]
+  def recent_history(session_id, opts) do
+    limit = Keyword.get(opts, :limit, 200)
+
+    Message
+    |> where([m], m.session_id == ^session_id)
+    |> order_by([m], desc: m.seq)
+    |> limit(^limit)
+    |> Repo.all()
+    |> Enum.reverse()
+  end
+
   @spec get_persona(String.t()) :: Persona.t() | nil
   def get_persona(id), do: Repo.get(Persona, id)
 
