@@ -4,11 +4,18 @@
      hand: the gate regenerates it and fails when this file and the bill disagree. -->
 # Third-party licences
 
-132 components, derived from `sbom.cdx.json`, the CycloneDX bill this project's
+133 components, derived from `sbom.cdx.json`, the CycloneDX bill this project's
 quality gate generates on every commit. This file and that bill are the same data rendered
 twice, so they cannot disagree.
 
 Trinity itself is Apache-2.0 (`LICENSE`). Everything below is somebody else's work.
+
+**What this list covers.** Every component of the bill, which is every dependency the lock file
+resolves, including the ones that exist only to build and test this project and ship in no
+artifact. That is deliberate: a list of only the shipped subset would be the more flattering
+document and the less useful one, because a licence obligation can attach to a build-time
+dependency too. Which environment each one belongs to is in `mix.exs`; this file does not repeat
+it, and a reader should not infer from an entry here that the component is in a release.
 
 | Component | Version | Licence | Source of the licence |
 |---|---|---|---|
@@ -124,6 +131,7 @@ Trinity itself is Apache-2.0 (`LICENSE`). Everything below is somebody else's wo
 | `ssh` | `5.5.2.4` | Apache-2.0 | bom |
 | `ssl` | `11.6.0.4` | Apache-2.0 | bom |
 | `stdlib` | `7.3.0.1` | Apache-2.0 | bom |
+| `stream_data` | `1.4.0` | Apache-2.0 | bom |
 | `tailwind` | `0.5.1` | MIT | bom |
 | `telemetry` | `1.4.2` | Apache-2.0 | bom |
 | `telemetry_metrics` | `1.2.0` | Apache-2.0 | bom |

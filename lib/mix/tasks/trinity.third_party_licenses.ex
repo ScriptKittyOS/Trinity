@@ -183,6 +183,13 @@ defmodule Mix.Tasks.Trinity.ThirdPartyLicenses do
 
     Trinity itself is Apache-2.0 (`LICENSE`). Everything below is somebody else's work.
 
+    **What this list covers.** Every component of the bill, which is every dependency the lock file
+    resolves, including the ones that exist only to build and test this project and ship in no
+    artifact. That is deliberate: a list of only the shipped subset would be the more flattering
+    document and the less useful one, because a licence obligation can attach to a build-time
+    dependency too. Which environment each one belongs to is in `mix.exs`; this file does not repeat
+    it, and a reader should not infer from an entry here that the component is in a release.
+
     | Component | Version | Licence | Source of the licence |
     |---|---|---|---|
     #{Enum.map_join(rows, "\n", &line/1)}

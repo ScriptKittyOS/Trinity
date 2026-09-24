@@ -94,6 +94,7 @@
   "sourceror": {:hex, :sourceror, "1.12.3", "f58eebef0765c7a369a49a755ab2a5ee88d92777f403ea5a08b722cefcc37f51", [:mix], [], "hexpm", "d5f2f37099de794840f08c54ae546d7f6e4ea015e397be64aebe4996fa9f7da7"},
   "spitfire": {:hex, :spitfire, "0.4.2", "5c719208d4eeb810e5b2a2aa1024d1e4b2974b7ca422c274b2486666e5159735", [:mix], [], "hexpm", "9bbbbffe93e6f88ccf193487ef56b83c2646a6dc3875bb0975d4654bfe96c5bb"},
   "splode": {:hex, :splode, "0.3.2", "7716b6b2260a98a6f018c65cc0393da2cdf17314202eb351a0956e8762190dff", [:mix], [], "hexpm", "08fd658f80da7f1cd254b149164dcff8acd44b22f032001d5416b97223d32bc9"},
+  "stream_data": {:hex, :stream_data, "1.4.0", "026f929db613aabea6208012ae9b8970d3fd5f88b3bdf26831bc536f98c42036", [:mix], [], "hexpm", "2b0ee3a340dcce1c8cf6302a763ee757d1e01c54d6e16d9069062509d68b1dc9"},
   "tailwind": {:hex, :tailwind, "0.5.1", "35435b13158c90d37da11e1cfc808755fca1d7b6c5ab87b1b19c5de87e2f0a10", [:mix], [], "hexpm", "c4e26302a59fec72abc5610ecb6ad2116d9aa31f31aab2d4b8eb6e95d25a689c"},
   "telemetry": {:hex, :telemetry, "1.4.2", "a0cb522801dffb1c49fe6e30561badffc7b6d0e180db1300df759faa22062855", [:rebar3], [], "hexpm", "928f6495066506077862c0d1646609eed891a4326bee3126ba54b60af61febb1"},
   "telemetry_metrics": {:hex, :telemetry_metrics, "1.2.0", "7632c19c01d88d8aaca5da1a0e8912f5af39b79e7c08a2c253aeb3c14c2c957e", [:mix], [{:telemetry, "~> 0.4 or ~> 1.0", [hex: :telemetry, repo: "hexpm", optional: false]}], "hexpm", "71dde12fc29b58b9c77ec17ec319109e5ca848d010fc1965ed4463bba1837c07"},

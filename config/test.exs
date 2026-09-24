@@ -239,3 +239,19 @@ config :trinity, :mcp_client, backoff_ms: 50, max_backoff_ms: 400, connect_timeo
 config :trinity, Oban, testing: :manual
 # Slice 050: the dashboard route is mounted in the suite so its mount is a test.
 config :trinity, :oban_web, true
+
+# Slice 004: how many generated cases each property runs. The default of 100 is what the gate runs
+# on every commit, because the gate has to stay fast enough that nobody is tempted to skip it. A
+# property is only worth as much as the space it covered, so before trusting one, run it wider:
+#
+#     TRINITY_PROPERTY_RUNS=20000 mix test test/property --timeout 900000
+#
+# The `--timeout` is not optional at that width: ExUnit's per-test limit is 60 s and a property is
+# one test however many cases it runs, so a wide run without it fails with TimeoutError, which
+# looks exactly like a property violation in the summary and is not one. Measured: 20,000 runs of
+# the validator properties take about 356 s.
+#
+# ExUnit prints the seed on every run and `stream_data` shrinks a failure to a minimal case, so a
+# counter-example found at 20,000 runs is reproducible with that seed at any width.
+config :stream_data,
+  max_runs: String.to_integer(System.get_env("TRINITY_PROPERTY_RUNS") || "100")

@@ -235,3 +235,44 @@ a consistent template, numbered sequentially, status `proposed` / `accepted` / `
 - `docs/01-architecture.md` supervision tree and context table are updated in the slice that changes them.
 - `docs/05-data-model.md` is updated in the slice that adds a migration.
 - `VERSIONS.md` is updated in the slice that adds/updates a dependency.
+
+## Properties, and when to write one instead of an example (Slice 004)
+
+An example test states that one input gives one answer. A property states that a rule holds over a
+space of inputs, and `stream_data` generates from that space and shrinks any failure to the smallest
+case that still fails.
+
+**Write a property when the code answers "is this the same thing".** Canonicalisers, digests,
+fingerprints, parsers and validators are all of this shape, and they are wrong in two ways an
+example rarely reaches: saying *different* about two spellings of one value, and saying *same* about
+two different values. An example test picks the spellings somebody thought of, which is exactly the
+set an attacker will not use.
+
+**Write a property when the rule is about an order or a combination.** The tighten-only state
+modifier has to hold for every subset of states in every order; asserting that by example means
+asserting it for the orders someone listed.
+
+**Keep the example tests.** They document intent and they name the case that mattered. A property
+saying "no two definitions collide" does not tell a reader that the description is in the digest on
+purpose. Slices 028 and 029 have both, and the properties in `test/property` complement those rather
+than replacing them.
+
+**A property that has never failed proves less than it looks.** `test/property/finds_what_examples_miss_test.exs`
+plants the classic canonicaliser defect, concatenating fields with no separator, and shows the
+example-style assertions passing on it while a generated search finds a collision. Anything added to
+`test/property` should be able to say what it would have caught.
+
+**Running wider.** The gate runs 100 cases per property so that it stays fast enough that nobody
+skips it. Before trusting a property, run it wider:
+
+```
+TRINITY_PROPERTY_RUNS=20000 mix test test/property --timeout 900000
+```
+
+The `--timeout` is not optional at that width. ExUnit's per-test limit is 60 seconds and a property
+is one test however many cases it runs, so a wide run without it fails with `TimeoutError`, which in
+the summary looks exactly like a property violation and is not one. Measured while writing this:
+20,000 runs of the validator properties take about 356 seconds.
+
+ExUnit prints the seed and `stream_data` shrinks a failure to a minimal case, so a counter-example
+found at any width is reproducible.
