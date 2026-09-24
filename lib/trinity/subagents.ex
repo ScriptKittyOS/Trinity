@@ -20,6 +20,29 @@ defmodule Trinity.Subagents do
   and a caller who wants less authority in a child has to say so through the toolset, not by
   assuming that "subagent" means "contained".
 
+  ## Why a subagent is not restarted
+
+  OTP's instinct is to restart a crashed child, and for a stateless worker that is right. It is
+  wrong here, and the reason is the one durable-execution systems state plainly: **match the
+  retry semantics to the side effect.** At-least-once is for idempotent work; at-most-once is for
+  anything that charges a card, sends a message or writes to the world. An agent turn is an
+  arbitrary sequence of tool calls, so it is the second kind by default.
+
+  Replaying a turn in this tree is not merely wasteful, it is unsound in a specific way. An
+  approval granted `:once` covers one execution and would correctly refuse the replay; but a
+  `:session` or `:always` grant would cover it silently, so a restart could re-run an effect the
+  person approved once and never expected twice. Nothing in the effects layer carries an
+  idempotency key today.
+
+  So `restarts:` defaults to **0**: a child that dies reports the death to its parent, which can
+  decide. A caller who knows a brief is idempotent (a search, a summary, a read) can raise it, and
+  the option is named `restarts` rather than `retries` so that the thing being repeated is visibly
+  a whole child rather than one call.
+
+  **This deviates from the slice's written acceptance criterion**, which said restart once by
+  default. The deviation and its reasoning are recorded in the slice's NOTES for the owner to
+  accept or veto.
+
   ## Budgets
 
   Every delegation carries a budget and none is optional: turns, tokens and wall clock. A child
@@ -31,6 +54,9 @@ defmodule Trinity.Subagents do
   alias Trinity.Sessions
 
   @default_budget %{turns: 1, tokens: 100_000, timeout_ms: 120_000}
+  # At-most-once by default. See the moduledoc: an agent turn is an arbitrary sequence of tool
+  # calls, and a `:session` or `:always` approval would cover a replay silently.
+  @default_restarts 0
   @default_concurrency 3
   @summary_bytes 4_000
 
@@ -46,6 +72,10 @@ defmodule Trinity.Subagents do
   @spec default_budget() :: map()
   def default_budget, do: @default_budget
 
+  @doc "How many times a dead child is retried when the caller names no number. Zero, deliberately."
+  @spec default_restarts() :: non_neg_integer()
+  def default_restarts, do: @default_restarts
+
   @doc """
   Runs one brief as a child of `parent_session_id` and returns its result.
 
@@ -55,8 +85,10 @@ defmodule Trinity.Subagents do
   def delegate(parent_session_id, brief, opts \\ []) when is_binary(brief) do
     budget = Map.merge(@default_budget, Map.new(Keyword.get(opts, :budget, %{})))
 
+    restarts = Keyword.get(opts, :restarts, @default_restarts)
+
     with {:ok, child} <- create_child(parent_session_id, brief, opts) do
-      {:ok, run(child, brief, budget)}
+      {:ok, run(child, brief, budget, restarts)}
     end
   end
 
@@ -162,16 +194,31 @@ defmodule Trinity.Subagents do
   # session's process broadcasts :idle once when it starts, and a wait that does not drain that one
   # returns before the turn has run. Reused rather than rewritten, because writing it again is
   # writing that bug again.
-  defp run(child, brief, budget) do
+  defp run(child, brief, budget, restarts) do
     with :ok <- Sessions.subscribe(child.id),
-         {:ok, _pid} <- Sessions.ensure_started(child.id),
+         {:ok, pid} <- Sessions.ensure_started(child.id),
          :ok <- drain_start(child.id),
          {:ok, _message} <- Sessions.send_user_message(child.id, brief) do
-      await(child.id, budget)
+      # The session process is monitored as well as subscribed: a process that dies mid-turn
+      # broadcasts nothing, so without this the parent waits out the whole budget for an answer
+      # that is never coming.
+      ref = Process.monitor(pid)
+      result = await(child.id, budget, ref)
+      Process.demonitor(ref, [:flush])
+      maybe_restart(result, child, brief, budget, restarts)
     else
       {:error, reason} -> %{session_id: child.id, status: :error, text: "", reason: reason}
     end
   end
+
+  # Only a death is retried, and only when the caller asked for it. A budget overrun is not a
+  # transient failure: running the same brief again under the same budget overruns it again.
+  defp maybe_restart(%{status: :error, reason: {:child_died, _}}, child, brief, budget, n)
+       when n > 0 do
+    run(child, brief, budget, n - 1)
+  end
+
+  defp maybe_restart(result, _child, _brief, _budget, _n), do: result
 
   defp drain_start(session_id) do
     receive do
@@ -181,7 +228,7 @@ defmodule Trinity.Subagents do
     end
   end
 
-  defp await(session_id, budget) do
+  defp await(session_id, budget, ref) do
     receive do
       {:session, ^session_id, {:state, :idle}} ->
         %{session_id: session_id, status: :ok, text: summary(session_id), reason: nil}
@@ -192,8 +239,11 @@ defmodule Trinity.Subagents do
       {:session, ^session_id, {:error, reason}} ->
         %{session_id: session_id, status: :error, text: "", reason: {:turn, reason}}
 
+      {:DOWN, ^ref, :process, _pid, reason} ->
+        %{session_id: session_id, status: :error, text: "", reason: {:child_died, reason}}
+
       {:session, ^session_id, _other} ->
-        await(session_id, budget)
+        await(session_id, budget, ref)
     after
       budget.timeout_ms ->
         _ = Sessions.cancel_turn(session_id)
