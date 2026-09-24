@@ -14,7 +14,19 @@ defmodule Trinity.Effects.CensusTest do
 
   alias Trinity.Tools.{Context, Runner}
 
-  @allowed ["lib/trinity/authority/local.ex", "lib/trinity/tools/runner.ex"]
+  # Slice 027 AC1: each allowed caller carries the reason it is allowed, because a bare list of two
+  # paths is a claim a reader has to take on trust, and the next person to add a third has nothing
+  # to weigh their case against. A path with no reason is not allowed: `@allowed` is a map and the
+  # test below asserts every reason is present and says something.
+  @allowed %{
+    "lib/trinity/authority/local.ex" =>
+      "the executor under TRINITY_AUTHORITY=local: the membrane admits an effect and this is what " <>
+        "runs the tool's own execute/2. Under an external authority adapter this file is not the " <>
+        "executor and the effect never reaches it.",
+    "lib/trinity/tools/runner.ex" =>
+      "the non-effect path: call_tool/3 is guarded to effect: :none, which the second test in this " <>
+        "file proves by calling it with an effectful tool and reading the refusal by name."
+  }
   @planted ["test/support/effects/bypass.ex"]
 
   test "the callers of execute/2 on a tool module are the two allowed and the one planted" do
@@ -35,7 +47,16 @@ defmodule Trinity.Effects.CensusTest do
           |> Enum.any?(),
           do: f
 
-    assert Enum.sort(callers) == Enum.sort(@allowed ++ @planted)
+    assert Enum.sort(callers) == Enum.sort(Map.keys(@allowed) ++ @planted)
+  end
+
+  test "every allowed caller carries a reason, and the reason says something" do
+    for {path, reason} <- @allowed do
+      assert is_binary(reason) and String.length(reason) > 40,
+             "#{path} is allowed to call execute/2 with no reason worth reading. A reader cannot " <>
+               "weigh a third caller's case against a list that does not say why the first two are " <>
+               "there"
+    end
   end
 
   test "Tools.Runner.call_tool/3 runs an effect: :none entry and refuses an effectful one by name" do

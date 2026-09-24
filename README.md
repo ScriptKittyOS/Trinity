@@ -279,6 +279,7 @@ do over the next year, and why the order is what it is.
 | `VERSIONS.md` | The verified dependency versions, generated from `lib/trinity/versions.ex` |
 | `docs/` | Vision, architecture, tech stack, conventions, data model, risks, security model, standards register; packaging, the FIPS leg, backup and restore, performance measurements |
 | `docs/mcp-server.md` | Connecting a client to Trinity's MCP server (Claude Code, VS Code, Codex, goose), stdio, approvals over the wire, the headless profile |
+| `docs/effects-catalog.md` | The published effect catalogue: every tool that can cause an effect, its risk tier and effect class, with a version that is a hash of its own rows. Generated, and the gate fails when it and the tree disagree |
 | `docs/telemetry.md` | The telemetry event catalogue: every event this tree emits, its measurements and metadata, and the rule about what never appears in one |
 | `docs/adr/` | Architecture decision records. One is added whenever a decision changes |
 | `docs/10-assurance-case.md` | The structured argument that the security claims hold, with the evidence for each and the assumptions and limits named |
