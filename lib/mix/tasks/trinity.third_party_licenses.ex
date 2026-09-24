@@ -27,9 +27,14 @@ defmodule Mix.Tasks.Trinity.ThirdPartyLicenses do
 
   ## Usage
 
-      mix trinity.third_party_licenses            # print
-      mix trinity.third_party_licenses --check    # exit 1 if THIRD_PARTY_LICENSES.md differs
-      mix trinity.third_party_licenses --write    # regenerate it
+      mix trinity.third_party_licenses                  # print
+      mix trinity.third_party_licenses --check          # exit 1 if THIRD_PARTY_LICENSES.md differs
+      mix trinity.third_party_licenses --write          # regenerate it
+      mix trinity.third_party_licenses --bom other.json # read a different bill
+
+  `--bom` exists so a test can hand this task a planted bill instead of writing over the real one.
+  The first version of that test did write over it, which is the kind of thing that works until two
+  tests run at once.
   """
 
   use Boundary, classify_to: Trinity
@@ -64,7 +69,7 @@ defmodule Mix.Tasks.Trinity.ThirdPartyLicenses do
 
   @impl Mix.Task
   def run(argv) do
-    rows = rows(read_bom!())
+    rows = rows(read_bom!(bom_path(argv)))
 
     case unlicensed(rows) do
       [] -> :ok
@@ -217,8 +222,15 @@ defmodule Mix.Tasks.Trinity.ThirdPartyLicenses do
     "| `#{r.name}` | `#{r.version}` | #{r.licence} | #{r.source} |"
   end
 
-  defp read_bom! do
-    case File.read(@bom) do
+  defp bom_path(argv) do
+    case Enum.find_index(argv, &(&1 == "--bom")) do
+      nil -> @bom
+      i -> Enum.at(argv, i + 1) || @bom
+    end
+  end
+
+  defp read_bom!(path) do
+    case File.read(path) do
       {:ok, json} ->
         Jason.decode!(json)
 

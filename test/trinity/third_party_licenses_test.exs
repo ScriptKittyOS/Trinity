@@ -40,22 +40,20 @@ defmodule ThirdPartyLicensesTest do
   end
 
   test "the task raises on it, naming the dependency and what to do" do
-    File.cd!(Path.expand("../..", __DIR__), fn ->
-      original = File.read!("sbom.cdx.json")
+    # `--bom` rather than writing over the real bill. The first version of this test did write over
+    # it, which coupled the test to `mix trinity.sbom` having already run: the postgres leg runs
+    # `mix test` without `mix gate`, so there is no bill there and the test failed on a missing
+    # file rather than on anything it was written to check. It also wrote to the repository root
+    # from inside a test, which works right up until two tests run at once.
+    path = Path.join(System.tmp_dir!(), "planted-#{System.unique_integer([:positive])}.cdx.json")
+    File.write!(path, Jason.encode!(bom([git_component("planted_dependency")])))
+    on_exit(fn -> File.rm(path) end)
 
-      try do
-        File.write!("sbom.cdx.json", Jason.encode!(bom([git_component("planted_dependency")])))
+    message = assert_raise(Mix.Error, fn -> Task.run(["--bom", path]) end) |> Map.fetch!(:message)
 
-        message =
-          assert_raise(Mix.Error, fn -> Task.run([]) end) |> Map.fetch!(:message)
-
-        assert message =~ "planted_dependency"
-        assert message =~ "pinned commit"
-        assert message =~ "is not a licence"
-      after
-        File.write!("sbom.cdx.json", original)
-      end
-    end)
+    assert message =~ "planted_dependency"
+    assert message =~ "pinned commit"
+    assert message =~ "is not a licence"
   end
 
   test "a declared entry fills the gap the bill leaves, and says it was declared" do
@@ -79,13 +77,25 @@ defmodule ThirdPartyLicensesTest do
     end
   end
 
-  test "the committed list has no unlicensed component" do
-    bom =
-      "sbom.cdx.json"
-      |> Path.expand(Path.expand("../..", __DIR__))
+  test "the committed list has a licence in every row" do
+    # Reads the committed artifact, not the generated bill. The bill is gitignored and produced by
+    # `mix trinity.sbom` during `mix gate`, so a test that reads it passes or fails depending on
+    # which CI leg runs it: the postgres leg runs `mix test` without `mix gate` and has no bill.
+    # What this criterion is about is the file in the tree.
+    rows =
+      Path.expand("../../THIRD_PARTY_LICENSES.md", __DIR__)
       |> File.read!()
-      |> Jason.decode!()
+      |> String.split("\n")
+      |> Enum.filter(&String.starts_with?(&1, "| `"))
 
-    assert [] == bom |> Task.rows() |> Task.unlicensed()
+    assert length(rows) > 100, "only #{length(rows)} rows: the list looks truncated"
+
+    for row <- rows do
+      [_, _name, _version, licence, source, _] = String.split(row, "|")
+      assert String.trim(licence) != "", "a row carries no licence: #{row}"
+
+      assert String.trim(source) in ["bom", "declared"],
+             "a row's licence came from nowhere nameable: #{row}"
+    end
   end
 end
