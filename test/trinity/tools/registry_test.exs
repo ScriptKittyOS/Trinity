@@ -23,6 +23,7 @@ defmodule Trinity.Tools.RegistryTest do
       assert names == [
                "big",
                "crash",
+               "delegate",
                "echo",
                "fs_edit",
                "fs_glob",
@@ -66,6 +67,7 @@ defmodule Trinity.Tools.RegistryTest do
       assert Enum.map(tools, & &1.name) == [
                "big",
                "crash",
+               "delegate",
                "echo",
                "fs_edit",
                "fs_glob",

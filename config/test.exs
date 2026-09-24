@@ -38,13 +38,18 @@ config :trinity, :tools,
     Trinity.Skills.Tools.Learn,
     # Slice 030: the always-on memory tiers.
     Trinity.Tools.Memory,
-    Trinity.Tools.Shell.Run
+    Trinity.Tools.Shell.Run,
+    # Slice 080: delegation to a child session.
+    Trinity.Tools.Delegate
   ],
   toolsets: %{
     core: ["echo", "sleep", "crash", "big", "write_note"],
     fs: ["fs_read", "fs_write", "fs_edit", "fs_list", "fs_glob", "fs_grep"],
     web: ["web_fetch", "web_search"],
     shell: ["shell"],
+    # Slice 080: delegation is its own toolset, so a persona can be given subagents without
+    # being given a shell, and vice versa.
+    subagents: ["delegate"],
     # Slice 031: search over past conversations.
     memory: ["session_search", "recall", "memory"],
     # Slice 040: the skill tools.
