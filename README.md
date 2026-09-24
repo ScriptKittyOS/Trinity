@@ -42,7 +42,7 @@ Pre-alpha, and usable from source. Milestones M0 to M4 are approved, **M5a Autom
 authorization), **M5b Reaches** in part (070, the gateway core; 080, subagents) and the first slice
 of **M6 Ships** (090, observability and the cost ledger), with 002 (the supply chain slice) beside
 them: 29 slices, each merged with a merge commit and tagged `slice/NNN`
-(`git tag -l 'slice/*' | wc -l` → 30, on 2026-09-24 — one more tag than slices, because
+(`git tag -l 'slice/*' | wc -l` → 30, on 2026-09-24: one more tag than slices, because
 `slice/090` was pushed at the wrong commit before its merge landed and this repository's ruleset
 forbids moving or deleting a tag; the correct one is `slice/090.1`, and `git tag -n20 slice/090.1`
 says so in its own annotation rather than leaving a reader to work it out). What that means in
@@ -116,8 +116,8 @@ enforces it.
   refusal is receipted. The console adapter ships (`mix trinity.console`); the platforms are next.
 - **Delegates.** The assistant can hand a bounded piece of work to a child session with a
   `delegate` tool: its own context, its own history, and a result handed back as text. The
-  parent's conversation never contains the child's messages, which is the point — delegation
-  that leaks the child's transcript back into the parent buys nothing. Several children run at
+  parent's conversation never contains the child's messages, which is the point:
+  delegation that leaks the child's transcript back into the parent buys nothing. Several children run at
   once under a cap, each with a budget in turns, tokens and wall clock; exceeding it stops the
   child and says so. A child dies without taking its parent with it, and the parent is told;
   cancelling a parent cancels the tree beneath it. Approvals a child raises surface on the same
@@ -128,8 +128,8 @@ enforces it.
   emitters rather than after them, with one rule over the whole set: no prompt text, no completion
   text, no tool arguments, no key material. A turn carries a trace id down into the task that runs
   it, so a turn reads as a tree without a tracing library or a new dependency. A primary Logger
-  filter redacts credentials by **shape** — bearer and basic headers, `sk-` and `pk-` prefixed
-  keys, JWTs — so a secret nobody thought to name is still caught, and the filter never drops a
+  filter redacts credentials by **shape** (bearer and basic headers, `sk-` and `pk-` prefixed
+  keys, JWTs), so a secret nobody thought to name is still caught, and the filter never drops a
   message, only rewrites it. The cost ledger reads the usage rows the tree already writes: by day,
   by model, by session, by persona, against budgets that warn and, when you ask them to, refuse.
   `/activity` shows the live stream with the spend beside it; a LiveDashboard page lists the
