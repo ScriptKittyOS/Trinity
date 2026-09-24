@@ -39,10 +39,14 @@ desktop application. Apache-2.0, developed in the open from the first commit.
 
 Pre-alpha, and usable from source. Milestones M0 to M4 are approved, **M5a Automates** with them
 (050, the scheduler; 059, the MCP measurement; 060, the MCP client; 061, the MCP server; 062, MCP
-authorization), and the first slice of M5b (070, the gateway core), with 002 (the supply chain
-slice) beside them: 26 slices, each merged with a merge commit and tagged `slice/NNN`
-(`git tag -l 'slice/*' | wc -l` → 26, on 2026-09-23). What
-that means in practice:
+authorization), **M5b Reaches** in part (070, the gateway core; 080, subagents) and the first slice
+of **M6 Ships** (090, observability and the cost ledger), with 002 (the supply chain slice) beside
+them: 29 slices, each merged with a merge commit and tagged `slice/NNN`
+(`git tag -l 'slice/*' | wc -l` → 30, on 2026-09-24 — one more tag than slices, because
+`slice/090` was pushed at the wrong commit before its merge landed and this repository's ruleset
+forbids moving or deleting a tag; the correct one is `slice/090.1`, and `git tag -n20 slice/090.1`
+says so in its own annotation rather than leaving a reader to work it out). What that means in
+practice:
 
 **Assessed against a recognised baseline.** Trinity holds the
 [OpenSSF Best Practices **silver** badge](https://www.bestpractices.dev/projects/14772), awarded
@@ -110,6 +114,26 @@ enforces it.
   conversation. What a channel may approve is capped below what the desktop may: a `write` at
   most by default, so an `exec` or a `destructive` request is decided at the machine, and the
   refusal is receipted. The console adapter ships (`mix trinity.console`); the platforms are next.
+- **Delegates.** The assistant can hand a bounded piece of work to a child session with a
+  `delegate` tool: its own context, its own history, and a result handed back as text. The
+  parent's conversation never contains the child's messages, which is the point — delegation
+  that leaks the child's transcript back into the parent buys nothing. Several children run at
+  once under a cap, each with a budget in turns, tokens and wall clock; exceeding it stops the
+  child and says so. A child dies without taking its parent with it, and the parent is told;
+  cancelling a parent cancels the tree beneath it. Approvals a child raises surface on the same
+  permissions page as any other, named with the child they came from, and the `/subagents` panel
+  shows what is running with a stop button per child.
+- **Shows what it costs.** Every LLM call, tool call, approval, session transition and gateway
+  message emits a `:telemetry` event from one catalogue (`docs/telemetry.md`), written before the
+  emitters rather than after them, with one rule over the whole set: no prompt text, no completion
+  text, no tool arguments, no key material. A turn carries a trace id down into the task that runs
+  it, so a turn reads as a tree without a tracing library or a new dependency. A primary Logger
+  filter redacts credentials by **shape** — bearer and basic headers, `sk-` and `pk-` prefixed
+  keys, JWTs — so a secret nobody thought to name is still caught, and the filter never drops a
+  message, only rewrites it. The cost ledger reads the usage rows the tree already writes: by day,
+  by model, by session, by persona, against budgets that warn and, when you ask them to, refuse.
+  `/activity` shows the live stream with the spend beside it; a LiveDashboard page lists the
+  running sessions, asking each process its state rather than trusting a row.
 - **Runs on a schedule.** Tasks on the `/tasks` page: a prompt, a persona, the skills to hint,
   and when (a cron expression, a one-shot time, or a phrase like "every weekday at 9am" the
   model turns into cron). Each run is a fresh conversation you can open, its result waits on
@@ -118,9 +142,10 @@ enforces it.
   curator that marks old memories stale and archives the untouched ones (never deleting)
   run on the same queues; `/oban` shows the jobs.
 
-Not there yet: the messaging platforms themselves and subagents (M5b),
-the native desktop shell and signed releases (M6), executable skills in a sandbox (M7). The [Milestones](#milestones) section below sets out the order the
-remaining work is being built in.
+Not there yet: the messaging platforms themselves (071 Telegram and 072 Discord, which need a bot
+token the project does not yet hold), the native desktop shell and signed releases (the rest of M6),
+executable skills in a sandbox (M7). The [Milestones](#milestones) section below sets out the order
+the remaining work is being built in.
 
 The interface is a local web page; the desktop shell exists as a packaging spike, not a product.
 If you want to follow along, watch the roadmap and the tags.
@@ -240,7 +265,7 @@ rather than described by it.
 | M7 Sandboxed | Executable skills in an in-VM sandbox | 110 approved |
 | M9 Donatable | Open-source hygiene audited, supply chain signed, shared libraries extracted | 002 and 120 to 123 approved |
 
-M0 to M5a are approved as of 2026-09-22, and 070 of M5b on 2026-09-23. Slice numbers have gaps on purpose (000, 001, 010, 011 and so on) so that a slice can be inserted
+M0 to M5a are approved as of 2026-09-22. Of M5b, 070 and 080 are approved as of 2026-09-23; 071 and 072 wait on a messaging bot token the project does not yet hold. Of M6, 090 is approved as of 2026-09-24. Slice numbers have gaps on purpose (000, 001, 010, 011 and so on) so that a slice can be inserted
 later without renumbering anything.
 
 **[`ROADMAP.md`](ROADMAP.md)** sets out what the project intends to do and what it intends not to
@@ -254,6 +279,7 @@ do over the next year, and why the order is what it is.
 | `VERSIONS.md` | The verified dependency versions, generated from `lib/trinity/versions.ex` |
 | `docs/` | Vision, architecture, tech stack, conventions, data model, risks, security model, standards register; packaging, the FIPS leg, backup and restore, performance measurements |
 | `docs/mcp-server.md` | Connecting a client to Trinity's MCP server (Claude Code, VS Code, Codex, goose), stdio, approvals over the wire, the headless profile |
+| `docs/telemetry.md` | The telemetry event catalogue: every event this tree emits, its measurements and metadata, and the rule about what never appears in one |
 | `docs/adr/` | Architecture decision records. One is added whenever a decision changes |
 | `docs/10-assurance-case.md` | The structured argument that the security claims hold, with the evidence for each and the assumptions and limits named |
 | `docs/09-standards-register.md` | One row per control a regulated deployment may ask about, with its evidence path and status |

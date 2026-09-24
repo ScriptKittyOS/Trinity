@@ -105,7 +105,7 @@ defmodule TrinityWeb.ActivityLive do
         </section>
 
         <div class="flex flex-wrap items-center gap-2">
-          <form phx-change="filter" class="contents">
+          <form id="activity-filter" phx-change="filter" class="contents">
             <select
               name="kind"
               class="rounded-field border border-base-300 bg-base-100 px-2 py-1 text-meta"
@@ -115,7 +115,7 @@ defmodule TrinityWeb.ActivityLive do
               <option :for={k <- ~w(llm tool approval session gateway budget)} value={k}>{k}</option>
             </select>
           </form>
-          <form phx-change="session" class="contents">
+          <form id="activity-session-filter" phx-change="session" class="contents">
             <input
               name="session_id"
               value={@session_filter}
