@@ -180,14 +180,23 @@ else
     pool_size: 2,
     queue_target: 5_000,
     queue_interval: 30_000,
-    busy_timeout: 30_000
+    busy_timeout: 30_000,
+    # Slice 005, closing R26. A DEFERRED transaction takes no lock at BEGIN and starts as a reader;
+    # at its first write it tries to upgrade, and if another connection has written since, SQLite
+    # returns SQLITE_BUSY **without invoking the busy handler**, because blocking there risks
+    # deadlock. `busy_timeout` above cannot reach that path, which is why raising it from 5 s to
+    # 30 s changed nothing. IMMEDIATE takes the write lock at BEGIN, where the handler is allowed to
+    # wait. `test/trinity/repo/sqlite_transaction_mode_test.exs` drives both sequences and asserts
+    # the difference rather than describing it.
+    default_transaction_mode: :immediate
 
   config :trinity, Trinity.Repo.Receipts,
     database: Path.expand("../trinity_test_receipts.db", __DIR__),
     pool: Ecto.Adapters.SQL.Sandbox,
     queue_target: 5_000,
     queue_interval: 30_000,
-    busy_timeout: 30_000
+    busy_timeout: 30_000,
+    default_transaction_mode: :immediate
 end
 
 # We don't run a server during test. If one is required,

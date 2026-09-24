@@ -44,6 +44,22 @@ config :trinity,
           other -> raise "TRINITY_DB must be sqlite or postgres, got #{inspect(other)}"
         end)
 
+# Slice 005, closing R26, and it applies to every environment rather than only the suite because the
+# hazard is SQLite's, not the test harness's.
+#
+# A DEFERRED transaction takes no lock at BEGIN and starts as a reader. At its first write it tries
+# to upgrade, and if another connection has written since, SQLite returns SQLITE_BUSY **without
+# invoking the busy handler**, because blocking at that point risks deadlock. No `busy_timeout`
+# reaches that path, which is why raising it from 5 s to 30 s never closed R26. IMMEDIATE takes the
+# write lock at BEGIN, where the handler is allowed to wait.
+#
+# Guarded on the adapter because `:default_transaction_mode` is an `ecto_sqlite3` option and the
+# Postgres build has neither the option nor the hazard.
+if System.get_env("TRINITY_DB", "sqlite") == "sqlite" do
+  config :trinity, Trinity.Repo, default_transaction_mode: :immediate
+  config :trinity, Trinity.Repo.Receipts, default_transaction_mode: :immediate
+end
+
 # Slice 013 (owner decision, 2026-09-20): the packaged Linux binary runs on Burrito's musl ERTS,
 # in which neither precompiled mdex_native artifact loads (both need glibc's libgcc_s), so the
 # linux package builds that NIF from source for the musl target with Zig as the linker
