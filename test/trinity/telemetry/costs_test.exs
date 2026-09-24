@@ -16,25 +16,26 @@ defmodule Trinity.Telemetry.CostsTest do
   alias Trinity.Sessions
   alias Trinity.Telemetry.Costs
 
+  # Inserted through the schema rather than schemalessly. A schemaless insert has no schema to tell
+  # the adapter which columns are UUIDs or JSON, so it passes a string and a map straight through:
+  # SQLite accepts both, Postgres refuses both. Seeding through the schema keeps this test honest
+  # on the adapter the postgres leg runs, which is where the first version of it failed.
   defp seed!(session_id, cost, opts \\ []) do
-    Repo.insert_all("usage_events", [
-      %{
-        id: Trinity.UUID.generate(),
-        model_id: Keyword.get(opts, :model, "fake:chat"),
-        provider: "fake",
-        kind: "stream",
-        input_tokens: 10,
-        output_tokens: 20,
-        cached_tokens: 0,
-        reasoning_tokens: 0,
-        cost_usd: cost,
-        session_id: session_id,
-        # Encoded here rather than passed as a map: a schemaless insert has no schema to tell the
-        # adapter this column is JSON, and SQLite refuses a bare map.
-        provider_meta: JSON.encode!(%{}),
-        inserted_at: Keyword.get(opts, :at, DateTime.utc_now() |> DateTime.truncate(:second))
-      }
-    ])
+    Repo.insert!(%Trinity.LLM.Usage{
+      model_id: Keyword.get(opts, :model, "fake:chat"),
+      provider: "fake",
+      kind: "stream",
+      input_tokens: 10,
+      output_tokens: 20,
+      cached_tokens: 0,
+      reasoning_tokens: 0,
+      cost_usd: cost,
+      session_id: session_id,
+      provider_meta: %{},
+      # Microsecond precision, because the schema declares :utc_datetime_usec and truncating to the
+      # second is a value it refuses. The schemaless version accepted it and wrote it anyway.
+      inserted_at: Keyword.get(opts, :at, DateTime.utc_now())
+    })
   end
 
   defp session!(opts \\ []) do

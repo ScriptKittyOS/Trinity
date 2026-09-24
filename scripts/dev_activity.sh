@@ -42,15 +42,14 @@ alias Trinity.LLM.Providers.Fake
 {:ok, session} = Sessions.create_session(%{persona_id: Sessions.default_persona().id, title: "Auditing the receipt chain"})
 IO.puts("SESSION=#{session.id}")
 
-now = DateTime.utc_now() |> DateTime.truncate(:second)
-rows =
-  for {model, cost, n} <- [{"anthropic:claude", 0.0121, 4}, {"openai:gpt", 0.0043, 6}, {"local:qwen", 0.0002, 11}],
-      _ <- 1..n do
-    %{id: Trinity.UUID.generate(), model_id: model, provider: "fake", kind: "stream",
-      input_tokens: 900, output_tokens: 420, cached_tokens: 0, reasoning_tokens: 0,
-      cost_usd: cost, session_id: session.id, provider_meta: JSON.encode!(%{}), inserted_at: now}
-  end
-Repo.insert_all("usage_events", rows)
+# Seeded through the schema, so the UUID and JSON columns are dumped correctly whichever adapter
+# is underneath. A schemaless insert works on SQLite and is refused by Postgres.
+for {model, cost, n} <- [{"anthropic:claude", 0.0121, 4}, {"openai:gpt", 0.0043, 6}, {"local:qwen", 0.0002, 11}],
+    _ <- 1..n do
+  Repo.insert!(%Trinity.LLM.Usage{model_id: model, provider: "fake", kind: "stream",
+    input_tokens: 900, output_tokens: 420, cached_tokens: 0, reasoning_tokens: 0,
+    cost_usd: cost, session_id: session.id, provider_meta: %{}, inserted_at: DateTime.utc_now()})
+end
 
 Trinity.Telemetry.approval_requested("write_note", :write, session.id)
 Trinity.Telemetry.approval_decided("write_note", :write, session.id, decision: :once, basis: :user, waited_ms: 3400)

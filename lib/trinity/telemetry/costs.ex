@@ -59,7 +59,10 @@ defmodule Trinity.Telemetry.Costs do
   @spec for_session(String.t()) :: float()
   def for_session(session_id) do
     @table
-    |> where([u], u.session_id == ^session_id)
+    # `type/2` is not decoration here. A schemaless query has no schema to tell the adapter this
+    # column is a UUID: SQLite stores one as text and accepts the string, Postgres wants sixteen
+    # bytes and refuses it. The postgres leg caught that and the SQLite one never could.
+    |> where([u], u.session_id == type(^session_id, Trinity.UUID))
     |> select([u], sum(u.cost_usd))
     |> Repo.one()
     |> zero_if_nil()
@@ -77,7 +80,7 @@ defmodule Trinity.Telemetry.Costs do
     from(u in @table,
       join: s in "sessions",
       on: s.id == u.session_id,
-      where: s.persona_id == ^persona_id,
+      where: s.persona_id == type(^persona_id, Trinity.UUID),
       select: sum(u.cost_usd)
     )
     |> Repo.one()
