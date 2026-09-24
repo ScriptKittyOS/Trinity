@@ -24,6 +24,27 @@ evidence for each increment is retained by the maintainers and summarised here.
 
 ## 2026-09-24
 
+### `slice/014` — The prompt window is the recent conversation
+A session that held more than five hundred messages was building every subsequent request from its
+**first** five hundred. The query that fetched the window ordered oldest-first and then took a
+limit, which is right for the interface and the export, which page forwards through a conversation,
+and wrong for building a prompt. Past that point the assistant was answering from the opening of the
+session with the current exchange absent from the request entirely. Compaction does not delete rows,
+so any long-running session reached that point by design rather than by accident.
+
+It explains a second symptom too. Compaction decides what still needs summarising from the most
+recent compaction *in the window it is given*, so a window pinned to the oldest rows let it
+re-summarise ground it had already covered, spending a model call to learn nothing.
+
+The fix is a second accessor rather than a change to the first: the prompt and the compactor ask for
+the most recent rows in reading order, and the forward pager keeps its behaviour, with a test saying
+so. Two callers with opposite needs sharing one function is how this happened.
+
+Found by accident. Slice 110 registered one tool, which pushed a deliberately small test window past
+a threshold, which made compaction frequent enough to take a session past five hundred rows for the
+first time in any test. Proven by reverting the fix and watching the new test report the defect in
+its own failure message, rather than by the fix passing.
+
 ### `slice/004` — Property-based testing, and the assertions it enables
 The canonicalisers, the argument validator, the tighten-only state modifier and the receipt chain are
 now exercised by generated input rather than only by chosen input. That matters most where the code
