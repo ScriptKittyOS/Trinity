@@ -24,6 +24,38 @@ evidence for each increment is retained by the maintainers and summarised here.
 
 ## 2026-09-24
 
+### `slice/120` — Open-source hygiene and governance, audited
+Every one of the 613 files in this repository now carries copyright and licence information, and
+`reuse lint` exits 0 against version 3.3 of the REUSE Specification. It did not before: there was no
+`LICENSES` directory at all, 28 files carried nothing, and two files carried expressions the tool
+could not parse. The check runs in continuous integration.
+
+The part a linter cannot check is the part that mattered. Twenty-six of the uncovered files were the
+desktop shell's icons, and the obvious fix, sweeping every uncovered file under this project's
+copyright, would have passed. It would also have been false: those icons are the output of Tauri's
+own installer, as the commit that added them says. They are attributed to the Tauri Programme within
+The Commons Conservancy, and `NOTICE` says so.
+
+`THIRD_PARTY_LICENSES.md` is generated from the CycloneDX bill of materials, so the list and the bill
+cannot disagree. Building it found two dependencies with no licence in the bill at all: a package
+from the Elixir registry carries its licences in its metadata, a git dependency carries nothing, and
+the bill emits such a component silently rather than with an error. Nothing downstream could tell
+"MIT" from "nobody checked". Both were looked up at the commit this project pins, not at a branch,
+and a dependency with a licence from neither source now fails the build.
+
+Every commit in the history carries a Developer Certificate of Origin sign-off, checked over the
+whole history rather than over one change. Merge commits are excluded, because a sign-off certifies
+the right to submit work and a merge commit made by the forge introduces none.
+
+`GOVERNANCE.md` now states the committer process as it stands rather than as it was written: two of
+the three maintainers joined by invitation rather than through the published path, because there was
+no history of outside contribution for the path to be applied to, and a reader assessing this
+project should know which of its statements are practice and which are policy.
+
+One criterion is recorded as unmet rather than reported as met: whether the signed receipt field set
+reproduces any third party's protected mechanism is a question for the owner, proposed at slice 024
+and not since answered.
+
 ### `slice/029` — Tool-surface drift
 A server whose tool definitions change after you approved them is holding an approval you never
 gave, and nothing in the Model Context Protocol requires a server to announce that it has changed

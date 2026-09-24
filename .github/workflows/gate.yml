@@ -55,6 +55,19 @@ jobs:
 
       - run: mix gate
 
+      # Slice 120 AC1. `reuse lint` is a Python tool and this is the only leg that installs one,
+      # deliberately: `mix gate` has to stay runnable inside the FIPS container and on a developer's
+      # machine without a Python environment, so the REUSE check is a step here rather than a row in
+      # the alias. `mix trinity.reuse`, which is in the alias, is the cheaper subset that every leg
+      # can run: it checks that commentable source files carry an SPDX header. This step checks the
+      # whole specification, including the files that cannot carry a comment and the LICENSES
+      # directory, and it is what the badge and a donation review actually ask about.
+      - name: REUSE compliance
+        run: |
+          python3 -m venv /tmp/reuse-venv
+          /tmp/reuse-venv/bin/pip install --quiet reuse
+          /tmp/reuse-venv/bin/reuse lint
+
   # Slice 010 AC1 and AC2: the same migrations and the same suite on Postgres. A second job
   # rather than a matrix entry so the required check keeps its context name, `gate`. This job
   # is not required by the ruleset until it has run green on main once; then it is added.

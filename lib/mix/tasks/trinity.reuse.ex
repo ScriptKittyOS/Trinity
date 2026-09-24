@@ -16,7 +16,12 @@ defmodule Mix.Tasks.Trinity.Reuse do
   use Boundary, classify_to: Trinity
   use Mix.Task
 
+  # REUSE-IgnoreStart
+  # This is the string the check looks for, not a licence tag on this file. Without the
+  # markers `reuse lint` reads it as a tag and trips on the closing quote, reporting this
+  # file as carrying the invalid expression `Apache-2.0"`.
   @spdx "SPDX-License-Identifier: Apache-2.0"
+  # REUSE-IgnoreEnd
   @commentable ~w(.ex .exs .sh .css .js)
 
   @doc "True if the text carries the SPDX identifier in its first few lines."

@@ -39,12 +39,24 @@ look as though it had always been right.
 
 ## Becoming a committer
 
-There is no committee to join yet. The path, when it opens:
+**As it actually stands.** There are three maintainers (`MAINTAINERS.md`), two of whom joined on
+2026-09-23 by the author's invitation rather than through the path below, because at that point
+there was no history of outside contribution for the path to be applied to. That is written down
+rather than smoothed over: the process described here has not yet been used, and a reader assessing
+this project's governance should know which of its statements are practice and which are policy.
+
+The path, for anyone joining from here:
 
 1. Land changes through the ordinary review process, with evidence that meets the proof
    standard in `docs/03-conventions.md`.
 2. Review someone else's slice and have that review hold up.
-3. The maintainer proposes commit access; it is recorded here and in `MAINTAINERS.md`.
+3. A maintainer proposes commit access; it is recorded here and in `MAINTAINERS.md`.
+
+A maintainer can accept a proposed change, close an issue and cut a release. Administration of the
+GitHub organisation, the domain and the security mailbox rest with the author alone, which is the
+first thing a reader should ask about and the reason it is named here rather than left to be
+discovered. Two-factor authentication is required of everyone with write access, enforced by the
+organisation rather than asked for in a document.
 
 Commit access carries the same obligations as authorship: the rules of evidence in
 `docs/03-conventions.md`
