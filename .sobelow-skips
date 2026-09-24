@@ -1,5 +1,6 @@
 Config.CSP: Missing Content-Security-Policy,lib/trinity_web/router.ex:14,1DC4768
 Traversal.FileModule: Directory Traversal in `File.mkdir_p`,lib/trinity/data_dir/lock.ex:60,4ECF02C
 Traversal.FileModule: Directory Traversal in `File.read`,lib/trinity/data_dir/lock.ex:146,5EFB666
+Traversal.FileModule: Directory Traversal in `File.read`,lib/trinity/sandbox/skill.ex:75,30481DE
 Traversal.FileModule: Directory Traversal in `File.rm`,lib/trinity/data_dir/lock.ex:85,7D2B826
 Traversal.FileModule: Directory Traversal in `File.write`,lib/trinity/data_dir/lock.ex:135,42D2817
