@@ -15,7 +15,23 @@ defmodule Trinity.Tools do
     deps: [Trinity, Trinity.Permissions, Trinity.Memory],
     # Slice 040 exports Untrusted: the skill tools (Trinity.Skills.Tools.*) wrap their results
     # the way session_search does, and they live in the Skills boundary.
-    exports: [Tool, Context, Result, Registry, Runner, Schema, Catalog, Untrusted, FS, Web.Fetch]
+    # Slice 029 exports DefinitionDigest and Surface: the MCP bridge is where a server's listed
+    # definition enters the tree, so the bridge is where drift is caught, and both modules are
+    # part of what Tools offers rather than internals it happens to have.
+    exports: [
+      Tool,
+      Context,
+      Result,
+      Registry,
+      Runner,
+      Schema,
+      Catalog,
+      Untrusted,
+      DefinitionDigest,
+      Surface,
+      FS,
+      Web.Fetch
+    ]
 
   alias Trinity.Sessions.Message
   alias Trinity.Tools.Registry

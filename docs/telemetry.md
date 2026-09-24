@@ -84,6 +84,19 @@ problem the first time it carries an id.
 |---|---|---|
 | `[:trinity, :budget, :exceeded]` | `spent_usd`, `limit_usd` | `scope` (`:day`, `:session`, `:persona`), `scope_id` |
 
+### `[:trinity, :tool, :surface_drift]`
+
+Slice 029. An MCP server listed a tool whose definition differs from the baseline this machine
+recorded, so the tool was held rather than registered.
+
+| | |
+|---|---|
+| Measurements | `fields` (how many fields changed) |
+| Metadata | `server`, `tool` (the namespaced registry name), `changed` (the field **names**) |
+
+`changed` carries names and never values. A description is content, and the whole point of holding
+the tool is that its new content has not been read by anyone who is allowed to approve it.
+
 ## Traces: a turn is a tree, without a tracing library
 
 Every event emitted inside a turn carries `trace_id` and `parent_span_id`, and every span also

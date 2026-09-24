@@ -29,7 +29,7 @@ defmodule Trinity.MCP.Bridge do
   alias Trinity.MCP.{Client, ServerConfig}
   alias Trinity.Permissions
   alias Trinity.Receipts
-  alias Trinity.Tools.{Context, Result, Untrusted}
+  alias Trinity.Tools.{Context, DefinitionDigest, Result, Surface, Untrusted}
 
   @tool_name_pattern ~r/^[A-Za-z0-9_.-]{1,64}$/
 
@@ -64,6 +64,7 @@ defmodule Trinity.MCP.Bridge do
     registry_name = tool_name(server, tool)
 
     with :ok <- check_name(tool),
+         :ok <- check_surface(config, tool, registry_name, listed),
          spec = %{
            name: registry_name,
            description: to_string(Map.get(listed, "description") || ""),
@@ -74,10 +75,74 @@ defmodule Trinity.MCP.Bridge do
          {:ok, _entry} <- Trinity.Tools.register(__MODULE__, spec: spec) do
       {:ok, registry_name}
     else
+      {:error, {:surface_drift, _, _}} = drifted ->
+        drifted
+
       {:error, reason} = error ->
         refused(config, tool, registry_name, reason)
         error
     end
+  end
+
+  # Slice 029. Three cases, and the middle one is the whole feature.
+  #
+  # No baseline: this machine has not seen the tool before. Record what it says and carry on; a
+  # tool nobody has approved still has to pass the gate, which is a different question from drift.
+  #
+  # Baseline matches: nothing to say.
+  #
+  # Baseline differs: the definition changed under an approval the owner already gave, so the tool
+  # is **not registered**. Holding rather than registering-and-warning is deliberate: a warning on a
+  # tool that is already callable is a warning that arrives after the call it should have stopped.
+  defp check_surface(%ServerConfig{name: server}, tool, registry_name, listed) do
+    digest = DefinitionDigest.of(listed)
+
+    case Surface.get(server, tool) do
+      nil ->
+        Surface.record_first_sighting(server, tool, listed)
+        :ok
+
+      %Surface{digest: ^digest} ->
+        :ok
+
+      %Surface{} = baseline ->
+        drifted(server, tool, registry_name, baseline, listed)
+        {:error, {:surface_drift, server, tool}}
+    end
+  end
+
+  defp drifted(server, tool, registry_name, baseline, listed) do
+    Surface.record_drift(server, tool, listed)
+
+    changes =
+      DefinitionDigest.changes(baseline.definition, DefinitionDigest.canonical_form(listed))
+
+    fields = Enum.map(changes, &elem(&1, 0))
+
+    Logger.warning(
+      "mcp #{server}: tool #{tool} held, its definition changed since it was approved " <>
+        "(#{Enum.join(fields, ", ")})"
+    )
+
+    Trinity.Telemetry.emit([:tool, :surface_drift], %{fields: length(fields)}, %{
+      server: server,
+      tool: registry_name,
+      changed: fields
+    })
+
+    Receipts.append(scope(server), %{
+      kind: "decision",
+      subject: %{"server" => server, "tool" => registry_name, "phase" => "load"},
+      decision: %{
+        "outcome" => "deny",
+        "basis" => "surface_drift",
+        "reason" => "definition changed since baseline: " <> Enum.join(fields, ", ")
+      },
+      subject_ref: "mcp-load:" <> registry_name,
+      # The field names, never the values: a description is content and this chain is read by
+      # people who are not meant to need the content to check the decision.
+      meta: %{"changed" => fields, "was_digest" => baseline.digest}
+    })
   end
 
   @doc "Removes a registered tool."
