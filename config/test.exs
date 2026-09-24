@@ -40,7 +40,9 @@ config :trinity, :tools,
     Trinity.Tools.Memory,
     Trinity.Tools.Shell.Run,
     # Slice 080: delegation to a child session.
-    Trinity.Tools.Delegate
+    Trinity.Tools.Delegate,
+    # Slice 110: a Lua script in the in-VM sandbox.
+    Trinity.Sandbox.Tool
   ],
   toolsets: %{
     core: ["echo", "sleep", "crash", "big", "write_note"],

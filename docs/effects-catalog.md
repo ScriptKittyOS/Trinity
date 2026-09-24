@@ -4,7 +4,7 @@
      regenerates it and fails when this file and the tree disagree. -->
 # The effect catalogue
 
-Version `6de39824f78b4380`, which is a SHA-256 over the rows below rather than a number anyone
+Version `372070cf9a41c640`, which is a SHA-256 over the rows below rather than a number anyone
 typed. Two trees with the same effect surface carry the same version. Built from `MIX_ENV=prod`,
 which `--write` and `--check` require to be `prod`, because this is a statement about what ships.
 
@@ -30,6 +30,7 @@ without this file changing fails the build.
 | `learn` | `write` | `artifact` | no | no | `Trinity.Skills.Tools.Learn` |
 | `memory` | `write` | `artifact` | no | no | `Trinity.Tools.Memory` |
 | `recall` | `read` | `none` | no | no | `Trinity.Tools.Recall` |
+| `run_lua` | `exec` | `none` | no | no | `Trinity.Sandbox.Tool` |
 | `session_search` | `read` | `none` | no | no | `Trinity.Tools.SessionSearch` |
 | `shell` | `exec` | `catalog` | yes | yes | `Trinity.Tools.Shell.Run` |
 | `skill_file` | `read` | `none` | no | no | `Trinity.Skills.Tools.File` |

@@ -4,7 +4,7 @@
      hand: the gate regenerates it and fails when this file and the bill disagree. -->
 # Third-party licences
 
-133 components, derived from `sbom.cdx.json`, the CycloneDX bill this project's
+134 components, derived from `sbom.cdx.json`, the CycloneDX bill this project's
 quality gate generates on every commit. This file and that bill are the same data rendered
 twice, so they cannot disagree.
 
@@ -75,6 +75,7 @@ it, and a reader should not infer from an entry here that the component is in a 
 | `lazy_html` | `0.1.12` | Apache-2.0 | bom |
 | `llm_db` | `2026.9.4` | Apache-2.0 | bom |
 | `logger` | `1.20.4` | Apache-2.0 | bom |
+| `luerl` | `1.5.1` | Apache-2.0 | bom |
 | `makeup` | `1.2.2` | BSD-2-Clause | bom |
 | `makeup_elixir` | `1.0.1` | BSD-2-Clause | bom |
 | `makeup_erlang` | `1.1.0` | BSD-2-Clause | bom |
