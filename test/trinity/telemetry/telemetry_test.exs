@@ -170,10 +170,36 @@ defmodule Trinity.TelemetryTest do
       {:ok, _} = Sessions.send_user_message(session.id, "first")
       assert_receive {^ref, [:trinity, :llm, :call, :stop], _, first}, 5_000
 
+      # The stop event fires when the model call ends, and the session is still `:thinking` while it
+      # writes the result. Sending the next message on that event is a race: it passed on the
+      # ordinary gate for weeks and failed on the FIPS leg, which is slower, with
+      # `{:error, {:busy, :thinking}}`. Waiting for idle is what the test meant all along.
+      await_idle(session.id)
+
       {:ok, _} = Sessions.send_user_message(session.id, "second")
       assert_receive {^ref, [:trinity, :llm, :call, :stop], _, second}, 5_000
 
       refute first.trace_id == second.trace_id
+    end
+
+    defp await_idle(id, timeout \\ 5_000) do
+      deadline = System.monotonic_time(:millisecond) + timeout
+      await_idle(id, deadline, :first)
+    end
+
+    defp await_idle(id, deadline, _) do
+      case Sessions.state(id) do
+        %{state: :idle} ->
+          :ok
+
+        other ->
+          if System.monotonic_time(:millisecond) > deadline do
+            flunk("session #{id} was #{inspect(other)} and never became idle")
+          else
+            Process.sleep(10)
+            await_idle(id, deadline, :again)
+          end
+      end
     end
 
     test "outside a trace an event carries no trace id, rather than an invented one" do
