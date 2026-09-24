@@ -82,6 +82,11 @@ jobs:
       DATABASE_URL: postgres://trinity:trinity@localhost:5432/trinity_test
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # `test/changelog_test.exs` reads `git tag -l 'slice/*'` and refuses to pass without
+          # tags, because a test that finds nothing to check is indistinguishable from one that
+          # found everything in order. The default depth of one fetches no tags.
+          fetch-depth: 0
 
       - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
         with:
