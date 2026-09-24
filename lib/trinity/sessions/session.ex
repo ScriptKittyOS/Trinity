@@ -355,7 +355,10 @@ defmodule Trinity.Sessions.Session do
     persona = session.persona_id && Store.get_persona(session.persona_id)
     # Slice 020: the declared surface of this turn, into the request and onto the row.
     tools = Trinity.Tools.to_llm_tools()
-    history = Trinity.Sessions.history(id, limit: 500)
+    # Slice 014: the **recent** 500 rows, not the first 500. `history/2` orders ascending and then
+    # limits, so past 500 rows it would hand this the opening of the session for ever and the
+    # current exchange would not be in the request at all.
+    history = Trinity.Sessions.recent_history(id, limit: 500)
     # Slice 033: the project's AGENTS.md, read now, so a change is in this turn (live reload).
     context =
       [
