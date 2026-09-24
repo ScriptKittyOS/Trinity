@@ -172,14 +172,34 @@ defmodule Trinity.Tools.Runner do
   what keeps it a caller for reads only.
   """
   @spec call_tool(Registry.entry(), map(), Context.t()) :: {:ok, Result.t()} | {:error, term()}
-  def call_tool(%{effect: :none, module: module}, args, ctx) do
+  def call_tool(%{effect: :none, module: module, name: name} = entry, args, ctx) do
+    # Slice 090. The span carries the tool's name and tier and never its arguments: a telemetry
+    # handler is attached by anything in the VM and its output reaches dashboards and exporters,
+    # which is exactly how a filesystem path or a shell command ends up somewhere nobody meant
+    # (docs/telemetry.md).
+    Trinity.Telemetry.span(
+      [:tool, :call],
+      %{tool: name, risk: entry[:risk], session_id: ctx.session_id},
+      fn ->
+        result = invoke(module, args, ctx)
+
+        {result,
+         %{tool: name, risk: entry[:risk], session_id: ctx.session_id, result: outcome(result)}}
+      end
+    )
+  end
+
+  def call_tool(%{name: name}, _args, _ctx),
+    do: {:error, {:effectful_tool_outside_membrane, name}}
+
+  defp invoke(module, args, ctx) do
     module.execute(args, ctx)
   rescue
     e -> {:error, {:crash, {e, __STACKTRACE__}}}
   end
 
-  def call_tool(%{name: name}, _args, _ctx),
-    do: {:error, {:effectful_tool_outside_membrane, name}}
+  defp outcome({:ok, _}), do: :ok
+  defp outcome(_), do: :error
 
   defp timeout_of(%{name: name}) do
     with {:ok, entry} <- Registry.lookup(name),

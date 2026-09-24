@@ -117,8 +117,10 @@ defmodule Trinity.Sessions.Session do
     end
   end
 
-  def handle_event(:enter, _old, state, %State{id: id}) do
+  def handle_event(:enter, old, state, %State{id: id}) do
     Events.broadcast(id, {:state, state})
+    # Slice 090: the transition, with no conversation content in it.
+    Trinity.Telemetry.session_transition(id, old, state)
 
     case state do
       :idle ->
