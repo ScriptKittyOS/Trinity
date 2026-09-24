@@ -57,12 +57,24 @@ defmodule Trinity.SandboxTest do
     end
 
     test "the runner process is gone, not merely unreferenced" do
-      before = length(Process.list())
+      # The runners' own supervisor, not `Process.list/0`. The first version of this test compared
+      # the VM's total process count before and after, which passed locally and failed on CI: on a
+      # busy runner the other async tests move that number far more than ten runners do, so it was
+      # measuring noise. `Task.Supervisor.children/1` counts exactly the processes this test is
+      # about.
       for _ <- 1..10, do: Sandbox.run("while true do end", max_time_ms: 50)
-      Process.sleep(200)
 
-      assert length(Process.list()) - before < 10,
-             "runner processes accumulated, so a killed script leaks a process per run"
+      remaining =
+        Enum.find_value(1..50, fn _ ->
+          case Task.Supervisor.children(Trinity.Sandbox.TaskSupervisor) do
+            [] -> []
+            _ -> Process.sleep(20) && nil
+          end
+        end)
+
+      assert remaining == [],
+             "runners survived their kill: #{inspect(Task.Supervisor.children(Trinity.Sandbox.TaskSupervisor))}. " <>
+               "A killed script must not leak a process per run"
     end
   end
 
