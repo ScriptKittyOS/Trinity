@@ -40,7 +40,15 @@ echo "== 2. the headless release assembles =="
 # `mix assets.deploy` is the packaging workflow's concern.
 MIX_ENV=prod mix release headless --overwrite --quiet
 
-echo "== 3. the release evaluates its runtime configuration =="
+echo "== 3. the published effect catalogue matches the tree =="
+# Slice 027 AC3. It lives here rather than in a gate row of its own because the artifact is a
+# statement about what ships and so must be built in prod, and prod is already compiled by step 1;
+# a separate gate row would compile prod a second time to learn the same thing. A tool added to
+# config/config.exs without regenerating docs/effects-catalog.md fails here, which is the point:
+# the published claim about what can cause an effect cannot drift from the tree that makes it.
+MIX_ENV=prod mix trinity.effects.catalog --check
+
+echo "== 4. the release evaluates its runtime configuration =="
 # `eval` runs the release's config providers, so config/runtime.exs's prod branch is executed
 # with no environment prepared for it, which is how a packaged binary is first started.
 "$rel" eval 'IO.puts("prod boot config ok")'

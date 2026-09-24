@@ -347,6 +347,36 @@ where the runtime carries it; the boot receipt names the choice and the authorit
 hash in unsigned metadata (the R21 default). `bin/verify_receipt.exs` verifies an export with `elixir` alone,
 from an empty directory, with the exit vocabulary 0, 1, 2, 5, 6.
 
+## The effect population, published (Slice 027, as built)
+
+The set of things that can cause an effect is small, derived from the tree, and published as
+[`docs/effects-catalog.md`](effects-catalog.md) with a version that is a SHA-256 over its own rows.
+`mix trinity.effects.catalog --check` runs inside `scripts/prod_check.sh`, which the quality gate
+runs on every commit, so a tool added without the artifact changing fails the build. The artifact is
+built under `MIX_ENV=prod` and the task refuses to write or check outside it, because the test
+configuration adds scaffolding tools to the same list and a catalogue that named them would be a
+claim about something other than what ships.
+
+Two censuses hold the population's edges, and both plant a violation so that a census which has
+quietly stopped working fails rather than passes:
+
+- **Callers of `execute/2`** (`test/trinity/effects/census_test.exs`, slice 024, extended at 027):
+  the allowed set is a map from path to the reason that path is allowed, so a third caller has
+  something to argue against rather than a bare list of two. `test/support/effects/bypass.ex` is a
+  real bypass that the census must name.
+- **Session state is not an authority input**
+  (`test/trinity/permissions/session_state_census_test.exs`, slice 027): no module in
+  `lib/trinity/permissions`, `lib/trinity/effects` or `lib/trinity/authority` calls the Sessions
+  context for `history`, `get_session`, `list_sessions` or `state`.
+
+The second one carries the distinction that matters. A session **id** is a scope key: a grant is
+stored as `session:<id>` and an approval belongs to a session row. That is identity, and identity
+narrows a grant. What the session has been **saying** is state, and state would steer a decision.
+Every message in a session is a place an injected instruction can sit, so a gate that reads
+conversation state is a gate an attacker can argue with, and the argument does not have to convince
+a person: it has to move one boolean. Keeping the decision blind to the conversation is what makes
+prompt injection a problem about what is *proposed* rather than about what is *authorized*.
+
 ## Data at rest
 
 - SQLite file under the OS data dir with 0600 perms. Optional at-rest encryption is a later slice (SQLCipher via exqlite build flag), noted rather than planned.
