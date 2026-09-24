@@ -86,7 +86,9 @@ config :trinity, :tools,
     Trinity.Tools.Memory,
     Trinity.Tools.Shell.Run,
     # Slice 080: delegation to a child session.
-    Trinity.Tools.Delegate
+    Trinity.Tools.Delegate,
+    # Slice 110: a Lua script in the in-VM sandbox.
+    Trinity.Sandbox.Tool
   ],
   toolsets: %{
     fs: ["fs_read", "fs_write", "fs_edit", "fs_list", "fs_glob", "fs_grep"],

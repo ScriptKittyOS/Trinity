@@ -24,6 +24,41 @@ evidence for each increment is retained by the maintainers and summarised here.
 
 ## 2026-09-24
 
+### `slice/110` — Executable skills in an in-process sandbox
+Skills that can execute need a real programming surface. Trinity now has one that costs no trust: a
+`run_lua` tool and skill-owned scripts run Lua inside this process, with no operating system
+process, no filesystem handle and no socket. A model asked to total a column produces a number that
+looks right; a script produces one that is right and leaves the script in the transcript.
+
+The limits are the virtual machine's rather than a promise. The runner sets its own heap ceiling and
+the machine kills it at the boundary; a wall clock bounds the run; the pool refuses an over-limit run
+by name instead of queueing it invisibly, because a run that waits an unbounded time to start has no
+wall-clock bound at all.
+
+**One limit is reported rather than claimed, and the measurement is published.** The library offers a
+reduction cap enforced by polling every hundred milliseconds, so a cap of a thousand and a cap of a
+million both stop a tight loop at twenty to thirty-four million reductions. Reductions are therefore
+a statistic here and the bound that stops a runaway script is time. `docs/sandbox.md` carries the
+numbers.
+
+What a script wants *done* it asks for through the same executor a model's own tool call uses, so it
+is decided by the same permission gate and leaves the same receipts. There is no second door, and a
+test asserts a denied call gives the script nothing. A call needing a person fails immediately rather
+than holding the sandbox open, because a run is bounded in seconds and a person is not: letting a
+script block would turn every approval into a timeout.
+
+A skill may ship a script of its own. Where that script may read is checked by resolving the path
+rather than by trusting it, so a traversal is caught by where it lands rather than by what it looks
+like. The check is public so the test exercises the real function rather than a copy of it.
+
+The skill scanner gained a rule for scripts reaching at what the sandbox removes. It is a reviewer's
+signal and the changelog says so: the control is that those globals are absent at run time, and a
+regular expression over source text would be a poor last line.
+
+`docs/sandbox.md` states what this does not protect against as plainly as what it does, including
+that the sandbox constrains the script and the permission gate constrains the effect, and that
+reading the first as a guarantee about the second is the mistake the page exists to prevent.
+
 ### `slice/014` — The prompt window is the recent conversation
 A session that held more than five hundred messages was building every subsequent request from its
 **first** five hundred. The query that fetched the window ordered oldest-first and then took a

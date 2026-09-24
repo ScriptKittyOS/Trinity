@@ -37,12 +37,13 @@ desktop application. Apache-2.0, developed in the open from the first commit.
 
 ## Status
 
-Pre-alpha, and usable from source. Milestones M0 to M4 are approved, **M5a Automates** with them
-(050, the scheduler; 059, the MCP measurement; 060, the MCP client; 061, the MCP server; 062, MCP
-authorization), **M5b Reaches** in part (070, the gateway core; 080, subagents) and the first slice
-of **M6 Ships** (090, observability and the cost ledger), with 002 (the supply chain slice) beside
-them: 29 slices, each merged with a merge commit and tagged `slice/NNN`
-(`git tag -l 'slice/*' | wc -l` → 30, on 2026-09-24: one more tag than slices, because
+Pre-alpha, and usable from source. Milestones **M0** to **M4** are approved, **M5a Automates** with
+them (050, the scheduler; 059, the MCP measurement; 060, the MCP client; 061, the MCP server; 062,
+MCP authorization), **M5b Reaches** in part (070, the gateway core; 080, subagents), the first slice
+of **M6 Ships** (090, observability and the cost ledger), **M7 Sandboxed** (110, executable skills in
+an in-process sandbox), and the first slice of **M9 Donatable** (120, the open-source hygiene audit),
+with 002 (the supply chain slice) beside them: 36 slices, each merged with a merge commit and tagged
+`slice/NNN` (`git tag -l 'slice/*' | wc -l` → 37, on 2026-09-24: one more tag than slices, because
 `slice/090` was pushed at the wrong commit before its merge landed and this repository's ruleset
 forbids moving or deleting a tag; the correct one is `slice/090.1`, and `git tag -n20 slice/090.1`
 says so in its own annotation rather than leaving a reader to work it out). What that means in
@@ -134,6 +135,16 @@ enforces it.
   by model, by session, by persona, against budgets that warn and, when you ask them to, refuse.
   `/activity` shows the live stream with the spend beside it; a LiveDashboard page lists the
   running sessions, asking each process its state rather than trusting a row.
+- **Computes, rather than estimates.** A `run_lua` tool runs a Lua script inside this process: no
+  operating system process, no filesystem handle, no socket. A model asked to total a column
+  produces a number that looks right; a script produces one that is right and leaves the script in
+  the transcript for anyone to check. The limits are the virtual machine's rather than a promise:
+  the runner sets its own heap ceiling and is killed at it, a wall clock bounds the run, and the
+  pool refuses an over-limit run by name instead of queueing it invisibly. What a script wants
+  *done* it asks for through `trinity.tool`, which is decided by the same permission gate and leaves
+  the same receipts as any other call, so there is no second door. A skill can ship a script of its
+  own, and where that script may read is checked by resolving the path rather than by trusting it.
+  `docs/sandbox.md` states what this does **not** protect against as plainly as what it does.
 - **Runs on a schedule.** Tasks on the `/tasks` page: a prompt, a persona, the skills to hint,
   and when (a cron expression, a one-shot time, or a phrase like "every weekday at 9am" the
   model turns into cron). Each run is a fresh conversation you can open, its result waits on
@@ -144,8 +155,9 @@ enforces it.
 
 Not there yet: the messaging platforms themselves (071 Telegram and 072 Discord, which need a bot
 token the project does not yet hold), the native desktop shell and signed releases (the rest of M6),
-executable skills in a sandbox (M7). The [Milestones](#milestones) section below sets out the order
-the remaining work is being built in.
+store-and-forward receipts for disconnected operation (026, waiting on an answer from the external
+authority plane). The [Milestones](#milestones) section below sets out the order the remaining work
+is being built in.
 
 The interface is a local web page; the desktop shell exists as a packaging spike, not a product.
 If you want to follow along, watch the roadmap and the tags.
@@ -244,7 +256,8 @@ rather than described by it.
 | Auditability | Decisions and effects are recorded in an Ed25519-signed hash chain with checkpoints and a verifier, so an operator can reconstruct what was done, by whom and under what decision. |
 | Untrusted content | Anything arriving from outside the machine is marked untrusted at the boundary and is never treated as instruction. |
 | Approved cryptography | A dedicated CI leg builds from source and runs the cryptographic properties inside a FIPS-mode container, so statements about approved algorithms are measured on that leg rather than asserted. |
-| Per-file licensing | Every one of the 609 files in this repository carries copyright and licence information, following the REUSE Specification 3.3. `reuse lint` exits 0 and runs in CI. What is not this project's says so: the desktop shell's icons are Tauri's template icons and are attributed to Tauri, not to us. |
+| Exercised by generated input | The canonicalisers, the argument validator and the receipt chain are tested with property-based testing as well as by example, because code that answers "is this the same thing" fails on the spellings nobody thought of. The suite carries a planted defect it catches and the example tests miss, so a property that has never failed is not mistaken for one that cannot. |
+| Per-file licensing | Every one of the 630 files in this repository carries copyright and licence information, following the REUSE Specification 3.3. `reuse lint` exits 0 and runs in CI. What is not this project's says so: the desktop shell's icons are Tauri's template icons and are attributed to Tauri, not to us. |
 | Supply chain | Dependency and licence audits run on every commit; dependency versions are pinned in `VERSIONS.md` and verified against the lock file by the gate. A CycloneDX bill of materials is generated by the gate on every commit and ships beside every packaged binary, so whoever holds the artifact holds the list of what is in it; the bill states its own coverage inside the document, including what it does not cover. |
 | Provenance | Every commit carries a Developer Certificate of Origin sign-off, enforced by a hook and independently by CI. Every packaged binary carries build provenance attested through the workflow's own identity and recorded in a public transparency log, verified in the same run that produced it, so a holder can check where the bytes were built without trusting this page. |
 | Independent self-certification | The project holds the [OpenSSF Best Practices **silver** badge](https://www.bestpractices.dev/projects/14772) (awarded 2026-09-23), assessed against the Open Source Security Foundation's published criteria at two tiers. Every required criterion at both is met. What is not met is stated rather than stretched: at passing, three suggested criteria (semantic versioning, which begins at the first supported release, and two concerning dynamic analysis tooling the project does not run); at silver, a bus factor of two and an accessibility assessment, both suggested-tier, and signed version tags. |
@@ -266,7 +279,7 @@ rather than described by it.
 | M7 Sandboxed | Executable skills in an in-VM sandbox | 110 approved |
 | M9 Donatable | Open-source hygiene audited, supply chain signed, shared libraries extracted | 002 and 120 to 123 approved |
 
-M0 to M5a are approved as of 2026-09-22. Of M5b, 070 and 080 are approved as of 2026-09-23; 071 and 072 wait on a messaging bot token the project does not yet hold. Of M6, 090 is approved as of 2026-09-24. Slice numbers have gaps on purpose (000, 001, 010, 011 and so on) so that a slice can be inserted
+M0 to M5a are approved as of 2026-09-22. Of M5b, 070 and 080 are approved as of 2026-09-23; 071 and 072 wait on a messaging bot token the project does not yet hold. Of M6, 090 is approved as of 2026-09-24. **M7** is approved as of 2026-09-24 (110). Of M9, 120 is approved as of 2026-09-24. Four slices merged on 2026-09-24 were not on the plan and are recorded as what they were: 004 (property-based testing, taken because it closes two OpenSSF gold criteria), 014 (a defect: a session past 500 messages built its prompt from the *first* 500), and 027, 028 and 029 from the connectome research. Slice numbers have gaps on purpose (000, 001, 010, 011 and so on) so that a slice can be inserted
 later without renumbering anything.
 
 **[`ROADMAP.md`](ROADMAP.md)** sets out what the project intends to do and what it intends not to
@@ -283,6 +296,7 @@ do over the next year, and why the order is what it is.
 | `THIRD_PARTY_LICENSES.md` | Every dependency and its licence, generated from the CycloneDX bill. A dependency whose licence neither the bill nor a declared entry supplies fails the gate |
 | `LICENSES/` | The full text of every licence the tree uses, as the REUSE Specification requires |
 | `docs/effects-catalog.md` | The published effect catalogue: every tool that can cause an effect, its risk tier and effect class, with a version that is a hash of its own rows. Generated, and the gate fails when it and the tree disagree |
+| `docs/sandbox.md` | What the Lua sandbox protects against, what it does not, and which of its limits are enforced by the virtual machine rather than sampled |
 | `docs/telemetry.md` | The telemetry event catalogue: every event this tree emits, its measurements and metadata, and the rule about what never appears in one |
 | `docs/adr/` | Architecture decision records. One is added whenever a decision changes |
 | `docs/10-assurance-case.md` | The structured argument that the security claims hold, with the evidence for each and the assumptions and limits named |

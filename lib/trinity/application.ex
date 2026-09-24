@@ -9,7 +9,7 @@ defmodule Trinity.Application do
   # is what lets the child list mention it.
   use Boundary,
     top_level?: true,
-    deps: [Trinity, TrinityWeb, Trinity.Smoke, Trinity.MCP],
+    deps: [Trinity, TrinityWeb, Trinity.Smoke, Trinity.MCP, Trinity.Sandbox],
     exports: []
 
   # See https://elixir.hexdocs.pm/Application.html
@@ -51,6 +51,12 @@ defmodule Trinity.Application do
           {Phoenix.PubSub, name: Trinity.PubSub},
           # Slice 011: streams to a pid run under this supervisor, never as bare tasks.
           {Task.Supervisor, name: Trinity.LLM.TaskSupervisor},
+          # Slice 110: the sandbox's runners, capped. `max_children` is the cap, so an
+          # eleventh concurrent script is refused by name rather than queued invisibly or
+          # allowed to make the node's scheduling somebody else's problem.
+          {Task.Supervisor,
+           name: Trinity.Sandbox.TaskSupervisor,
+           max_children: Trinity.Sandbox.Runner.concurrency()},
           # Slice 012: one session process per conversation, found by id.
           {Registry, keys: :unique, name: Trinity.Registry},
           # Slice 024: the signer and its key, the chain writers, the boot receipt. Before the

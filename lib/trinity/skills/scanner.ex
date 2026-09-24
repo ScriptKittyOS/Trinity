@@ -35,7 +35,18 @@ defmodule Trinity.Skills.Scanner do
     {"network_call", "medium",
      ~r/\b(fetch|requests\.(get|post)|http\.(get|post)|urllib|socket\.connect|Net::HTTP)\b/},
     {"external_url", "medium", ~r/https?:\/\/(?!localhost|127\.0\.0\.1)[^\s)>"']+/},
-    {"base64_blob", "medium", ~r/[A-Za-z0-9+\/]{200,}={0,2}/}
+    {"base64_blob", "medium", ~r/[A-Za-z0-9+\/]{200,}={0,2}/},
+    # Slice 110. A skill may ship a Lua script the sandbox runs, and the sandbox removes these
+    # globals, so a script naming one either predates the sandbox or is testing its walls. Either
+    # way the reviewer should see it before the skill is promoted.
+    #
+    # It is a **reviewer's signal, not a control**: the control is that the globals are absent at
+    # run time, which `test/trinity/sandbox/sandbox_test.exs` asserts one by one. A scanner rule
+    # that was the only thing standing between a script and `os.execute` would be a bad control,
+    # because it is a regular expression over source text and can be got around. This one is here
+    # so that a human approving a skill is told what the script is reaching for.
+    {"sandbox_escape", "high",
+     ~r/\b(os\.(execute|exit|getenv|remove|rename|tmpname)|io\.(open|write|lines|read)|require|loadfile|loadstring|dofile|package\.(path|cpath|loadlib))\s*\(/}
   ]
 
   @doc "The rules: `{name, severity}`."

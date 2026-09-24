@@ -16,7 +16,7 @@ defmodule Trinity.Memory.CompactionTest do
       assert Tokens.estimate("abc") == 1
       assert Tokens.estimate("abcd") == 2
       assert Tokens.estimate(%{role: "user", content: "abcdefgh"}) == 7
-      assert Tokens.context_tokens("fake:chat") == 6_000
+      assert Tokens.context_tokens("fake:chat") == 10_000
       assert Tokens.context_tokens("mock:chat") == Tokens.default_context()
       assert Tokens.thresholds(6_000) == %{soft: 4_200, hard: 5_400}
 

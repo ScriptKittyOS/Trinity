@@ -25,7 +25,10 @@ defmodule TrinityWeb.CompactionLiveTest do
     id: id
   } do
     {:ok, view, _} = live(conn, ~p"/s/#{id}")
-    assert has_element?(view, "#context[data-window='6000']")
+    # The window comes from the registry rather than being typed here, so resizing the test
+    # model does not silently break an assertion about something else.
+    window = Trinity.Memory.Tokens.context_tokens("fake:chat")
+    assert has_element?(view, "#context[data-window='#{window}']")
     [used] = Regex.run(~r/data-used="(\d+)"/, render(view), capture: :all_but_first)
     before = String.to_integer(used)
     Fake.script(script_deltas(20, "word "))
@@ -38,7 +41,7 @@ defmodule TrinityWeb.CompactionLiveTest do
     _ = collect(id, &match?({:assistant_message, _}, &1), 5_000)
     [after_used] = Regex.run(~r/data-used="(\d+)"/, render(view), capture: :all_but_first)
     assert String.to_integer(after_used) > before
-    assert render(view) =~ "context #{after_used} / 6000"
+    assert render(view) =~ "context #{after_used} / #{window}"
   end
 
   test "a compaction row renders as a card naming its range; the originals stay on the page", %{

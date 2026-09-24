@@ -40,7 +40,9 @@ config :trinity, :tools,
     Trinity.Tools.Memory,
     Trinity.Tools.Shell.Run,
     # Slice 080: delegation to a child session.
-    Trinity.Tools.Delegate
+    Trinity.Tools.Delegate,
+    # Slice 110: a Lua script in the in-VM sandbox.
+    Trinity.Sandbox.Tool
   ],
   toolsets: %{
     core: ["echo", "sleep", "crash", "big", "write_note"],
@@ -79,9 +81,25 @@ config :trinity, :llm,
       model: "chat",
       caps: [:stream, :tools, :json],
       price: %{input: 1.0, output: 2.0},
-      # Slice 023: a small window so a long fake conversation crosses the thresholds (the fourteen
-      # tools' schemas alone are about 1,140 estimated tokens of every request).
-      context_tokens: 6_000
+      # A small window so a long fake conversation crosses the thresholds. The number is a balance
+      # and both sides of it are measured, because the first version of this comment was written
+      # when it was not.
+      #
+      # **Below** it: the tool definitions are in every request and cannot be compacted away. That
+      # comment said "the fourteen tools' schemas alone are about 1,140 estimated tokens"; there are
+      # now 24 tools at 3,516 tokens, and at a 6,000 window (soft 4,200) the baseline request had
+      # reached 4,228. Every session was therefore over the soft threshold before anyone said
+      # anything, so an ordinary two-turn test spent a scripted model response on a compaction and
+      # failed somewhere unrelated. Registering one tool at slice 110 is what crossed it.
+      #
+      # **Above** it: `Trinity.Memory.CompactionTest` needs a 200-turn conversation to exceed the
+      # soft threshold, and its naive prompt measures 9,298 tokens, so the soft threshold has to
+      # stay below that.
+      #
+      # 10,000 puts soft at 7,000: the tool surface is half of it rather than 84%, there is room for
+      # a conversation, and 9,298 still crosses it. Re-measure both numbers before changing this,
+      # rather than adjusting it until the suite goes green.
+      context_tokens: 10_000
     },
     %{
       id: "fake:embed",
