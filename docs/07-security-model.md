@@ -377,6 +377,33 @@ conversation state is a gate an attacker can argue with, and the argument does n
 a person: it has to move one boolean. Keeping the decision blind to the conversation is what makes
 prompt injection a problem about what is *proposed* rather than about what is *authorized*.
 
+## Context tightens, and cannot loosen (Slice 028, as built)
+
+`Trinity.Permissions.Policy.State` is a one-way modifier applied **after** the gate has decided and
+never instead of it. A state raises what a call requires. No state changes the tool's tier, which
+stays a function of the tool's name, and no state can turn a refusal into a permission.
+
+The constraint is in the types rather than in a review. `requires/1` returns `:ask` or `:deny` and
+has no clause that can return `:allow`, so no state is ever a licence; `tighten/2` takes the
+strictest of the gate's decision and every active state's requirement, so adding a state can only
+move the result one way. The test is exhaustive over every decision, every subset of the state set
+and every ordering, because a modifier that happened to tighten for the cases someone thought of
+would pass an example test.
+
+**Why one-way is the design and not a preference.** Every state is derived from something an
+attacker may be able to influence: whether the turn has read untrusted content, whether a budget is
+exhausted, whether anyone is at the machine. If any of those could widen authority, the useful move
+would be to arrange the state rather than to argue with the gate, and arranging state is quieter.
+
+This is the second axis of attenuation in the tree. Slice 070 caps by **surface**: a messaging
+channel may approve less than the desktop. Slice 028 caps by **context**. Both are applied after the
+gate's own decision, and both name what tightened in the basis the receipt records.
+
+The state set is closed, and an atom outside it is a refusal rather than a no-op. Of the four,
+`:over_budget` is measured today, from the slice 090 cost ledger in `Trinity.Tools.Runner`.
+`:receipts_degraded`, `:untrusted_context` and `:unattended` are defined with no producer yet and are
+named here rather than omitted, because the gap being stated is what lets someone close it.
+
 ## Data at rest
 
 - SQLite file under the OS data dir with 0600 perms. Optional at-rest encryption is a later slice (SQLCipher via exqlite build flag), noted rather than planned.
