@@ -24,6 +24,33 @@ evidence for each increment is retained by the maintainers and summarised here.
 
 ## 2026-09-24
 
+### `slice/027` — The authority census, stated and published
+The set of things that can cause an effect is now one generated file,
+[`docs/effects-catalog.md`](docs/effects-catalog.md), with a row per core tool giving its risk tier,
+its effect class, whether its name is in the closed external-effect catalogue and whether it can
+raise its own requirement. The version is a SHA-256 over the rows, so two trees with the same effect
+surface carry the same version and nobody types a number. The check runs in the release check the
+gate already runs, and it is proven to fail rather than assumed to: changing one cell of the
+committed artifact turns the build red.
+
+Two censuses that already existed became falsifiable. The callers of the effect membrane now carry
+the reason each one is allowed, so a third has something to argue against. A new census asserts that
+nothing in the permission, effect or authority path reads session state, holding a distinction worth
+stating: a session id is a scope key and narrows a grant, while what a session has been saying is
+state and would steer a decision. Every message is a place an injected instruction can sit, so a gate
+blind to the conversation keeps prompt injection a question about what is proposed rather than about
+what is authorised.
+
+Both censuses plant a real violation that they must find, and the discipline paid for itself here:
+the new census's first pattern could not see a fully qualified call, and without the plant it would
+have reported the decision path clean while measuring nothing.
+
+Derived from the *Drosophila* male CNS connectome research of 2026-09-13, which Trinity uses as a
+source of architectural arguments rather than of algorithms. What it argues here is that authority to
+act should rest with a population small enough to count, that state which tracks what is happening
+should not be the thing that commands, and that the inventory should be published rather than
+described.
+
 ### `slice/090.1` — Observability and the cost ledger
 Every LLM call, tool call, approval, session transition, gateway message and budget refusal emits a
 `:telemetry` event from a single catalogue (`docs/telemetry.md`), written before the emitters rather
