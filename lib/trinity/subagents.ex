@@ -122,6 +122,41 @@ defmodule Trinity.Subagents do
     end)
   end
 
+  @doc """
+  Whether a child is still working.
+
+  Asked of the process, not of the row. `SessionRow.status` is the session's lifecycle - active,
+  archived, compacted - and a finished subagent is still `"active"` forever, so a panel that reads
+  it reports every child as running until somebody archives it. The screenshot for this slice's
+  AC7 is what caught that: four children, three of them long finished, all labelled active with a
+  stop button each.
+  """
+  @spec running?(String.t()) :: boolean()
+  def running?(session_id) do
+    # `Sessions.state/1` answers with a view map, not the bare state atom. Comparing the map to
+    # `:idle` is never equal, so the first version of this reported every child as running and the
+    # panel's labels were wrong in the opposite direction from the bug it was written to fix.
+    case Sessions.state(session_id) do
+      %{state: state} -> state != :idle
+      _ -> false
+    end
+  rescue
+    _ -> false
+  catch
+    :exit, _ -> false
+  end
+
+  @doc """
+  A short, distinguishing form of a session id.
+
+  The **tail**, not the head. These ids are UUIDv7, which is time-ordered, so children created in
+  the same second share their leading bytes: measured, four ids generated together had one
+  distinct 8-character prefix between them. A short id whose whole job is to tell two rows apart
+  has to come from the random end.
+  """
+  @spec short_id(String.t()) :: String.t()
+  def short_id(id) when is_binary(id), do: String.slice(id, -8, 8)
+
   @doc "The children of a session, newest first."
   @spec children(String.t()) :: [Sessions.SessionRow.t()]
   def children(parent_session_id) do

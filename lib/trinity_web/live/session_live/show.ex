@@ -100,7 +100,7 @@ defmodule TrinityWeb.SessionLive.Show do
     |> assign(status: status, draft: text, last_seq: last_seq)
     |> assign(
       approvals: Permissions.pending(id),
-      subagents: Trinity.Subagents.children(id),
+      subagents: subagent_panel(id),
       pending_count: length(Permissions.pending(:all))
     )
     |> assign_context(rows)
@@ -136,6 +136,15 @@ defmodule TrinityWeb.SessionLive.Show do
   defp content(nil), do: nil
   defp content(%Message{content: content}), do: content
 
+  # Each child paired with whether it is still working, asked of its process rather than read from
+  # its row: SessionRow.status is the session lifecycle and stays "active" long after a subagent
+  # has finished.
+  defp subagent_panel(session_id) do
+    session_id
+    |> Trinity.Subagents.children()
+    |> Enum.map(&{&1, Trinity.Subagents.running?(&1.id)})
+  end
+
   # Slice 080 AC7. The subagent tree for this session: what was delegated, how each child ended,
   # and a way to stop one. It renders nothing when there are none, because an empty panel on every
   # session teaches people to ignore the space it occupies.
@@ -148,20 +157,20 @@ defmodule TrinityWeb.SessionLive.Show do
         {gettext("Subagents")} ({length(@panel)})
       </h2>
       <ul class="flex flex-col gap-1">
-        <li :for={child <- @panel} class="flex items-center gap-2 text-sm">
+        <li :for={{child, running?} <- @panel} class="flex items-center gap-2 text-sm">
           <span class={[
             "rounded px-1.5 py-0.5 font-mono text-meta",
-            child.status == "active" && "bg-warning/20 text-warning",
-            child.status != "active" && "bg-base-200 opacity-70"
+            running? && "bg-warning/20 text-warning",
+            !running? && "bg-base-200 opacity-70"
           ]}>
-            {child.status}
+            {if running?, do: gettext("running"), else: gettext("done")}
           </span>
           <.link navigate={~p"/s/#{child.id}"} class="min-w-0 flex-1 truncate hover:underline">
             {child.title || gettext("untitled brief")}
           </.link>
-          <span class="font-mono text-meta opacity-50">{String.slice(child.id, 0, 8)}</span>
+          <span class="font-mono text-meta opacity-50">{Trinity.Subagents.short_id(child.id)}</span>
           <button
-            :if={child.status == "active"}
+            :if={running?}
             type="button"
             phx-click="cancel_subagent"
             phx-value-id={child.id}
@@ -193,7 +202,7 @@ defmodule TrinityWeb.SessionLive.Show do
   # child cancelled while its own children run leaves work nobody is waiting for.
   def handle_event("cancel_subagent", %{"id" => id}, socket) do
     _ = Trinity.Subagents.cancel_subtree(id)
-    {:noreply, assign(socket, subagents: Trinity.Subagents.children(socket.assigns.session.id))}
+    {:noreply, assign(socket, subagents: subagent_panel(socket.assigns.session.id))}
   end
 
   def handle_event("cancel", _params, socket) do
