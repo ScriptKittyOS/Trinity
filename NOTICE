@@ -19,3 +19,24 @@ Unless required by applicable law or agreed to in writing, software distributed
 under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 CONDITIONS OF ANY KIND, either express or implied. See the License for the
 specific language governing permissions and limitations under the License.
+
+Third-party material in this repository
+---------------------------------------
+Trinity's dependencies and their licences are listed in THIRD_PARTY_LICENSES.md, which is
+generated from sbom.cdx.json, the CycloneDX bill of materials the quality gate produces on
+every commit. The two cannot disagree: they are the same data rendered twice.
+
+Two items are worth naming here because they are files in this repository rather than
+dependencies fetched at build time:
+
+  src-tauri/icons/*     Tauri Programme within The Commons Conservancy, MIT OR Apache-2.0.
+                        The output of `mix ex_tauri.install`, which copies Tauri's template
+                        icons. They are not this project's artwork and are not covered by
+                        the copyright above.
+
+  assets/vendor/*       Upstream authors, vendored unmodified, MIT. Listed per file in
+                        REUSE.toml.
+
+Per-file copyright and licensing for every file in this repository follows the REUSE
+Specification, version 3.3. `reuse lint` exits 0 on this tree and runs in continuous
+integration; the licence texts are in LICENSES/.

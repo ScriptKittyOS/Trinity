@@ -21,3 +21,38 @@ path = ["assets/vendor/**", "priv/static/**"]
 precedence = "override"
 SPDX-FileCopyrightText = "Upstream authors; vendored unmodified"
 SPDX-License-Identifier = "MIT"
+
+# Slice 120. Files that cannot carry a comment, or that came from somewhere else. Each block says
+# whose the files are; the second one is the reason this slice existed.
+
+[[annotations]]
+path = [".dockerignore", ".githooks/commit-msg", "src-tauri/.gitignore", "priv/gettext/**", "docs/assets/**", "docs/fips-leg/**", "test/support/mcp/*.txt", "NOTICE"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Sudo Apt Holdings LLC"
+SPDX-License-Identifier = "Apache-2.0"
+
+# **Not ours.** `src-tauri/icons/*` is the output of `mix ex_tauri.install`, which copies Tauri's
+# template icons; the commit that added them says so ("the generator's output, nothing else",
+# 2026-09-06). Claiming them for Sudo Apt Holdings would have been a false copyright notice in a
+# file whose whole purpose is to state copyright accurately, and a REUSE audit that assigned every
+# uncovered file to this project would have produced exactly that. Tauri is dual licensed, so the
+# expression is the one its own sources carry.
+[[annotations]]
+path = ["src-tauri/icons/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "Tauri Programme within The Commons Conservancy"
+SPDX-License-Identifier = "MIT OR Apache-2.0"
+
+# `root.html.heex`. The heex formatter joins the last comment on the line onto `<!DOCTYPE html>`,
+# so a tag there is parsed as `Apache-2.0 --%> <!DOCTYPE html>`, which is not a licence expression.
+# Measured: putting the doctype on its own line, with or without a blank line, is undone by
+# `mix format` every time; the sibling `consent.html.heex` has the identical header and passes only
+# because nothing follows it. The file's own tags are wrapped in `REUSE-IgnoreStart`/`IgnoreEnd`
+# there, so the tool does not read them, and the annotation below is what it reads instead. The
+# tags stay in the file because a reader opening it should still see them, and the marker that now
+# takes the doctype's company carries no meaning to break.
+[[annotations]]
+path = ["lib/trinity_web/components/layouts/root.html.heex"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Sudo Apt Holdings LLC"
+SPDX-License-Identifier = "Apache-2.0"
