@@ -24,6 +24,30 @@ evidence for each increment is retained by the maintainers and summarised here.
 
 ## 2026-09-24
 
+### `slice/028` — Context can tighten the gate, and can never loosen it
+A state raises what a call requires. It cannot change the tool's risk tier, which stays a function of
+the tool's name, and it cannot turn a refusal into a permission. The constraint is in the types
+rather than in a review: the function mapping a state to what it requires has no clause that can
+return "allow", so no state is ever a licence, and the combinator takes the strictest of the gate's
+own decision and every active state, so adding a state moves the result one way only.
+
+One-way is the design and not a preference. Every state is derived from something an attacker may be
+able to influence: whether the turn has read untrusted content, whether a budget is exhausted,
+whether anyone is at the machine. If any of those could widen authority, the useful move would be to
+arrange the state rather than to argue with the gate, and arranging state is quieter.
+
+This is the second axis of attenuation in the tree. Slice 070 caps by surface, so that a messaging
+channel may approve less than the desktop; this caps by context. Both are applied after the gate's
+own decision rather than instead of it, and both name what tightened in the basis a receipt records.
+
+The test is exhaustive rather than sampled: every decision against every subset of the state set in
+every ordering, so order independence is asserted directly and there is no seed to be unlucky with.
+End to end, a configured budget and a real ledger row deny a real filesystem read, with the budget
+named as the reason and the tool's tier unmoved.
+
+Derived from the *Drosophila* male CNS connectome research of 2026-09-13: the neuromodulators are
+global gain rather than rewiring. The wiring is fixed and the gain is state.
+
 ### `slice/027` — The authority census, stated and published
 The set of things that can cause an effect is now one generated file,
 [`docs/effects-catalog.md`](docs/effects-catalog.md), with a row per core tool giving its risk tier,
