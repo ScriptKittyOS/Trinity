@@ -30,6 +30,8 @@ defmodule Trinity do
         # redaction filter is exported because the application installs it as a primary Logger
         # filter at boot.
         Telemetry,
+        Telemetry.Activity,
+        Telemetry.Costs,
         Telemetry.Redaction,
         Repo,
         Repo.Receipts,

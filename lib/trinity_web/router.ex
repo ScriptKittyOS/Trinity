@@ -46,6 +46,8 @@ defmodule TrinityWeb.Router do
       live "/permissions", PermissionsLive, :index
       # Slice 031: full-text search over every message.
       live "/search", SearchLive, :index
+      # Slice 090: what Trinity has been doing, and what it has cost.
+      live "/activity", ActivityLive, :index
       # Slice 034: settings, with the export as a download.
       live "/settings", SettingsLive, :index
       get "/settings/export.tar.gz", ExportController, :download
@@ -102,7 +104,11 @@ defmodule TrinityWeb.Router do
     scope "/dev" do
       pipe_through :browser
 
-      live_dashboard "/dashboard", metrics: TrinityWeb.Telemetry, csp_nonce_assign_key: :csp_nonce
+      live_dashboard "/dashboard",
+        metrics: TrinityWeb.Telemetry,
+        csp_nonce_assign_key: :csp_nonce,
+        # Slice 090: which session processes are alive and what state each machine is in.
+        additional_pages: [trinity_sessions: TrinityWeb.Dashboard.SessionsPage]
     end
   end
 end

@@ -33,6 +33,9 @@ defmodule Trinity.Application do
       desktop_children() ++
         [
           TrinityWeb.Telemetry,
+          # Slice 090: the Activity page's bounded buffer. Early, so it is listening before
+          # anything it would want to have recorded has happened.
+          Trinity.Telemetry.Activity,
           # Slice 010: one node per data directory. Before the Repo, so a refused boot has
           # opened no database file; the reason names the holder's OS pid and mode.
           {Trinity.DataDir.Lock, dir: lock_dir(), mode: mode()},
