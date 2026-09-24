@@ -185,7 +185,9 @@ defmodule Trinity.Telemetry do
       [:trinity, :session, :transition],
       [:trinity, :gateway, :inbound],
       [:trinity, :gateway, :outbound],
-      [:trinity, :budget, :exceeded]
+      [:trinity, :budget, :exceeded],
+      # Slice 029: a server's tool definition changed since the owner approved it.
+      [:trinity, :tool, :surface_drift]
     ]
   end
 end

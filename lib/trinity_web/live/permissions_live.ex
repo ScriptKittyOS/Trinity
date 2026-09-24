@@ -12,6 +12,7 @@ defmodule TrinityWeb.PermissionsLive do
 
   alias Trinity.Permissions
   alias Trinity.Permissions.Approval
+  alias Trinity.Tools.{DefinitionDigest, Surface}
 
   @impl true
   def mount(_params, _session, socket) do
@@ -23,8 +24,31 @@ defmodule TrinityWeb.PermissionsLive do
     assign(socket,
       pending: Permissions.pending(:all),
       approvals: Permissions.list_approvals(limit: 200),
-      rules: Permissions.list_rules()
+      rules: Permissions.list_rules(),
+      # Slice 029: tools held because a server changed their definition after the owner approved
+      # them. They are here rather than on /mcp because this is the page Trinity asks the owner
+      # things on, and a notice on a page visited only when adding a server is a notice missed.
+      drifting: Surface.drifting()
     )
+  end
+
+  @doc false
+  def drift_changes(%Surface{definition: was, pending_definition: now}),
+    do: DefinitionDigest.changes(was || %{}, now || %{})
+
+  # A tool definition arrived as JSON and is read by a person as JSON. Rendering a schema with
+  # `inspect/1` makes the reader parse Elixir map syntax to answer a question about a JSON
+  # document, which is work this page should be doing. Strings stay bare: quoting a description
+  # buys nothing and makes the diff harder to read.
+  @doc false
+  def drift_value(value) when is_binary(value), do: value
+  def drift_value(nil), do: "(absent)"
+
+  def drift_value(value) do
+    case Jason.encode(value) do
+      {:ok, json} -> json
+      {:error, _} -> inspect(value)
+    end
   end
 
   @impl true
@@ -49,6 +73,34 @@ defmodule TrinityWeb.PermissionsLive do
 
   def handle_event("approval_pattern", %{"approval_id" => id, "pattern" => pattern}, socket),
     do: {:noreply, assign(socket, patterns: Map.put(socket.assigns.patterns, id, pattern))}
+
+  # Slice 029. Accepting makes the changed definition the new baseline, so the tool registers on
+  # the next listing. Dismissing clears the notice and leaves the baseline standing, so the tool
+  # stays held and the next listing raises it again: dismissing is not deciding.
+  def handle_event("drift_accept", %{"server" => server, "tool" => tool}, socket) do
+    case Surface.get(server, tool) do
+      %Surface{pending_definition: nil} ->
+        {:noreply, load(socket)}
+
+      %Surface{pending_definition: pending} ->
+        {:ok, _} = Surface.accept(server, tool, pending)
+
+        {:noreply,
+         socket
+         |> put_flash(:info, gettext("Accepted. The tool loads on the next listing."))
+         |> load()}
+
+      nil ->
+        {:noreply, load(socket)}
+    end
+  end
+
+  def handle_event("drift_dismiss", %{"server" => server, "tool" => tool}, socket) do
+    Surface.dismiss(server, tool)
+
+    {:noreply,
+     socket |> put_flash(:info, gettext("Left held. The tool stays unavailable.")) |> load()}
+  end
 
   # Slice 060: a server's input request, answered from the card's form; the answer travels
   # with the decision, and the retry the Session makes carries it to the server.
@@ -90,6 +142,60 @@ defmodule TrinityWeb.PermissionsLive do
         phx-hook="Shortcuts"
         class="mx-auto flex h-full max-w-4xl flex-col gap-6 overflow-y-auto px-4 py-6"
       >
+        <section :if={@drifting != []} id="drift" class="flex flex-col gap-3">
+          <h2 class="text-lg font-semibold">{gettext("Tool definitions that changed")}</h2>
+          <p class="text-sm opacity-70">
+            {gettext(
+              "These tools are held and cannot be called. A server changed what they say after you approved them."
+            )}
+          </p>
+
+          <article
+            :for={d <- @drifting}
+            id={"drift-#{d.server}-#{d.tool}"}
+            class="rounded-box border border-warning bg-warning/5 p-3"
+          >
+            <header class="flex items-baseline gap-2">
+              <span class="font-mono text-sm">{d.server}:{d.tool}</span>
+              <span class="flex-1"></span>
+              <span class="text-meta opacity-60">
+                {gettext("held since")} {Calendar.strftime(d.pending_since, "%Y-%m-%d %H:%M")}
+              </span>
+            </header>
+
+            <dl class="mt-2 flex flex-col gap-2">
+              <div :for={{field, was, now} <- drift_changes(d)} class="text-sm">
+                <dt class="font-mono text-meta opacity-70">{field}</dt>
+                <dd class="mt-0.5 flex flex-col gap-0.5 font-mono text-meta">
+                  <span class="text-error">- {drift_value(was)}</span>
+                  <span class="text-success">+ {drift_value(now)}</span>
+                </dd>
+              </div>
+            </dl>
+
+            <div class="mt-3 flex gap-2">
+              <button
+                type="button"
+                phx-click="drift_accept"
+                phx-value-server={d.server}
+                phx-value-tool={d.tool}
+                class="btn btn-sm"
+              >
+                {gettext("Accept the change")}
+              </button>
+              <button
+                type="button"
+                phx-click="drift_dismiss"
+                phx-value-server={d.server}
+                phx-value-tool={d.tool}
+                class="btn btn-ghost btn-sm"
+              >
+                {gettext("Leave it held")}
+              </button>
+            </div>
+          </article>
+        </section>
+
         <section :if={@pending != []} class="flex flex-col gap-3">
           <h2 class="text-lg font-semibold">{gettext("Waiting for a decision")}</h2>
           <.approval_card :for={a <- @pending} approval={a} pattern={Map.get(@patterns, a.id)} />

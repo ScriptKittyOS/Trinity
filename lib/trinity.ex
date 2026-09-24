@@ -67,6 +67,10 @@ defmodule Trinity do
         Tools.Context,
         Tools.Result,
         Tools.Untrusted,
+        # Slice 029: the bridge is where a server's listed definition enters the tree, so the
+        # bridge is where a definition that changed since the owner approved it is caught.
+        Tools.DefinitionDigest,
+        Tools.Surface,
         # Slice 061: the MCP server reads the exported entries' definitions and runs calls
         # through the membrane's runner.
         Tools.Registry,
