@@ -83,17 +83,29 @@ defmodule Trinity.Permissions do
     decision
   end
 
-  @doc "The decision and the layer that made it (slice 030); `\"policy\"` for a policy that answers a bare decision."
+  @doc """
+  The decision and the layer that made it (slice 030); `"policy"` for a policy that answers a bare
+  decision.
+
+  Slice 028: `state:` is a list of `Trinity.Permissions.Policy.State` kinds the caller has measured.
+  They are applied **after** the policy has decided and never instead of it, and they can only make
+  the result stricter. The basis names the ones that actually moved the decision, so a receipt can
+  say why a call needed more than its tier implies rather than that some state was present.
+  """
   @spec decide_with_basis(String.t() | nil, String.t(), map(), keyword()) ::
           {decision(), String.t()}
   def decide_with_basis(session_id, tool, args, opts \\ []) do
-    case impl().decide(session_id, tool, args, opts) do
-      {decision, basis} when decision in [:allow, :deny, :ask] and is_binary(basis) ->
-        {decision, basis}
+    {decision, basis} =
+      case impl().decide(session_id, tool, args, opts) do
+        {decision, basis} when decision in [:allow, :deny, :ask] and is_binary(basis) ->
+          {decision, basis}
 
-      decision when decision in [:allow, :deny, :ask] ->
-        {decision, "policy"}
-    end
+        decision when decision in [:allow, :deny, :ask] ->
+          {decision, "policy"}
+      end
+
+    {tightened, applied} = Policy.State.tighten(decision, Keyword.get(opts, :state, []))
+    {tightened, Policy.State.basis(basis, applied)}
   end
 
   @doc "The fingerprint of a call as this session would bind it."

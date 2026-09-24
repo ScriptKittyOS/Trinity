@@ -129,11 +129,29 @@ defmodule Trinity.Tools.Runner do
     case Permissions.decide_with_basis(ctx.session_id, name, args,
            persona: ctx.persona,
            cwd: ctx.cwd,
-           escalate: escalation(entry, args, ctx)
+           escalate: escalation(entry, args, ctx),
+           state: state(ctx)
          ) do
       {:allow, basis} -> {:allow, fp, basis}
       {:deny, basis} -> {:deny, fp, basis}
       {:ask, basis} -> {:ask, ask(ctx, entry, args), fp, basis}
+    end
+  end
+
+  # Slice 028: the context states this call is made under. They can only make the gate stricter
+  # (`Trinity.Permissions.Policy.State`), so measuring one wrongly costs an unnecessary approval
+  # and never an unearned one, which is why measuring here rather than in the policy is safe.
+  #
+  # Only `:over_budget` has a producer today. `:receipts_degraded` would be read from
+  # `Trinity.Receipts.Alarm`, which is a boundary this one does not depend on; `:untrusted_context`
+  # and `:unattended` need a turn-scoped signal the session does not yet carry. The set is closed
+  # and the gaps are named rather than left as an empty list nobody questions.
+  defp state(ctx) do
+    persona_id = ctx.persona && ctx.persona.id
+
+    case Trinity.Telemetry.Costs.over(ctx.session_id, persona_id) do
+      [] -> []
+      _over -> [:over_budget]
     end
   end
 
