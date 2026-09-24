@@ -129,6 +129,23 @@ defmodule Trinity.LLM do
   end
 
   defp record(entry, kind, usage, opts) do
-    {:ok, _} = Usage.record(entry, kind, usage, Keyword.take(opts, [:session_id]))
+    {:ok, row} = Usage.record(entry, kind, usage, Keyword.take(opts, [:session_id]))
+
+    # Slice 090. The row is the ledger and this is the signal: the same call, told twice, to two
+    # places with different obligations. The row must survive a restart, so the code that made the
+    # call writes it; the event must not slow the turn down, so it carries counts and no content
+    # (docs/telemetry.md). Emitted after the row, so a handler that raised could never cost the
+    # ledger a write.
+    Trinity.Telemetry.llm_stop(%{
+      model: row.model_id,
+      provider: row.provider,
+      session_id: row.session_id,
+      kind: kind,
+      input_tokens: row.input_tokens,
+      output_tokens: row.output_tokens,
+      cost_usd: row.cost_usd
+    })
+
+    {:ok, row}
   end
 end

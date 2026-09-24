@@ -25,6 +25,14 @@ defmodule Trinity do
         Vault,
         # Slice 080: the delegate tool and the session view's subagent panel call it.
         Subagents,
+        # Slice 090: every sub-boundary that emits an event names it through this module rather
+        # than calling :telemetry directly, so an event name is changed in one place. The
+        # redaction filter is exported because the application installs it as a primary Logger
+        # filter at boot.
+        Telemetry,
+        Telemetry.Activity,
+        Telemetry.Costs,
+        Telemetry.Redaction,
         Repo,
         Repo.Receipts,
         UUID,

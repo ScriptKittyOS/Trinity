@@ -230,6 +230,21 @@ defmodule Trinity.Subagents do
   # returns before the turn has run. Reused rather than rewritten, because writing it again is
   # writing that bug again.
   defp run(child, brief, budget, restarts) do
+    # Every call into the child is a `gen_statem.call`, and a call into a process that dies exits
+    # the *caller*. Without this, killing a child kills whoever called `delegate/3`, which is the
+    # opposite of what AC4 is for: the parent is meant to be told that its child died, not to die
+    # with it. Caught here rather than at each call site so no future call can reintroduce it.
+    #
+    # Found by the Postgres leg. On SQLite the kill happened to land after the call returned; on
+    # Postgres the timing differed and it landed during, which is the same race with a different
+    # coin toss rather than a different bug.
+    start(child, brief, budget, restarts)
+  catch
+    :exit, reason ->
+      %{session_id: child.id, status: :error, text: "", reason: {:child_died, reason}}
+  end
+
+  defp start(child, brief, budget, restarts) do
     with :ok <- Sessions.subscribe(child.id),
          {:ok, pid} <- Sessions.ensure_started(child.id),
          :ok <- drain_start(child.id),

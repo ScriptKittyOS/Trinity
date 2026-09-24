@@ -24,10 +24,18 @@ defmodule Trinity.Application do
 
   @impl true
   def start(_type, _args) do
+    # Slice 090. Installed before anything can log, and as a primary filter so it applies to every
+    # handler rather than to one: a dependency that logs a request header does not know this
+    # project's rules about key material, and the filter is the last line for exactly that case.
+    install_log_redaction()
+
     children =
       desktop_children() ++
         [
           TrinityWeb.Telemetry,
+          # Slice 090: the Activity page's bounded buffer. Early, so it is listening before
+          # anything it would want to have recorded has happened.
+          Trinity.Telemetry.Activity,
           # Slice 010: one node per data directory. Before the Repo, so a refused boot has
           # opened no database file; the reason names the holder's OS pid and mode.
           {Trinity.DataDir.Lock, dir: lock_dir(), mode: mode()},
@@ -109,6 +117,18 @@ defmodule Trinity.Application do
   # The lock lives in the data directory the database defaults to. A deployment that points
   # DATABASE_PATH elsewhere still locks the data directory, which is the thing two instances
   # would otherwise share; the test environment points it at a temporary directory.
+  defp install_log_redaction do
+    :logger.add_primary_filter(
+      :trinity_redaction,
+      {&Trinity.Telemetry.Redaction.filter/2, nil}
+    )
+  rescue
+    # Already installed (a release that restarts the application, or a test that starts it twice).
+    _ -> :ok
+  catch
+    _, _ -> :ok
+  end
+
   defp lock_dir do
     Application.get_env(:trinity, Trinity.DataDir.Lock, [])[:dir] ||
       Trinity.Paths.ensure_data_dir()

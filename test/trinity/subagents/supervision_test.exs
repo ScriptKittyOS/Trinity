@@ -29,6 +29,26 @@ defmodule Trinity.Subagents.SupervisionTest do
       assert Subagents.default_restarts() == 0
     end
 
+    test "the caller of delegate/3 survives its child being killed" do
+      # The regression the Postgres leg found. Every call into a child is a gen_statem.call, and a
+      # call into a process that dies exits the caller; on SQLite the kill happened to land after
+      # the call returned and the test passed for that reason alone.
+      Fake.scripts([[{:text_delta, "working "}, {:sleep, 5_000}, {:done, :stop}]])
+      parent = parent!()
+
+      caller =
+        Task.Supervisor.async_nolink(Trinity.LLM.TaskSupervisor, fn ->
+          Subagents.delegate(parent.id, "a brief whose child dies mid-call")
+        end)
+
+      child_id = await_child(parent.id)
+      {:ok, pid} = Sessions.ensure_started(child_id)
+      Process.exit(pid, :kill)
+
+      # A result, not an exit: the parent is told its child died rather than dying with it.
+      assert {:ok, %{status: :error, reason: {:child_died, _}}} = Task.await(caller, 30_000)
+    end
+
     test "a child killed mid-turn reports the death to its parent" do
       # The fake's own {:sleep, ms} keeps the turn open, so the kill lands mid-turn rather than
       # racing a turn that has already finished. A script that merely omits its terminator does
@@ -37,7 +57,13 @@ defmodule Trinity.Subagents.SupervisionTest do
       Fake.scripts([[{:text_delta, "working "}, {:sleep, 5_000}, {:done, :stop}]])
       parent = parent!()
 
-      task = Task.async(fn -> Subagents.delegate(parent.id, "a brief that gets interrupted") end)
+      # Task.async links, so if delegate/3 exited when the child died the test process would die
+      # with it rather than report. async_nolink is what makes the assertion below reachable when
+      # the library is wrong, which is the state this test is meant to detect.
+      task =
+        Task.Supervisor.async_nolink(Trinity.LLM.TaskSupervisor, fn ->
+          Subagents.delegate(parent.id, "a brief that gets interrupted")
+        end)
 
       # Wait for the child to exist, then kill its process.
       child_id = await_child(parent.id)
