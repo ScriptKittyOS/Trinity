@@ -69,6 +69,28 @@ defmodule Trinity.TelemetryTest do
       refute inspect(stop_meta) =~ secret
     end
 
+    test "a completed model call emits llm.call.stop with its tokens and its cost", %{ref: ref} do
+      {:ok, session} =
+        Sessions.create_session(%{persona_id: Sessions.default_persona().id, title: "t"})
+
+      Trinity.LLM.Providers.Fake.scripts([script_deltas(2, "hello ")])
+      {:ok, _pid} = Sessions.ensure_started(session.id)
+      {:ok, _} = Sessions.send_user_message(session.id, "say hello")
+
+      assert_receive {^ref, [:trinity, :llm, :call, :stop], measurements, meta}, 5_000
+
+      assert is_integer(measurements.input_tokens)
+      assert is_number(measurements.cost_usd)
+      assert meta.session_id == session.id
+      assert is_binary(meta.model)
+
+      # The event describes the call the ledger row describes, so a dashboard total and a bill
+      # cannot disagree by construction.
+      assert_in_delta measurements.cost_usd,
+                      Trinity.Telemetry.Costs.for_session(session.id),
+                      0.0001
+    end
+
     test "a session transition names where it went", %{ref: ref} do
       {:ok, session} =
         Sessions.create_session(%{persona_id: Sessions.default_persona().id, title: "t"})
@@ -119,6 +141,87 @@ defmodule Trinity.TelemetryTest do
       # about it: the point of the test is the guard's behaviour, not the compiler's opinion.
       outcome = String.to_atom("not" <> "_an_outcome")
       assert_raise FunctionClauseError, fn -> Telemetry.gateway_inbound("console", outcome) end
+    end
+  end
+
+  describe "AC5: a turn is a trace, without a tracing library" do
+    test "the events of one turn share a trace id and name a parent", %{ref: ref} do
+      {:ok, session} =
+        Sessions.create_session(%{persona_id: Sessions.default_persona().id, title: "t"})
+
+      Trinity.LLM.Providers.Fake.scripts([script_deltas(1, "hi ")])
+      {:ok, _pid} = Sessions.ensure_started(session.id)
+      {:ok, _} = Sessions.send_user_message(session.id, "hello")
+
+      assert_receive {^ref, [:trinity, :llm, :call, :stop], _, meta}, 5_000
+
+      assert is_binary(meta.trace_id)
+      assert byte_size(meta.trace_id) == 16
+      assert is_binary(meta.parent_span_id)
+    end
+
+    test "two turns are two traces, so a tree is one turn rather than all of them", %{ref: ref} do
+      {:ok, session} =
+        Sessions.create_session(%{persona_id: Sessions.default_persona().id, title: "t"})
+
+      Trinity.LLM.Providers.Fake.scripts([script_deltas(1, "a "), script_deltas(1, "b ")])
+      {:ok, _pid} = Sessions.ensure_started(session.id)
+
+      {:ok, _} = Sessions.send_user_message(session.id, "first")
+      assert_receive {^ref, [:trinity, :llm, :call, :stop], _, first}, 5_000
+
+      {:ok, _} = Sessions.send_user_message(session.id, "second")
+      assert_receive {^ref, [:trinity, :llm, :call, :stop], _, second}, 5_000
+
+      refute first.trace_id == second.trace_id
+    end
+
+    test "outside a trace an event carries no trace id, rather than an invented one" do
+      ref = make_ref()
+      me = self()
+      handler = "t3-#{System.unique_integer([:positive])}"
+
+      :telemetry.attach(
+        handler,
+        [:trinity, :approval, :requested],
+        fn _, m, md, _ -> send(me, {ref, m, md}) end,
+        nil
+      )
+
+      on_exit(fn -> :telemetry.detach(handler) end)
+
+      Telemetry.approval_requested("write_note", :write, "sess-1")
+
+      assert_receive {^ref, _, meta}
+      # A span with a trace id nothing else shares is noise wearing a tree's clothes.
+      refute Map.has_key?(meta, :trace_id)
+    end
+
+    test "a nested span names the enclosing one as its parent" do
+      ref = make_ref()
+      me = self()
+      handler = "t4-#{System.unique_integer([:positive])}"
+
+      :telemetry.attach_many(
+        handler,
+        Telemetry.catalogue(),
+        fn n, m, md, _ -> send(me, {ref, n, m, md}) end,
+        nil
+      )
+
+      on_exit(fn -> :telemetry.detach(handler) end)
+
+      Telemetry.trace(fn ->
+        outer = Telemetry.context()
+
+        Telemetry.span([:tool, :call], %{tool: "echo"}, fn -> {:ok, %{result: :ok}} end)
+
+        assert_receive {^ref, [:trinity, :tool, :call, :stop], _, meta}
+        assert meta.trace_id == outer.trace_id
+        assert meta.parent_span_id == outer.span_id
+        assert is_binary(meta.span_id)
+        refute meta.span_id == outer.span_id
+      end)
     end
   end
 

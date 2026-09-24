@@ -435,10 +435,18 @@ defmodule Trinity.Sessions.Session do
     ref = make_ref()
     me = self()
 
+    # Slice 090: one trace per turn. The task is where the model call and any tool calls happen, so
+    # the trace is opened around it and every event those emit shares its id and names its parent.
+    # A turn is therefore a tree in the activity buffer with no tracing library present, and a
+    # later exporter is an export step rather than a change to any emitter.
+    trace_id = Trinity.Telemetry.new_trace_id()
+
     %Task{pid: pid} =
       Task.Supervisor.async_nolink(sup, fn ->
-        result = LLM.stream(request, [session_id: id], &send(me, {:llm_event, ref, &1}))
-        send(me, {:llm_done, ref, result})
+        Trinity.Telemetry.trace([trace_id: trace_id], fn ->
+          result = LLM.stream(request, [session_id: id], &send(me, {:llm_event, ref, &1}))
+          send(me, {:llm_done, ref, result})
+        end)
       end)
 
     %{

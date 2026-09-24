@@ -84,6 +84,22 @@ problem the first time it carries an id.
 |---|---|---|
 | `[:trinity, :budget, :exceeded]` | `spent_usd`, `limit_usd` | `scope` (`:day`, `:session`, `:persona`), `scope_id` |
 
+## Traces: a turn is a tree, without a tracing library
+
+Every event emitted inside a turn carries `trace_id` and `parent_span_id`, and every span also
+carries its own `span_id`. One turn is one trace: the model call and any tool calls beneath it
+share an id and name the span that encloses them, so the activity buffer and the page can assemble
+a turn into a tree with nothing installed.
+
+Outside a trace, an event carries **no** trace id rather than an invented one. A span with an id
+nothing else shares is noise wearing a tree's clothes.
+
+**This is deliberately not OpenTelemetry**, and the reasoning is recorded in slice 090's NOTES
+along with the measurement behind it. In short: the events are the durable interface and an
+exporter is one consumer of them, so the linkage belongs here; and when an exporter is wanted, the
+parentage it needs is already in the metadata, which makes it an export step rather than a change
+to any emitter.
+
 ## Where they go
 
 - **LiveDashboard**, through `TrinityWeb.Telemetry`'s metrics.

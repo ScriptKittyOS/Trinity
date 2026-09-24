@@ -21,6 +21,53 @@ defmodule Trinity.Telemetry do
   require changing this module, which is the point of routing every event through it.
   """
 
+  ## Trace context. A turn's events share a trace id and name their parent, so the events of one
+  ## turn can be assembled into a tree without a tracing library being present.
+
+  @trace_key {__MODULE__, :trace}
+
+  @doc """
+  Runs `fun` with a fresh trace id in the calling process, so every event emitted under it shares
+  one and nests beneath it.
+
+  **Why the tree carries this rather than a tracing library.** The events are the durable
+  interface; an exporter is one consumer of them. Building the linkage here means a turn is already
+  a tree, in the buffer and on the page, with no dependency; and it means a later OpenTelemetry
+  bridge is a pure export step that changes no emitter, because the parentage it needs is already
+  in the metadata.
+  """
+  @spec trace(keyword(), (-> result)) :: result when result: term()
+  def trace(opts \\ [], fun) when is_function(fun, 0) do
+    previous = Process.get(@trace_key)
+    trace_id = Keyword.get(opts, :trace_id) || new_id()
+    Process.put(@trace_key, %{trace_id: trace_id, span_id: new_id(), parent_id: nil})
+
+    try do
+      fun.()
+    after
+      if previous, do: Process.put(@trace_key, previous), else: Process.delete(@trace_key)
+    end
+  end
+
+  @doc "The trace context in force in this process, or `nil` outside a trace."
+  @spec context() :: map() | nil
+  def context, do: Process.get(@trace_key)
+
+  @doc "A fresh trace id, for a caller that starts a trace in one process and runs it in another."
+  @spec new_trace_id() :: String.t()
+  def new_trace_id, do: new_id()
+
+  defp new_id, do: 8 |> :crypto.strong_rand_bytes() |> Base.encode16(case: :lower)
+
+  # Every event carries the trace it happened in, when there is one. Absent outside a trace rather
+  # than invented: a span with a trace id nothing else shares is noise wearing a tree's clothes.
+  defp with_trace(metadata) do
+    case context() do
+      nil -> metadata
+      %{trace_id: t, span_id: s} -> Map.merge(metadata, %{trace_id: t, parent_span_id: s})
+    end
+  end
+
   @doc """
   Wraps work in `:start` and `:stop`/`:exception` events under `[:trinity | name]`.
 
@@ -30,13 +77,18 @@ defmodule Trinity.Telemetry do
   """
   @spec span([atom()], map(), (-> {term(), map()})) :: term()
   def span(name, metadata, fun) when is_list(name) and is_map(metadata) do
-    :telemetry.span([:trinity | name], metadata, fun)
+    metadata = with_trace(Map.put(metadata, :span_id, new_id()))
+
+    :telemetry.span([:trinity | name], metadata, fn ->
+      {result, stop_meta} = fun.()
+      {result, Map.merge(metadata, stop_meta)}
+    end)
   end
 
   @doc "Emits one event with the measurements and metadata the catalogue lists for it."
   @spec emit([atom()], map(), map()) :: :ok
   def emit(name, measurements, metadata) when is_list(name) do
-    :telemetry.execute([:trinity | name], measurements, metadata)
+    :telemetry.execute([:trinity | name], measurements, with_trace(metadata))
   end
 
   ## The emitters. One function per catalogue entry, so a call site names an event rather than

@@ -191,6 +191,12 @@ config :trinity, TrinityWeb.Endpoint,
   secret_key_base: "PAlioLgquSvnIrD4YjwqUt4LEP1x1E5d56Z7KY/QhgmyRUFR9ynpk3oz/hITAYwN",
   server: true
 
+# Slice 090: the LiveDashboard routes are compiled in the test environment too. They are
+# `compile_env`-gated and were dev-only, which meant the custom sessions page had no test and no
+# way to be screenshotted without running a dev server against a dev database. A route that exists
+# only in the environment nothing tests is a route that breaks quietly.
+config :trinity, dev_routes: true
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 
