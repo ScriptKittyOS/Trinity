@@ -24,6 +24,32 @@ evidence for each increment is retained by the maintainers and summarised here.
 
 ## 2026-09-24
 
+### `slice/004` — Property-based testing, and the assertions it enables
+The canonicalisers, the argument validator, the tighten-only state modifier and the receipt chain are
+now exercised by generated input rather than only by chosen input. That matters most where the code
+answers "is this the same thing": a fingerprint decides whether an approval still matches the call
+being made, and a definition digest decides whether a server's tool is the one you approved. Both are
+wrong in the same two ways, saying different about two spellings of one value or same about two
+different values, and an example test covers the spellings somebody thought of, which is exactly the
+set an attacker will not use.
+
+The suite proves it can fail. A defect is planted and committed rather than described: a
+canonicaliser that concatenates its fields with no separator, which is stable, order-independent,
+looks right, and quietly identifies two different definitions whenever a boundary moves between
+adjacent fields. The example-style assertions all pass on it; generated input finds the collision.
+
+Running the properties wider than the build does immediately found a defect in one of them. It
+passed at the hundred cases the build runs and failed at three thousand, because it filtered for an
+absent key instead of constructing one. A property that has only ever run at the build's width is a
+property nobody has tested, and the convention now says so along with the command and the timeout a
+wide run needs.
+
+Chosen over two larger slices on the published criteria rather than on preference: the Open Source
+Security Foundation's gold tier asks for dynamic analysis enabling many assertions, Elixir has no
+focused fuzzing library, and property-based testing is the recognised equivalent. Statement coverage
+is unchanged at 80.31% and this work does not claim otherwise, since properties exercise existing
+lines harder rather than reaching new ones.
+
 ### `slice/120` — Open-source hygiene and governance, audited
 Every one of the 613 files in this repository now carries copyright and licence information, and
 `reuse lint` exits 0 against version 3.3 of the REUSE Specification. It did not before: there was no

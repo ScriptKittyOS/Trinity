@@ -219,6 +219,8 @@ defmodule Trinity.MixProject do
         # Slice 002: the CycloneDX bill of materials the gate generates. Dev and test only:
         # it produces a record about the build and ships in no artifact.
         {:sbom, "~> 0.11", only: [:dev, :test], runtime: false},
+        # Slice 004: generated input for the properties in test/property. Test only.
+        {:stream_data, "~> 1.4", only: [:test]},
         {:ex_doc, "~> 0.38", only: :dev, runtime: false},
         {:nimble_options, "~> 1.1"},
         # Slice 001 line 1, arm (a) recorded `only: :dev`. **Corrected at G4**, and the reason is
