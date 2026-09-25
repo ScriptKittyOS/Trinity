@@ -28,7 +28,12 @@ defmodule TrinityWeb.PermissionsLive do
       # Slice 029: tools held because a server changed their definition after the owner approved
       # them. They are here rather than on /mcp because this is the page Trinity asks the owner
       # things on, and a notice on a page visited only when adding a server is a notice missed.
-      drifting: Surface.drifting()
+      drifting: Surface.drifting(),
+      # Slice 042. These are decisions about the *population* of future asks, and they are rendered
+      # in their own sections precisely so they are read in a calm moment rather than beside a
+      # pending one. Nothing here reaches the approval card, which a census asserts.
+      proposals: Permissions.proposals(),
+      divergences: Permissions.divergences()
     )
   end
 
@@ -95,6 +100,31 @@ defmodule TrinityWeb.PermissionsLive do
     end
   end
 
+  # Slice 042: accepting a proposal writes an ordinary rule through the ordinary path. There is no
+  # second kind of rule, and the owner could have written this one by hand.
+  def handle_event("proposal_accept", %{"tool" => tool, "decision" => decision}, socket) do
+    case Permissions.put_rule(%{
+           tool: tool,
+           pattern: "*",
+           decision: decision,
+           decided_by: "owner (from #{length(socket.assigns.proposals)} proposals)"
+         }) do
+      {:ok, rule} ->
+        receipt_proposal(rule, tool, decision, socket.assigns.proposals)
+
+        {:noreply,
+         socket
+         |> put_flash(
+           :info,
+           gettext("Rule written. Trinity will stop asking about %{tool}.", tool: tool)
+         )
+         |> load()}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, gettext("Could not write that rule."))}
+    end
+  end
+
   def handle_event("drift_dismiss", %{"server" => server, "tool" => tool}, socket) do
     Surface.dismiss(server, tool)
 
@@ -129,6 +159,30 @@ defmodule TrinityWeb.PermissionsLive do
 
   def handle_event("cancel", _params, socket), do: {:noreply, socket}
 
+  # Slice 042 AC6. A rule written from a proposal is a change to standing authority made by the
+  # owner, so it goes in the chain with the evidence it rested on: the count, and that a proposal is
+  # what prompted it. Without the count a reader cannot tell a rule the owner typed from one they
+  # accepted, and those are different acts.
+  defp receipt_proposal(rule, tool, decision, proposals) do
+    count =
+      case Enum.find(proposals, &(&1.tool == tool)) do
+        %{count: n} -> n
+        nil -> 0
+      end
+
+    Trinity.Receipts.append(Trinity.Receipts.policy_scope(), %{
+      kind: "decision",
+      subject: %{"tool" => tool, "rule_id" => rule.id, "phase" => "rule"},
+      decision: %{
+        "outcome" => decision,
+        "basis" => "proposal",
+        "reason" => "accepted a proposal drawn from #{count} decisions that agreed"
+      },
+      subject_ref: "rule:" <> tool,
+      meta: %{"decisions" => count, "pattern" => rule.pattern}
+    })
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -142,6 +196,60 @@ defmodule TrinityWeb.PermissionsLive do
         phx-hook="Shortcuts"
         class="mx-auto flex h-full max-w-4xl flex-col gap-6 overflow-y-auto px-4 py-6"
       >
+        <section :if={@proposals != []} id="proposals" class="flex flex-col gap-3">
+          <h2 class="text-lg font-semibold">{gettext("Rules your decisions imply")}</h2>
+          <p class="text-sm opacity-70">
+            {gettext(
+              "You have decided these the same way every time. Writing a rule stops Trinity asking again. Nothing here appears beside a pending request: a suggestion offered at the moment of deciding would change the decision."
+            )}
+          </p>
+
+          <article
+            :for={p <- @proposals}
+            id={"proposal-#{p.tool}"}
+            class="flex flex-wrap items-center gap-3 rounded-box border border-base-300 p-3"
+          >
+            <span class="font-mono text-sm">{p.tool}</span>
+            <span class={[
+              "rounded-pill px-2 py-0.5 text-meta",
+              p.decision == "allow" && "bg-success/20 text-success",
+              p.decision == "deny" && "bg-error/20 text-error"
+            ]}>
+              {p.decision}
+            </span>
+            <span class="text-meta opacity-70">
+              {gettext("every one of")} {p.count} {gettext("decisions")}
+            </span>
+            <span class="flex-1"></span>
+            <button
+              type="button"
+              phx-click="proposal_accept"
+              phx-value-tool={p.tool}
+              phx-value-decision={p.decision}
+              class="btn btn-sm"
+            >
+              {gettext("Write the rule")}
+            </button>
+          </article>
+        </section>
+
+        <section :if={@divergences != []} id="divergences" class="flex flex-col gap-2">
+          <h2 class="text-lg font-semibold">{gettext("Decisions that did not agree")}</h2>
+          <p class="text-sm opacity-70">
+            {gettext(
+              "No rule is offered for these, because one would permit the case you refused. Shown so you can see where your own answers differ."
+            )}
+          </p>
+          <ul class="flex flex-col gap-1">
+            <li :for={d <- @divergences} class="flex items-center gap-3 text-sm">
+              <span class="min-w-0 flex-1 truncate font-mono">{d.tool}</span>
+              <span :for={{status, n} <- Enum.sort(d.counts)} class="font-mono text-meta opacity-70">
+                {status} {n}
+              </span>
+            </li>
+          </ul>
+        </section>
+
         <section :if={@drifting != []} id="drift" class="flex flex-col gap-3">
           <h2 class="text-lg font-semibold">{gettext("Tool definitions that changed")}</h2>
           <p class="text-sm opacity-70">

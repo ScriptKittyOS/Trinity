@@ -20,7 +20,7 @@ defmodule Trinity.Permissions do
   """
   use Boundary, deps: [Trinity], exports: [Policy, Approval, Rule, Fingerprint, Gate]
 
-  alias Trinity.Permissions.{Approval, Fingerprint, Gate, Policy, Rule, Store}
+  alias Trinity.Permissions.{Approval, Fingerprint, Gate, Learner, Policy, Rule, Store}
 
   @type tier :: :read | :write | :exec | :network | :destructive | :ask
   @type decision :: :allow | :deny | :ask
@@ -119,6 +119,27 @@ defmodule Trinity.Permissions do
   def scope(session_id), do: "session:" <> session_id
 
   defp impl, do: Application.get_env(:trinity, :permissions_policy, Policy.Layered)
+
+  ## What past decisions imply (slice 042)
+
+  @doc """
+  Rules the owner's own decisions imply, strongest first.
+
+  `Trinity.Permissions.Learner` is deliberately **not** exported from this boundary, so nothing
+  outside the permissions context can reach it and the boundary compiler says so rather than a
+  reviewer. This is the only way in, and what comes out is a suggestion of a rule the owner could
+  have written by hand.
+  """
+  @spec proposals(keyword()) :: [Learner.proposal()]
+  def proposals(opts \\ []), do: Learner.proposals(opts)
+
+  @doc "Tools whose past decisions did not agree, reported after the fact and never beside a pending one."
+  @spec divergences(keyword()) :: [Learner.divergence()]
+  def divergences(opts \\ []), do: Learner.divergences(opts)
+
+  @doc "How many consistent decisions before a rule is worth proposing."
+  @spec proposal_threshold() :: pos_integer()
+  def proposal_threshold, do: Learner.threshold()
 
   ## Requests and their decisions
 
