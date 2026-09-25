@@ -24,6 +24,34 @@ evidence for each increment is retained by the maintainers and summarised here.
 
 ## 2026-09-24
 
+### `slice/042` — Rules your decisions imply
+Trinity now notices when you have answered the same question the same way enough times, and offers to
+write the rule so it stops asking. It offers it **in its own section, read in a calm moment**, and
+never beside a request you are about to decide.
+
+That placement is the whole design. The research this came from proposed showing a learned
+recommendation next to the pending decision; the evidence on anchoring says a recommendation shown
+before a person forms their own view moves the decision, and this project's permission model rests on
+that decision being yours. Two further findings pointed the same way: people accept automated
+suggestions without scrutiny, and between half and nearly all safety alerts are dismissed in the
+clinical literature, because the cause of that is volume. So what is learned is spent on asking less
+often rather than on leaning on the answer.
+
+A rule is offered only when every past decision agreed. Nine allows and one refusal offers nothing,
+because that rule would permit the case you refused; it is reported as a disagreement to look at
+instead. Unanimity makes that guarantee true by construction rather than by arithmetic.
+
+Two things enforce the placement. The module that does the learning is not visible outside the
+permissions boundary, so nothing else can reach it and the compiler says so rather than a reviewer;
+and a test plants a realistic attempt to annotate a pending approval through the one public way in,
+and fails until it is removed. It is not behind a setting, because a setting that could put a
+recommendation back beside a decision would be the same harm with a delay.
+
+Accepting a proposal writes an ordinary rule, the kind you could have written by hand, and records it
+in a new chain of its own for changes to standing authority, with the number of decisions it rested
+on. A rule outlives the conversation that prompted it, so someone asking what this agent may do
+without being asked, and since when, should not have to read every conversation to find out.
+
 ### `slice/005` — Transactions take the write lock up front
 An intermittent "database busy" failure had been failing the build in a different test each time for
 two days, across five pull requests. It is gone, for the reason it happened rather than around it.

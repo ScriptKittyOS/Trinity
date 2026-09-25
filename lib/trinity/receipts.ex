@@ -32,6 +32,7 @@ defmodule Trinity.Receipts do
 
   @boot_key {__MODULE__, :boot_hash}
   @boot_scope "boot"
+  @policy_scope "policy"
 
   @doc "The scope of a session's chain."
   @spec session_scope(String.t()) :: String.t()
@@ -40,6 +41,16 @@ defmodule Trinity.Receipts do
   @doc "The boot chain's scope."
   @spec boot_scope() :: String.t()
   def boot_scope, do: @boot_scope
+
+  @doc """
+  The chain for changes to standing authority (slice 042).
+
+  A rule outlives the session that prompted it, so it does not belong in that session's chain: a
+  reader asking "what may this agent do without being asked, and since when" should not have to
+  walk every conversation to find out. Its own scope keeps the answer in one place.
+  """
+  @spec policy_scope() :: String.t()
+  def policy_scope, do: @policy_scope
 
   @doc "Appends a receipt to a scope, starting its writer if needed. See `ChainWriter.append/2`."
   @spec append(String.t(), map()) :: {:ok, Receipt.t()} | {:error, term()}

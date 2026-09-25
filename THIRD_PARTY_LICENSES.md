@@ -72,7 +72,7 @@ it, and a reader should not infer from an entry here that the component is in a 
 | `jose` | `1.11.12` | MIT | bom |
 | `jsv` | `0.23.0` | Apache-2.0 | bom |
 | `kernel` | `10.6.3.3` | Apache-2.0 | bom |
-| `lazy_html` | `0.1.12` | Apache-2.0 | bom |
+| `lazy_html` | `0.1.13` | Apache-2.0 | bom |
 | `llm_db` | `2026.9.4` | Apache-2.0 | bom |
 | `logger` | `1.20.4` | Apache-2.0 | bom |
 | `luerl` | `1.5.1` | Apache-2.0 | bom |
