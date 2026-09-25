@@ -24,6 +24,32 @@ evidence for each increment is retained by the maintainers and summarised here.
 
 ## 2026-09-24
 
+### `slice/005` — Transactions take the write lock up front
+An intermittent "database busy" failure had been failing the build in a different test each time for
+two days, across five pull requests. It is gone, for the reason it happened rather than around it.
+
+A transaction that begins in SQLite's default mode takes no lock and starts as a reader. At its first
+write it asks to upgrade, and if another connection has written in the meantime the database refuses
+**immediately and without waiting**, because waiting there could deadlock. No timeout reaches that
+path, which is why raising the timeout from five seconds to thirty had changed nothing: the
+observation that should have pointed at the cause a day earlier than it did.
+
+Transactions now ask for the write lock when they begin, which is where waiting is allowed. A
+transaction that is going to write says so, and queues instead of failing.
+
+The reproduction is the part worth keeping. This fault had been recorded as never once reproduced
+locally; it now reproduces on demand in a tenth of a second, by driving two connections through both
+sequences and asserting the difference, including that the old one fails in under a second despite a
+five-second timeout. An intermittent fault that merely stops appearing is a fault you got lucky with.
+
+Three candidate fixes had been recorded when the fault was first diagnosed, and all three were ways
+of making two connections contend less often rather than changing what happens when they do. The
+diagnosis had been right and the proposed fixes did not follow from it. They are not taken, and the
+risk register says why.
+
+The fault is not declared closed. Its lift condition is ten consecutive green runs, which this can
+begin earning and cannot assert on the day it lands.
+
 ### `slice/110` — Executable skills in an in-process sandbox
 Skills that can execute need a real programming surface. Trinity now has one that costs no trust: a
 `run_lua` tool and skill-owned scripts run Lua inside this process, with no operating system

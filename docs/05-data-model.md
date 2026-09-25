@@ -302,3 +302,27 @@ run is idempotent. Oban holds the job; this holds the outcome.
 4. Skill DB index == filesystem after reindex (Slice 040).
 5. No tool executes without an `approvals` or `tool_permissions` decision recorded (Slice 021).
 6. A receipt chain has no gap and no fork per `chain_scope`; every `prev_hash` resolves (Slice 024).
+
+## Transactions begin IMMEDIATE on SQLite (Slice 005)
+
+Both SQLite repos are configured `default_transaction_mode: :immediate`, and the reason is a defect
+that took two days and five pull requests to close.
+
+A **DEFERRED** transaction, which is SQLite's default and was Ecto's, takes no lock at `BEGIN` and
+starts as a reader. At its first write it tries to upgrade to a write lock, and if another connection
+has written in the meantime SQLite returns `SQLITE_BUSY` **immediately, without invoking the busy
+handler**, because blocking at that point risks deadlock. `busy_timeout` cannot reach that path. This
+project raised it from the shipped 5 seconds to 30 and the failures continued, which is the
+observation that should have pointed at the mechanism a day earlier than it did.
+
+**IMMEDIATE** asks for the write lock at `BEGIN`, which is where the busy handler is allowed to wait.
+A transaction that is going to write says so up front and queues instead of failing.
+
+`test/trinity/repo/sqlite_transaction_mode_test.exs` drives two connections through both sequences
+against their own database file and asserts the difference: under `DEFERRED` the upgrade is refused
+in under a second despite a five-second `busy_timeout`, and under `IMMEDIATE` the same sequence waits
+and succeeds. R26 had been "not once reproduced locally across repeated runs" for two days; it
+reproduces there in a tenth of a second.
+
+The Postgres build has neither the option nor the hazard, and the configuration is guarded on the
+adapter so the setting cannot leak into it.
