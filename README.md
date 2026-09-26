@@ -35,6 +35,23 @@ reaches you on whatever surface you are using, and does not lose your work when 
 Trinity is built on Elixir and the BEAM, with Phoenix LiveView for the interface, and ships as a
 desktop application. Apache-2.0, developed in the open from the first commit.
 
+## What it looks like
+
+**It asks before it acts, and it shows you exactly what it is asking for.** Not the tool's name and a
+shrug: the arguments it will actually pass, the risk tier, and a pattern you can widen if you want
+this answered once instead of every time.
+
+![Trinity asking permission to run a write-risk tool, showing the exact arguments, the WRITE risk tier, and the four decisions available](docs/assets/approval-card.png)
+
+**Then the decision is receipted, whichever way it went.** Both halves are written to a hash-linked,
+signed chain: the gate asking because no rule covered the call, and the answer you gave. The verifier
+reads this chain without the application running, so an auditor does not have to trust the program
+that wrote the records.
+
+![Two signed decision receipts for the same call: the gate asking with basis=default outcome=ask, and the owner allowing with basis=approval outcome=allow](docs/assets/receipts-decision.png)
+
+Both are real screens from a running build, captured by `scripts/dev_demo_approval.sh`.
+
 ## Status
 
 Pre-alpha, and usable from source. Milestones **M0** to **M4** are approved, **M5a Automates** with
