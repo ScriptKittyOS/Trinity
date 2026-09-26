@@ -152,7 +152,10 @@ defmodule Trinity.Telemetry.RedactionChardataTest do
 
     test "a credential nested inside a proper list is masked" do
       ev = %{
-        msg: {:string, ["x", ["password=hunter2seventeen", "y"]]},
+        # The separators matter and are not padding: flattened, `["x", ["password=..."]]` is
+        # "xpassword=...", where `\b` correctly finds no word boundary. The fixture has to be a
+        # line someone could actually log.
+        msg: {:string, ["connecting ", ["password=hunter2seventeen", " ok"]]},
         meta: %{},
         level: :info
       }
@@ -183,7 +186,6 @@ defmodule Trinity.Telemetry.RedactionChardataTest do
         assert %{} = Redaction.filter(%{msg: {:report, t}, meta: %{}, level: :info}, nil)
       end
     end
-
   end
 
   describe "AC5: the filter is never silently absent" do
@@ -206,6 +208,32 @@ defmodule Trinity.Telemetry.RedactionChardataTest do
       assert :trinity_redaction in names,
              "the filter was removed. OTP removes a primary filter that raises, permanently, and " <>
                "everything logged afterwards is unredacted while the system believes it is not."
+    end
+
+    test "logging improper chardata through OTP itself leaves the filter installed" do
+      # The end-to-end one. Everything above calls filter/2 directly, which is not how it dies:
+      # OTP calls it, OTP catches the raise, and OTP removes it. This goes through the real logger.
+      ExUnit.CaptureLog.capture_log(fn ->
+        :logger.log(:error, ["Exqlite.Connection", 32, ") failed: " | "** (Exqlite.Error) locked"])
+
+        :logger.log(:error, ["auth " | "Bearer abcdefghijklmnopqrstuvwxyz0123"])
+      end)
+
+      names = for {name, _} <- :logger.get_primary_config().filters, do: name
+
+      assert :trinity_redaction in names,
+             "OTP removed the filter after logging improper chardata. This is the exact failure " <>
+               "seen on the running server: {removed_failing_filter, trinity_redaction}."
+    end
+
+    test "and what it logged was redacted, not passed through" do
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          :logger.log(:error, ["auth " | "Bearer abcdefghijklmnopqrstuvwxyz0123"])
+        end)
+
+      assert log =~ "[REDACTED]"
+      refute log =~ "abcdefghijklmnopqrstuvwxyz0123"
     end
 
     test "verify_log_redaction!/0 raises when the filter is absent, so boot cannot continue unfiltered" do
