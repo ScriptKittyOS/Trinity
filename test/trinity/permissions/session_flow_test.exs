@@ -39,7 +39,7 @@ defmodule Trinity.Permissions.SessionFlowTest do
     tool_turn([{"c1", "echo", %{"text" => "plain"}}])
     {:ok, pid} = start_drained(id)
     {:ok, _} = Session.send_user_message(pid, "go")
-    events = collect(id, &match?({:state, :idle}, &1))
+    events = await_event(id, &match?({:state, :idle}, &1))
     refute :approval_wait in for({:state, s} <- events, do: s)
     refute_received {:approval, _, _}
     assert Permissions.list_approvals(session_id: id) == []
@@ -61,7 +61,7 @@ defmodule Trinity.Permissions.SessionFlowTest do
     assert [%Approval{id: ^aid}] = Permissions.pending(id)
 
     {:ok, _} = Permissions.decide_request(aid, :once)
-    events = collect(id, &match?({:state, :idle}, &1))
+    events = await_event(id, &match?({:state, :idle}, &1))
 
     assert {:assistant_message, %{content: "done done "}} =
              Enum.find(events, &match?({:assistant_message, _}, &1))
@@ -83,7 +83,7 @@ defmodule Trinity.Permissions.SessionFlowTest do
     # The same call again: no request.
     tool_turn([{"c1", "write_note", @args}])
     {:ok, _} = Session.send_user_message(pid, "two")
-    events = collect(id, &match?({:state, :idle}, &1))
+    events = await_event(id, &match?({:state, :idle}, &1))
     refute :approval_wait in for({:state, s} <- events, do: s)
     refute_received {:approval, :requested, _}
     assert length(tool_rows(id)) == 2
@@ -112,7 +112,7 @@ defmodule Trinity.Permissions.SessionFlowTest do
     {:ok, _} = Session.send_user_message(pid, "write")
     assert_receive {:approval, :requested, %Approval{id: aid}}, 2_000
     {:ok, _} = Permissions.decide_request(aid, :deny)
-    events = collect(id, &match?({:state, :idle}, &1))
+    events = await_event(id, &match?({:state, :idle}, &1))
 
     assert Enum.any?(
              events,

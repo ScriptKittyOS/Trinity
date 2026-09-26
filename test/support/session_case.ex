@@ -58,7 +58,43 @@ defmodule Trinity.SessionCase do
     {:ok, pid}
   end
 
-  @doc "Collects session events for `session_id` until `until` matches or the timeout passes."
+  @doc """
+  Waits for a session event matching `until`, and **raises** if the deadline passes first.
+
+  Reach for this whenever the test asserts on what came back. `collect/3` below cannot tell a
+  caller whether it matched or gave up, so an assertion after it reports a missing value rather
+  than a timeout, and a reader goes looking for a logic defect that is not there (slice 127).
+
+  The raise names the deadline and every event that did arrive, because "waited 15s and saw
+  thinking then idle" and "waited 15s and saw nothing at all" send a reader to opposite places.
+  """
+  def await_event(session_id, until, timeout \\ 5_000) do
+    deadline = System.monotonic_time(:millisecond) + timeout
+    events = do_collect(session_id, until, deadline, [])
+
+    if Enum.any?(events, until) do
+      events
+    else
+      raise """
+      waited #{timeout}ms for a #{inspect(session_id)} event matching the given condition and it \
+      never arrived.
+
+      Events seen, in order: #{inspect(events, limit: 30)}
+
+      An empty list means the session emitted nothing at all, which usually means it was never \
+      started, the test never subscribed, or the thing that should have triggered it did not run. \
+      A non-empty list means the session was working and did not reach this condition in time.
+      """
+    end
+  end
+
+  @doc """
+  Collects session events until `until` matches **or the timeout passes**, returning what it saw.
+
+  A timeout and a match return the same shape, so this cannot be asserted on: use `await_event/3` for
+  that. This is for settling, where the caller genuinely does not care whether the condition was
+  reached, and a census in `test/session_case_test.exs` enforces that its result is discarded.
+  """
   def collect(session_id, until, timeout \\ 5_000) do
     deadline = System.monotonic_time(:millisecond) + timeout
     do_collect(session_id, until, deadline, [])

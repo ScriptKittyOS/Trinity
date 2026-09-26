@@ -68,7 +68,7 @@ defmodule Trinity.MCP.MrtrTest do
 
     # The owner answers; the Session re-runs the call; the retry echoes the state and completes.
     {:ok, %Approval{answer: @answer}} = Permissions.decide_request(a2, :once, answer: @answer)
-    events = collect(id, &match?({:state, :idle}, &1))
+    events = await_event(id, &match?({:state, :idle}, &1))
 
     assert {:assistant_message, %{content: "done "}} =
              Enum.find(events, &match?({:assistant_message, _}, &1))

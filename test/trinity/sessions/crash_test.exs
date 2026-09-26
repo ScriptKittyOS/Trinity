@@ -53,7 +53,7 @@ defmodule Trinity.Sessions.CrashTest do
     assert {:turn_interrupted,
             %Message{id: ^draft_id, parts: %{"interrupted" => true, "draft" => false}}} =
              Enum.find(
-               collect(a.id, &match?({:turn_interrupted, _}, &1), 2_000),
+               await_event(a.id, &match?({:turn_interrupted, _}, &1), 2_000),
                &match?({:turn_interrupted, _}, &1)
              )
 
