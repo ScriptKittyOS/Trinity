@@ -35,4 +35,15 @@ defmodule Trinity.Authority.Local do
     scope = Map.fetch!(attrs, :scope)
     Trinity.Receipts.append(scope, Map.put(attrs, :kind, kind))
   end
+
+  @doc """
+  Acknowledges a queued envelope (slice 026).
+
+  Standalone, there is no far side and nothing to send to, so this acknowledges immediately. It is
+  not a stub: it is what makes the local authority exercise the same queue-and-acknowledge path an
+  adapter does, so the mode is proven without one. A receipt still passes through the queue, is
+  still acknowledged in order, and the bound still applies.
+  """
+  @impl true
+  def forward_receipt(envelope, _meta) when is_map(envelope), do: :ok
 end

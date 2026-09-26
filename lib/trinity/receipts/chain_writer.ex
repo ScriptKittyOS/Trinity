@@ -30,7 +30,17 @@ defmodule Trinity.Receipts.ChainWriter do
 
   import Ecto.Query
 
-  alias Trinity.Receipts.{Checkpoint, Clock, Envelope, KeyCustody, KeyRegistry, Receipt, Signer}
+  alias Trinity.Receipts.{
+    Checkpoint,
+    Clock,
+    Envelope,
+    KeyCustody,
+    KeyRegistry,
+    Queue,
+    Receipt,
+    Signer
+  }
+
   alias Trinity.Repo.Receipts, as: Repo
 
   require Logger
@@ -175,18 +185,63 @@ defmodule Trinity.Receipts.ChainWriter do
     unless kind in Receipt.kinds(),
       do: raise(ArgumentError, "unknown receipt kind #{inspect(kind)}")
 
-    with {:ok, %{scheme: scheme, key_id: key_id}} <- selection(),
+    forward? = Map.get(attrs, :forward, true)
+
+    with :ok <- check_queue_bound(forward?, state),
+         {:ok, %{scheme: scheme, key_id: key_id}} <- selection(),
          {row, at, clock} = build_row(attrs, kind, scheme, key_id, state),
          :ok <- check_clock(clock, state),
          bytes = Envelope.pae(Envelope.receipt_type(scheme), row.signed_payload),
          {:ok, signature} <- sign_if_needed(kind, bytes) do
-      insert_row(%{row | signature: signature, inserted_at: at}, state, clock)
+      insert_row(%{row | signature: signature, inserted_at: at}, state, clock, forward?)
     else
       {:error, {:clock_regression, offered, held}} ->
         refuse_clock_regression(offered, held, state)
 
+      {:error, {:queue_full, depth, bound}} ->
+        refuse_queue_full(depth, bound, state)
+
       other ->
         other
+    end
+  end
+
+  # Slice 026, AC4. The bound is a refusal, not a buffer: past it the effect is denied rather than
+  # performed and left unacknowledged. An unbounded queue turns a long partition into an unbounded
+  # liability, where the machine keeps acting, nothing can be confirmed, and the operator finds out
+  # when the disk fills.
+  defp check_queue_bound(false, _state), do: :ok
+
+  defp check_queue_bound(true, state) do
+    depth = Queue.depth(state.scope)
+    bound = Queue.bound()
+    if depth >= bound, do: {:error, {:queue_full, depth, bound}}, else: :ok
+  end
+
+  defp refuse_queue_full(depth, bound, state) do
+    attrs = %{
+      kind: "decision",
+      subject: %{
+        "chain_scope" => state.scope,
+        "queue_depth" => depth,
+        "queue_bound" => bound
+      },
+      decision: %{
+        "outcome" => "refused",
+        "basis" => "queue",
+        "reason" =>
+          "the outbound receipt queue is at its bound: refusing the effect rather than " <>
+            "performing it and leaving it unacknowledged"
+      },
+      subject_ref: "queue_full:#{state.scope}:#{state.seq}",
+      # Not itself queued. If it were, a full queue could not record that it was full, which is a
+      # deadlock dressed as a safety property.
+      forward: false
+    }
+
+    case do_append_unchecked(attrs, state) do
+      {:ok, _receipt, state} -> {:error, {:queue_full, depth, bound}, state}
+      {:error, why} -> {:error, {:queue_full_unrecorded, why}}
     end
   end
 
@@ -236,7 +291,12 @@ defmodule Trinity.Receipts.ChainWriter do
            build_row(Map.delete(attrs, :clock), "decision", scheme, key_id, state),
          bytes = Envelope.pae(Envelope.receipt_type(scheme), row.signed_payload),
          {:ok, signature} <- sign_if_needed("decision", bytes) do
-      insert_row(%{row | signature: signature, inserted_at: at}, state, clock)
+      insert_row(
+        %{row | signature: signature, inserted_at: at},
+        state,
+        clock,
+        Map.get(attrs, :forward, true)
+      )
     end
   end
 
@@ -286,14 +346,35 @@ defmodule Trinity.Receipts.ChainWriter do
     {row, at, clock}
   end
 
-  defp insert_row(%Receipt{} = row, state, clock) do
-    case Repo.insert(row) do
+  # The receipt and its queue entry land together or not at all. A receipt in the chain with no
+  # queue entry is one the far side will never see and nothing will ever notice; a queue entry with
+  # no receipt is a promise about a row that does not exist.
+  defp insert_row(%Receipt{} = row, state, clock, forward?) do
+    result =
+      Repo.transaction(fn ->
+        case Repo.insert(row) do
+          {:ok, receipt} ->
+            if forward? do
+              case Repo.insert(Queue.entry_changeset(receipt)) do
+                {:ok, _entry} -> receipt
+                {:error, changeset} -> Repo.rollback({:queue_insert, changeset.errors})
+              end
+            else
+              receipt
+            end
+
+          {:error, changeset} ->
+            Repo.rollback({:insert, changeset.errors})
+        end
+      end)
+
+    case result do
       {:ok, receipt} ->
         state = %{state | seq: receipt.seq, prev_hash: receipt.receipt_hash, clock: clock}
         {:ok, receipt, track_uncovered(receipt, state)}
 
-      {:error, changeset} ->
-        {:error, {:insert, changeset.errors}}
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

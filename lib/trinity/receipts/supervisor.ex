@@ -29,7 +29,12 @@ defmodule Trinity.Receipts.Supervisor do
     end
 
     children = [
-      {DynamicSupervisor, name: Trinity.Receipts.WriterSupervisor, strategy: :one_for_one}
+      {DynamicSupervisor, name: Trinity.Receipts.WriterSupervisor, strategy: :one_for_one},
+      # Slice 026: drains the outbound queue to the authority in force. Started even where no
+      # adapter exports `forward_receipt/2`: it then finds nothing to do, which is a configuration
+      # fact rather than a failure, and the local authority acknowledges immediately so that
+      # standalone Trinity exercises the same queue-and-acknowledge path an adapter would.
+      Trinity.Receipts.Forwarder
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

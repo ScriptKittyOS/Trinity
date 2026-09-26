@@ -33,6 +33,23 @@ defmodule Trinity.Authority do
   @doc "Records a receipt of a kind with attributes; the adapter may forward it."
   @callback receipt(kind :: String.t(), attrs :: map()) :: {:ok, term()} | {:error, term()}
 
+  @doc """
+  Hands a queued receipt envelope to the authority, byte for byte (slice 026).
+
+  Optional. An implementation that does not export it is one this machine never forwards to, and
+  the queue for its scopes simply does not drain.
+
+  The envelope is the exported receipt exactly as it was signed. An implementation **must not**
+  re-sign it, rebuild it or alter a leaf: the external authority plane's verifiers check the
+  signature over these bytes offline, which is the property that lets a queue wrap, delay and
+  re-deliver an envelope without the far side having to know a queue exists at all.
+
+  `:ok` acknowledges. Any error leaves the entry pending, to be offered again.
+  """
+  @callback forward_receipt(envelope :: map(), meta :: map()) :: :ok | {:error, term()}
+
+  @optional_callbacks forward_receipt: 2
+
   @callbacks [stage: 2, decide: 3, execute: 3, receipt: 2]
 
   @doc "The callbacks every implementation must export, as `{name, arity}`."
