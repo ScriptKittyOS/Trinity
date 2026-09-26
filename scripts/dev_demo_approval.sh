@@ -13,6 +13,18 @@ export MIX_ENV=test
 exec systemd-run --user --scope -p MemoryMax=32G --quiet -- mix run --no-start --no-halt -e '
 repo = Application.get_env(:trinity, Trinity.Repo) |> Keyword.delete(:pool) |> Keyword.put(:database, "trinity_screenshots.db")
 Application.put_env(:trinity, Trinity.Repo, repo)
+# The receipts repo needs the same two changes and was not getting them. Left on
+# `pool: Ecto.Adapters.SQL.Sandbox` outside the suite, the sandbox is in auto mode and, as
+# config/test.exs says in its own comment, the first long-lived process to query holds the
+# connection until it exits. Every `Receipts.append/2` then queues behind it, and since the effect
+# membrane receipts the decision *before* it dispatches, the tool task blocks after the approval row
+# exists and the card is on screen but before it can answer the Session. The turn never leaves
+# tool_wait, the allow the owner issued is never consumed, and the call finally reports a timeout.
+# That is a harness defect and it looked exactly like a product one.
+# The database also has to move: without this, a screenshot run writes into the receipts file
+# belonging to the test suite.
+rrepo = Application.get_env(:trinity, Trinity.Repo.Receipts) |> Keyword.delete(:pool) |> Keyword.put(:database, "trinity_screenshots_receipts.db")
+Application.put_env(:trinity, Trinity.Repo.Receipts, rrepo)
 endpoint = Application.get_env(:trinity, TrinityWeb.Endpoint) |> Keyword.put(:check_origin, false)
 Application.put_env(:trinity, TrinityWeb.Endpoint, endpoint)
 Application.put_env(:trinity, :permissions, expiry_ms: 600_000, session_grant_ms: 3_600_000)

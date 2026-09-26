@@ -24,6 +24,33 @@ evidence for each increment is retained by the maintainers and summarised here.
 
 ## 2026-09-26
 
+### `slice/126`: nothing about an approval is discarded in silence
+
+A decision the owner makes that arrives when there is no held call to apply it to used to be thrown
+away without a word. It is now logged, and receipted on the session chain as `outcome=dropped` with
+the reason naming the state it arrived in, so "the owner answered and nothing happened" can never be
+something only a live trace would reveal. A request broadcast arriving the same way stays routine and
+is deliberately not given a second path into the approval flow: which calls are held is learned in
+one place, and learning it twice is how a call gets held twice.
+
+This increment was opened to fix a defect that turned out not to exist. The approval handshake is
+correct: a decision arriving while the session is still waiting on its tools is held and redelivered,
+and a decision made directly against the permission gate, with no interface in the loop, is applied.
+The stall that prompted the work was caused by a development screenshot script, which left the
+receipts database on the test sandbox pool; outside the suite that pool blocks, and because a
+decision is receipted before it is dispatched, the tool task stopped after the approval existed and
+the card was on screen but before it could answer the session. The visible result was an approval the
+owner had granted, reported as a timeout. The script is fixed and the browser path now completes five
+runs out of five.
+
+Three tests were added covering the ordering a browser actually produces, which the suite had never
+exercised because every approval test waits for internal session state that no real caller can
+observe. They pass against unchanged application code and are recorded as regression cover rather
+than as a fix.
+
+Verified: gate green at exit 0; 825 tests passing; coverage 80.31%, level with the previous
+increment.
+
 ### `slice/124`: What the receipts are, in the standard's words
 
 IETF RFC 9943 (SCITT) standardises the class of object Trinity's receipts belong to, and it splits
