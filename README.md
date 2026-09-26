@@ -307,6 +307,49 @@ do over the next year, and why the order is what it is.
 | `ci/fips/` | The container the FIPS leg builds its toolchain in |
 | `coverage.tsv` | Test coverage per increment, appended at each close |
 
+## What the receipts prove, and to whom
+
+Three different claims, sold separately, because blurring them is how audit evidence gets
+overstated.
+
+**Standalone (`TRINITY_AUTHORITY=local`) proves what happened, to someone who trusts the machine.**
+The permission gate decides, the effect runs here, and the chain is signed here. That gives four
+things worth having: the set of code paths that can cause an effect is closed and held by a census
+with a planted bypass, so nothing slipped past the membrane; an approval is bound to the exact call
+by a fingerprint re-derived from the arguments actually passed, so an approved call cannot be
+swapped; the chain is hash-linked, signed and checkpointed, so nothing was altered afterwards; and
+the verifier runs without the application, so an auditor need not trust the program that wrote the
+records.
+
+**What it does not prove, stated plainly rather than left to be discovered.** A key in a file proves
+the records were not altered by anything lacking read access to that file. It does not prove custody
+of the key, and `docs/10-assurance-case.md` C6 says so. Nor is there any separation of duties:
+standalone, Trinity is judge, actor and scribe, so a party who does not already trust the host has
+only the host's word for it.
+
+**A witness proves it to someone who does not trust the machine.** Publishing the chain head
+somewhere outside the host, on any schedule, makes backdated forgery detectable by a third party
+without needing a transparency service. This is not built yet and is named here as the gap it is.
+
+**An external authority plane proves the decision was never the machine's to make.** Point
+`TRINITY_AUTHORITY` at an adapter and Trinity keeps no executor for the effects that adapter
+governs, which is asserted by a census over the tree rather than by intent. The decision is made
+elsewhere by something with its own key, so relying on it does not require trusting this host at
+all.
+
+The honest one-line version: **standalone proves what happened to someone who trusts the machine, a
+witness proves it to someone who does not, and an external authority proves the decision was never
+the machine's to make.**
+
+**On the word "receipt".** IETF RFC 9943 (SCITT) standardises this class of object and splits it in
+two: a *Signed Statement* is issued by whoever made the statement, and a *Receipt* is issued by a
+Transparency Service and must carry proof of inclusion in a verifiable log. Trinity runs no
+transparency service, so in that vocabulary Trinity issues Signed Statements and never Receipts. The
+house name is not changing, because "receipt" is the right word for what it is to the person who owns
+the machine, but nobody should infer SCITT conformance from it. The field by field mapping, including
+the three fields that have no equivalent, is in
+[`docs/receipt-scheme-mapping.md`](docs/receipt-scheme-mapping.md).
+
 ## Connecting Trinity to the platform
 
 Trinity runs standalone, and it is also one component of **Sanction OS**, the platform formed by Requisition and

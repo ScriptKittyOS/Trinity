@@ -22,6 +22,32 @@ evidence for each increment is retained by the maintainers and summarised here.
   tree, engineering rules consolidated into `docs/03-conventions.md`, and this changelog added as
   the public record of delivered work.
 
+## 2026-09-26
+
+### `slice/124`: What the receipts are, in the standard's words
+
+IETF RFC 9943 (SCITT) standardises the class of object Trinity's receipts belong to, and it splits
+that class in two. A *Signed Statement* is issued by whoever made the statement. A *Receipt* is issued
+by a Transparency Service and must carry proof of inclusion in a verifiable log. Trinity runs no
+transparency service, so in that vocabulary Trinity issues Signed Statements and never Receipts.
+
+This increment says so, in `docs/receipt-scheme-mapping.md`: the terminology, the envelope Trinity
+actually signs with, a field by field mapping to COSE, CWT and in-toto constructs, and the three
+fields that have no equivalent because they are the hash chain SCITT delegates to a service Trinity
+does not run.
+
+The increment was planned as a rename of those fields to the standard's names. It deliberately does
+not do that. An object wearing `iss`, `sub`, `kid` and `iat` reads as conformant to anyone who knows
+those names, and they would then reasonably expect a transparency service and inclusion proofs behind
+it. That is a claim made by appearance rather than by a row in the standards register, so the register
+carries an RFC 9943 row at `not claimed` instead, and the tests assert that **nothing** was renamed
+and that no receipt byte changed. Two further tests exist only to stop the mapping document drifting
+from the code it describes, and were demonstrated against three planted violations rather than against
+agreement with the tree as it stands.
+
+Nothing under `lib/` changed. Verified: `git diff --stat lib/` empty; gate green at exit 0; 821 tests
+passing; coverage 80.31%, level with the previous increment.
+
 ## 2026-09-24
 
 ### `slice/042` — Rules your decisions imply
