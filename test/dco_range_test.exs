@@ -58,9 +58,25 @@ defmodule DcoRangeTest do
     git(dir, ["config", "user.email", "test@example.com"])
     # This machine signs commits globally; a scratch repository has no key and would fail at 128.
     git(dir, ["config", "commit.gpgsign", "false"])
-    git(dir, ["commit", "-q", "--allow-empty", "-m", "base\n\nSigned-off-by: Test <test@example.com>"])
+
+    git(dir, [
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "base\n\nSigned-off-by: Test <test@example.com>"
+    ])
+
     base = String.trim(elem(System.cmd("git", ["rev-parse", "HEAD"], cd: dir), 0))
-    git(dir, ["commit", "-q", "--allow-empty", "-m", "signed\n\nSigned-off-by: Test <test@example.com>"])
+
+    git(dir, [
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "signed\n\nSigned-off-by: Test <test@example.com>"
+    ])
+
     git(dir, ["commit", "-q", "--allow-empty", "-m", "unsigned, no trailer at all"])
     base
   end
@@ -99,6 +115,47 @@ defmodule DcoRangeTest do
 
              #{body}
              """
+    end
+  end
+
+  describe "AC5: a pull request description is checked too" do
+    test "the workflow carries the step, in both legs, and passes the body through env" do
+      yaml = File.read!(".github/workflows/gate.yml")
+
+      assert length(
+               String.split(yaml, "No assistant attribution in the pull request description")
+             ) - 1 == 2,
+             "the PR-description check is not present in both legs"
+
+      assert yaml =~ "PR_BODY: ${{ github.event.pull_request.body }}",
+             "the body is not passed through env, which means it is interpolated into a shell " <>
+               "command; a pull request description is attacker-controlled text"
+
+      refute yaml =~ ~r/grep -qiE '[^']*'\s*<<<\s*"\$\{\{/,
+             "the body is interpolated directly into the script"
+    end
+
+    test "the pattern it uses catches the shapes that were found in the wild" do
+      # The seven descriptions on #99 to #105 carried the first of these. The others are the
+      # trailers the commit hook already strips, included so one check knows every shape.
+      pattern = ~r/Co-Authored-By: Claude|Claude-Session:|Generated with \[Claude/i
+
+      for body <- [
+            "some text\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n",
+            "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>",
+            "Claude-Session: abc123",
+            "GENERATED WITH [CLAUDE CODE]"
+          ] do
+        assert Regex.match?(pattern, body), "the pattern misses: #{inspect(body)}"
+      end
+
+      for body <- [
+            "a normal description mentioning claude in prose",
+            "Signed-off-by: Ayla Croft <aylacroft@proton.me>",
+            "This slice was generated from a template"
+          ] do
+        refute Regex.match?(pattern, body), "the pattern over-matches: #{inspect(body)}"
+      end
     end
   end
 end

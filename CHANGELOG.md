@@ -24,6 +24,49 @@ evidence for each increment is retained by the maintainers and summarised here.
 
 ## 2026-09-26
 
+### `slice/128`: the checks that guard attribution now say what they check
+
+Three checks guard two rules: that no assistant attribution appears anywhere in this project's
+history, and that every commit carrying work is signed off by the person who wrote it. One was named
+for something it did not do, one contained an exception it could never reach, and none of them
+looked at a pull request description, which is the first thing a reader of this project sees.
+
+The first concatenated every message in a range and looked for a single sign-off anywhere, under a
+name that said it checked every commit. It now asks per commit and names each one that fails. The
+second consulted a list of excused commits from inside a loop that could never contain one, telling
+every reader that something was checked and excused when neither was true; the list is gone and the
+reason it is gone is written where it was. The third did not exist: descriptions are now checked,
+with the text passed to the check as data rather than spliced into a command, because a description
+is written by whoever opens the request.
+
+This does not change the project's position on merge commits, which is that a sign-off certifies the
+right to submit work and an automated merge introduces none. That was decided earlier and is left
+alone; what changed is that the checks now describe themselves accurately.
+
+Verified: gate green at exit 0; 914 tests passing; coverage 80.31%.
+
+### `slice/127`: a test that gives up waiting now says so
+
+A test helper that waits for something to happen returned the same answer whether it saw what it was
+waiting for or ran out of time. Every check written on top of it therefore reported a missing value
+rather than a wait that expired, which sends a reader looking for a fault that is not there. It did
+exactly that twice in one day: once as an intermittent failure on the slowest continuous-integration
+machine, and once by prompting an investigation into a defect that turned out not to exist.
+
+Waiting now raises when it gives up, and says how long it waited and everything it did see, because
+"waited and saw the work happening" and "waited and saw nothing at all" point at opposite causes.
+Twenty places that check what came back were moved onto it, and a check makes the old shape
+impossible to write again.
+
+The one deadline that had been missed was re-set from a measurement rather than a guess: the wait
+takes about 4.8 seconds locally, the previous limit was three times that and the slowest machine
+still missed it, so it is now twelve times. A generous limit costs nothing when the thing arrives,
+because the wait ends the moment it does.
+
+No change to the application itself; this is entirely about how the suite reports.
+
+Verified: gate green at exit 0; 910 tests passing; coverage 80.31%.
+
 ### `slice/026`: Trinity keeps working when the link goes down
 
 A site that loses its connection keeps operating, and the record of what it did survives the gap intact.

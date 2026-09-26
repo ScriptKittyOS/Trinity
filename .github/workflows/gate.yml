@@ -47,11 +47,44 @@ jobs:
       - run: mix deps.get
 
       # Developer Certificate of Origin: every commit carries a sign-off (ADR-0012).
-      - name: DCO sign-off present on every commit
+      # Slice 128. This used to concatenate every message in the range and grep for one
+      # `Signed-off-by:` anywhere, under this same name: a range of five commits where one was
+      # signed passed a step called "on every commit". Now it asks per commit and prints the ones
+      # that fail.
+      #
+      # `--no-merges` for the reason `test/dco_test.exs` gives at length: a sign-off certifies the
+      # right to submit work, and a forge's merge commit introduces none. That test checks the whole
+      # history and runs on every leg; this step is the fast one that fails a pull request early,
+      # and the two agree on what they mean by "every commit".
+      # Slice 128. The owner's rule is that no assistant attribution appears anywhere, and a pull
+      # request description is somewhere: it is the first thing a reader of this project sees, and
+      # seven of them carried one on 2026-09-26 before a person noticed. The hook covers commit
+      # messages and plan_check covers history; both look at the tree, and a description is not in
+      # it.
+      #
+      # The body goes through `env` rather than into the script: `${{ }}` interpolated into a shell
+      # command is a script injection, and a pull request description is attacker-controlled text.
+      - name: No assistant attribution in the pull request description
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          git log --format=%B ${{ github.event.pull_request.base.sha || 'HEAD~1' }}..HEAD 2>/dev/null \
-            | grep -q '^Signed-off-by: ' || {
-              echo "::error::a commit in this range has no Signed-off-by line"; exit 1; }
+          if printf '%s' "$PR_BODY" | grep -qiE 'Co-Authored-By: Claude|Claude-Session:|Generated with \[Claude'; then
+            echo "::error::the pull request description carries an assistant attribution; remove it"
+            exit 1
+          fi
+
+      - name: DCO sign-off on every commit that carries work
+        run: |
+          range="${{ github.event.pull_request.base.sha || 'HEAD~1' }}..HEAD"
+          unsigned=$(git log --no-merges --format='%H%x09%(trailers:key=Signed-off-by,valueonly)' "$range" \
+            | awk -F'\t' '$2 == "" { print $1 }')
+          if [ -n "$unsigned" ]; then
+            for c in $unsigned; do
+              echo "::error::commit $c has no Signed-off-by line: $(git log -1 --format=%s "$c")"
+            done
+            exit 1
+          fi
 
       - run: mix gate
 
@@ -252,11 +285,44 @@ jobs:
           ERL_AFLAGS: "-eval application:load(crypto)"
         run: elixir scripts/crypto_supports.exs | diff - docs/fips-leg/supports-default.txt
 
-      - name: DCO sign-off present on every commit
+      # Slice 128. This used to concatenate every message in the range and grep for one
+      # `Signed-off-by:` anywhere, under this same name: a range of five commits where one was
+      # signed passed a step called "on every commit". Now it asks per commit and prints the ones
+      # that fail.
+      #
+      # `--no-merges` for the reason `test/dco_test.exs` gives at length: a sign-off certifies the
+      # right to submit work, and a forge's merge commit introduces none. That test checks the whole
+      # history and runs on every leg; this step is the fast one that fails a pull request early,
+      # and the two agree on what they mean by "every commit".
+      # Slice 128. The owner's rule is that no assistant attribution appears anywhere, and a pull
+      # request description is somewhere: it is the first thing a reader of this project sees, and
+      # seven of them carried one on 2026-09-26 before a person noticed. The hook covers commit
+      # messages and plan_check covers history; both look at the tree, and a description is not in
+      # it.
+      #
+      # The body goes through `env` rather than into the script: `${{ }}` interpolated into a shell
+      # command is a script injection, and a pull request description is attacker-controlled text.
+      - name: No assistant attribution in the pull request description
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          git log --format=%B ${{ github.event.pull_request.base.sha || 'HEAD~1' }}..HEAD 2>/dev/null \
-            | grep -q '^Signed-off-by: ' || {
-              echo "::error::a commit in this range has no Signed-off-by line"; exit 1; }
+          if printf '%s' "$PR_BODY" | grep -qiE 'Co-Authored-By: Claude|Claude-Session:|Generated with \[Claude'; then
+            echo "::error::the pull request description carries an assistant attribution; remove it"
+            exit 1
+          fi
+
+      - name: DCO sign-off on every commit that carries work
+        run: |
+          range="${{ github.event.pull_request.base.sha || 'HEAD~1' }}..HEAD"
+          unsigned=$(git log --no-merges --format='%H%x09%(trailers:key=Signed-off-by,valueonly)' "$range" \
+            | awk -F'\t' '$2 == "" { print $1 }')
+          if [ -n "$unsigned" ]; then
+            for c in $unsigned; do
+              echo "::error::commit $c has no Signed-off-by line: $(git log -1 --format=%s "$c")"
+            done
+            exit 1
+          fi
 
       - run: mix gate
 
