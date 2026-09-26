@@ -19,19 +19,19 @@ document, a PROOF.md line) or `none`; the status; who decides the status. Status
 | Control | Where Trinity satisfies it | Evidence path | Status | Decider |
 |---|---|---|---|---|
 | FIPS 140-3 validated cryptography in FIPS mode | OTP built with `--enable-fips` against a validated provider; `crypto:info_fips()` enabled; slice 024's signer selects an approved algorithm or denies | slice 003 (FIPS build leg), slice 024 AC8 | 003 landed 2026-09-20: the gate runs in the mode on every push (`fips` job, docs/fips-leg.md); the provider is the one the distribution ships and names, and the word validated is the certificate's, not this tree's; 024 AC8 still `:unknown` | owner, then an assessor |
-| CNSA 1.0 signature suite (ECDSA P-384, SHA-384) | slice 024 amendment 2, FIPS mode selection | slice 024 AC8 | `:unknown` until 024 lands | owner |
+| CNSA 1.0 signature suite (ECDSA P-384, SHA-384) | slice 024 amendment 2, FIPS mode selection | slice 024 AC8 | `:unknown`; 024 landed 2026-09-20 (tag `slice/024`) and is approved, so the gate on this row is gone and the status is the owner's to set | owner |
 | CNSA 2.0 readiness (ML-DSA-87) | slice 024 amendment 6, behind the same seam, compile-conditional on OpenSSL 3.5 or later; never default | none yet | `not claimed` | owner; the word validated waits on the CMVP listing of the provider that carries it |
 | FIPS 140-2 certificates on the Historical list from 2026-09-22 | not applicable: Trinity cites no 140-2 module | none | `real-world dependency` (deployment's modules) | deployment |
-| TLS floor 1.2 in FIPS mode | one README line and a test pinning it | slice 002 AC3 | `:unknown` until 002 lands | owner |
-| Envelope MAC in FIPS mode is an approved algorithm | HMAC-SHA256 or AES-GCM in the MRTR envelope Trinity mints | slice 061 | `:unknown` until 061 lands | owner |
+| TLS floor 1.2 in FIPS mode | one README line and a test pinning it | slice 002 AC3 | `:unknown`; 002 landed 2026-09-23 (tag `slice/002`) and is approved, so the gate on this row is gone and the status is the owner's to set | owner |
+| Envelope MAC in FIPS mode is an approved algorithm | HMAC-SHA256 or AES-GCM in the MRTR envelope Trinity mints | slice 061 | `:unknown`; 061 landed 2026-09-22 (tag `slice/061`) and is approved, so the gate on this row is gone and the status is the owner's to set | owner |
 
 ## Records and audit
 
 | Control | Where Trinity satisfies it | Evidence path | Status | Decider |
 |---|---|---|---|---|
-| NIST SP 800-53 AU family: non-repudiation of every governed act (AU-10) | per-receipt signatures for effect, decision, boot and cap receipts; checkpointed chains for query receipts; standalone verifier | slice 024 AC3, AC7, AC9 | `:unknown` until 024 lands | owner, then an assessor |
+| NIST SP 800-53 AU family: non-repudiation of every governed act (AU-10) | per-receipt signatures for effect, decision, boot and cap receipts; checkpointed chains for query receipts; standalone verifier | slice 024 AC3, AC7, AC9 | `:unknown`; 024 landed 2026-09-20 (tag `slice/024`) and is approved, so the gate on this row is gone and the status is the owner's to set | owner, then an assessor |
 | Audit record durability of the last committed receipt | receipts file may run `synchronous: :full` in its own file | slice 010 (file slot), slice 024 | `:unknown` | owner |
-| Disconnected operation without loss of audit | store-and-forward receipts, hybrid logical clocks, Merkle merge | slice 026 | `not claimed`; 026 is blocked on an external answer | owner |
+| Disconnected operation without loss of audit | store-and-forward receipts, hybrid logical clocks, Merkle merge | slice 026 | `not claimed`; 026 landed 2026-09-26 (tag `slice/026`) and is approved. It was not blocked: the external authority plane answered on 2026-09-20 and the answer is recorded in that slice's NOTES. The status stays `not claimed` and is the owner's to set | owner |
 | Trusted time for receipts | none in software; a deployment supplies a trusted time source | slice 026 risk line | `real-world dependency` | deployment |
 | IETF RFC 9943 (SCITT) alignment of the receipt object | nothing to satisfy: Trinity issues SCITT **Signed Statements**, never SCITT **Receipts**, which MUST carry inclusion proofs from a Transparency Service Trinity does not run. The signed field set maps element by element to COSE, CWT and in-toto constructs; the three fields that do not map (`seq`, `prev_hash`, `chain_scope`) are the ones SCITT delegates to that service | docs/receipt-scheme-mapping.md; slice 124 amendment 1; `Trinity.Receipts.SchemeMappingTest` | `not claimed`: alignment is documented, conformance is not claimed and none should be inferred. Field names are deliberately **not** renamed to COSE/CWT names, because an object that reads as conformant while running no transparency service is a claim made by appearance, which is what this register exists to prevent | owner; a conformance claim would need a `COSE_Sign1` envelope and a Transparency Service, both outside slice 124 |
 
@@ -39,7 +39,7 @@ document, a PROOF.md line) or `none`; the status; who decides the status. Status
 
 | Control | Where Trinity satisfies it | Evidence path | Status | Decider |
 |---|---|---|---|---|
-| Encryption of data at rest with deployment-controlled keys | volume or page level below SQLite (documented baseline); envelope encryption for blobs; keys through the custody seam | slice 025 | `:unknown` until 025 lands | owner, then an assessor |
+| Encryption of data at rest with deployment-controlled keys | volume or page level below SQLite (documented baseline); envelope encryption for blobs; keys through the custody seam | slice 025 | `:unknown`; 025 landed 2026-09-23 (tag `slice/025`) and is approved, so the gate on this row is gone and the status is the owner's to set | owner, then an assessor |
 | Exclusive deployment control of encryption keys | `Trinity.Keys` behaviour; local adapter first; KMS, HSM and PKCS#11 as later adapters | slice 025 AC1, AC3 | `:unknown` | deployment |
 
 ## Identity
@@ -71,8 +71,8 @@ still hold.
 
 | Control | Where Trinity satisfies it | Evidence path | Status | Decider |
 |---|---|---|---|---|
-| Software bill of materials on every release | CycloneDX from the gate, attached to releases | slice 002 AC1, AC2 | `:unknown` until 002 lands | owner |
-| Build provenance on release artifacts | GitHub attestation, verified in the workflow | slice 002 AC2 | `:unknown` until 002 lands | owner |
+| Software bill of materials on every release | CycloneDX from the gate, attached to releases | slice 002 AC1, AC2 | `:unknown`; 002 landed 2026-09-23 (tag `slice/002`) and is approved, so the gate on this row is gone and the status is the owner's to set | owner |
+| Build provenance on release artifacts | GitHub attestation, verified in the workflow | slice 002 AC2 | `:unknown`; 002 landed 2026-09-23 (tag `slice/002`) and is approved, so the gate on this row is gone and the status is the owner's to set | owner |
 | Signed releases, Scorecard, SLSA level | slice 121 | none yet | `not claimed` | owner |
 | Cryptography bill of materials | none until the minimum elements are published | none | `not claimed` | owner |
 
@@ -81,8 +81,8 @@ still hold.
 | Control | Where Trinity satisfies it | Evidence path | Status | Decider |
 |---|---|---|---|---|
 | Independence from other systems that share the Jido library | not applicable: Trinity uses no Jido package (ADR-0009, decision appended 2026-09-20) | `mix deps.tree` shows no jido package | `tree property` | owner |
-| Standalone operation with no authority plane and no outbound connection | `TRINITY_AUTHORITY=local`, the standalone assertion | slice 024 AC2 | `:unknown` until 024 lands | owner |
-| Nothing fails open | signing unavailable denies; unknown tool denies; unknown effect denies; adapter unresolvable refuses to start | slice 024 AC5, ADR-0010 | `:unknown` until 024 lands | owner |
+| Standalone operation with no authority plane and no outbound connection | `TRINITY_AUTHORITY=local`, the standalone assertion | slice 024 AC2 | `:unknown`; 024 landed 2026-09-20 (tag `slice/024`) and is approved, so the gate on this row is gone and the status is the owner's to set | owner |
+| Nothing fails open | signing unavailable denies; unknown tool denies; unknown effect denies; adapter unresolvable refuses to start | slice 024 AC5, ADR-0010 | `:unknown`; 024 landed 2026-09-20 (tag `slice/024`) and is approved, so the gate on this row is gone and the status is the owner's to set | owner |
 
 ## Real-world dependencies that no tree change closes
 
