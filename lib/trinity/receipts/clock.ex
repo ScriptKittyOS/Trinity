@@ -44,6 +44,10 @@ defmodule Trinity.Receipts.Clock do
   than a tree property, because no version of this tree can close it.
   """
 
+  # Sobelow reads `@sobelow_skip` out of the source AST; the compiler never sees it used, so it
+  # has to be registered or every annotated module warns. Same as `Trinity.Paths`.
+  Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
+
   @type t :: %__MODULE__{wall: non_neg_integer(), counter: non_neg_integer(), node: String.t()}
 
   @enforce_keys [:wall, :counter, :node]
@@ -144,26 +148,25 @@ defmodule Trinity.Receipts.Clock do
   @spec forget_node_id() :: :ok
   def forget_node_id, do: :persistent_term.erase({__MODULE__, :node_id}) && :ok
 
-  # The path is the keys directory plus a constant, never input.
-  defp read_or_create_node_id do
+  # One function rather than two so the annotation covers the read and the write together, and
+  # public because the attribute only attaches to a public definition.
+  @doc false
+  # sobelow_skip reason: Traversal.FileModule, as `Trinity.Paths.keys_dir/0` itself: the path is
+  # the keys directory plus a constant, never input.
+  @sobelow_skip ["Traversal.FileModule"]
+  @spec read_or_create_node_id() :: String.t()
+  def read_or_create_node_id do
     path = Path.join(Trinity.Paths.keys_dir(), "device_id")
 
-    case File.read(path) do
-      {:ok, contents} ->
-        case String.trim(contents) do
-          "" -> create_node_id(path)
-          id -> id
-        end
-
-      {:error, _} ->
-        create_node_id(path)
+    with {:ok, contents} <- File.read(path),
+         id when id != "" <- String.trim(contents) do
+      id
+    else
+      _ ->
+        id = 12 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
+        File.write!(path, id)
+        File.chmod!(path, 0o600)
+        id
     end
-  end
-
-  defp create_node_id(path) do
-    id = 12 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
-    File.write!(path, id)
-    File.chmod!(path, 0o600)
-    id
   end
 end

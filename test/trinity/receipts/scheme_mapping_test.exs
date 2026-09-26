@@ -114,7 +114,6 @@ defmodule Trinity.Receipts.SchemeMappingTest do
       "nine" => 9,
       "ten" => 10,
       "eleven" => 11,
-      "eleven" => 11,
       "twelve" => 12,
       "thirteen" => 13
     }

@@ -350,31 +350,29 @@ defmodule Trinity.Receipts.ChainWriter do
   # queue entry is one the far side will never see and nothing will ever notice; a queue entry with
   # no receipt is a promise about a row that does not exist.
   defp insert_row(%Receipt{} = row, state, clock, forward?) do
-    result =
-      Repo.transaction(fn ->
-        case Repo.insert(row) do
-          {:ok, receipt} ->
-            if forward? do
-              case Repo.insert(Queue.entry_changeset(receipt)) do
-                {:ok, _entry} -> receipt
-                {:error, changeset} -> Repo.rollback({:queue_insert, changeset.errors})
-              end
-            else
-              receipt
-            end
-
-          {:error, changeset} ->
-            Repo.rollback({:insert, changeset.errors})
-        end
-      end)
-
-    case result do
+    case Repo.transaction(fn -> insert_and_queue(row, forward?) end) do
       {:ok, receipt} ->
         state = %{state | seq: receipt.seq, prev_hash: receipt.receipt_hash, clock: clock}
         {:ok, receipt, track_uncovered(receipt, state)}
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  defp insert_and_queue(row, forward?) do
+    case Repo.insert(row) do
+      {:ok, receipt} -> queue_entry(receipt, forward?)
+      {:error, changeset} -> Repo.rollback({:insert, changeset.errors})
+    end
+  end
+
+  defp queue_entry(receipt, false), do: receipt
+
+  defp queue_entry(receipt, true) do
+    case Repo.insert(Queue.entry_changeset(receipt)) do
+      {:ok, _entry} -> receipt
+      {:error, changeset} -> Repo.rollback({:queue_insert, changeset.errors})
     end
   end
 

@@ -442,6 +442,63 @@ The receipt names the fields that changed and never their values, and the
 `[:trinity, :tool, :surface_drift]` event carries the same. A description is content, and the point
 of holding the tool is that its new content has not been read by anyone entitled to approve it.
 
+## Disconnected operation: the clock, the queue and the merge (Slice 026, as built)
+
+A field or clinical site loses its link and keeps working. Three mechanisms make that safe to do, and each has a
+limit worth stating before its benefit.
+
+### The clock, and what it is not worth
+
+Every receipt written under `receipt_v3_*` carries a hybrid logical clock (Kulkarni et al., 2014):
+`{wall, counter, node}`, in the **signed** payload. It is there because a hash chain orders its own rows
+perfectly and says nothing about a chain that ran elsewhere at the same time, and a merge needs an order that
+survives a partition.
+
+**A signed receipt with an untrusted clock is weaker evidence than a signed receipt with a trusted one, and this
+clock is untrusted.** It is the host's own reading. A host that lies about the time produces receipts that are
+internally consistent and wrong about when; the signature attests that *this host said so*, not that it was true.
+A deployment that needs the *when* to be trustworthy supplies a trusted time source, and
+`docs/09-standards-register.md` carries that as a real-world dependency rather than a tree property, because no
+version of this tree can close it.
+
+What the clock does guarantee:
+
+- **It never goes backwards within a chain.** `Clock.next/2` is monotone even when the host's wall clock steps
+  back, and the writer refuses a row whose clock does not follow the tail. The refusal is itself receipted, with
+  both clocks named.
+- **It is signed**, so the ordering claim cannot be edited by anything that cannot sign. This is why the clock is
+  in the signed payload rather than in `meta`, against R21's general rule that platform-set values go in `meta`: a
+  merge that ordered two chains by an unsigned field would order them by something any writer could rewrite, and
+  the merge would then be evidence of nothing.
+- **It names the device**, so two chains are distinguishable and ties break deterministically.
+
+### The queue, and why it is bounded
+
+Receipts awaiting acknowledgement sit in a durable per-scope queue. The envelope is stored **byte for byte** and
+never rebuilt at send time, so a retry hands the far side exactly the bytes that were signed; that is the
+condition under which store-and-forward is invisible to a verifier checking a signature offline.
+
+Acknowledgement is in order, and a drain stops a scope at its first refusal rather than skipping past it. A far
+side holding row 7 but not row 5 holds a gap it cannot see.
+
+**Past the bound, effects are denied rather than performed and left unacknowledged.** An unbounded queue turns a
+long partition into an unbounded liability: the machine keeps acting, nothing can be confirmed, and the operator
+finds out when the disk fills. The queue-full refusal is receipted and is deliberately not itself queued, because
+a full queue that cannot record that it is full is a deadlock dressed as a safety property.
+
+### The merge, and what it refuses to do
+
+On reconnect, two chains are compared by Merkle tree head (RFC 6962 hashing: distinct leaf and node prefixes,
+odd nodes promoted rather than duplicated, so two distinct chains cannot share a head). Equal heads mean every
+row matches, at the cost of one comparison rather than one message per row.
+
+**A merge never rewrites either side.** It does not produce one reconciled chain. Both chains stay exactly as
+they were and what the merge produces is a signed record of where they disagree, one conflict receipt per
+differing position. This is the honest outcome rather than a limitation: two devices that both acted while unable
+to see each other produced two true accounts of what each did, and nothing available afterwards turns those into
+one account of what happened. A remote export that does not verify is refused before anything is compared, so
+conflict receipts cannot be written into the local chain by handing the merge invented rows.
+
 ## Data at rest
 
 - SQLite file under the OS data dir with 0600 perms. Optional at-rest encryption is a later slice (SQLCipher via exqlite build flag), noted rather than planned.

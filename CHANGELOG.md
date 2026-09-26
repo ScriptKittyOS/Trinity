@@ -24,6 +24,32 @@ evidence for each increment is retained by the maintainers and summarised here.
 
 ## 2026-09-26
 
+### `slice/026`: Trinity keeps working when the link goes down
+
+A site that loses its connection keeps operating, and the record of what it did survives the gap intact.
+
+Every receipt now carries a clock that cannot run backwards, even if the machine's own clock does, so two
+machines that worked separately can be lined up afterwards. The clock is part of what gets signed, which matters:
+comparing two records by something anyone could edit afterwards would prove nothing. What the clock is worth is
+written down plainly alongside it. It is the machine's own reading of the time and it is not trustworthy on its
+own; a deployment that needs the time itself to be trustworthy supplies a trusted source, and the standards
+register records that as something no version of this software can supply for you.
+
+Receipts that cannot be sent wait in a durable queue and are delivered in order when the link returns, exactly as
+they were signed, never rebuilt. The queue has a limit, and reaching it stops Trinity accepting new work rather
+than letting it act with no way to confirm anything. That refusal is itself recorded.
+
+When two machines reconnect, their records are compared by a single value rather than message by message. Where
+they disagree, each disagreement is recorded and signed. **Neither record is ever rewritten.** Two machines that
+both acted while unable to see each other produced two true accounts of what each did, and nothing available
+afterwards turns those into one account of what happened; claiming otherwise would mean inventing the part that
+cannot be known.
+
+Records written before this increment remain valid and verifiable, and a test confirms it by verifying one built
+under the previous format.
+
+Verified: gate green at exit 0; 904 tests passing; coverage 80.31%, level with the previous increment.
+
 ### `slice/125`: the credential filter cannot be switched off by a log line
 
 Trinity masks anything credential-shaped on its way into a log. That filter could be killed by

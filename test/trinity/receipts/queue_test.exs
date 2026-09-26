@@ -13,8 +13,8 @@ defmodule Trinity.Receipts.QueueTest do
 
   alias Trinity.Receipts
   alias Trinity.Receipts.{Forwarder, Queue, QueueEntry}
-  alias Trinity.TestAuthority
   alias Trinity.Repo.Receipts, as: RRepo
+  alias Trinity.TestAuthority
 
   setup do
     scope = "test:" <> Trinity.UUID.generate()

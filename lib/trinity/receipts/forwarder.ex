@@ -87,25 +87,31 @@ defmodule Trinity.Receipts.Forwarder do
   defp drain_scope(scope, acc) do
     scope
     |> Queue.pending(@batch)
-    |> Enum.reduce_while(acc, fn entry, acc ->
-      case offer(entry) do
-        :ok ->
-          case Queue.ack(scope, entry.receipt_hash) do
-            :ok ->
-              {:cont, %{acc | acked: acc.acked + 1}}
+    |> Enum.reduce_while(acc, fn entry, acc -> offer_one(scope, entry, acc) end)
+  end
 
-            {:error, reason} ->
-              # The far side took it and this side could not record that. Stop: acknowledging
-              # anything later would close a gap that is now real.
-              Logger.warning("receipts: #{scope}: forwarded but not acked: #{inspect(reason)}")
-              {:halt, %{acc | failed: acc.failed + 1}}
-          end
+  defp offer_one(scope, entry, acc) do
+    case offer(entry) do
+      :ok ->
+        record_ack(scope, entry, acc)
 
-        {:error, reason} ->
-          Queue.fail(entry, reason)
-          {:halt, %{acc | failed: acc.failed + 1}}
-      end
-    end)
+      {:error, reason} ->
+        Queue.fail(entry, reason)
+        {:halt, %{acc | failed: acc.failed + 1}}
+    end
+  end
+
+  defp record_ack(scope, entry, acc) do
+    case Queue.ack(scope, entry.receipt_hash) do
+      :ok ->
+        {:cont, %{acc | acked: acc.acked + 1}}
+
+      {:error, reason} ->
+        # The far side took it and this side could not record that. Stop: acknowledging anything
+        # later would close a gap that is now real.
+        Logger.warning("receipts: #{scope}: forwarded but not acked: #{inspect(reason)}")
+        {:halt, %{acc | failed: acc.failed + 1}}
+    end
   end
 
   defp offer(entry) do

@@ -125,19 +125,24 @@ defmodule Trinity.Receipts.Queue do
         :ok
 
       %QueueEntry{} = entry ->
-        case oldest_pending_seq(scope) do
-          seq when seq == entry.seq ->
-            entry
-            |> QueueEntry.changeset(%{status: "acked", acked_at: DateTime.utc_now()})
-            |> Repo.update()
-            |> case do
-              {:ok, _} -> :ok
-              {:error, cs} -> {:error, {:ack_failed, cs.errors}}
-            end
+        ack_if_oldest(scope, entry)
+    end
+  end
 
-          older ->
-            {:error, {:out_of_order, older}}
-        end
+  defp ack_if_oldest(scope, entry) do
+    case oldest_pending_seq(scope) do
+      seq when seq == entry.seq -> mark_acked(entry)
+      older -> {:error, {:out_of_order, older}}
+    end
+  end
+
+  defp mark_acked(entry) do
+    entry
+    |> QueueEntry.changeset(%{status: "acked", acked_at: DateTime.utc_now()})
+    |> Repo.update()
+    |> case do
+      {:ok, _} -> :ok
+      {:error, cs} -> {:error, {:ack_failed, cs.errors}}
     end
   end
 
