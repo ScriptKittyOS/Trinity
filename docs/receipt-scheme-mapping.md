@@ -24,6 +24,17 @@ emits is a SCITT Receipt, and this project makes no such claim. The name predate
 tree and is not being changed, because "receipt" is the right word for what it is to the person who
 owns the machine; but a reader who knows SCITT should not have to work this out for themselves.
 
+## Two scheme versions, since slice 026
+
+`receipt_v2_<family>` is slice 024's and carries ten keys. `receipt_v3_<family>` is slice 026's and
+carries eleven: the ten plus `clock`, a hybrid logical clock for relating two chains that ran during
+a partition. New rows are written under `v3`; `v2` rows are still verified under `v2`, row by row,
+under each row's own scheme.
+
+That is a scheme bump rather than an edit: no byte signed under `v2` changed, and
+`Trinity.Receipts.Signer.accepted_schemes/0` is what the verifier allows by default, so bumping the
+version did not make previously signed rows unverifiable. The field list below is `v3`.
+
 ## The envelope Trinity signs with today
 
 The signature is not over the canonical JSON directly. It is over DSSE's pre-authentication encoding
@@ -33,11 +44,13 @@ a different one from SCITT's: DSSE rather than COSE. That matters for the last s
 
 ## The field mapping
 
-Trinity's signed payload is RFC 8785 canonical JSON of exactly these ten keys
+Trinity's signed payload is RFC 8785 canonical JSON of exactly these eleven keys
 (`Trinity.Receipts.ChainWriter`, the `body` map):
 
 `scheme`, `seq`, `chain_scope`, `prev_hash`, `kind`, `subject`, `decision`, `fingerprint`, `at`,
-`key_id`.
+`key_id`, `clock`.
+
+Under `receipt_v2_*` the same list without `clock`.
 
 `subject_ref` and `meta` are columns on the row but are **not** in the signed payload, so they are
 not covered by the signature and are not mapped below.
@@ -51,6 +64,7 @@ not covered by the signature and are not mapped below.
 | `subject` | CWT `sub` (claim 2) | SCITT requires a single `tstr`; Trinity's signed `subject` is a map of references. Mapping it needs a canonical string form chosen, which is a decision, not a rename. |
 | *(absent)* | CWT `iss` (claim 1), **required** | Trinity has no issuer field. A single-operator machine has one issuer and it is implied by the key, which is why it was never needed and is exactly what a standards-track reader would look for first. |
 | `decision`, `fingerprint` | the statement payload | Domain content. SCITT does not constrain it. |
+| `clock` | **no equivalent** | A hybrid logical clock (slice 026): `wall`, `counter`, `node`. SCITT has no notion of one because a transparency service supplies the ordering its receipts need. Trinity has no such service, so ordering across a partition has to travel in the statement, and it is signed for the reason the mapping document gives below: a merge that orders two chains by an unsigned field orders them by something any writer could rewrite. |
 | `seq`, `chain_scope`, `prev_hash` | **no equivalent** | These are the hash chain. In SCITT the equivalent guarantee comes from a Transparency Service's Verifiable Data Structure and is carried in a Receipt's proofs, not in the statement. Trinity's chain is the whole of its tamper-evidence, and it is local. |
 
 ## Why the field names are not being renamed
@@ -76,7 +90,9 @@ do.
 
 - Trinity's receipts are **Signed Statements** in SCITT's sense, not Receipts.
 - Their integrity comes from a local hash chain with signed checkpoints, not from a transparency log.
-- Every element of the signed payload maps to a published construct, and the three that do not map
-  (`seq`, `prev_hash`, `chain_scope`) are the ones SCITT delegates to a service Trinity does not run.
+- Every element of the signed payload maps to a published construct except four: `seq`, `prev_hash`
+  and `chain_scope`, which are the ones SCITT delegates to a service Trinity does not run, and
+  `clock`, which exists for the same reason, since ordering across a partition is what a
+  transparency service would otherwise provide.
 - `subject_ref` and `meta` are unsigned row columns. Nothing should be inferred from them.
 - No conformance to RFC 9943 is claimed, and none should be inferred.

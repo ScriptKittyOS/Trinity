@@ -30,7 +30,17 @@ defmodule Trinity.Receipts.ChainWriter do
 
   import Ecto.Query
 
-  alias Trinity.Receipts.{Checkpoint, Envelope, KeyCustody, KeyRegistry, Receipt, Signer}
+  alias Trinity.Receipts.{
+    Checkpoint,
+    Clock,
+    Envelope,
+    KeyCustody,
+    KeyRegistry,
+    Queue,
+    Receipt,
+    Signer
+  }
+
   alias Trinity.Repo.Receipts, as: Repo
 
   require Logger
@@ -41,6 +51,7 @@ defmodule Trinity.Receipts.ChainWriter do
   defstruct scope: nil,
             seq: 0,
             prev_hash: nil,
+            clock: nil,
             uncovered_first: nil,
             uncovered_count: 0,
             timer: nil
@@ -121,8 +132,16 @@ defmodule Trinity.Receipts.ChainWriter do
   @impl true
   def handle_call({:append, attrs}, _from, state) do
     case do_append(attrs, state) do
-      {:ok, receipt, state} -> {:reply, {:ok, receipt}, maybe_checkpoint(receipt, state)}
-      {:error, reason} -> {:reply, {:error, reason}, state}
+      {:ok, receipt, state} ->
+        {:reply, {:ok, receipt}, maybe_checkpoint(receipt, state)}
+
+      # A refusal that was itself receipted: the reply is the error, and the state advances,
+      # because the refusal row is in the chain and the tail moved.
+      {:error, reason, state} ->
+        {:reply, {:error, reason}, state}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
     end
   end
 
@@ -166,11 +185,118 @@ defmodule Trinity.Receipts.ChainWriter do
     unless kind in Receipt.kinds(),
       do: raise(ArgumentError, "unknown receipt kind #{inspect(kind)}")
 
-    with {:ok, %{scheme: scheme, key_id: key_id}} <- selection(),
-         {row, at} = build_row(attrs, kind, scheme, key_id, state),
+    forward? = Map.get(attrs, :forward, true)
+
+    with :ok <- check_queue_bound(forward?, state),
+         {:ok, %{scheme: scheme, key_id: key_id}} <- selection(),
+         {row, at, clock} = build_row(attrs, kind, scheme, key_id, state),
+         :ok <- check_clock(clock, state),
          bytes = Envelope.pae(Envelope.receipt_type(scheme), row.signed_payload),
          {:ok, signature} <- sign_if_needed(kind, bytes) do
-      insert_row(%{row | signature: signature, inserted_at: at}, state)
+      insert_row(%{row | signature: signature, inserted_at: at}, state, clock, forward?)
+    else
+      {:error, {:clock_regression, offered, held}} ->
+        refuse_clock_regression(offered, held, state)
+
+      {:error, {:queue_full, depth, bound}} ->
+        refuse_queue_full(depth, bound, state)
+
+      other ->
+        other
+    end
+  end
+
+  # Slice 026, AC4. The bound is a refusal, not a buffer: past it the effect is denied rather than
+  # performed and left unacknowledged. An unbounded queue turns a long partition into an unbounded
+  # liability, where the machine keeps acting, nothing can be confirmed, and the operator finds out
+  # when the disk fills.
+  defp check_queue_bound(false, _state), do: :ok
+
+  defp check_queue_bound(true, state) do
+    depth = Queue.depth(state.scope)
+    bound = Queue.bound()
+    if depth >= bound, do: {:error, {:queue_full, depth, bound}}, else: :ok
+  end
+
+  defp refuse_queue_full(depth, bound, state) do
+    attrs = %{
+      kind: "decision",
+      subject: %{
+        "chain_scope" => state.scope,
+        "queue_depth" => depth,
+        "queue_bound" => bound
+      },
+      decision: %{
+        "outcome" => "refused",
+        "basis" => "queue",
+        "reason" =>
+          "the outbound receipt queue is at its bound: refusing the effect rather than " <>
+            "performing it and leaving it unacknowledged"
+      },
+      subject_ref: "queue_full:#{state.scope}:#{state.seq}",
+      # Not itself queued. If it were, a full queue could not record that it was full, which is a
+      # deadlock dressed as a safety property.
+      forward: false
+    }
+
+    case do_append_unchecked(attrs, state) do
+      {:ok, _receipt, state} -> {:error, {:queue_full, depth, bound}, state}
+      {:error, why} -> {:error, {:queue_full_unrecorded, why}}
+    end
+  end
+
+  # Slice 026, AC3. The writer's own clock cannot go backwards: `Clock.next/2` is monotone even
+  # when the host's wall clock is not. This guards the other way in, which is a clock supplied with
+  # the attributes, as the merge path and an adapter's replay both do. A row that claims to precede
+  # one already in the chain is refused, and the refusal is itself a receipt, because a refusal that
+  # leaves no record is indistinguishable from the call never having been made.
+  defp check_clock(nil, _state), do: :ok
+  defp check_clock(_clock, %{clock: nil}), do: :ok
+
+  defp check_clock(clock, %{clock: held}) do
+    if Clock.compare(clock, held) == :gt,
+      do: :ok,
+      else: {:error, {:clock_regression, clock, held}}
+  end
+
+  defp refuse_clock_regression(offered, held, state) do
+    attrs = %{
+      kind: "decision",
+      subject: %{
+        "chain_scope" => state.scope,
+        "offered_clock" => Clock.to_map(offered),
+        "held_clock" => Clock.to_map(held)
+      },
+      decision: %{
+        "outcome" => "refused",
+        "basis" => "clock",
+        "reason" =>
+          "the offered clock does not follow the chain tail: a receipt may not claim to precede " <>
+            "a row already written"
+      },
+      subject_ref: "clock_regression:#{state.scope}:#{state.seq}"
+    }
+
+    # The refusal takes a fresh clock of its own, which is monotone by construction, so recording a
+    # refusal can never itself be refused.
+    case do_append_unchecked(attrs, state) do
+      {:ok, _receipt, state} -> {:error, {:clock_regression, offered, held}, state}
+      {:error, why} -> {:error, {:clock_regression_unrecorded, why}}
+    end
+  end
+
+  defp do_append_unchecked(attrs, state) do
+    with {:ok, %{scheme: scheme, key_id: key_id}} <- selection(),
+         {row, at, clock} =
+           build_row(Map.delete(attrs, :clock), "decision", scheme, key_id, state),
+         bytes = Envelope.pae(Envelope.receipt_type(scheme), row.signed_payload),
+         {:ok, signature} <- sign_if_needed("decision", bytes) do
+      insert_row(
+        %{row | signature: signature, inserted_at: at},
+        state,
+        clock,
+        Map.get(attrs, :forward, true)
+      )
     end
   end
 
@@ -178,18 +304,27 @@ defmodule Trinity.Receipts.ChainWriter do
     seq = state.seq + 1
     at = DateTime.utc_now()
 
-    body = %{
-      "scheme" => scheme,
-      "seq" => seq,
-      "chain_scope" => state.scope,
-      "prev_hash" => state.prev_hash,
-      "kind" => kind,
-      "subject" => Map.get(attrs, :subject, %{}),
-      "decision" => Map.get(attrs, :decision),
-      "fingerprint" => Map.get(attrs, :fingerprint),
-      "at" => DateTime.to_iso8601(at),
-      "key_id" => key_id
-    }
+    clock =
+      cond do
+        not Signer.clocked?(scheme) -> nil
+        offered = Map.get(attrs, :clock) -> offered
+        true -> Clock.next(state.clock)
+      end
+
+    body =
+      %{
+        "scheme" => scheme,
+        "seq" => seq,
+        "chain_scope" => state.scope,
+        "prev_hash" => state.prev_hash,
+        "kind" => kind,
+        "subject" => Map.get(attrs, :subject, %{}),
+        "decision" => Map.get(attrs, :decision),
+        "fingerprint" => Map.get(attrs, :fingerprint),
+        "at" => DateTime.to_iso8601(at),
+        "key_id" => key_id
+      }
+      |> then(fn b -> if clock, do: Map.put(b, "clock", Clock.to_map(clock)), else: b end)
 
     payload = Envelope.canonical(body)
     hash = Envelope.hash(Envelope.pae(Envelope.receipt_type(scheme), payload))
@@ -208,17 +343,36 @@ defmodule Trinity.Receipts.ChainWriter do
       meta: Map.get(attrs, :meta, %{})
     }
 
-    {row, at}
+    {row, at, clock}
   end
 
-  defp insert_row(%Receipt{} = row, state) do
-    case Repo.insert(row) do
+  # The receipt and its queue entry land together or not at all. A receipt in the chain with no
+  # queue entry is one the far side will never see and nothing will ever notice; a queue entry with
+  # no receipt is a promise about a row that does not exist.
+  defp insert_row(%Receipt{} = row, state, clock, forward?) do
+    case Repo.transaction(fn -> insert_and_queue(row, forward?) end) do
       {:ok, receipt} ->
-        state = %{state | seq: receipt.seq, prev_hash: receipt.receipt_hash}
+        state = %{state | seq: receipt.seq, prev_hash: receipt.receipt_hash, clock: clock}
         {:ok, receipt, track_uncovered(receipt, state)}
 
-      {:error, changeset} ->
-        {:error, {:insert, changeset.errors}}
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp insert_and_queue(row, forward?) do
+    case Repo.insert(row) do
+      {:ok, receipt} -> queue_entry(receipt, forward?)
+      {:error, changeset} -> Repo.rollback({:insert, changeset.errors})
+    end
+  end
+
+  defp queue_entry(receipt, false), do: receipt
+
+  defp queue_entry(receipt, true) do
+    case Repo.insert(Queue.entry_changeset(receipt)) do
+      {:ok, _entry} -> receipt
+      {:error, changeset} -> Repo.rollback({:queue_insert, changeset.errors})
     end
   end
 
@@ -347,6 +501,19 @@ defmodule Trinity.Receipts.ChainWriter do
 
   ## Rehydrate
 
+  # The tail's clock is read back so the chain stays monotone across a restart. A `v2` tail has
+  # none, and a chain that crosses the bump simply starts its clock at the first `v3` row.
+  defp tail_clock(nil), do: nil
+
+  defp tail_clock(%Receipt{signed_payload: payload}) do
+    with {:ok, body} <- JSON.decode(payload),
+         {:ok, clock} <- Clock.from_map(body["clock"]) do
+      clock
+    else
+      _ -> nil
+    end
+  end
+
   defp rehydrate(scope) do
     tail =
       Repo.one(
@@ -369,6 +536,7 @@ defmodule Trinity.Receipts.ChainWriter do
          scope: scope,
          seq: (tail && tail.seq) || 0,
          prev_hash: tail && tail.receipt_hash,
+         clock: tail_clock(tail),
          uncovered_first: first,
          uncovered_count: count
        }}

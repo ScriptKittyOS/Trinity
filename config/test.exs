@@ -240,7 +240,12 @@ config :phoenix,
 
 # Slice 024: the receipt signing key and registry for the suite live under the project's
 # ignored tmp/, never in the data directory of the machine running the tests.
-config :trinity, :receipts, keys_dir: Path.expand("../tmp/test_keys", __DIR__)
+# Slice 026: the forwarder's timer is off in the suite. A background drain racing an assertion
+# about queue depth is a flaky test about nothing; `Trinity.Receipts.Forwarder.drain/0` is called
+# explicitly where a test wants a pass to happen.
+config :trinity, :receipts,
+  keys_dir: Path.expand("../tmp/test_keys", __DIR__),
+  forward_interval_ms: 0
 
 # Slice 032: the suite embeds with the deterministic fake; nothing leaves the machine and no
 # model is needed.

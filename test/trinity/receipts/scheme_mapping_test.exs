@@ -22,6 +22,11 @@ defmodule Trinity.Receipts.SchemeMappingTest do
   # derived from the code would agree with the code by construction and could prove nothing.
   @slice_024_keys ~w(scheme seq chain_scope prev_hash kind subject decision fingerprint at key_id)
 
+  # Slice 026 added exactly one field, under a new scheme version. Written out for the same reason,
+  # and as the whole of the difference: a future slice that adds a field silently fails here.
+  @slice_026_added ~w(clock)
+  @current_keys @slice_024_keys ++ @slice_026_added
+
   defp payload_keys do
     scope = "test:" <> Trinity.UUID.generate()
     on_exit(fn -> Receipts.stop_writer(scope) end)
@@ -51,8 +56,17 @@ defmodule Trinity.Receipts.SchemeMappingTest do
     |> Enum.sort()
   end
 
-  test "AC2: the signed payload's keys are exactly the ten slice 024 established" do
-    assert payload_keys() == Enum.sort(@slice_024_keys)
+  test "AC2: the signed payload's keys are slice 024's ten plus exactly what slice 026 added" do
+    assert payload_keys() == Enum.sort(@current_keys)
+  end
+
+  test "AC2: slice 026 added one field and removed none, so no v2 byte could have changed" do
+    assert @slice_024_keys -- @current_keys == [],
+           "a field slice 024 signed is no longer in the payload. A scheme bump adds; it does " <>
+             "not drop, because a dropped field changes what an old row means when it is read " <>
+             "back by code that expects it."
+
+    assert @current_keys -- @slice_024_keys == @slice_026_added
   end
 
   test "AC3: every signed field has a row in the mapping table, and every row names a signed field" do

@@ -18,7 +18,7 @@ defmodule Trinity.Receipts.Signer.MLDSA87 do
   def algorithm, do: :mldsa87
 
   @impl true
-  def scheme, do: "receipt_v2_mldsa87"
+  def scheme, do: "receipt_v3_mldsa87"
 
   @impl true
   def available?, do: :mldsa87 in :crypto.supports(:public_keys)

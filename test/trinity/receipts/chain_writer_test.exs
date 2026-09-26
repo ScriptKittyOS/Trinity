@@ -73,7 +73,7 @@ defmodule Trinity.Receipts.ChainWriterTest do
     body = JSON.decode!(hd(rows).signed_payload)
 
     assert Map.keys(body) |> Enum.sort() ==
-             ~w(at chain_scope decision fingerprint key_id kind prev_hash scheme seq subject)
+             ~w(at chain_scope clock decision fingerprint key_id kind prev_hash scheme seq subject)
 
     assert body["scheme"] == impl.scheme()
   end
@@ -268,29 +268,54 @@ defmodule Trinity.Receipts.ChainWriterTest do
     files = out |> String.split("\n", trim: true)
     assert length(files) > 50
 
-    writes = ~w(insert insert! insert_all update update_all delete delete_all)
+    # Slice 026 split this in two. The property slice 024 cared about is that nothing but the
+    # writer brings a chain row into existence or removes one, and that is stated here directly.
+    # The outbound queue (slice 026) writes through the same Repo, to `receipt_queue`, and only
+    # ever updates a row it did not create; lumping it in with the inserters would have meant
+    # either a false failure or widening the census until it no longer said anything.
+    creates = ~w(insert insert! insert_all delete delete_all)
+    mutates = creates ++ ~w(update update_all)
 
-    # A file writes through the receipts Repo when it names the module, or an alias of it,
-    # followed by a write function. Reads (`all`, `one`, `aggregate`) do not count.
-    inserters =
-      for f <- files,
-          src = File.read!(f),
-          aliases =
-            Regex.scan(~r/alias Trinity\.Repo\.Receipts(?:, as: ([A-Z]\w*))?/, src)
-            |> Enum.map(fn
-              [_, as] -> as
-              [_] -> "Receipts"
-            end),
-          names = ["Trinity.Repo.Receipts" | aliases],
-          Enum.any?(names, fn n ->
-            Enum.any?(writes, &String.contains?(src, n <> "." <> &1 <> "("))
-          end),
-          do: f
+    callers = fn src, funs ->
+      aliases =
+        Regex.scan(~r/alias Trinity\.Repo\.Receipts(?:, as: ([A-Z]\w*))?/, src)
+        |> Enum.map(fn
+          [_, as] -> as
+          [_] -> "Receipts"
+        end)
+
+      names = ["Trinity.Repo.Receipts" | aliases]
+
+      Enum.any?(names, fn n ->
+        Enum.any?(funs, &String.contains?(src, n <> "." <> &1 <> "("))
+      end)
+    end
+
+    inserters = for f <- files, callers.(File.read!(f), creates), do: f
+    writers = for f <- files, callers.(File.read!(f), mutates), do: f
 
     assert Enum.sort(inserters) == [
              "lib/trinity/receipts/chain_writer.ex",
              "test/support/receipts/bypass_inserter.ex"
-           ]
+           ],
+           "something other than the ChainWriter creates or removes rows through the receipts Repo"
+
+    assert Enum.sort(writers) == [
+             "lib/trinity/receipts/chain_writer.ex",
+             "lib/trinity/receipts/queue.ex",
+             "test/support/receipts/bypass_inserter.ex"
+           ],
+           "a new writer appeared through the receipts Repo"
+
+    # And the queue writes its own table only. It never names the chain's schemas in a write.
+    queue_src = File.read!("lib/trinity/receipts/queue.ex")
+
+    for fun <- mutates do
+      refute queue_src =~ ~r/Repo\.#{fun}\(\s*%(Receipt|Checkpoint)\{/,
+             "the queue writes a chain schema through #{fun}"
+    end
+
+    assert queue_src =~ "QueueEntry"
 
     assert Trinity.TestReceipts.BypassInserter in (:application.get_key(:trinity, :modules)
                                                    |> elem(1))
