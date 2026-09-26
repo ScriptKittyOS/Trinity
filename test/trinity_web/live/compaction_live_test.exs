@@ -6,7 +6,7 @@ defmodule TrinityWeb.CompactionLiveTest do
   @moduletag :capture_log
 
   import Phoenix.LiveViewTest
-  import Trinity.SessionCase, only: [script_deltas: 2, collect: 3]
+  import Trinity.SessionCase, only: [script_deltas: 2, collect: 3, await_event: 3]
 
   alias Trinity.Factory
   alias Trinity.LLM.Providers.Fake

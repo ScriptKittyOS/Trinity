@@ -6,7 +6,7 @@ defmodule TrinityWeb.ApprovalLiveTest do
   @moduletag :capture_log
 
   import Phoenix.LiveViewTest
-  import Trinity.SessionCase, only: [script_deltas: 2, collect: 3]
+  import Trinity.SessionCase, only: [script_deltas: 2, collect: 3, await_event: 3]
 
   alias Trinity.Factory
   alias Trinity.LLM.Providers.Fake
@@ -84,7 +84,7 @@ defmodule TrinityWeb.ApprovalLiveTest do
     # Under the rule the next call runs without a card.
     write_turn()
     send_message(view, "again")
-    events = collect(id, &match?({:state, :idle}, &1), 5_000)
+    events = await_event(id, &match?({:state, :idle}, &1), 5_000)
     refute :approval_wait in for({:state, s} <- events, do: s)
 
     # A call outside the rule asks, and Deny records the denial.

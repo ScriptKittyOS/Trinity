@@ -21,7 +21,7 @@ defmodule Trinity.Sessions.ManySessionsTest do
         fn r ->
           :ok = Sessions.subscribe(r.id)
           {:ok, _} = Sessions.send_user_message(r.id, "hi")
-          events = collect(r.id, &match?({:assistant_message, _}, &1), 30_000)
+          events = await_event(r.id, &match?({:assistant_message, _}, &1), 30_000)
           {r.id, match?({:assistant_message, _}, List.last(events))}
         end,
         max_concurrency: @n,

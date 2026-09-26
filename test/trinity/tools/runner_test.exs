@@ -45,7 +45,7 @@ defmodule Trinity.Tools.RunnerTest do
     {t, {:ok, _}} = :timer.tc(fn -> Session.send_user_message(pid, "go") end)
     _ = t
     started = System.monotonic_time(:millisecond)
-    events = collect(id, &match?({:state, :idle}, &1), 10_000)
+    events = await_event(id, &match?({:state, :idle}, &1), 10_000)
     elapsed = System.monotonic_time(:millisecond) - started
     {events, elapsed, Sessions.history(id)}
   end

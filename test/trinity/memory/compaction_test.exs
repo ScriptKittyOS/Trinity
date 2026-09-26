@@ -150,7 +150,7 @@ defmodule Trinity.Memory.CompactionTest do
       repeats = div((soft + 600 - base) * 3, byte_size(unit))
       {:ok, _} = Session.send_user_message(pid, String.duplicate(unit, repeats))
 
-      events = collect(id, &match?({:state, :compacting}, &1), 5_000)
+      events = await_event(id, &match?({:state, :compacting}, &1), 5_000)
 
       assert :compacting in for({:state, s} <- events, do: s),
              "the kill needs the compacting state"
@@ -168,7 +168,7 @@ defmodule Trinity.Memory.CompactionTest do
       # The retry: the next message compacts once, cleanly.
       Fake.object_delay(0)
       {:ok, _} = Session.send_user_message(new_pid, "after the kill")
-      events = collect(id, &match?({:state, :idle}, &1), 15_000)
+      events = await_event(id, &match?({:state, :idle}, &1), 15_000)
       assert :compacting in for({:state, s} <- events, do: s)
       compactions = Enum.filter(Sessions.history(id, limit: 500), &Compactor.compaction?/1)
       assert length(compactions) == before + 1
@@ -193,7 +193,16 @@ defmodule Trinity.Memory.CompactionTest do
       Fake.script(script_deltas(1, "ok"))
       huge = String.duplicate("a message that no compaction can shrink ", 600)
       {:ok, _} = Session.send_user_message(pid, huge)
-      events = collect(id, &match?({:forked, _}, &1), 15_000)
+      # 60s, and the number is measured rather than picked. This wait is the only real one in this
+      # file: locally it takes 4,745 to 4,786 ms over five runs, where the two waits above return
+      # from the mailbox in 0 to 3 ms. The old 15,000 was 3.1x the local figure and the FIPS leg
+      # still missed it (run 36253217084), which is what opened slice 127.
+      #
+      # A generous deadline costs nothing when the event arrives, because `await_event/3` returns
+      # the instant the condition matches; the only thing it buys is how long a genuine hang takes
+      # to report. So the trade is "long enough that a slow runner never trips it", and 12.6x the
+      # local median is that.
+      events = await_event(id, &match?({:forked, _}, &1), 60_000)
       assert {:forked, child_id} = Enum.find(events, &match?({:forked, _}, &1))
       assert :compacting in for({:state, s} <- events, do: s)
 

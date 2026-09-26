@@ -11,7 +11,7 @@ defmodule TrinityWeb.SessionLiveTest do
   @moduletag :capture_log
 
   import Phoenix.LiveViewTest
-  import Trinity.SessionCase, only: [script_deltas: 2, collect: 3]
+  import Trinity.SessionCase, only: [script_deltas: 2, collect: 3, await_event: 3]
 
   alias Trinity.Factory
   alias Trinity.LLM.Providers.Fake
@@ -29,7 +29,7 @@ defmodule TrinityWeb.SessionLiveTest do
     view |> form("#composer", %{"content" => text}) |> render_submit()
   end
 
-  defp wait_for(id, until, timeout \\ 5_000), do: collect(id, until, timeout)
+  defp wait_for(id, until, timeout \\ 5_000), do: await_event(id, until, timeout)
 
   describe "the index" do
     test "lists sessions, and New session creates a row and opens it", %{conn: conn, id: id} do

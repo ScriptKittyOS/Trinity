@@ -36,7 +36,7 @@ defmodule Trinity.Sessions.SessionTest do
       {:ok, pid} = start_drained(id)
       assert {:ok, %Message{seq: 1, role: "user"}} = Session.send_user_message(pid, "hello")
 
-      events = collect(id, &match?({:assistant_message, _}, &1))
+      events = await_event(id, &match?({:assistant_message, _}, &1))
       assert Enum.all?(events, &Events.valid?/1)
 
       assert {:user_message, %Message{content: "hello"}} =
@@ -75,7 +75,7 @@ defmodule Trinity.Sessions.SessionTest do
       Fake.script(script_deltas(1_000, "y"))
       {:ok, pid} = start_drained(id)
       {:ok, _} = Session.send_user_message(pid, "go")
-      events = collect(id, &match?({:assistant_message, _}, &1))
+      events = await_event(id, &match?({:assistant_message, _}, &1))
       deltas = for {:assistant_delta, s} <- events, do: s
       assert length(deltas) <= 25, "got #{length(deltas)} delta broadcasts"
       assert Enum.join(deltas) == String.duplicate("y", 1_000)
@@ -91,7 +91,7 @@ defmodule Trinity.Sessions.SessionTest do
       Fake.scripts([nil, script_deltas(3, "final ")] |> Enum.map(&(&1 || default_script())))
       {:ok, pid} = start_drained(id)
       {:ok, _} = Session.send_user_message(pid, "weather?")
-      events = collect(id, fn e -> match?({:state, :idle}, e) and true end, 8_000)
+      events = await_event(id, fn e -> match?({:state, :idle}, e) and true end, 8_000)
       states = for {:state, s} <- events, do: s
       assert :tool_wait in states
       assert {:tool_call, %{id: "call_1", name: "get_weather"}} in events
@@ -137,7 +137,7 @@ defmodule Trinity.Sessions.SessionTest do
       Fake.fail(1, Trinity.LLM.Error.permanent(:boom))
       {:ok, pid} = start_drained(id)
       {:ok, _} = Session.send_user_message(pid, "hi")
-      events = collect(id, &match?({:state, :idle}, &1))
+      events = await_event(id, &match?({:state, :idle}, &1))
       states = for {:state, s} <- events, do: s
       assert :error in states
       assert {:error, _} = Enum.find(events, &match?({:error, _}, &1))
@@ -152,14 +152,14 @@ defmodule Trinity.Sessions.SessionTest do
       assert {:ok, _} = Session.send_user_message(pid, "again")
 
       assert {:assistant_message, _} =
-               List.last(collect(id, &match?({:assistant_message, _}, &1)))
+               List.last(await_event(id, &match?({:assistant_message, _}, &1)))
     end
 
     test "a Task that raises is an error turn too", %{id: id} do
       Fake.script([{:text_delta, "partial "}, :raise_now])
       {:ok, pid} = start_drained(id)
       {:ok, _} = Session.send_user_message(pid, "hi")
-      events = collect(id, &match?({:state, :idle}, &1))
+      events = await_event(id, &match?({:state, :idle}, &1))
       assert :error in for({:state, s} <- events, do: s)
 
       assert [
@@ -191,7 +191,7 @@ defmodule Trinity.Sessions.SessionTest do
 
       assert {:turn_interrupted, %Message{content: "start ", parts: %{"interrupted" => true}}} =
                Enum.find(
-                 collect(id, &match?({:turn_interrupted, _}, &1), 1_000),
+                 await_event(id, &match?({:turn_interrupted, _}, &1), 1_000),
                  &match?({:turn_interrupted, _}, &1)
                )
 
