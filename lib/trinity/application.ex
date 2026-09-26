@@ -123,16 +123,50 @@ defmodule Trinity.Application do
   # The lock lives in the data directory the database defaults to. A deployment that points
   # DATABASE_PATH elsewhere still locks the data directory, which is the thing two instances
   # would otherwise share; the test environment points it at a temporary directory.
+  # Slice 125: installed, then *verified*. The previous version swallowed every error, including a
+  # failure to install, so an application that could not redact its logs started anyway and said
+  # nothing. Redaction is not optional and a missing filter is not a warning.
   defp install_log_redaction do
-    :logger.add_primary_filter(
-      :trinity_redaction,
-      {&Trinity.Telemetry.Redaction.filter/2, nil}
-    )
-  rescue
-    # Already installed (a release that restarts the application, or a test that starts it twice).
-    _ -> :ok
-  catch
-    _, _ -> :ok
+    case :logger.add_primary_filter(
+           :trinity_redaction,
+           {&Trinity.Telemetry.Redaction.filter/2, nil}
+         ) do
+      :ok ->
+        :ok
+
+      # Already installed: a release that restarts the application, or a test that starts it twice.
+      {:error, {:already_exist, _}} ->
+        :ok
+
+      {:error, reason} ->
+        raise "could not install the log redaction filter: #{inspect(reason)}"
+    end
+
+    verify_log_redaction!()
+  end
+
+  @doc """
+  Raises unless the log redaction filter is installed, read from the logger itself.
+
+  Called at boot, after installation, so the application cannot start unfiltered. Read from
+  `:logger.get_primary_config/0` rather than from configuration, because what matters is whether the
+  filter is in the handler, not whether something asked for it to be.
+
+  OTP removes a primary filter that raises, permanently, and continues without it, which is the
+  failure this exists to make impossible to reach silently. `Trinity.Telemetry.Redaction.filter/2`
+  is written so that it cannot raise; this is the check that the arrangement actually holds.
+  """
+  @spec verify_log_redaction!() :: :ok
+  def verify_log_redaction! do
+    names = for {name, _fun} <- :logger.get_primary_config().filters, do: name
+
+    if :trinity_redaction in names do
+      :ok
+    else
+      raise "the log redaction filter is not installed (primary filters: #{inspect(names)}). " <>
+              "Refusing to run: every log line written from here would be unredacted, and " <>
+              "nothing downstream would say so."
+    end
   end
 
   defp lock_dir do

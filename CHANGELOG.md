@@ -24,6 +24,34 @@ evidence for each increment is retained by the maintainers and summarised here.
 
 ## 2026-09-26
 
+### `slice/125`: the credential filter cannot be switched off by a log line
+
+Trinity masks anything credential-shaped on its way into a log. That filter could be killed by
+ordinary events, and the way it failed was the worst available: the runtime removes a filter that
+raises, permanently, and carries on. Every line written after that point was unmasked, and nothing
+anywhere said so.
+
+Two kinds of input did it. The first was a log message built as a list whose tail is a piece of text
+rather than an end marker, which is a routine shape in this runtime and is what a dropped database
+connection produces. The second, found by a generated test rather than by hand, was any run of bytes
+that is not valid text. That one matters more: raw bytes are the form key material usually takes, so
+the filter failed on exactly the input most likely to be a secret, in the direction that switched
+masking off entirely.
+
+The filter now walks every shape of message content, replaces a run of bytes it cannot read as text
+rather than trying to match it, and, if anything unforeseen goes wrong, withholds the line's content
+instead of letting it through. Trinity also refuses to start if the filter is not installed, checked
+against the running logger rather than against configuration.
+
+The test that matters exercises the path that actually killed it, by logging through the runtime
+itself rather than calling the filter directly, and a companion test checks the line that came out
+was masked, so "still installed" cannot be satisfied by a filter that no longer does anything.
+Confirmed on a running server: no removals across a full approval turn, against a run before the fix
+where the filter was removed during start-up.
+
+Verified: gate green at exit 0; 844 tests passing; coverage 80.31%, level with the previous
+increment.
+
 ### `slice/126`: nothing about an approval is discarded in silence
 
 A decision the owner makes that arrives when there is no held call to apply it to used to be thrown
