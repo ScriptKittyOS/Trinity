@@ -39,9 +39,9 @@ desktop application. Apache-2.0, developed in the open from the first commit.
 
 **It asks before it acts, and it shows you exactly what it is asking for.** Not the tool's name and a
 shrug: the arguments it will actually pass, the risk tier, and a pattern you can widen if you want
-this answered once instead of every time.
+this answered once instead of every time. Nothing runs while it waits.
 
-![Trinity asking permission to run a write-risk tool, showing the exact arguments, the WRITE risk tier, and the four decisions available](docs/assets/approval-card.png)
+![A full turn: the request is typed, the model asks to run a write-risk tool, Trinity stops and shows the exact arguments with a WRITE risk badge and four choices, and the call runs only after Allow once is clicked](docs/assets/approval-flow.gif)
 
 **Then the decision is receipted, whichever way it went.** Both halves are written to a hash-linked,
 signed chain: the gate asking because no rule covered the call, and the answer you gave. The verifier
@@ -50,7 +50,8 @@ that wrote the records.
 
 ![Two signed decision receipts for the same call: the gate asking with basis=default outcome=ask, and the owner allowing with basis=approval outcome=allow](docs/assets/receipts-decision.png)
 
-Both are real screens from a running build, captured by `scripts/dev_demo_approval.sh`.
+Both are a real build, not a mockup. `scripts/dev_demo_approval.sh` is the script that produces
+them, so they can be regenerated rather than being pictures nobody can reproduce.
 
 ## Status
 
