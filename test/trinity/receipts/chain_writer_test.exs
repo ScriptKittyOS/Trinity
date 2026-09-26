@@ -73,7 +73,7 @@ defmodule Trinity.Receipts.ChainWriterTest do
     body = JSON.decode!(hd(rows).signed_payload)
 
     assert Map.keys(body) |> Enum.sort() ==
-             ~w(at chain_scope decision fingerprint key_id kind prev_hash scheme seq subject)
+             ~w(at chain_scope clock decision fingerprint key_id kind prev_hash scheme seq subject)
 
     assert body["scheme"] == impl.scheme()
   end

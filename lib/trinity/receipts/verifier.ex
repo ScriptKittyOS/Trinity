@@ -49,7 +49,7 @@ defmodule Trinity.Receipts.Verifier do
         opts
       ) do
     schemes =
-      Keyword.get(opts, :schemes, Enum.map(Signer.algorithms(), &Signer.impl(&1).scheme()))
+      Keyword.get(opts, :schemes, Signer.accepted_schemes())
 
     require_coverage = Keyword.get(opts, :require_coverage, true)
 

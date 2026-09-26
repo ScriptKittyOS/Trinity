@@ -8,7 +8,7 @@ defmodule Trinity.Receipts.Signer.Ed25519 do
   def algorithm, do: :ed25519
 
   @impl true
-  def scheme, do: "receipt_v2_ed25519"
+  def scheme, do: "receipt_v3_ed25519"
 
   @impl true
   def available?, do: :ed25519 in :crypto.supports(:curves) and :crypto.info_fips() != :enabled

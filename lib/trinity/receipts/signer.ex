@@ -18,7 +18,15 @@ defmodule Trinity.Receipts.Signer do
   @doc "The algorithm this implementation signs with."
   @callback algorithm() :: algorithm()
 
-  @doc "The scheme string a receipt of this family carries: `receipt_v2_<family>`."
+  @doc """
+  The scheme string a receipt of this family carries, at the current version:
+  `receipt_<version>_<family>`.
+
+  Slice 026 moved the current version from `v2` to `v3`, because `v3` carries a hybrid logical
+  clock in the signed payload and `v2` does not. Both are accepted on read (`accepted_schemes/0`):
+  a chain that spans the bump verifies row by row under each row's own scheme, which is what makes
+  this a scheme bump rather than an edit to bytes already signed.
+  """
   @callback scheme() :: String.t()
 
   @doc "True where this runtime can sign and verify with this algorithm."
@@ -56,12 +64,79 @@ defmodule Trinity.Receipts.Signer do
   def impl(algorithm) when is_map_key(@implementations, algorithm),
     do: Map.fetch!(@implementations, algorithm)
 
-  @doc "The implementation whose scheme string this is, or `:error`."
+  # Every scheme version this tree can read, oldest first. `v2` is slice 024's; `v3` is slice 026's
+  # and carries the clock. A version is removed from here only when no chain in the world still has
+  # a row of it, which is not a thing this project can know, so in practice it is never removed.
+  @scheme_versions ["v2", "v3"]
+
+  # The version new rows are written under.
+  @current_scheme_version "v3"
+
+  @doc "The scheme versions this tree can verify, oldest first."
+  @spec scheme_versions() :: [String.t()]
+  def scheme_versions, do: @scheme_versions
+
+  @doc "The scheme version new rows are written under."
+  @spec current_scheme_version() :: String.t()
+  def current_scheme_version, do: @current_scheme_version
+
+  @doc """
+  Every scheme this tree accepts on read: each algorithm at each readable version.
+
+  This is the verifier's default allow-list rather than the current schemes alone. Defaulting to
+  the current schemes would mean that bumping the version made every previously signed row fail to
+  verify, which is the opposite of what a bump is for.
+  """
+  @spec accepted_schemes() :: [String.t()]
+  def accepted_schemes do
+    for v <- @scheme_versions, a <- algorithms(), do: "receipt_#{v}_#{a}"
+  end
+
+  @doc """
+  Splits a scheme string into its version and family, or `:error`.
+
+  The shape is `receipt_<version>_<family>`; no family contains an underscore, which is why
+  splitting into two parts is safe and is asserted by a test rather than assumed.
+  """
+  @spec parse_scheme(String.t()) :: {:ok, String.t(), String.t()} | :error
+  def parse_scheme("receipt_" <> rest) do
+    case String.split(rest, "_", parts: 2) do
+      [version, family] when version in @scheme_versions -> {:ok, version, family}
+      _ -> :error
+    end
+  end
+
+  def parse_scheme(_), do: :error
+
+  @doc """
+  True when a scheme's signed payload carries a hybrid logical clock.
+
+  `v2` predates slice 026 and has no clock; asking a `v2` row for one is a question about a row
+  that was signed before the field existed, and the verifier must not treat its absence as a fault.
+  """
+  @spec clocked?(String.t()) :: boolean()
+  def clocked?(scheme) do
+    case parse_scheme(scheme) do
+      {:ok, version, _family} -> version >= "v3"
+      :error -> false
+    end
+  end
+
+  @doc "The implementation whose scheme string this is, at any readable version, or `:error`."
   @spec impl_for_scheme(String.t()) :: {:ok, module()} | :error
   def impl_for_scheme(scheme) do
-    case Enum.find(@implementations, fn {_, m} -> m.scheme() == scheme end) do
-      {_, m} -> {:ok, m}
+    with {:ok, _version, family} <- parse_scheme(scheme),
+         {:ok, algorithm} <- family_to_algorithm(family) do
+      {:ok, Map.fetch!(@implementations, algorithm)}
+    else
+      _ -> :error
+    end
+  end
+
+  defp family_to_algorithm(family) do
+    case Enum.find(algorithms(), &(Atom.to_string(&1) == family)) do
       nil -> :error
+      algorithm -> {:ok, algorithm}
     end
   end
 

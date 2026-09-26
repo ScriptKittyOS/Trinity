@@ -23,13 +23,13 @@ defmodule Trinity.Fips.ReceiptsTest do
     refute Signer.Ed25519.available?()
     assert Signer.P384.available?()
     assert {:ok, :p384} = KeyCustody.select()
-    assert %{algorithm: :p384, scheme: "receipt_v2_p384"} = KeyCustody.selected()
+    assert %{algorithm: :p384, scheme: "receipt_v3_p384"} = KeyCustody.selected()
 
     boot = Receipts.boot_receipt()
     assert boot.subject["signer"]["algorithm"] == "p384"
-    assert boot.subject["signer"]["scheme"] == "receipt_v2_p384"
+    assert boot.subject["signer"]["scheme"] == "receipt_v3_p384"
     assert boot.subject["fips"] == "enabled"
-    assert boot.scheme == "receipt_v2_p384"
+    assert boot.scheme == "receipt_v3_p384"
   end
 
   test "no effect is denied for want of a signer: an effect runs, its receipts are P-384 and verify" do
@@ -51,13 +51,13 @@ defmodule Trinity.Fips.ReceiptsTest do
 
     rows = Receipts.list(scope)
     assert Enum.map(rows, & &1.kind) == ["decision", "effect", "effect"]
-    assert Enum.all?(rows, &(&1.scheme == "receipt_v2_p384" and is_binary(&1.signature)))
+    assert Enum.all?(rows, &(&1.scheme == "receipt_v3_p384" and is_binary(&1.signature)))
 
     :ok = Receipts.stop_writer(scope)
     {:ok, export} = Receipts.export(scope)
     assert {:ok, %{receipts: 3}} = Verifier.verify(export)
     # And an Ed25519-only verifier refuses the chain at the scheme string, not at a signature.
-    assert {:error, 1, {:scheme_not_allowed, 1, "receipt_v2_p384"}} =
-             Verifier.verify(export, schemes: ["receipt_v2_ed25519"])
+    assert {:error, 1, {:scheme_not_allowed, 1, "receipt_v3_p384"}} =
+             Verifier.verify(export, schemes: ["receipt_v3_ed25519"])
   end
 end

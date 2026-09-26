@@ -6,7 +6,7 @@
 # (slice 024, AC7). Run it from any directory against a file `mix trinity.receipts.export`
 # wrote; the registry travels inside the file.
 #
-#   elixir verify_receipt.exs receipts.json [--schemes receipt_v2_ed25519,receipt_v2_p384]
+#   elixir verify_receipt.exs receipts.json [--schemes receipt_v3_ed25519,receipt_v2_ed25519]
 #
 # Exit codes, the vocabulary an operator learns once: 0 verified, 1 invalid, 2 usage,
 # 5 trust not established (a key id the registry does not know), 6 compromised key.
@@ -22,10 +22,17 @@
 # file and the in-app verifier agree on the same inputs.
 
 defmodule VerifyReceipt do
+  # Every scheme version this script can read. `v2` is slice 024's; `v3` is slice 026's and carries
+  # a hybrid logical clock in the signed payload. Both are listed because a chain that spans the
+  # bump has rows of each, and dropping the older one would mean a verifier that refuses bytes it
+  # signed itself last week.
   @families %{
     "receipt_v2_ed25519" => {"ed25519", :eddsa, :none, :ed25519},
     "receipt_v2_p384" => {"p384", :ecdsa, :sha384, :secp384r1},
-    "receipt_v2_mldsa87" => {"mldsa87", :mldsa87, :none, nil}
+    "receipt_v2_mldsa87" => {"mldsa87", :mldsa87, :none, nil},
+    "receipt_v3_ed25519" => {"ed25519", :eddsa, :none, :ed25519},
+    "receipt_v3_p384" => {"p384", :ecdsa, :sha384, :secp384r1},
+    "receipt_v3_mldsa87" => {"mldsa87", :mldsa87, :none, nil}
   }
   @signed_kinds ~w(decision effect boot cap)
 

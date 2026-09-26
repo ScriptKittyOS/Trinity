@@ -12,7 +12,7 @@ defmodule Trinity.Receipts.Signer.P384 do
   def algorithm, do: :p384
 
   @impl true
-  def scheme, do: "receipt_v2_p384"
+  def scheme, do: "receipt_v3_p384"
 
   @impl true
   def available?, do: :secp384r1 in :crypto.supports(:curves)
