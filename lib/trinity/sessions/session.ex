@@ -268,7 +268,33 @@ defmodule Trinity.Sessions.Session do
   def handle_event(:info, {:approval, :decided, _}, :tool_wait, _data),
     do: {:keep_state_and_data, [:postpone]}
 
-  def handle_event(:info, {:approval, _, _}, _state, _data), do: :keep_state_and_data
+  # Slice 126: nothing about an approval is discarded quietly.
+  #
+  # A `:requested` reaching here is routine and stays routine. The Session learns which calls are
+  # held from `tools_done` and never from this broadcast, so acting on it would be a second path to
+  # the same fact and a way for a call to be held twice. It is logged and dropped, deliberately.
+  def handle_event(:info, {:approval, :requested, approval}, state, %State{id: id}) do
+    Logger.debug(fn ->
+      "session #{id}: approval #{approval.id} requested in #{inspect(state)}. Held calls come " <>
+        "from tools_done, so this broadcast is not acted on."
+    end)
+
+    :keep_state_and_data
+  end
+
+  # Anything else reaching here is an answer with no held call to apply it to, which is the one
+  # shape that can lose a decision the owner made. Before this slice it returned
+  # `:keep_state_and_data` and said nothing, so "the owner answered and nothing happened" was
+  # visible only to someone tracing a live process. It is now a warning and a receipt.
+  def handle_event(:info, {:approval, kind, approval}, state, %State{} = data) do
+    Logger.warning(
+      "session #{data.id}: approval #{approval.id} #{kind} in #{inspect(state)} with no held " <>
+        "call to apply it to. Dropped, and receipted as outcome=dropped."
+    )
+
+    receipt_dropped_approval(data, kind, approval, state)
+    :keep_state_and_data
+  end
 
   # Slice 023: the compaction row is written here, in the Session (a row, then a broadcast),
   # from what the Task's model call answered; then the turn goes on, or forks past the hard
@@ -712,6 +738,31 @@ defmodule Trinity.Sessions.Session do
       {:cap, reason} ->
         cap_reached(data, reason)
     end
+  end
+
+  # Written off the session's own task supervisor rather than inline. `Trinity.Receipts.append/2`
+  # is a call into the scope's ChainWriter, and blocking the Session on a receipt write is the
+  # precise shape of the stall this slice was opened to explain.
+  defp receipt_dropped_approval(%State{id: id, task_sup: sup}, kind, approval, state) do
+    Task.Supervisor.start_child(sup, fn ->
+      Trinity.Receipts.append("session:" <> id, %{
+        kind: "decision",
+        subject: %{
+          "session_id" => id,
+          "approval_id" => approval.id,
+          "tool" => approval.tool
+        },
+        decision: %{
+          "outcome" => "dropped",
+          "basis" => "session",
+          "reason" => "approval #{kind} in #{inspect(state)} with no held call to apply it to"
+        },
+        fingerprint: approval.fingerprint,
+        subject_ref: "approval_dropped:#{id}:#{approval.id}"
+      })
+    end)
+
+    :ok
   end
 
   defp start_tools(%State{turn: turn} = data), do: start_tools(data, turn.pending)
