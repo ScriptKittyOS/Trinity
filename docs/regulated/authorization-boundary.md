@@ -74,10 +74,20 @@ keeps **no executor** for the effects that adapter governs, and that absence is 
 over the tree rather than by intent (`lib/trinity/authority.ex`, and the census recorded in slice
 027's record).
 
-The adapter itself is **NOT IN TREE**. ADR-0008 (`docs/adr/0008-authority-is-an-adapter.md`) states
-that no slice in this repository builds one and that it is downstream work in a downstream
-repository. An assessor evaluating a regulated deployment is evaluating that adapter as well as
-this software, and this pack says nothing about it.
+**Stated precisely, because the loose version of this sentence is wrong.** The seam is in the tree:
+`lib/trinity/authority.ex` is the behaviour, and `lib/trinity/authority/selection.ex` picks an
+implementation once at boot from `TRINITY_AUTHORITY` (ADR-0010). **One implementation ships here,
+and only one:** `Trinity.Authority.Local` (`lib/trinity/authority/local.ex`), which is the sole
+module in the tree that calls a tool's `execute/2` for an effectful tool. Grepping the behaviour
+resolves two files and the second is a test fixture (`test/support/authority/adapters.ex`).
+
+**No adapter other than `Local` ships in this tree.** An external authority adapter is a module in
+another repository, and ADR-0008 (`docs/adr/0008-authority-is-an-adapter.md`) states that no slice
+in this repository builds one. Nothing in `mix.exs` or `mix.lock` depends on one; an assessor can
+confirm that from the dependency list rather than from this page.
+
+An assessor evaluating a regulated deployment is evaluating that adapter as well as this software,
+and this pack says nothing about it.
 
 ## What crosses the boundary, and when
 

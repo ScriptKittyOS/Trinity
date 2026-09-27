@@ -69,3 +69,5 @@ model prompt and what may not. Read both before the others.
 This directory is documentation only. It adds no code, changes no behaviour, and asserts no control
 that is not already in the tree. Where the tree does not implement something this pack names, the
 row says **NOT IN TREE** rather than describing an intention.
+
+This pack documents the gap; it does not close it.
