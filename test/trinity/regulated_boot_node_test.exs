@@ -64,12 +64,29 @@ defmodule Trinity.RegulatedBootNodeTest do
   end
 
   # The tail of every script: start the application and say what happened.
+  #
+  # `limit: :infinity` is not decoration. This was `limit: 3`, which printed
+  # `BOOT_REFUSED {:trinity, {{...}, ...}}` and hid the reason entirely, so an assertion that the
+  # reason was named passed only because the same words appear in the crash report OTP writes to
+  # stderr. A test for "it refused, and said why" has to read what the node said.
   @report """
   case Application.ensure_all_started(:trinity) do
-    {:ok, _} -> IO.puts("BOOT_OK"); System.halt(0)
-    {:error, reason} -> IO.puts("BOOT_REFUSED " <> inspect(reason, limit: 3)); System.halt(3)
+    {:ok, _} ->
+      IO.puts("BOOT_OK")
+      System.halt(0)
+
+    {:error, reason} ->
+      IO.puts("BOOT_REFUSED " <> inspect(reason, limit: :infinity, printable_limit: :infinity))
+      System.halt(3)
   end
   """
+
+  # The line the child printed, and nothing else: not the crash report, not a log line.
+  defp refusal_line(out) do
+    out
+    |> String.split("\n")
+    |> Enum.find("", &String.starts_with?(&1, "BOOT_REFUSED"))
+  end
 
   # A module that implements Trinity.Authority and is not Local. Defined in the child rather than
   # added to lib/, because AC5 says no adapter is supplied by this tree and none is invented.
@@ -213,6 +230,102 @@ defmodule Trinity.RegulatedBootNodeTest do
              """
 
       assert out =~ "BOOT_OK"
+    end
+  end
+
+  describe "5. regulated refuses an MCP authorization profile that is not production" do
+    test "personal and local are both refused, where case 4's configuration is otherwise met" do
+      for profile <- ["personal", "local"] do
+        root = tmp!("regulated-mcp-#{profile}")
+
+        # No `Application.put_env` for :mcp_auth here, deliberately. The variable goes through
+        # `config/runtime.exs`, which is the path an operator actually uses, and which raises on a
+        # value that is not one of the three. MIX_ENV=dev, so that block runs (it is skipped in
+        # :test, where the suite sets :mcp_auth itself).
+        script = """
+        #{@fixture}
+        #{allowed_models()}
+        #{@report}
+        """
+
+        {out, status} =
+          boot(
+            [
+              {"XDG_DATA_HOME", root},
+              {"TRINITY_PROFILE", "regulated"},
+              {"TRINITY_MCP_AUTH_PROFILE", profile},
+              {"TRINITY_AUTHORITY", "RegulatedBootFixture"},
+              {"TRINITY_REGULATED_LLM_ENDPOINTS", "https://models.internal"}
+            ],
+            script
+          )
+
+        assert status == 3,
+               """
+               the node started on the #{profile} MCP authorization profile. Case 4 is the same \
+               configuration with production, and it starts, so this is the only difference.
+
+               #{String.slice(out, -3000, 3000)}
+               """
+
+        assert out =~ "BOOT_REFUSED"
+
+        reason = refusal_line(out)
+
+        assert reason =~ "regulated_requires_production_mcp_auth",
+               "it refused, but the printed reason is not the one under test:\n#{reason}"
+
+        # The reason names the profile that was refused, not just that one was.
+        assert reason =~ ":#{profile}"
+      end
+    end
+  end
+
+  describe "6. regulated refuses to keep running when receipts cannot be appended" do
+    test "case 4's configuration with case 1's broken key store does not start" do
+      root = tmp!("regulated-signer-down")
+
+      # Exactly case 4, plus the one break case 1 survives. Nothing else differs, so a refusal here
+      # is attributable to the key store and to the profile, and to nothing else.
+      script = """
+      #{@fixture}
+      #{production_mcp_auth()}
+      #{allowed_models()}
+      r = Application.get_env(:trinity, :receipts, [])
+      Application.put_env(:trinity, :receipts, Keyword.put(r, :keys_dir, "#{broken_keys_dir(root)}"))
+      #{@report}
+      """
+
+      {out, status} =
+        boot(
+          [
+            {"XDG_DATA_HOME", root},
+            {"TRINITY_PROFILE", "regulated"},
+            {"TRINITY_AUTHORITY", "RegulatedBootFixture"},
+            {"TRINITY_REGULATED_LLM_ENDPOINTS", "https://models.internal"}
+          ],
+          script
+        )
+
+      assert status == 3,
+             """
+             a regulated node started with the signer down. Case 1 proves the same key store does \
+             not stop a :default node, and that difference is the whole point of AC4.
+
+             #{String.slice(out, -4000, 4000)}
+             """
+
+      assert out =~ "BOOT_REFUSED"
+
+      reason = refusal_line(out)
+
+      assert reason =~ "regulated_boot_refused",
+             "it refused, but the printed reason is not the receipts check:\n#{reason}"
+
+      assert reason =~ "regulated_requires_receipts"
+
+      # The underlying signer failure is carried through rather than flattened into a bare atom.
+      assert reason =~ "key_file"
     end
   end
 end
