@@ -81,7 +81,9 @@ defmodule Trinity.RegulatedBootNodeTest do
   end
   """
 
-  # The line the child printed, and nothing else: not the crash report, not a log line.
+  # The line the child printed, and nothing else: not the crash report, not a log line. Every
+  # refusing case asserts through this, so a reason that reaches stderr but never reaches the line
+  # the node printed fails the test rather than passing it.
   defp refusal_line(out) do
     out
     |> String.split("\n")
@@ -165,10 +167,13 @@ defmodule Trinity.RegulatedBootNodeTest do
       assert status == 3, "the node started with no endpoint allow-list:\n#{out}"
       assert out =~ "BOOT_REFUSED"
 
-      assert out =~ "regulated_llm_endpoints_unset",
-             "it refused, but not for the reason under test:\n#{String.slice(out, -3000, 3000)}"
+      reason = refusal_line(out)
 
-      assert out =~ "TRINITY_REGULATED_LLM_ENDPOINTS"
+      assert reason =~ "regulated_llm_endpoints_unset",
+             "it refused, but the printed reason is not the one under test:\n#{reason}"
+
+      # The refusal names the variable the operator has to set, not only that something is unset.
+      assert reason =~ "TRINITY_REGULATED_LLM_ENDPOINTS"
     end
   end
 
@@ -194,8 +199,10 @@ defmodule Trinity.RegulatedBootNodeTest do
 
       assert status == 3, "the node started on the local authority:\n#{out}"
 
-      assert out =~ "regulated_refuses_local_authority",
-             "it refused, but not for the reason under test:\n#{String.slice(out, -3000, 3000)}"
+      reason = refusal_line(out)
+
+      assert reason =~ "regulated_refuses_local_authority",
+             "it refused, but the printed reason is not the one under test:\n#{reason}"
     end
   end
 
