@@ -63,7 +63,7 @@ it, and a reader should not infer from an entry here that the component is in a 
 | `heroicons` | `0435d4ca364a` | MIT | declared |
 | `hex` | `2.5.1` | Apache-2.0 | bom |
 | `hex_core` | `0.19.0` | Apache-2.0 | bom |
-| `hpax` | `1.0.4` | Apache-2.0 | bom |
+| `hpax` | `1.1.0` | Apache-2.0 | bom |
 | `idna` | `7.1.0` | MIT | bom |
 | `igniter` | `0.8.4` | MIT | bom |
 | `inets` | `9.6.2.2` | Apache-2.0 | bom |
@@ -82,7 +82,7 @@ it, and a reader should not infer from an entry here that the component is in a 
 | `mdex` | `0.13.5` | MIT | bom |
 | `mdex_native` | `0.2.8` | MIT | bom |
 | `mime` | `2.0.7` | Apache-2.0 | bom |
-| `mint` | `1.10.1` | Apache-2.0 | bom |
+| `mint` | `1.11.0` | Apache-2.0 | bom |
 | `mix` | `1.20.4` | Apache-2.0 | bom |
 | `mix_audit` | `2.1.5` | BSD-3-Clause | bom |
 | `mox` | `1.3.1` | Apache-2.0 | bom |
