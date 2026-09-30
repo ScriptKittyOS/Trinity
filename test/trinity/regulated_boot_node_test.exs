@@ -23,9 +23,35 @@ defmodule Trinity.RegulatedBootNodeTest do
   **before** `Application.ensure_all_started/1` runs the code under test.
 
   Nothing here touches `:persistent_term` in this VM. Every mutation happens in the child.
+
+  ## Why this file does not run on the FIPS leg
+
+  `MIX_ENV=dev` means the child needs a dev build. On a developer machine and on the `gate` and
+  `postgres` jobs one either exists or is cheap to produce. The FIPS leg has **no prebuilt dev
+  tree**, so the child compiles the whole dev dependency tree from scratch, and that reaches the
+  network to fetch the `tokenizers` precompiled NIF. OTP's TLS client cannot complete that
+  download: it fails the HelloRetryRequest middlebox assertion (erlang/otp#8470, recorded in
+  `docs/fips-leg.md` finding 2 and owned by slice 002). The child then dies at `mix compile`, and
+  every assertion here about what a node booted becomes an assertion about a failed download.
+
+  So the module carries `:needs_dev_compile`, which `test/test_helper.exs` excludes **only** when
+  `TRINITY_FIPS_LEG=1`. `gate` and `postgres` run all six cases unchanged. This is a limit of the
+  harness on one leg, not a gap in the profile: nothing here was red because a refusal failed.
+
+  `MIX_ENV=test` was tried first, since the test tree is already built everywhere and needs no
+  network. The child boots (`test_helper.exs` never runs, so the sandbox stays in `:auto` mode and
+  nothing blocks on checkout), but the database path is fixed by `config/test.exs` and is not
+  derived from `XDG_DATA_HOME`, so six children write into the suite's own database: measured, a
+  child appended its boot receipt at `seq 360` on the live chain. Overriding both repos' paths and
+  migrating inside the child fixes that for SQLite, and was measured working in 1.45 s with 25 and
+  4 tables created and the boot receipt back at `seq 1`. It does not carry to the `postgres` job,
+  where `:database` names a database rather than a file and each case would need one provisioned
+  and dropped. That is not written here, because it could not be tested here.
   """
   use ExUnit.Case, async: false
 
+  # Excluded on the FIPS leg alone. See "Why this file does not run on the FIPS leg" above.
+  @moduletag :needs_dev_compile
   @moduletag timeout: 180_000
 
   # A signer failure the child can reproduce: the key file exists as a directory, so `File.read/1`
