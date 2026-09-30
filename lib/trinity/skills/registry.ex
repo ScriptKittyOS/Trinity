@@ -304,11 +304,28 @@ defmodule Trinity.Skills.Registry do
   # has no native backend for, poll once a second (AC3's 2 s still holds; the poll compares
   # mtimes at one-second resolution). `TRINITY_SKILLS_POLL=1` forces the poll, so the
   # fallback can be exercised on a machine that has inotifywait.
+  #
+  # The interval is configurable because AC3's bound and this default leave no margin. A poll
+  # every second over mtimes at one-second resolution has a worst case of about two seconds all
+  # by itself, which is the whole of the criterion, so on a loaded shared runner the test that
+  # asserts it failed intermittently while the product was behaving exactly as designed. The
+  # default is unchanged and is what ships; the suite sets a shorter one so that what it measures
+  # is the watcher noticing rather than the runner's scheduler.
   defp backend do
-    poll = [backend: :fs_poll, interval: 1_000]
+    poll = [backend: :fs_poll, interval: poll_interval_ms()]
 
     cond do
       System.get_env("TRINITY_SKILLS_POLL") == "1" ->
+        poll
+
+      # Same switch, from configuration rather than the environment, so the suite can pin one
+      # backend. Which backend the registry picks otherwise depends on the machine: a developer
+      # box has `inotifywait` and the gate's runners do not, so AC3's test measured a different
+      # mechanism in each place, and on a box already at its inotify **instance** ceiling
+      # (`/proc/sys/fs/inotify/max_user_instances`, 128 here with 119 in use) the native backend
+      # obtains no watch and fails silently, which the test could only report as an edit that
+      # never arrived.
+      Keyword.get(Application.get_env(:trinity, :skills, []), :poll, false) ->
         poll
 
       match?({:unix, :linux}, :os.type()) ->
@@ -326,6 +343,9 @@ defmodule Trinity.Skills.Registry do
   end
 
   defp watch?, do: Application.get_env(:trinity, :skills, []) |> Keyword.get(:watch, true)
+
+  defp poll_interval_ms,
+    do: Application.get_env(:trinity, :skills, []) |> Keyword.get(:poll_interval_ms, 1_000)
 
   ## Helpers
 

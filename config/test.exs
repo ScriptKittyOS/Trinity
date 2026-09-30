@@ -174,6 +174,17 @@ else
   # a write while another connection holds the write lock, because waiting there could deadlock.
   # No timeout affects that path. The raise is kept because it does help ordinary lock waiting,
   # but it is not the fix for what is recorded as R26 in docs/06-risk-register.md.
+  #
+  # And the line below does not reach a sandboxed test at all, which is worth knowing before
+  # trusting it. `Ecto.Adapters.SQL.Sandbox.post_checkout/3` begins each test's transaction with
+  # `handle_begin([mode: :transaction] ++ opts, ...)`, and `Exqlite.Connection` resolves the mode
+  # as `Keyword.get(options, :mode, state.default_transaction_mode)`, so the explicit option wins
+  # over this setting and `:transaction` is a plain DEFERRED `BEGIN`. Every sandboxed test is
+  # therefore a DEFERRED transaction, and one that reads before it writes is on R26's unguarded
+  # upgrade path with no timeout able to help. `default_transaction_mode` below still governs the
+  # transactions the application itself opens, which is why it stays.
+  # `test/trinity/repo/sandbox_transaction_mode_test.exs` asserts both dependency lines so this
+  # paragraph fails rather than rots.
   config :trinity, Trinity.Repo,
     database: Path.expand("../trinity_test.db", __DIR__),
     pool: Ecto.Adapters.SQL.Sandbox,
@@ -260,6 +271,18 @@ config :trinity, :skills,
   # user_dir at a temporary directory first.
   pending_dir: Path.join(System.tmp_dir!(), "trinity-test-pending-skills"),
   watch: true,
+  # The shipped poll is every second (lib/trinity/skills/registry.ex) and it compares mtimes at
+  # one-second resolution, so its worst case is about two seconds, which is the whole of slice
+  # 040 AC3's bound. With no margin, the test asserting that bound failed intermittently on a
+  # loaded runner while the watcher was behaving exactly as designed. A shorter interval here
+  # leaves the mechanism under test, the fs_poll backend over mtimes, and takes the runner's
+  # scheduler out of the measurement. The shipped default is unchanged.
+  # One backend everywhere, so slice 040 AC3 measures the same mechanism on every machine. The
+  # gate's runners have no `inotifywait` and already take this path; a developer box takes the
+  # native one, and takes it badly when the machine is at its inotify instance ceiling, where the
+  # watch is never established and no edit ever arrives.
+  poll: true,
+  poll_interval_ms: 100,
   index_tokens: 338
 
 # Slice 060: no MCP client boots from rows in the suite (each test starts the clients it
