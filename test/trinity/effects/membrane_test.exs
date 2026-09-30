@@ -230,7 +230,104 @@ defmodule Trinity.Effects.MembraneTest do
              Effects.Runner.run(%{id: "c14", name: "write_note", args: @note_args}, ctx)
   end
 
-  test "Local: stage stamps, decide follows the gate, execute runs the tool or refuses a denial, receipt appends" do
+  describe "owner ruling 2026-09-30: the authority decides, and may not change what it decided on" do
+    setup do
+      # The established way to put an adapter in force, as embedded_test.exs does it. This file is
+      # async: false, and the selection is restored whatever the test does.
+      before = :persistent_term.get({Trinity.Authority.Selection, :selected}, nil)
+
+      on_exit(fn ->
+        :persistent_term.put(
+          {Trinity.Authority.Selection, :selected},
+          before || Trinity.Authority.Local
+        )
+      end)
+
+      :ok
+    end
+
+    defp staged_note(ctx, scope, call_id) do
+      {:ok, entry} = Trinity.Tools.lookup("write_note")
+
+      %Staged{
+        tool: "write_note",
+        module: entry.module,
+        effect: :artifact,
+        args: @note_args,
+        call_id: call_id,
+        session_id: ctx.session_id,
+        scope: scope,
+        cwd: nil,
+        decision: :allow,
+        fingerprint: Permissions.fingerprint(ctx.session_id, "write_note", @note_args, nil)
+      }
+    end
+
+    test "an adapter that rewrites the arguments in stage/2 is denied, with the fingerprint re-derived after stage",
+         %{ctx: ctx, scope: scope} do
+      :persistent_term.put(
+        {Trinity.Authority.Selection, :selected},
+        Trinity.TestAuthority.MutatesArgs
+      )
+
+      staged = staged_note(ctx, scope, "r1")
+      bound = staged.fingerprint
+
+      assert {:error, {:denied, {:fingerprint_mismatch_after_stage, ^bound, derived}}} =
+               Effects.execute(staged, ctx)
+
+      # The fingerprint is re-derived over what the adapter handed back, and compared to the one
+      # the gate bound, not to whatever the returned struct now carries.
+      assert derived ==
+               Permissions.fingerprint(
+                 ctx.session_id,
+                 "write_note",
+                 Map.put(@note_args, "text", "swapped"),
+                 nil
+               )
+
+      refute derived == bound
+      assert [{"effect", "r1", "denied"}] = kinds(scope)
+      [row] = Receipts.list(scope)
+
+      assert JSON.decode!(row.signed_payload)["decision"]["reason"] =~
+               "fingerprint_mismatch_after_stage"
+    end
+
+    test "an adapter that keeps the arguments and swaps the module is denied, which no fingerprint could catch",
+         %{ctx: ctx, scope: scope} do
+      :persistent_term.put(
+        {Trinity.Authority.Selection, :selected},
+        Trinity.TestAuthority.SwapsModule
+      )
+
+      staged = staged_note(ctx, scope, "r2")
+
+      # The fingerprint covers session, tool, args and cwd. It does not cover `module`, so this
+      # adapter leaves every fingerprinted field untouched and still changes which code runs.
+      assert {:error, {:denied, {:stage_changed_the_subject, [:module]}}} =
+               Effects.execute(staged, ctx)
+
+      assert Permissions.fingerprint(ctx.session_id, "write_note", @note_args, nil) ==
+               staged.fingerprint
+
+      assert [{"effect", "r2", "denied"}] = kinds(scope)
+    end
+
+    test "an adapter that returns the effect unchanged still runs, and the tool runs here",
+         %{ctx: ctx, scope: scope} do
+      # The control. Without it the two denials above are satisfied by an adapter path that
+      # refuses everything, and prove nothing about the check being the reason.
+      :persistent_term.put({Trinity.Authority.Selection, :selected}, Trinity.TestAuthority.Allows)
+
+      assert {:ok, %{content: "wrote 2 bytes" <> _}} =
+               Effects.execute(staged_note(ctx, scope, "r3"), ctx)
+
+      assert [{"effect", "r3", "admit"}, {"effect", "r3", "done"}] = kinds(scope)
+    end
+  end
+
+  test "Local: stage stamps, decide follows the gate, execute runs no tool at all, receipt appends" do
     {:ok, entry} = Trinity.Tools.lookup("write_note")
     scope = "local:" <> Trinity.UUID.generate()
     on_exit(fn -> Receipts.stop_writer(scope) end)
@@ -252,8 +349,12 @@ defmodule Trinity.Effects.MembraneTest do
     assert {:ok, :allow, %{"by" => "gate"}} = local.decide(staged, :allow, %Context{})
     assert {:ok, :deny, %{"by" => "gate"}} = local.decide(staged, :deny, %Context{})
     assert {:ok, :deny, %{"reason" => "undecided"}} = local.decide(staged, :ask, %Context{})
-    assert {:ok, %{content: "wrote 2 bytes" <> _}} = local.execute(staged, :allow, %Context{})
-    assert {:error, :denied} = local.execute(staged, :deny, %Context{})
+    # Owner ruling 2026-09-30: Local is not an executor. `execute/3` is on no path and must not
+    # run a tool, and that holds for an allow exactly as much as for a deny: an allow used to be
+    # the case where it ran one. The tool now runs in the membrane, which the effect tests above
+    # exercise through `Trinity.Effects.execute/2`.
+    assert {:error, :not_the_effect_path} = local.execute(staged, :allow, %Context{})
+    assert {:error, :not_the_effect_path} = local.execute(staged, :deny, %Context{})
 
     assert {:ok, %Receipts.Receipt{kind: "cap"}} =
              local.receipt("cap", %{scope: scope, subject: %{"cap" => "iterations"}})

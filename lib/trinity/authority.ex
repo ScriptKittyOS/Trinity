@@ -4,11 +4,22 @@ defmodule Trinity.Authority do
   @moduledoc """
   For every effect, something decides whether it may happen (ADR-0008). This behaviour is
   that something's shape: `stage/2` records an effect as about to happen, `decide/3` answers
-  whether it may, `execute/3` makes it happen, `receipt/2` records what happened. One
-  implementation ships in this tree, `Trinity.Authority.Local` (the permission gate decides,
-  the tool runs here, the receipt is local). An external authority layer is an adapter in
-  another repository, named by `TRINITY_AUTHORITY`, selected once at boot (ADR-0010) by
-  `Trinity.Authority.Selection`, and never changed afterwards.
+  whether it may, `receipt/2` records what happened. One implementation ships in this tree,
+  `Trinity.Authority.Local` (the permission gate decides, the receipt is local). An external
+  authority layer is an adapter in another repository, named by `TRINITY_AUTHORITY`, selected
+  once at boot (ADR-0010) by `Trinity.Authority.Selection`, and never changed afterwards.
+
+  ## The adapter decides; it does not act (owner ruling, 2026-09-30)
+
+  **No model-side executor. This node runs the tool after a `decide/3` allow.** `Trinity.Effects`
+  calls the tool's own `execute/2` itself, in this VM, once the admission receipt is in the
+  chain. `execute/3` below is **not** on that path and an implementation must not run a tool in
+  it. An adapter answers `:allow` or `:deny` with a basis and stops there.
+
+  An adapter must also not change what it was asked about. `stage/2` may set `staged_at` and
+  `basis`; every other field of the `Trinity.Authority.Staged` it returns must be the one it was
+  given, and the membrane re-derives the fingerprint over the returned arguments and compares it
+  to the one the gate bound before anything runs.
 
   Identity is not authority: who is calling is `Trinity.MCP.Auth`'s question (slice 062);
   whether the effect happens is this one's.
@@ -27,7 +38,17 @@ defmodule Trinity.Authority do
   @callback decide(Staged.t(), gate_decision :: decision(), context :: map()) ::
               {:ok, decision(), basis()} | {:error, term()}
 
-  @doc "Executes a decided effect (locally: the tool's `execute/2`; an adapter: a proposal)."
+  @doc """
+  Reserved, and **not** the place an effect happens (owner ruling, 2026-09-30).
+
+  The membrane runs the tool itself after a `decide/3` allow, so nothing on the effect path calls
+  this. It stays in the behaviour because it is part of the shape an implementation is checked
+  against, and because removing it would silently accept an adapter written against the older
+  contract, where returning a result here was how the effect happened.
+
+  An implementation **must not invoke a tool** in it. Answering `{:error, :not_the_effect_path}`
+  is the honest body, and is what `Trinity.Authority.Local` answers.
+  """
   @callback execute(Staged.t(), decision(), context :: map()) :: {:ok, term()} | {:error, term()}
 
   @doc "Records a receipt of a kind with attributes; the adapter may forward it."
@@ -56,9 +77,32 @@ defmodule Trinity.Authority do
   @spec callbacks() :: [{atom(), arity()}]
   def callbacks, do: @callbacks
 
-  @doc "The implementation in force, selected at boot; `Local` before selection."
+  @doc """
+  The implementation in force, selected at boot.
+
+  Before selection this answers `Local`, which is right for `:default` and wrong for `:regulated`:
+  falling back to the local authority is exactly what that profile refuses to boot on, and a
+  fallback is not less of one for being brief. Under `:regulated` an unselected authority raises
+  instead, naming the variable. `Trinity.Authority.Selection` now selects synchronously, so this
+  should be unreachable; it is here because "should be unreachable" is not a guarantee, and the
+  failure it guards against is silent.
+  """
   @spec impl() :: module()
-  def impl, do: Trinity.Authority.Selection.selected() || Trinity.Authority.Local
+  def impl do
+    case Trinity.Authority.Selection.selected() do
+      nil -> unselected()
+      module -> module
+    end
+  end
+
+  defp unselected do
+    if Trinity.Profile.regulated?() do
+      raise "#{Trinity.Authority.Selection.env()} is not selected yet and " <>
+              "TRINITY_PROFILE=regulated refuses to fall back to Trinity.Authority.Local"
+    else
+      Trinity.Authority.Local
+    end
+  end
 
   @doc "The selected module's name as the boot receipt records it."
   @spec selected_name() :: String.t()

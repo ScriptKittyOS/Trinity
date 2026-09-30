@@ -15,13 +15,29 @@ defmodule Trinity.Authority.Selection do
   @env "TRINITY_AUTHORITY"
 
   @doc """
-  The child spec: a transient task that selects at boot, as the first child of the
-  application after the data directory lock, so a refusal stops the boot with its reason
-  before anything else starts.
+  The child spec: selects at boot, as the first child of the application after the data
+  directory lock, so a refusal stops the boot with its reason before anything else starts.
+
+  Owner ruling 2026-09-30: this is **synchronous**. It was `{Task, :start_link, [fn -> boot!() end]}`,
+  and `start_link` returns as soon as the task is spawned, so the selection ran concurrently with
+  every child started after it. During that window `:persistent_term` held nothing and
+  `Trinity.Authority.impl/0` answered `Trinity.Authority.Local`, which under `:regulated` is the
+  one module the profile exists to refuse. The window was short and real.
+
+  `start/0` does the work before it returns and answers `:ignore`, which a supervisor accepts as
+  a child that completed and needs no process. A raise here fails the supervisor's start, which is
+  how a refusal still stops the boot.
   """
   @spec child_spec(term()) :: Supervisor.child_spec()
   def child_spec(_arg) do
-    %{id: __MODULE__, start: {Task, :start_link, [fn -> boot!() end]}, restart: :transient}
+    %{id: __MODULE__, start: {__MODULE__, :start, []}, restart: :transient}
+  end
+
+  @doc "Selects, synchronously, before any later child starts. `:ignore` leaves no process behind."
+  @spec start() :: :ignore
+  def start do
+    _module = boot!()
+    :ignore
   end
 
   @doc "Selects from the environment and records the selection; raises with the reason on refusal."

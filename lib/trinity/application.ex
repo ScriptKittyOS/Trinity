@@ -120,12 +120,11 @@ defmodule Trinity.Application do
     if profile == :regulated do
       mcp_auth = Application.get_env(:trinity, :mcp_auth, []) |> Keyword.get(:profile, :local)
       llm = Application.get_env(:trinity, :llm, [])
-      authority = authority_module()
 
       [
         Trinity.Profile.check_mcp_auth(profile, mcp_auth),
         Trinity.Profile.check_embedded_as(profile, mcp_auth),
-        Trinity.Profile.check_authority(profile, authority),
+        check_authority(profile),
         Trinity.Profile.check_llm_endpoints(
           profile,
           Trinity.Profile.raw_endpoints(),
@@ -143,10 +142,19 @@ defmodule Trinity.Application do
 
   # AC5's input. `Trinity.Authority.Selection.select/1` is the same pure rule the selection child
   # uses, asked here before that child exists rather than duplicated.
-  defp authority_module do
+  #
+  # Owner ruling 2026-09-30: a refusal is reported with the selection's own reason. This used to
+  # answer `nil` for every refusal, and `nil` reached `check_authority/2` as an argument no clause
+  # matched, so `TRINITY_AUTHORITY=SomethingNotLoaded` under `:regulated` stopped the boot with a
+  # FunctionClauseError in `Trinity.Profile` rather than with the name of the module that could
+  # not be loaded.
+  defp check_authority(profile) do
     case Trinity.Authority.Selection.select(System.get_env("TRINITY_AUTHORITY")) do
-      {:ok, module} -> module
-      _ -> nil
+      {:ok, module} ->
+        Trinity.Profile.check_authority(profile, module)
+
+      {:error, reason} ->
+        {:error, {:regulated_authority_unselectable, reason}}
     end
   end
 

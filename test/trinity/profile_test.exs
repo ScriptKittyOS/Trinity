@@ -142,6 +142,23 @@ defmodule Trinity.ProfileTest do
     test "default runs on Local, unchanged" do
       assert :ok = Profile.check_authority(:default, Trinity.Authority.Local)
     end
+
+    test "an authority that could not be resolved is refused by name, and does not raise" do
+      # Owner ruling 2026-09-30. This clause did not exist, and the guard on the clause above
+      # (`not is_nil(module)`) meant nil matched nothing. Trinity.Application resolved the
+      # authority through Selection.select/1 and turned every refusal into nil, so an unloadable
+      # TRINITY_AUTHORITY under :regulated killed the boot with a FunctionClauseError naming this
+      # module, instead of naming the module the operator asked for.
+      assert {:error, {:regulated_authority_unresolved, nil}} =
+               Profile.check_authority(:regulated, nil)
+    end
+
+    test "the selection's own refusal is what an unloadable name produces, before it reaches here" do
+      # The two halves of the old crash, in order: select/1 refuses by name, and the refusal is a
+      # reason rather than a module, which is why the caller must not flatten it to nil.
+      assert {:error, {:not_loaded, "NoSuchAdapterModule"}} =
+               Trinity.Authority.Selection.select("NoSuchAdapterModule")
+    end
   end
 
   describe "the profile is read from the environment, and a typo is not permissive" do

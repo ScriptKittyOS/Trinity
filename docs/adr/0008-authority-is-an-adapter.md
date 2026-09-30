@@ -20,8 +20,10 @@ whether the thing you asked for is allowed to happen.
    behind `Trinity.MCP.Auth`. That answers who is calling and with what scopes. Whether an effect happens is
    answered by the gate, or by whichever `Trinity.Authority` implementation is in force. The auth layer is never
    described as an authority layer.
-5. When an external adapter is in force, Trinity keeps **no executor** for the effects that adapter governs. The
-   absence is asserted by a census over the tree, not by intent.
+5. **Amended 2026-09-30, see below.** ~~When an external adapter is in force, Trinity keeps **no executor** for the
+   effects that adapter governs. The absence is asserted by a census over the tree, not by intent.~~
+   There is **no model-side executor**, and after a `decide/3` allow **this VM runs the tool**. The census over the
+   tree still asserts the shape, and now asserts one executor rather than none.
 
 ## Consequences
 - Adapters can be written against a published behaviour by anyone, including for authority layers this project
@@ -64,3 +66,39 @@ record. That is deliberate and belongs in this ADR because it is a statement abo
 can and cannot deliver: after a partition, two devices hold two true accounts of what each did, and nothing
 available afterwards turns them into one account of what happened. A system that claimed otherwise would be
 inventing the part it could not know.
+
+## Amended 2026-09-30 — point 5: one executor, here, not none
+
+**Source: the owner, 2026-09-30.** Point 5 as accepted said that an external adapter meant Trinity kept no executor
+for the effects that adapter governed, and the census test asserted the absence by finding exactly one file able to
+call a tool's `execute/2` and noting that the effect never reached it under an adapter.
+
+That is no longer the design. The split is:
+
+> Any actor proposes. The authority in force authorizes. This node's Elixir executes Trinity tools after an allow.
+
+The adapter **does not run the tool** and **does not change the arguments**. It answers `:allow` or `:deny` with a
+basis, and stops.
+
+### Why the earlier shape was worse
+
+It put the effect in the adapter's hands, in another repository, on the far side of the membrane. Every check the
+membrane makes, the effect class, the catalogue, the fingerprint, the idempotency key, the admission receipt, applied
+to something that then happened somewhere else. A second executor is a second place for the rules to be different.
+
+It also made `stage/2` load-bearing in a way nothing checked: the membrane verified the fingerprint, handed the
+`Staged` to the authority, and used whatever came back. An adapter could change `args` after the fingerprint had been
+verified, or keep `args` and change `module`, which no fingerprint covers at all.
+
+### What is true now, with where it is enforced
+
+| claim | enforced at |
+| --- | --- |
+| the tool runs in this VM, after `decide/3` allow and after the admission receipt is in the chain | `lib/trinity/effects.ex`, `run_tool/2` |
+| exactly one file calls a tool's `execute/2` on the effect path | `test/trinity/effects/census_test.exs` |
+| `stage/2` may set `staged_at` and `basis` and nothing else | `lib/trinity/effects.ex`, `check_stage_kept_the_subject/2` |
+| the fingerprint is re-derived after `stage/2` against the one the gate bound | `lib/trinity/effects.ex`, `check_fingerprint_against/2` |
+| an adapter's `execute/3` is on no path and must not run a tool | `lib/trinity/authority.ex`, `lib/trinity/authority/local.ex` |
+
+Decisions 1 to 4 are unchanged. The behaviour still has four callbacks, because removing `execute/3` would silently
+accept an adapter written against the older contract, where returning a result from it was how the effect happened.
