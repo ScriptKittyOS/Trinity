@@ -3,11 +3,14 @@
 defmodule Trinity.Authority.Local do
   @moduledoc """
   The authority this tree ships (ADR-0008 decision 2): the permission gate's decision is the
-  decision, the effect runs here, the receipt is local. `execute/3` is the one place in the
-  tree that calls a tool's `execute/2` for an effectful tool; the census test in
-  test/trinity/effects/census_test.exs holds that, and when an external adapter is in force
-  this module is not the one selected, so Trinity keeps no executor for the effects that
-  adapter governs (decision 5).
+  decision, and the receipt is local.
+
+  **It is not an executor.** Under the owner's ruling of 2026-09-30 the tool runs in
+  `Trinity.Effects`, in this VM, after a `decide/3` allow, whichever authority is in force. This
+  module used to be the one place in the tree that called a tool's `execute/2`; that call now
+  lives in the membrane, and the census test in test/trinity/effects/census_test.exs holds the
+  new shape. `execute/3` here answers `{:error, :not_the_effect_path}`: it is on no path, and a
+  caller that reaches it has gone somewhere that no longer exists.
   """
   @behaviour Trinity.Authority
 
@@ -22,13 +25,7 @@ defmodule Trinity.Authority.Local do
   def decide(%Staged{}, :ask, _ctx), do: {:ok, :deny, %{"by" => "gate", "reason" => "undecided"}}
 
   @impl true
-  def execute(%Staged{module: module, args: args}, :allow, ctx) do
-    module.execute(args, ctx)
-  rescue
-    e -> {:error, {:crash, {e, __STACKTRACE__}}}
-  end
-
-  def execute(%Staged{}, :deny, _ctx), do: {:error, :denied}
+  def execute(%Staged{}, _decision, _ctx), do: {:error, :not_the_effect_path}
 
   @impl true
   def receipt(kind, attrs) when is_binary(kind) and is_map(attrs) do

@@ -5,10 +5,18 @@ defmodule Trinity.Effects.CensusTest do
   Slice 024 AC1: exactly one caller of `execute/2` for effectful tools, and a planted bypass
   is flagged. The population is every source file in `lib/` and `test/support/` that
   `git ls-files` names, grepped for a call of `execute(` on a module value; the allowed set is
-  `Trinity.Authority.Local` (the executor for effectful tools) and `Trinity.Tools.Runner`
-  (whose `call_tool/3` is guarded to `effect: :none`, which the second test proves). The
-  planted `Trinity.TestEffects.Bypass` is the third name and must be there, or the census is
-  not looking.
+  `Trinity.Effects` (the membrane, which runs the tool after a `decide/3` allow) and
+  `Trinity.Tools.Runner` (whose `call_tool/3` is guarded to `effect: :none`, which the second
+  test proves). The planted `Trinity.TestEffects.Bypass` is the third name and must be there, or
+  the census is not looking.
+
+  Owner ruling 2026-09-30 moved the first name. It was `Trinity.Authority.Local`, and the census
+  asserted that under an external adapter Trinity kept **no** executor, because the effect never
+  reached the one file that could run a tool. That is no longer the design: the tool runs here
+  whichever authority is in force, and the adapter only decides. So the census no longer says
+  "no executor under an adapter". It says what is still worth asserting and is now the stronger
+  claim: **one** executor, in the membrane, on the far side of every check and of the admission
+  receipt, and it does not move when the authority changes.
   """
   use ExUnit.Case, async: true
 
@@ -19,10 +27,11 @@ defmodule Trinity.Effects.CensusTest do
   # to weigh their case against. A path with no reason is not allowed: `@allowed` is a map and the
   # test below asserts every reason is present and says something.
   @allowed %{
-    "lib/trinity/authority/local.ex" =>
-      "the executor under TRINITY_AUTHORITY=local: the membrane admits an effect and this is what " <>
-        "runs the tool's own execute/2. Under an external authority adapter this file is not the " <>
-        "executor and the effect never reaches it.",
+    "lib/trinity/effects.ex" =>
+      "the membrane, and the one executor: after the decision is :allow, the fingerprint holds " <>
+        "across stage/2 and the admission receipt is in the chain, run_tool/2 calls the tool's own " <>
+        "execute/2 here. It is the same call whichever authority is in force, because an adapter " <>
+        "decides and does not act (owner ruling 2026-09-30).",
     "lib/trinity/tools/runner.ex" =>
       "the non-effect path: call_tool/3 is guarded to effect: :none, which the second test in this " <>
         "file proves by calling it with an effectful tool and reading the refusal by name."

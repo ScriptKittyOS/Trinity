@@ -104,6 +104,15 @@ defmodule Trinity.Profile do
 
   def check_authority(:regulated, module) when is_atom(module) and not is_nil(module), do: :ok
 
+  # Owner ruling 2026-09-30. Without this clause the function was partial, and the one caller
+  # that could reach the gap did. `Trinity.Application` resolved the authority through
+  # `Selection.select/1` and turned any refusal into `nil`, so an unloadable TRINITY_AUTHORITY
+  # under `:regulated` arrived here as `nil`, matched no clause, and the boot died with a
+  # FunctionClauseError naming this function instead of naming the variable the operator set.
+  # The caller now reports the selection's own reason; this clause makes the refusal total
+  # rather than relying on every caller to be careful.
+  def check_authority(:regulated, other), do: {:error, {:regulated_authority_unresolved, other}}
+
   @doc """
   AC4. Under `:regulated`, receipts that cannot be appended at boot stop the node.
 

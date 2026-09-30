@@ -49,12 +49,24 @@ defmodule Trinity.Authority.SelectionTest do
     System.put_env(Selection.env(), "Nope")
     assert_raise RuntimeError, ~r/module Nope is not loaded/, fn -> Selection.boot!() end
 
-    # As a child spec, the same refusal is a start failure the supervisor reports.
+    # As a child spec, the same refusal is a start failure the supervisor reports. Owner ruling
+    # 2026-09-30: it is raised **before** `start/0` returns, not from inside a task that was
+    # already running while later children started. The old shape asserted an `:EXIT` message
+    # arriving after `{:ok, pid}`, and that ordering was the window: during it
+    # `Selection.selected/0` was nil and `Authority.impl/0` answered Local.
     spec = Selection.child_spec([])
     {m, f, a} = spec.start
-    Process.flag(:trap_exit, true)
-    {:ok, pid} = apply(m, f, a)
-    assert_receive {:EXIT, ^pid, {%RuntimeError{message: "TRINITY_AUTHORITY refused: " <> _}, _}}
+
+    assert_raise RuntimeError, ~r/TRINITY_AUTHORITY refused: module Nope is not loaded/, fn ->
+      apply(m, f, a)
+    end
+
+    # And on success it answers `:ignore`, having already recorded the selection: no process, and
+    # nothing left in flight. With the variable unset this selects Local, which is what this suite
+    # booted under, so running it here changes nothing.
+    System.delete_env(Selection.env())
+    assert Selection.start() == :ignore
+    assert Selection.selected() == Trinity.Authority.Local
   end
 
   test "the standalone assertion: this suite booted under local, no adapter module is loaded, and every TCP peer belongs to the database" do

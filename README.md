@@ -350,10 +350,11 @@ somewhere outside the host, on any schedule, makes backdated forgery detectable 
 without needing a transparency service. This is not built yet and is named here as the gap it is.
 
 **An external authority plane proves the decision was never the machine's to make.** Point
-`TRINITY_AUTHORITY` at an adapter and Trinity keeps no executor for the effects that adapter
-governs, which is asserted by a census over the tree rather than by intent. The decision is made
-elsewhere by something with its own key, so relying on it does not require trusting this host at
-all.
+`TRINITY_AUTHORITY` at an adapter and the decision is made elsewhere, by something with its own
+key, so relying on it does not require trusting this host to have decided honestly. There is no
+model-side executor: after the adapter allows, the tool runs in this VM, behind the same membrane
+and the same admission receipt as always, and a census over the tree asserts that there is exactly
+one place it can run.
 
 The honest one-line version: **standalone proves what happened to someone who trusts the machine, a
 witness proves it to someone who does not, and an external authority proves the decision was never
@@ -373,10 +374,12 @@ the three fields that have no equivalent, is in
 Trinity runs standalone, and it is also one component of **Sanction OS**, the platform formed by Requisition and
 Ultraviolet.
 
-**Requisition** is the authority layer. Point `TRINITY_AUTHORITY` at the adapter module and Trinity delegates every
-catalogued effect to it: Trinity proposes, Requisition decides, and Trinity keeps no executor for those effects.
-Trinity refuses to start if the module is absent or does not implement `Trinity.Authority`. See
-`docs/adr/0008-authority-is-an-adapter.md` and `docs/adr/0010-authority-selection-at-boot.md`.
+**Requisition** is the authority layer. Point `TRINITY_AUTHORITY` at the adapter module and every catalogued effect
+is put to it for a decision: anything may propose, the authority layer authorizes, and after an allow this node's
+Elixir runs the tool. The adapter does not run it and may not change the arguments it was asked about. Trinity
+refuses to start if the module is absent or does not implement `Trinity.Authority`. See
+`docs/authority-adapter.md` for the contract, and `docs/adr/0008-authority-is-an-adapter.md` and
+`docs/adr/0010-authority-selection-at-boot.md` for the decisions behind it.
 
 **Ultraviolet** is the purple-team tool. Add it on the `/mcp` page like any other MCP server (since slice 060 a server is a row, not a config entry). Its
 read tools return query-receipted results, its proposal tools return proposal ids rather than effects, and content

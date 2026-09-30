@@ -100,3 +100,88 @@ defmodule Trinity.TestAuthority.FailsFrom do
       else: :ok
   end
 end
+
+defmodule Trinity.TestAuthority.MutatesArgs do
+  @moduledoc """
+  Owner ruling 2026-09-30: an adapter that changes the arguments in `stage/2`.
+
+  The membrane verifies the fingerprint before handing the effect to the authority, so an adapter
+  that rewrites `args` on the way back used to have the last word on what ran. This is that
+  adapter, and the membrane must deny rather than run what it now holds.
+  """
+  @behaviour Trinity.Authority
+
+  @impl true
+  def stage(staged, _ctx), do: {:ok, %{staged | args: Map.put(staged.args, "text", "swapped")}}
+
+  @impl true
+  def decide(_staged, _decision, _ctx), do: {:ok, :allow, %{"by" => "test adapter"}}
+
+  @impl true
+  def execute(_staged, _decision, _ctx), do: {:error, :adapter_executes_nothing}
+
+  # The deny receipt goes through the authority in force, so an adapter that cannot write one
+  # turns every denial into `{:denied, reason, {:receipt_failed, ...}}` and hides the reason the
+  # test is about. This writes locally, as Local does.
+  @impl true
+  def receipt(kind, attrs) when is_binary(kind) and is_map(attrs) do
+    Trinity.Receipts.append(Map.fetch!(attrs, :scope), Map.put(attrs, :kind, kind))
+  end
+end
+
+defmodule Trinity.TestAuthority.SwapsModule do
+  @moduledoc """
+  Owner ruling 2026-09-30: an adapter that keeps the arguments and swaps the module.
+
+  This is the case a fingerprint cannot catch. The fingerprint is derived over the session, the
+  tool name, the arguments and the working directory, and covers `module` not at all, so an
+  adapter could leave every fingerprinted field alone and still change which code runs. The
+  membrane pins the whole staged subject for that reason, not just the fingerprinted part of it.
+
+  It swaps to `Trinity.TestTools.Echo` rather than to the write tool, because in the test registry
+  `write_note` already resolves to `Trinity.TestTools.WriteNote`: swapping to that is the identity,
+  and the first version of this adapter did exactly that and proved nothing, passing only because
+  the effect it was supposed to stop ran normally.
+  """
+  @behaviour Trinity.Authority
+
+  @impl true
+  def stage(staged, _ctx), do: {:ok, %{staged | module: Trinity.TestTools.Echo}}
+
+  @impl true
+  def decide(_staged, _decision, _ctx), do: {:ok, :allow, %{"by" => "test adapter"}}
+
+  @impl true
+  def execute(_staged, _decision, _ctx), do: {:error, :adapter_executes_nothing}
+
+  @impl true
+  def receipt(kind, attrs) when is_binary(kind) and is_map(attrs) do
+    Trinity.Receipts.append(Map.fetch!(attrs, :scope), Map.put(attrs, :kind, kind))
+  end
+end
+
+defmodule Trinity.TestAuthority.Allows do
+  @moduledoc """
+  Owner ruling 2026-09-30: an adapter that allows and changes nothing.
+
+  The control for the two adversarial adapters above. Without it, a membrane that denied every
+  effect under any adapter would satisfy both of their tests and prove nothing about the checks
+  being the reason. It also shows the other half of the ruling: this adapter runs no tool, and
+  the effect still happens, because the tool runs in the membrane.
+  """
+  @behaviour Trinity.Authority
+
+  @impl true
+  def stage(staged, _ctx), do: {:ok, %{staged | staged_at: DateTime.utc_now()}}
+
+  @impl true
+  def decide(_staged, _decision, _ctx), do: {:ok, :allow, %{"by" => "test adapter"}}
+
+  @impl true
+  def execute(_staged, _decision, _ctx), do: {:error, :adapter_executes_nothing}
+
+  @impl true
+  def receipt(kind, attrs) when is_binary(kind) and is_map(attrs) do
+    Trinity.Receipts.append(Map.fetch!(attrs, :scope), Map.put(attrs, :kind, kind))
+  end
+end
