@@ -29,6 +29,11 @@ defmodule Trinity.Application do
     # project's rules about key material, and the filter is the last line for exactly that case.
     install_log_redaction()
 
+    # Slice regulated-boot. Before any child, because a refused boot should have started nothing:
+    # the same reasoning the DataDir lock is placed early for. Under `:default` this returns :ok
+    # without reading anything.
+    verify_regulated_configuration!()
+
     children =
       desktop_children() ++
         [
@@ -94,7 +99,74 @@ defmodule Trinity.Application do
     # See https://elixir.hexdocs.pm/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Trinity.Supervisor]
-    Supervisor.start_link(children, opts)
+
+    case Supervisor.start_link(children, opts) do
+      {:ok, pid} -> verify_regulated_receipts(pid)
+      other -> other
+    end
+  end
+
+  ## Slice regulated-boot: the refusals `:regulated` adds, and nothing else changed by it
+  ##
+  ## Every decision below is `Trinity.Profile`'s, which is pure and unit tested. This module reads
+  ## the world and hands it the values. Under `:default` each one answers :ok without looking.
+
+  # AC1, AC2, AC3 and AC5: configuration facts, knowable before a child exists. Raising here
+  # stops the boot with the reason, which is what `verify_log_redaction!/0` below already does and
+  # what the DataDir lock does by refusing to start.
+  defp verify_regulated_configuration! do
+    profile = Trinity.Profile.current()
+
+    if profile == :regulated do
+      mcp_auth = Application.get_env(:trinity, :mcp_auth, []) |> Keyword.get(:profile, :local)
+      llm = Application.get_env(:trinity, :llm, [])
+      authority = authority_module()
+
+      [
+        Trinity.Profile.check_mcp_auth(profile, mcp_auth),
+        Trinity.Profile.check_embedded_as(profile, mcp_auth),
+        Trinity.Profile.check_authority(profile, authority),
+        Trinity.Profile.check_llm_endpoints(
+          profile,
+          Trinity.Profile.raw_endpoints(),
+          Keyword.get(llm, :models, [])
+        )
+      ]
+      |> Enum.each(fn
+        :ok -> :ok
+        {:error, reason} -> raise "TRINITY_PROFILE=regulated refuses to boot: #{inspect(reason)}"
+      end)
+    end
+
+    :ok
+  end
+
+  # AC5's input. `Trinity.Authority.Selection.select/1` is the same pure rule the selection child
+  # uses, asked here before that child exists rather than duplicated.
+  defp authority_module do
+    case Trinity.Authority.Selection.select(System.get_env("TRINITY_AUTHORITY")) do
+      {:ok, module} -> module
+      _ -> nil
+    end
+  end
+
+  # AC4. Only reached under `:regulated`: `:default` never calls it, so
+  # `Trinity.Receipts.Supervisor` keeps its fail-open shape untouched for every other profile.
+  # A signer that is unavailable there logs, sets the alarm and lets the tree start; here it stops
+  # the node, and the tree that did start is brought down rather than left running refused.
+  defp verify_regulated_receipts(pid) do
+    if Trinity.Profile.current() == :regulated do
+      case Trinity.Profile.check_receipts(:regulated, Trinity.Receipts.KeyCustody.boot!()) do
+        :ok ->
+          {:ok, pid}
+
+        {:error, reason} ->
+          Supervisor.stop(pid, :shutdown)
+          {:error, {:regulated_boot_refused, reason}}
+      end
+    else
+      {:ok, pid}
+    end
   end
 
   # Tell Phoenix to update the endpoint configuration

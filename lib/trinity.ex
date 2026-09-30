@@ -35,6 +35,10 @@ defmodule Trinity do
         Telemetry.Redaction,
         Repo,
         Repo.Receipts,
+        # Slice regulated-boot: the application asks it what the profile refuses, before it
+        # starts anything. Pure, so the refusals are unit testable and so this boundary does not
+        # grow a dependency on Authority or Receipts to ask a question about a value.
+        Profile,
         UUID,
         Config,
         Sessions,
@@ -110,6 +114,10 @@ defmodule Trinity do
         Receipts.Verifier,
         Receipts.KeyCustody,
         Authority,
+        # Slice regulated-boot: `Selection.select/1` is the pure rule the selection child uses.
+        # The application asks it before that child exists, so that `:regulated` can refuse a
+        # local authority having started nothing. Exported rather than duplicated.
+        Authority.Selection,
         Content.Part
       ] ++
         if(Mix.env() == :test, do: [DataCase, NetworkGuard, Factory], else: [])
