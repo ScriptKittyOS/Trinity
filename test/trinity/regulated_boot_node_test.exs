@@ -49,12 +49,28 @@ defmodule Trinity.RegulatedBootNodeTest do
   Trinity.BootIsolation.isolate!(System.fetch_env!("TRINITY_BOOT_TAG"))
   """
 
-  # A signer failure the child can reproduce: the key file exists as a directory, so `File.read/1`
-  # answers `{:error, :eisdir}` and `KeyCustody.boot!/1` answers `{:error, {:key_file, :eisdir}}`.
-  # `keys_dir` itself is a real directory, so nothing raises on the way there.
+  # A signer failure the child can reproduce, on whichever algorithm the leg selects.
+  #
+  # The key is `receipts-<algorithm>.key` (`KeyCustody.key_path/2`) and the algorithm is `:p384`
+  # whenever `:crypto.info_fips()` is `:enabled`, else `:ed25519` (`KeyCustody.select/0`). This used
+  # to sabotage the ed25519 name alone, so on the FIPS leg it aimed at a file the signer never
+  # opens: the node generated a p384 key, booted, and case 6 failed on a correct assertion while
+  # case 1 passed for the wrong reason. Every candidate name is taken instead.
+  #
+  # Each is a **directory**, which is deliberate and not interchangeable with the simpler sabotage
+  # of making `keys_dir` itself a file. A directory where the key belongs gives `File.read/1`
+  # `{:error, :eisdir}`, which `KeyCustody` returns as `{:error, {:key_file, :eisdir}}` — an error
+  # tuple, on the path the receipts supervisor is fail-open over. A `keys_dir` that is a regular
+  # file instead makes `File.mkdir_p!/1` **raise** `%File.Error{reason: :enotdir}`, which takes the
+  # boot down under `:default` too and so cannot express "the signer is down and a default node
+  # still starts". Measured, not reasoned: that is filed as its own finding.
   defp broken_keys_dir(root) do
     dir = Path.join(root, "broken-keys")
-    File.mkdir_p!(Path.join(dir, "receipts-ed25519.key"))
+
+    for algorithm <- ["ed25519", "p384", "mldsa87"] do
+      File.mkdir_p!(Path.join(dir, "receipts-#{algorithm}.key"))
+    end
+
     dir
   end
 
