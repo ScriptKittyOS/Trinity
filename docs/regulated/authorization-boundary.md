@@ -98,6 +98,32 @@ and this pack says nothing about it.
 | Web fetch and search | Out | Permission gate | `lib/trinity/tools/` |
 | MCP server requests | In | OAuth 2.1 resource server | `lib/trinity/mcp/auth.ex` |
 | Receipt forwarding | Out, if configured | Optional authority callback | `lib/trinity/receipts/forwarder.ex` |
+| Gateway messages | Out and in, if configured | **Allow-list under `:regulated`**, then the channel cap | `lib/trinity/gateways/`, `lib/trinity/profile.ex` |
+
+## Gateways: an unnamed channel does not start
+
+A gateway carries conversation text to somewhere that is not this host. That is the same egress a
+model endpoint is, with the same contents, so under `TRINITY_PROFILE=regulated` it is held to the
+same rule: **every adapter in `config :trinity, :gateways`'s `:adapters` must be named in
+`TRINITY_REGULATED_GATEWAYS`, or the node refuses to boot.** The refusal names the adapter, or names
+the variable when nothing is set, and it happens before any child starts.
+
+A node with no gateway configured needs no allow-list. Requiring the variable where nothing reaches
+out would make every operator set one they do not use, which is how a control becomes a formality.
+
+**This is not a ban.** An authorizable channel exists, and the control is aimed at the accidental
+one rather than the category:
+
+| | |
+|---|---|
+| Refused unless named | any adapter, including the `Console` adapter this tree ships |
+| Why not simply ban them | Mattermost runs at IL4, IL5 and IL6, holds a Certificate to Field under Platform One's continuous ATO, authenticates with CAC through SAML, and carries the interactive dialogs an approval round-trip needs. Banning the category would forbid what the deployment target itself runs |
+| What the control actually stops | a consumer cloud, reached by configuration, that no boundary authorizes. **No such adapter ships in this tree** |
+
+Beside the allow-list, what an approval arriving from a channel may authorize is capped
+independently of it: `lib/trinity/gateways/cap.ex` admits `:read`, `:network` and `:write` from a
+paired channel and refuses `:exec` and `:destructive`, whatever the profile. The allow-list decides
+whether a channel exists at all; the cap decides what it may do.
 
 A witness or transparency service that would let a third party detect backdated forgery without
 trusting the host is **NOT IN TREE**.

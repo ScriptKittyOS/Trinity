@@ -337,6 +337,77 @@ defmodule Trinity.RegulatedBootNodeTest do
     end
   end
 
+  describe "7. regulated refuses a gateway that is not on the allow-list" do
+    test "a configured adapter refuses without the allow-list and boots with it" do
+      # Both directions in one case, as case 5 does for two profiles. Without the second half a
+      # refusal proves only that the check fires, not that it can be satisfied.
+      configured = """
+      Application.put_env(:trinity, :gateways, adapters: [Trinity.Gateways.Console])
+      """
+
+      {root, tag} = case_setup("regulated_gateway_unlisted")
+
+      {out, status} =
+        boot(
+          [
+            {"XDG_DATA_HOME", root},
+            {"TRINITY_BOOT_TAG", tag},
+            {"TRINITY_PROFILE", "regulated"},
+            {"TRINITY_AUTHORITY", "RegulatedBootFixture"},
+            {"TRINITY_REGULATED_LLM_ENDPOINTS", "https://models.internal"}
+          ],
+          """
+          #{@fixture}
+          #{production_mcp_auth()}
+          #{allowed_models()}
+          #{configured}
+          #{@report}
+          """
+        )
+
+      assert status == 3, "the node started with an unlisted gateway:\n#{out}"
+      reason = refusal_line(out)
+
+      assert reason =~ "regulated_gateways_unset",
+             "it refused, but the printed reason is not the one under test:\n#{reason}"
+
+      assert reason =~ "TRINITY_REGULATED_GATEWAYS"
+
+      # Named, and it starts. The adapter is unchanged; only the allow-list differs.
+      {root2, tag2} = case_setup("regulated_gateway_listed")
+
+      {out2, status2} =
+        boot(
+          [
+            {"XDG_DATA_HOME", root2},
+            {"TRINITY_BOOT_TAG", tag2},
+            {"TRINITY_PROFILE", "regulated"},
+            {"TRINITY_AUTHORITY", "RegulatedBootFixture"},
+            {"TRINITY_REGULATED_LLM_ENDPOINTS", "https://models.internal"},
+            {"TRINITY_REGULATED_GATEWAYS", "Trinity.Gateways.Console"}
+          ],
+          """
+          #{@fixture}
+          #{production_mcp_auth()}
+          #{allowed_models()}
+          #{configured}
+          #{@report}
+          """
+        )
+
+      assert status2 == 0,
+             """
+             the allow-list named the configured adapter and the node still refused. If this fails \
+             while the half above passes, the profile refuses every gateway rather than an unnamed \
+             one, which is not the rule.
+
+             #{String.slice(out2, -3000, 3000)}
+             """
+
+      assert out2 =~ "BOOT_OK"
+    end
+  end
+
   describe "6. regulated refuses to keep running when receipts cannot be appended" do
     test "case 4's configuration with case 1's broken key store does not start" do
       {root, tag} = case_setup("regulated-signer-down")
