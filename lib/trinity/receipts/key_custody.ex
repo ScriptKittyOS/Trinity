@@ -53,14 +53,20 @@ defmodule Trinity.Receipts.KeyCustody do
 
   @doc """
   Selects the algorithm, ensures its key and registry row exist, and records the selection.
-  Returns the selection, or `{:error, reason}` when no approved algorithm can sign here (the
-  chain then denies every effect, and the boot receipt cannot be written).
+  Returns the selection, or `{:error, reason}` when no approved algorithm can sign here, or when the
+  keys directory cannot be made (the chain then denies every effect, and the boot receipt cannot be
+  written).
+
+  **It returns, and does not raise.** `Trinity.Receipts.Supervisor` fails open on an error tuple:
+  it logs, sets the alarm, and lets the tree start with every effect denied. A raise is not an error
+  tuple, so it fails the supervisor's start and takes the boot down under **every** profile,
+  including `:default`, where the documented promise is the opposite. That was SCR-815, measured
+  from a spawned `:default` boot as `%File.Error{reason: :enotdir}`.
   """
   @spec boot!(Path.t() | nil) :: {:ok, selection()} | {:error, term()}
   def boot!(dir \\ nil) do
-    dir = dir || keys_dir()
-
-    with {:ok, algorithm} <- select(),
+    with {:ok, dir} <- resolve_keys_dir(dir),
+         {:ok, algorithm} <- select(),
          impl = Signer.impl(algorithm),
          {:ok, key_id} <- ensure_key(dir, impl) do
       selection = %{
@@ -84,6 +90,23 @@ defmodule Trinity.Receipts.KeyCustody do
   @doc "The selection made at boot, or `nil` before it, or `{:unavailable, reason}`."
   @spec selected() :: selection() | {:unavailable, term()} | nil
   def selected, do: :persistent_term.get(@key, nil)
+
+  # Both ways of resolving the directory create it with the raising `File` functions: `keys_dir/0`
+  # calls `File.mkdir_p!/1` on a configured path, and `Trinity.Paths.keys_dir/0` calls
+  # `File.mkdir_p!/1` and `File.chmod!/2` on the default one. Either raises `%File.Error{}` where a
+  # regular file sits in the path, or the data directory is not writable.
+  #
+  # `boot!/1`'s contract is an error tuple and the supervisor only fails open on one, so the rescue
+  # belongs exactly here, at the boundary where the contract changes, rather than at either call
+  # site. An explicit directory is the caller's own: it is passed through, and a bad one surfaces
+  # from `ensure_key/2` as `{:key_file, reason}` without raising either.
+  defp resolve_keys_dir(dir) when is_binary(dir), do: {:ok, dir}
+
+  defp resolve_keys_dir(nil) do
+    {:ok, keys_dir()}
+  rescue
+    e in File.Error -> {:error, {:keys_dir, e.reason}}
+  end
 
   @doc """
   The algorithm the rules select on this runtime: the configured one when it is available,
