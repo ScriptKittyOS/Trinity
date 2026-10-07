@@ -5,6 +5,10 @@
 
 # Build and dependency output
 /_build/
+# A second build tree for the Postgres adapter, which is chosen at compile time by TRINITY_DB and
+# so cannot share _build with the SQLite one. `MIX_BUILD_ROOT=_build_pg TRINITY_DB=postgres` is how
+# the postgres leg is reproduced locally.
+/_build_pg/
 /deps/
 /cover/
 /doc/
