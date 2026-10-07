@@ -7,14 +7,6 @@
 # Slice 003: :fips (tests that need FIPS mode on) runs only where the leg declares itself with
 # TRINITY_FIPS_LEG=1; excluded by tag elsewhere, never skipped. test/fips/mode_test.exs runs
 # everywhere and is what makes a leg that failed to enter the mode red rather than quiet.
-# Slice regulated-boot: :needs_dev_compile (tests that spawn a child OS process running
-# `mix run` under MIX_ENV=dev) is excluded on the FIPS leg alone. The leg has no prebuilt dev
-# tree, so the child compiles the dev dependency tree from scratch, and that reaches the network
-# to fetch the `tokenizers` precompiled NIF. OTP's TLS client cannot complete that download
-# (HelloRetryRequest middlebox assertion, erlang/otp#8470, docs/fips-leg.md finding 2 and slice
-# 002), so the child dies at `mix compile` and every assertion about what it booted is really an
-# assertion about a failed download. Excluded here rather than skipped by hand, and only here:
-# gate and postgres run the file in full.
 # Slice 032: :local_model (the real embedder through the serving) runs where
 # TRINITY_LOCAL_MODEL_CACHE names a cache that already holds all-MiniLM-L6-v2 (no download,
 # no network: a missing model is a failure there, not a skip); excluded by tag elsewhere.
@@ -24,8 +16,7 @@ local_model? = System.get_env("TRINITY_LOCAL_MODEL_CACHE") not in [nil, ""]
 ExUnit.start(
   exclude:
     [:live, :desktop, :eval] ++
-      if(fips_leg?, do: [:needs_dev_compile], else: [:fips]) ++
-      if(local_model?, do: [], else: [:local_model])
+      if(fips_leg?, do: [], else: [:fips]) ++ if(local_model?, do: [], else: [:local_model])
 )
 
 # Slice 024's boot receipt is written by a transient Task after the tree starts; once the

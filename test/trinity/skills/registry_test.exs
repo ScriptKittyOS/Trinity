@@ -136,15 +136,28 @@ defmodule Trinity.Skills.RegistryTest do
 
     started = System.monotonic_time(:millisecond)
 
-    assert Enum.find_value(1..100, fn _ ->
-             Process.sleep(20)
+    # The poll window and the criterion used to be the same 2 000 ms: `1..100` with a 20 ms sleep
+    # is a 2 s budget, asserted against a 2 s bound, so there was no way to tell "it never
+    # arrived" from "it arrived late", and a slow scheduler turned one into the other. They are
+    # separate now. The loop waits far longer than the criterion so that a failure says which of
+    # the two happened, and the criterion is then asserted against the time actually measured.
+    latency_ms =
+      Enum.find_value(1..600, fn _ ->
+        Process.sleep(25)
 
-             if Skills.get("watched").description == "After.",
-               do: System.monotonic_time(:millisecond) - started
-           end)
-           |> then(fn ms ->
-             IO.puts("\nAC3: the edit was in the registry after #{ms} ms")
-             ms
-           end) <= 2_000
+        if Skills.get("watched").description == "After.",
+          do: System.monotonic_time(:millisecond) - started
+      end)
+
+    assert latency_ms,
+           "the edit never reached the registry at all, in 15 s of waiting, and no rescan was " <>
+             "called. That is not AC3's 2 s bound being missed; it is the watcher not working."
+
+    IO.puts("\nAC3: the edit was in the registry after #{latency_ms} ms")
+
+    assert latency_ms <= 2_000,
+           "AC3 gives 2 000 ms and the edit took #{latency_ms} ms. The suite runs the fs_poll " <>
+             "backend at the interval config/test.exs sets, so this is the watcher being slow " <>
+             "rather than the poll interval leaving no margin."
   end
 end
