@@ -65,6 +65,7 @@ model prompt and what may not. Read both before the others.
 | `crypto-inventory.md` | Every cryptographic capability, its module, and its certificate status |
 | `headless-image.md` | How the container image is built and hardened, and the checks run against it |
 | `stig-applicability.md` | The image's STIG applicability statement, generated from OpenSCAP's evaluation of it |
+| `image-verify.md` | How to verify the published image's signature, build provenance, SBOM and AI-BOM, offline, with the SLSA level claimed and why |
 
 ## Status of this pack
 

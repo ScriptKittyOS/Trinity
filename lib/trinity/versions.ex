@@ -158,6 +158,36 @@ defmodule Trinity.Versions do
       from: {:file, "scripts/stig_scan.sh", "ssg_version=0.1.82"},
       note:
         "Added at Slice 130: the datastream (`ssg-rhel9-ds.xml`) and DISA STIG profile OpenSCAP evaluates the headless image against, the profile Iron Bank's pipeline uses for a UBI9 image. The release zip is checked against its published SHA-512, pinned beside the version in the script."
+    },
+    %{
+      name: "Image signing (cosign)",
+      pin: "**v3.1.3**",
+      lock: nil,
+      from:
+        {:file, ".github/workflows/headless-image.yml",
+         "COSIGN_SHA256: 4629c757b7618056f8ddd7e2625ae9fdd94c0372a65049520bc7d9df9efc7f71"},
+      note:
+        "Added at Slice 131: signs the published headless image and attaches its provenance, SBOM and AI-BOM with the project's held key (`scripts/image_supply_chain.sh`), and is the one program a consumer needs to verify them (docs/regulated/image-verify.md). The publishing job downloads the release binary and checks it against this SHA-256, which equals the release's `cosign_checksums.txt` entry for `cosign-linux-amd64`. `--offline` is deprecated in v3 in favour of `--bundle` with `--trusted-root`, and still works on this version."
+    },
+    %{
+      name: "CycloneDX validator (cyclonedx-cli)",
+      pin: "**0.33.1**",
+      lock: nil,
+      from:
+        {:file, ".github/workflows/headless-image.yml",
+         "cyclonedx/cyclonedx-cli:0.33.1@sha256:252c2e26f468c25fea1e63ecde1bc3198ad6e9dbb57f5ed3236bddcb2281b3a7"},
+      note:
+        "Added at Slice 131: validates the SBOM and the AI-BOM against CycloneDX 1.6's own schema before the publishing job attests them. Pinned by image digest. The schema makes an ML-BOM's dataset list optional, so the profile AC7 holds is `mix trinity.image.aibom --check`, not this."
+    },
+    %{
+      name: "Test registry (registry:2)",
+      pin: "**sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373**",
+      lock: nil,
+      from:
+        {:file, "test/image_supply_chain_test.exs",
+         "registry@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373"},
+      note:
+        "Added at Slice 131: the registry the `:image_signing` tests push to, sign in and save from, on a random loopback port, removed when the tests end. Test-only; never part of an image or a release."
     }
   ]
 

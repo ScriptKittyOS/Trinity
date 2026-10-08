@@ -24,6 +24,28 @@ evidence for each increment is retained by the maintainers and summarised here.
 
 ## 2026-10-08
 
+### `slice/131`: the container image, signed, with its provenance and bills attached
+
+An SBOM in a repository is a document; attached to an image's digest and signed, it is evidence a
+holder of the image can check. The headless image's publishing job now pushes the image it
+checked by digest, signs it with the project's held key, and attaches three signed statements to
+that digest: build provenance naming the builder, the source repository and the exact commit, with
+every other input by digest; the tree's CycloneDX bill for that commit; and an AI bill of materials
+in CycloneDX's ML-BOM form, which records each model's weights digest, licence, training datasets
+with their terms quoted where no licence identifier exists, and the status of its legal review. The
+image carries no model today, and its AI-BOM says so.
+
+The key is held rather than keyless, because the deployments that most need to verify an image are
+the ones that cannot reach a public transparency log; the cost, that a stolen key signs without a
+public record, is stated beside the decision. Verification is a command sequence in
+`docs/regulated/image-verify.md` that needs cosign, jq and sha256sum and no network. The tests and
+the publishing job both run that exact text, extracted from the page, and it refuses an unsigned
+image, an image under a moved tag, genuine signatures moved onto another image, a layer altered in
+the saved layout (which cosign alone accepts), a provenance for another commit or builder, and a
+bill that differs from the tree's. The SLSA level claimed is Build L1, with the reason it is not L2,
+and the gate fails if the claim is raised beyond what the workflow can justify. The publishing job
+has not run yet: it waits on the project's signing key and on the image's own checks passing.
+
 ### `slice/130`: the headless image, hardened, and checked as built
 
 The headless container is what a government program would actually run, and it was built to run
