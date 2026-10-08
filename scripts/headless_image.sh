@@ -109,7 +109,12 @@ build() {
   [ -n "$tag" ] || die "build needs an image tag"
   if [ -z "$dir" ]; then
     dir=$(mktemp -d)
-    trap 'rm -rf "$dir"' EXIT
+    # Expanded now, not at exit: `dir` is local to this function and is gone by the time the
+    # EXIT trap runs, so a trap that read it then failed under `set -u` ("dir: unbound
+    # variable"), exited 1 after a successful build and left the context behind (slice 131
+    # NOTES, F-131-2).
+    # shellcheck disable=SC2064
+    trap "rm -rf '$dir'" EXIT
   fi
   stage "$dir"
 

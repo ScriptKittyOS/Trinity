@@ -33,9 +33,20 @@ defmodule Trinity.LLM.Registry do
   @spec models() :: [entry()]
   def models, do: Keyword.get(config(), :models, [])
 
-  @doc "The default model id, or nil when the registry is empty."
+  @doc """
+  The default model id, or nil when the registry is empty. Slice 100: the model the owner chose
+  in the setup path (`Trinity.Settings`, `:default_model`) when it is one the registry knows,
+  else the configured one.
+  """
   @spec default_model() :: String.t() | nil
-  def default_model, do: Keyword.get(config(), :default_model)
+  def default_model do
+    configured = Keyword.get(config(), :default_model)
+
+    case Trinity.Settings.get(:default_model) do
+      id when is_binary(id) -> if Enum.any?(models(), &(&1.id == id)), do: id, else: configured
+      _ -> configured
+    end
+  end
 
   @doc "The entry for an id, or the default's when nil, refusing an unknown id by name."
   @spec lookup(String.t() | nil) :: {:ok, entry()} | {:error, {:unknown_model, String.t() | nil}}

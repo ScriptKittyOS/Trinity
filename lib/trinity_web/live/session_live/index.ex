@@ -4,6 +4,7 @@ defmodule TrinityWeb.SessionLive.Index do
   @moduledoc """
   The sessions index at `/`: every session, most recently active first, and New session. Slice
   013. A new session is a row on the default persona; the chat itself is `SessionLive.Show`.
+  Slice 100: while `Trinity.Setup.needed?/0`, a visitor is sent to `/setup` instead.
   """
   use TrinityWeb, :live_view
 
@@ -13,6 +14,13 @@ defmodule TrinityWeb.SessionLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
+    if Trinity.Setup.needed?(),
+      do: {:ok, push_navigate(socket, to: ~p"/setup")},
+      else: mount_index(socket)
+  end
+
+  # Slice 100: a machine with nothing configured goes to the setup path first (AC11).
+  defp mount_index(socket) do
     default = Trinity.Personas.default()
 
     {:ok,

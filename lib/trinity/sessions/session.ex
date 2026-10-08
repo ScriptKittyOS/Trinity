@@ -26,6 +26,8 @@ defmodule Trinity.Sessions.Session do
   alias Trinity.Memory.{Compactor, Tokens}
   alias Trinity.Sessions.{Caps, Events, Prompt, Sentinel, State, Store, ToolRunner}
 
+  # The states a turn is in flight in (slice 100 names them once for the interrupt path).
+  @busy [:thinking, :tool_wait, :approval_wait, :compacting]
   @coalesce_ms 50
   @draft_ms 500
   @draft_bytes 2_048
@@ -48,6 +50,15 @@ defmodule Trinity.Sessions.Session do
   @doc "Stops the turn in flight, persisting what arrived as interrupted."
   @spec cancel_turn(pid() | String.t()) :: :ok | {:error, :idle}
   def cancel_turn(ref), do: :gen_statem.call(target(ref), :cancel)
+
+  @doc """
+  Slice 100: stops the turn in flight because the app is stopping, persisting what arrived as
+  interrupted with `reason` recorded (`"interrupted_reason"` in the row's parts). `:idle` when no
+  turn was in flight.
+  """
+  @spec interrupt(pid() | String.t(), atom()) :: :interrupted | :idle
+  def interrupt(ref, reason) when is_atom(reason),
+    do: :gen_statem.call(target(ref), {:interrupt, reason}, 10_000)
 
   @doc """
   The state name and a redacted view of the data: no grants, approvals or pending calls hide
@@ -194,6 +205,17 @@ defmodule Trinity.Sessions.Session do
 
   def handle_event({:call, from}, :cancel, _state, _data),
     do: {:keep_state_and_data, [{:reply, from, {:error, :idle}}]}
+
+  # Slice 100, AC7: the app is stopping. The turn in flight is kept as interrupted, with the
+  # reason, exactly as Cancel keeps it; `terminate/3` below does the same if this was not asked.
+  def handle_event({:call, from}, {:interrupt, reason}, state, %State{} = data)
+      when state in @busy do
+    data = interrupt_turn(data, reason)
+    {:next_state, :idle, %{data | turn: nil}, [{:reply, from, :interrupted}]}
+  end
+
+  def handle_event({:call, from}, {:interrupt, _reason}, _state, _data),
+    do: {:keep_state_and_data, [{:reply, from, :idle}]}
 
   # Model events arrive as messages from the streaming Task.
   def handle_event(:info, {:llm_event, ref, event}, :thinking, %State{turn: %{ref: ref}} = data) do
@@ -345,8 +367,22 @@ defmodule Trinity.Sessions.Session do
   def handle_event(:info, :coalesce, _state, _data), do: :keep_state_and_data
   def handle_event(:info, _other, _state, _data), do: :keep_state_and_data
 
+  # Slice 100, AC7: the backstop. A session stopped by its supervisor (the app shutting down
+  # without `Trinity.Sessions.interrupt_all/1` having reached it first) keeps its turn the same way.
+  # A `:kill` never reaches here; that case is the next init's rehydrate, as it always was.
   @impl true
+  def terminate(_reason, state, %State{} = data) when state in @busy do
+    _ = interrupt_turn(data, :shutdown)
+    :ok
+  end
+
   def terminate(_reason, _state, _data), do: :ok
+
+  defp interrupt_turn(data, reason) do
+    kill_task(data)
+    data = flush_deltas(data)
+    persist_final(data, %{"interrupted" => true, "interrupted_reason" => to_string(reason)})
+  end
 
   ## The turn
 
