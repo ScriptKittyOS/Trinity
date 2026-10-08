@@ -29,6 +29,8 @@ defmodule Trinity.Smoke do
 
   use Boundary, top_level?: true, deps: [Trinity, TrinityWeb], exports: []
 
+  Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
+
   @flag "--smoke"
 
   @type halt_fun :: (non_neg_integer() -> any())
@@ -131,6 +133,133 @@ defmodule Trinity.Smoke do
   end
 
   @doc """
+  Slice 100, AC9: SQLite's FTS5 in this binary. Slice 031's session search is an FTS5 table, and
+  a SQLite built without it boots and serves and fails the first search. An in-memory database,
+  a virtual table, one row, one `MATCH`. Binding: exit 5. `ok` or `failed:<reason>`.
+  """
+  @spec fts5_line() :: String.t()
+  def fts5_line do
+    alias Exqlite.Sqlite3
+
+    with {:ok, conn} <- Sqlite3.open(":memory:"),
+         :ok <- Sqlite3.execute(conn, "CREATE VIRTUAL TABLE smoke USING fts5(body)"),
+         :ok <- Sqlite3.execute(conn, "INSERT INTO smoke(body) VALUES ('packaged binary')"),
+         {:ok, stmt} <-
+           Sqlite3.prepare(conn, "SELECT count(*) FROM smoke WHERE smoke MATCH 'binary'"),
+         {:row, [1]} <- Sqlite3.step(conn, stmt),
+         :ok <- Sqlite3.release(conn, stmt),
+         :ok <- Sqlite3.close(conn) do
+      "TRINITY_SMOKE_FTS5=ok"
+    else
+      other -> "TRINITY_SMOKE_FTS5=failed:#{inspect(other) |> String.slice(0, 200)}"
+    end
+  end
+
+  @doc """
+  Slice 100, AC9: the file watcher the skills registry uses, measured in this binary: a watcher on
+  a fresh directory with the registry's own options (`Trinity.Skills.Registry.watcher_options/0`),
+  one file written, the event awaited. `ok:<backend>` when the native backend (or the configured
+  one) delivered it; `fallback:fs_poll:<why the native one did not>` when only polling did, which
+  is the registry's documented fallback and still exits 0 (slice 040: the reindex button and
+  `mix trinity.skills.reindex` work either way); `failed:<reason>` when neither did. Informative.
+  """
+  @spec watcher_line() :: String.t()
+  def watcher_line do
+    opts = Trinity.Skills.Registry.watcher_options()
+    native = Keyword.get(opts, :backend, native_backend())
+
+    case watch_once(opts) do
+      :ok ->
+        "TRINITY_SMOKE_WATCHER=ok:#{native}"
+
+      {:error, why} when native != :fs_poll ->
+        case watch_once(backend: :fs_poll, interval: 200) do
+          :ok ->
+            "TRINITY_SMOKE_WATCHER=fallback:fs_poll:#{inspect(why) |> String.slice(0, 120)}"
+
+          {:error, poll} ->
+            "TRINITY_SMOKE_WATCHER=failed:#{inspect({why, poll}) |> String.slice(0, 200)}"
+        end
+
+      {:error, why} ->
+        "TRINITY_SMOKE_WATCHER=failed:#{inspect(why) |> String.slice(0, 200)}"
+    end
+  end
+
+  defp native_backend do
+    case :os.type() do
+      {:unix, :darwin} -> :fs_mac
+      {:win32, _} -> :fs_windows
+      _ -> :fs_inotify
+    end
+  end
+
+  # sobelow_skip reason: Traversal.FileModule: the directory is the system temporary directory
+  # plus a constant prefix and a unique integer, and the file in it a constant name; nothing comes
+  # from a request.
+  @sobelow_skip ["Traversal.FileModule"]
+  defp watch_once(opts) do
+    dir =
+      Path.join(System.tmp_dir!(), "trinity-smoke-watch-#{System.unique_integer([:positive])}")
+
+    File.mkdir_p!(dir)
+
+    try do
+      case FileSystem.start_link([dirs: [dir]] ++ opts) do
+        {:ok, pid} ->
+          FileSystem.subscribe(pid)
+          # A native backend needs a moment to place its watch before the write it should see.
+          Process.sleep(300)
+          File.write!(Path.join(dir, "probe.txt"), "smoke")
+
+          result =
+            receive do
+              {:file_event, ^pid, {_path, _events}} -> :ok
+              {:file_event, ^pid, :stop} -> {:error, :watcher_stopped}
+            after
+              4_000 -> {:error, :no_event}
+            end
+
+          Process.unlink(pid)
+          Process.exit(pid, :shutdown)
+          result
+
+        other ->
+          {:error, other}
+      end
+    after
+      File.rm_rf(dir)
+    end
+  end
+
+  @doc """
+  Slice 100, AC9: the local embedder's model cache resolves to a directory this binary can write
+  (`Trinity.Memory.Embedders.Bumblebee.cache_dir/0`: `BUMBLEBEE_CACHE_DIR`, the configured one, or
+  the data directory's `models/`). Binding: exit 6. `ok:<dir>` or `failed:<reason>`.
+  """
+  # sobelow_skip reason: Traversal.FileModule: the directory is the model cache in force
+  # (`BUMBLEBEE_CACHE_DIR`, configuration, or the data directory's `models/`), never request input.
+  @sobelow_skip ["Traversal.FileModule"]
+  @spec model_cache_line() :: String.t()
+  def model_cache_line do
+    dir = Trinity.Memory.Embedders.Bumblebee.cache_dir()
+
+    # Created if absent, as the first download would create it; otherwise only looked at, so a
+    # check run against an existing installation writes nothing into it.
+    with :ok <- File.mkdir_p(dir),
+         {:ok, %File.Stat{type: :directory, access: access}} <- File.stat(dir),
+         true <- access in [:read_write, :write] || {:error, {:not_writable, access}} do
+      "TRINITY_SMOKE_MODEL_CACHE=ok:#{dir}"
+    else
+      {:ok, %File.Stat{type: type}} ->
+        "TRINITY_SMOKE_MODEL_CACHE=failed:#{inspect({:not_a_directory, type})}"
+
+      {:error, reason} ->
+        "TRINITY_SMOKE_MODEL_CACHE=failed:#{inspect(reason)}"
+    end
+  end
+
+  @doc """
   Runs the smoke check: report the listening port, then stop the OS process.
 
   `say` and `halt` are injected so the whole path is exercisable from a test without ending
@@ -141,15 +270,16 @@ defmodule Trinity.Smoke do
     {:ok, {_ip, port}} = TrinityWeb.Endpoint.server_info(:http)
     say.(port_line(port))
     say.(markdown)
-    [exla, vec, semantic] = rest || [exla_line(), vec_line(), semantic_line()]
-    say.(exla)
-    say.(vec)
-    say.(semantic)
+    lines = rest || probe_lines()
+    Enum.each(lines, say)
+    line = fn key -> Enum.find(lines, "", &String.starts_with?(&1, "TRINITY_SMOKE_#{key}=")) end
 
     halt.(
       cond do
         markdown != "TRINITY_SMOKE_MARKDOWN=ok" -> 3
-        not String.starts_with?(vec, "TRINITY_SMOKE_VEC=ok:") -> 4
+        not String.starts_with?(line.("VEC"), "TRINITY_SMOKE_VEC=ok:") -> 4
+        line.("FTS5") != "TRINITY_SMOKE_FTS5=ok" -> 5
+        not String.starts_with?(line.("MODEL_CACHE"), "TRINITY_SMOKE_MODEL_CACHE=ok:") -> 6
         true -> 0
       end
     )
@@ -202,8 +332,27 @@ defmodule Trinity.Smoke do
     :persistent_term.get({__MODULE__, :probed}, [
       "TRINITY_SMOKE_EXLA=failed:not_probed",
       "TRINITY_SMOKE_VEC=failed:not_probed",
-      "TRINITY_SMOKE_SEMANTIC=off:not_probed"
+      "TRINITY_SMOKE_SEMANTIC=off:not_probed",
+      "TRINITY_SMOKE_FTS5=failed:not_probed",
+      "TRINITY_SMOKE_WATCHER=failed:not_probed",
+      "TRINITY_SMOKE_MODEL_CACHE=failed:not_probed"
     ])
+  end
+
+  @doc """
+  The lines after the markdown one, in the order they are printed: slice 032's three, then slice
+  100's three (AC9). Computed by `Probe`, inside the tree, where the Repo is up.
+  """
+  @spec probe_lines() :: [String.t()]
+  def probe_lines do
+    [
+      exla_line(),
+      vec_line(),
+      semantic_line(),
+      fts5_line(),
+      watcher_line(),
+      model_cache_line()
+    ]
   end
 
   defmodule Probe do
@@ -213,8 +362,7 @@ defmodule Trinity.Smoke do
     def child_spec(_), do: %{id: __MODULE__, start: {__MODULE__, :start_link, []}}
 
     def start_link do
-      lines = [Trinity.Smoke.exla_line(), Trinity.Smoke.vec_line(), Trinity.Smoke.semantic_line()]
-      :persistent_term.put({Trinity.Smoke, :probed}, lines)
+      :persistent_term.put({Trinity.Smoke, :probed}, Trinity.Smoke.probe_lines())
       :ignore
     end
   end

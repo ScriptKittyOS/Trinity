@@ -258,6 +258,11 @@ jobs:
           # asserted: whether the XLA library loads in Burrito's ERTS is what they measure.
           grep -q '^TRINITY_SMOKE_VEC=ok:' smoke.log
           grep -E '^TRINITY_SMOKE_(EXLA|SEMANTIC)=' smoke.log
+          # Slice 100, AC9: FTS5 and the model cache bind (exit 5 and 6 otherwise); the watcher line
+          # is recorded, because a polling fallback is the skills registry's documented behaviour.
+          grep -q '^TRINITY_SMOKE_FTS5=ok$' smoke.log
+          grep -q '^TRINITY_SMOKE_MODEL_CACHE=ok:' smoke.log
+          grep -E '^TRINITY_SMOKE_WATCHER=' smoke.log
           echo "--- ours, before ---"; cat ps-before.txt
           echo "--- ours, after ----"; cat ps-after.txt
           diff ps-before.txt ps-after.txt
@@ -281,6 +286,14 @@ jobs:
             throw "the vector search did not run inside this binary (slice 032)"
           }
           Select-String -Path smoke.log -Pattern '^TRINITY_SMOKE_(EXLA|SEMANTIC)='
+          # Slice 100, AC9, as on the other two.
+          if (-not (Select-String -Path smoke.log -Pattern '^TRINITY_SMOKE_FTS5=ok$')) {
+            throw "FTS5 did not work inside this binary (slice 100)"
+          }
+          if (-not (Select-String -Path smoke.log -Pattern '^TRINITY_SMOKE_MODEL_CACHE=ok:')) {
+            throw "the model cache did not resolve inside this binary (slice 100)"
+          }
+          Select-String -Path smoke.log -Pattern '^TRINITY_SMOKE_WATCHER='
 
       # AC1's property on a runner, and AC6's per-OS cold start, which used to be skipped.
       # `bash` on every OS, Windows included: the job that never curled was the one gap in

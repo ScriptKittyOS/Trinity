@@ -13,7 +13,12 @@ defmodule Trinity.Receipts.Verifier do
   registry row's algorithm is the one the scheme names, else the receipt is refused before
   any signature is checked (SLICE.md amendments 3 and 4); the row's status is not
   `compromised`; the hash recomputes from the stored body through the PAE; a signed kind's
-  signature verifies with the registry's public key under the registry's algorithm. Every
+  signature verifies with the registry's public key under the registry's algorithm; and, since
+  slice 100, a receipt under a key the registry marks `retired` is dated (its signed `at`) no
+  later than that row's `valid_until`. The last check is as strong as the clock the receipt was
+  written by and no stronger: whoever holds a retired key can sign a backdated body. It stops a
+  retired key's receipts from being minted after the rotation by anything that keeps honest time,
+  and it makes `valid_until` a field something reads rather than a note. Every
   query receipt must be covered by a checkpoint whose tail hash is in the chain and whose
   signature verifies the same way; a covered range never has a gap.
 
@@ -87,10 +92,25 @@ defmodule Trinity.Receipts.Verifier do
          {:ok, impl, row} <- resolve(r["scheme"], r["key_id"], registry, schemes, seq),
          bytes = Envelope.pae(Envelope.receipt_type(r["scheme"]), r["signed_payload"]),
          :ok <- expect(Envelope.hash(bytes) == r["receipt_hash"], 1, {:hash_mismatch, seq}),
-         :ok <- body_matches(r, seq) do
+         :ok <- body_matches(r, seq),
+         :ok <- within_validity(r, row, seq) do
       check_signature(r, bytes, impl, row, seq)
     end
   end
+
+  # Slice 100: a retired key signs nothing dated after its `valid_until`.
+  defp within_validity(r, %{"status" => "retired", "valid_until" => until}, seq)
+       when is_binary(until) do
+    with {:ok, %{"at" => at}} when is_binary(at) <- JSON.decode(r["signed_payload"]),
+         {:ok, at, _} <- DateTime.from_iso8601(at),
+         {:ok, until, _} <- DateTime.from_iso8601(until) do
+      expect(DateTime.compare(at, until) != :gt, 1, {:key_retired, seq, r["key_id"]})
+    else
+      _ -> :ok
+    end
+  end
+
+  defp within_validity(_r, _row, _seq), do: :ok
 
   defp check_signature(%{"kind" => kind} = r, bytes, impl, row, seq) when kind in @signed_kinds do
     with {:ok, sig} <- decode_sig(r["signature_b64"], seq),
