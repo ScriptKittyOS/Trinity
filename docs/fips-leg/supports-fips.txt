@@ -1,7 +1,7 @@
 fips_mode: :enabled
 fips_provider_available: true
 cryptolib_version_linked: OpenSSL 3.5.8 25 Aug 2026
-otp_crypto_version: 5.8.3.2
+otp_crypto_version: 5.8.3.3
 ciphers: :aes_128_cbc
 ciphers: :aes_128_ccm
 ciphers: :aes_128_cfb128

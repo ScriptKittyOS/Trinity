@@ -63,11 +63,14 @@ model prompt and what may not. Read both before the others.
 | `incident.md` | Reporting clocks and who to contact |
 | `receipts-verify.md` | How an assessor verifies the record without trusting the application |
 | `crypto-inventory.md` | Every cryptographic capability, its module, and its certificate status |
+| `headless-image.md` | How the container image is built and hardened, and the checks run against it |
+| `stig-applicability.md` | The image's STIG applicability statement, generated from OpenSCAP's evaluation of it |
 
 ## Status of this pack
 
 This directory is documentation only. It adds no code, changes no behaviour, and asserts no control
-that is not already in the tree. Where the tree does not implement something this pack names, the
+that is not already in the tree. `stig-applicability.md` is generated rather than written, and says
+how. Where the tree does not implement something this pack names, the
 row says **NOT IN TREE** rather than describing an intention.
 
 This pack documents the gap; it does not close it.

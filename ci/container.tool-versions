@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# The Erlang/OTP the container images build from source: the hardened headless image
+# (ci/ironbank/) and the FIPS leg's image (ci/fips/Containerfile). It may run ahead of
+# `.tool-versions`, which pins the desktop build and the gate, because the desktop's runtime
+# comes from Burrito's ERTS builds and a container's does not (ADR-0014).
+# `mix trinity.ironbank.lint` holds the manifest's OTP resource to this line, the two pins to one
+# OTP major, and this pin to no older than the desktop's.
+erlang 28.5.0.7

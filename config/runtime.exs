@@ -31,6 +31,18 @@ smoke? =
 # Slice 061: the headless profile is a server by definition.
 headless? = System.get_env("TRINITY_MODE") == "headless"
 
+# Owner decision D2 (ADR-0014): on an OTP whose `ssl` carries CVE-2026-89422 every outbound TLS
+# client is held to TLS 1.2, configured here so it is in place before any application starts
+# (ReqLLM reads its pool configuration when it starts). `Trinity.TLS` decides from the `ssl` the
+# runtime loads and returns nothing on a fixed runtime, so the container images, on 28.5.0.7, are
+# configured exactly as before. This calls a project module, which the note on `smoke?` above
+# says Mix does not allow; it holds for `mix run`, `mix test` and a release alike, measured
+# 2026-10-08 (test/trinity/tls_clamp_test.exs runs against what this sets), and `--smoke` is not
+# involved.
+for {app, key, value} <- Trinity.TLS.client_config() do
+  config app, [{key, value}]
+end
+
 if System.get_env("PHX_SERVER") || smoke? || headless? do
   config :trinity, TrinityWeb.Endpoint, server: true
 end
