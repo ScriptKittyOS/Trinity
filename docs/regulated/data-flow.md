@@ -70,6 +70,28 @@ What this means for an accreditation:
    it is in the conversation it is in the prompt on the next turn, because the conversation tier is
    sent verbatim.
 
+## What leaves for an embedding service
+
+Semantic memory needs an embedding model. Two configurations send text off the Trinity process to
+get one: `:hosted` (a provider's embedding endpoint) and `:ollama` (an Ollama the operator runs,
+`docs/tier3-embedder.md`). In both, **the text of every memory the observer writes and of every
+query a turn recalls with leaves in the clear**, the latter prefixed by the configured query
+template. Nothing is hashed or redacted on the way.
+
+| What crosses | Raw or hashed | To | Path |
+|---|---|---|---|
+| Memory text and query text | Raw | The configured embedding endpoint | `lib/trinity/memory/embedders/hosted.ex`, `lib/trinity/memory/embedders/ollama.ex` |
+| The model name, `num_ctx`, `truncate: false` | Raw | The same endpoint, `:ollama` only | `lib/trinity/memory/embedders/ollama.ex` |
+| The model's weights, at import only (`mix trinity.tier3.import`) | Raw | The operator's own service | `lib/trinity/memory/tier3/import.ex` |
+| No text: the pin check is two reads, `GET /api/tags` and `GET /api/version` | Not applicable | The same endpoint, `:ollama` only | `lib/trinity/memory/embedders/ollama/watch.ex` |
+
+What constrains it: the endpoint's locality is declared by the operator (`:within_boundary` or
+`:external`), never inferred from the address; `:external` needs `external_opt_in: true`; and under
+`TRINITY_PROFILE=regulated` the endpoint must be on `TRINITY_REGULATED_LLM_ENDPOINTS` or the node does
+not boot (`lib/trinity/memory/embedder_config.ex`). Whether CUI or PHI may go to that endpoint is the
+same policy question as for the model endpoint above. An embedding service the operator runs inside
+the boundary may still reach out on its own: see the operating notes in `docs/tier3-embedder.md`.
+
 ## Where the data rests
 
 | Store | Contents | Encrypted by Trinity? | Path |

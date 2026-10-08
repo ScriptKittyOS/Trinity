@@ -226,7 +226,11 @@ say-so, never on its own) or the static floor (a 7.8 MB weights file, pure Elixi
 under the data directory; not yet distributed with Trinity while its licence is reviewed). Without one the tier
 is off and full-text search still works. Every stored vector belongs to one named embedding space, and a store
 answers only from the space it is pinned to: changing models is an explicit re-embed (`mix trinity.space.retier`),
-never a silent switch. `docs/perf.md` has what it costs.
+never a silent switch. A stronger model can come from an Ollama service you run instead
+(`docs/tier3-embedder.md`): its weights are imported only with their signatures verified offline
+(`mix trinity.tier3.import`), Trinity holds the service to the imported model's digest and version, and
+if either changes semantic recall turns off with the reason rather than answering from another model.
+`docs/perf.md` has what it costs.
 
 `mix gate` runs the full quality gate and has to pass before every commit: format check, compile
 with warnings as errors, Credo, Sobelow, dependency audits, version verification, the naming and

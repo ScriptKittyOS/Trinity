@@ -151,3 +151,34 @@ seconds, and rebuilding gave the same digest.
 `scripts/static_floor_release.sh` (`TRINITY_WITHOUT_ML=1`): the headless release assembled from a build that never
 had nx, exla, xla, axon, bumblebee or tokenizers holds none of them in `lib/`, boots, writes two memories and
 recalls one through the static space (slice 133, AC8). Slice 130 measured exla at 443 MB of a 522 MB release.
+
+## The Tier 3 embedder and its gates (slice 134)
+
+MEASURED on 2026-10-08 on the same machine as slice 133's figures above (AMD RYZEN AI MAX+ 395, 32 logical CPUs,
+125 GiB, Linux 6.14.0-37), with other work on it (load average 9 to 16 during the throughput run). The service:
+`ollama/ollama:0.40.0` (index digest `sha256:1bef639749741b375e9a1eb2c1346fb57ce52f5432de1f74846e44ccc18e1687`),
+the upstream image at the version the hardened government image pinned that day, on the CPU, limited to 16 GiB.
+**It is not that hardened image**, which these gates have yet to be run on. The model: `Qwen3-Embedding-0.6B-f16.gguf`
+(SHA-256 `421a27e58d165478cc7acb984a688c2aa41404968b0203e7cd743ece44c54340`), imported through
+`mix trinity.tier3.import`; the reference: sentence-transformers 6.1.0 over the same model's safetensors, float32.
+
+| gate | result |
+|---|---|
+| 1, parity, 500 fixtures at `num_ctx` 2048 | PASS: minimum cosine 0.99968977, median 0.999875; every `prompt_eval_count` equal to the reference tokenizer's count |
+| 1, red: `num_ctx` 256 with the service's default truncation | FAIL as intended: 60 of 500 under 0.999, minimum 0.95426396, all of them inputs over 255 tokens |
+| 1, the same model quantized to Q8_0 | FAIL: minimum 0.99853698, 60 of 500 under 0.999 (not offered) |
+| 2, truncation at `num_ctx` 512 and 2048 | PASS: 511 (2047) tokens answered, 512 (2048) refused with `truncate: false`; with `truncate: true` or omitted, a vector of the first 511 (2047) |
+| 3, the digest pin, interval 2 s | PASS: OFF with `:model_digest_changed` 160 ms after the blob behind the tag was replaced; with the comparison removed, still on after 7.4 s |
+| 4, offline | PASS: `--network none`, only `lo`; `/api/embed` answered from the verified directory; a pull failed for want of a network |
+
+Throughput through Trinity's client (tokenizing, the request and the checks), 301 sentences of 7 to 200 tokens
+(median 28) cycled, no pass mark:
+
+| batch | calls | p50 | p95 | texts per second at p50 |
+|---|---|---|---|---|
+| 1 | 200 | 34.8 ms | 57.7 ms | 28.7 |
+| 32 | 40 | 1227.8 ms | 1382.5 ms | 26.1 |
+
+Batching does not raise throughput on this CPU path. The service held 5.31 GiB of its 16 GiB afterwards. Trinity's
+own token count matches the reference tokenizer on 5,000 natural sentences and 1,221 hostile inputs, and reading
+the tokenizer out of the 1.2 GB GGUF's header takes 337 ms.

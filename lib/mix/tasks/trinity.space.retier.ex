@@ -8,7 +8,7 @@ defmodule Mix.Tasks.Trinity.Space.Retier do
   (every semantic memory embedded into it, in batches), then moves the active pointer to it in
   one transaction. The old space's vectors stay until `mix trinity.space.drop <id> --confirm`.
 
-      mix trinity.space.retier [static|local|hosted|fake]
+      mix trinity.space.retier [static|local|hosted|ollama|fake]
 
   Without a name, the first embedder `config :trinity, :memory, embedder:` names. For a store
   to keep answering while it builds, configure the target ahead of the current embedder

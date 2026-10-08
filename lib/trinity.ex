@@ -73,6 +73,10 @@ defmodule Trinity do
         # Slice 133: the eval (its own top-level boundary) reads these.
         Memory.Scorer,
         Memory.Embedders.Static,
+        # Slice 134: the eval embeds its queries through `Embedder.embed_query/2`, and the import
+        # task drives the Tier 3 import path.
+        Memory.Embedder,
+        Memory.Tier3.Import,
         Tools,
         # Slice 060: what the MCP bridge (a top-level boundary) implements and returns.
         Tools.Tool,

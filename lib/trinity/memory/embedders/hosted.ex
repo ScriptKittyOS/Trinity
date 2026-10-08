@@ -54,6 +54,21 @@ defmodule Trinity.Memory.Embedders.Hosted do
     }
   end
 
+  @doc """
+  The endpoint: the registry model's `base_url` (nil when the provider's default endpoint is
+  used, which `:regulated` refuses as unstated). Slice 134 moved this here from
+  `Trinity.Memory.EmbedderConfig`, unchanged, as the `endpoint/2` callback.
+  """
+  @impl true
+  def endpoint(memory, models) do
+    model = Keyword.get(memory, :hosted_model, "nvidia:embed")
+
+    url =
+      Enum.find_value(models, fn m -> if Map.get(m, :id) == model, do: Map.get(m, :base_url) end)
+
+    {:endpoint, url}
+  end
+
   @doc "Not measured for any hosted model (slice 032 G1: nemotron's raw vectors do not separate)."
   @impl true
   def thresholds do

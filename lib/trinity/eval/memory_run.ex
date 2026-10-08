@@ -109,7 +109,7 @@ defmodule Trinity.Eval.MemoryRun do
 
     try do
       {:ok, mv} = module.embed(Enum.map(memories, & &1["text"]))
-      {:ok, qv} = module.embed(Enum.map(queries, & &1["text"]))
+      {:ok, qv} = Trinity.Memory.Embedder.embed_query(module, Enum.map(queries, & &1["text"]))
       quant = module.space().quantization
 
       %{

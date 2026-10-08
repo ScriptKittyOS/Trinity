@@ -15,6 +15,8 @@ defmodule Trinity.Memory.EmbedderConfig do
     `:in_process` is a fault (an endpoint is not in this process).
   * `:external` needs the operator's opt-in, `external_opt_in: true`, under both profiles: no
     memory text leaves for an external embedder unless the operator opted in for this deployment.
+  * Slice 134: an embedder may name its own configuration faults (`check_config/1`, the Tier 3
+    client's pin and limits); they are faults like these, checked after the locality.
   * Under `:regulated` only, the endpoint must be stated and on `TRINITY_REGULATED_LLM_ENDPOINTS`
     (`:not_allow_listed` otherwise), for `:within_boundary` and `:external` alike.
 
@@ -45,9 +47,16 @@ defmodule Trinity.Memory.EmbedderConfig do
   end
 
   defp check_one(profile, name, memory, models, raw) do
+    module = Embedder.module(name)
+
+    with :ok <- check_locality(profile, name, module, memory, models, raw),
+         do: own_config(module, memory)
+  end
+
+  defp check_locality(profile, name, module, memory, models, raw) do
     declared = Keyword.get(memory, :locality)
 
-    case endpoint(Embedder.module(name), memory, models) do
+    case endpoint(module, memory, models) do
       :in_process ->
         if declared in [nil, :in_process],
           do: :ok,
@@ -93,17 +102,19 @@ defmodule Trinity.Memory.EmbedderConfig do
     end
   end
 
-  # Whether an embedder reaches an endpoint, and which. Only the hosted embedder does today; its
-  # URL is its registry model's `base_url` (nil when the provider's default endpoint is used,
-  # which `:regulated` refuses as unstated).
-  defp endpoint(Trinity.Memory.Embedders.Hosted, memory, models) do
-    model = Keyword.get(memory, :hosted_model, "nvidia:embed")
+  # Whether an embedder reaches an endpoint, and which: its `endpoint/2` callback (slice 134; 133
+  # asked the hosted embedder by name). An embedder without one runs in this BEAM.
+  defp endpoint(module, memory, models) do
+    Code.ensure_loaded(module)
 
-    url =
-      Enum.find_value(models, fn m -> if Map.get(m, :id) == model, do: Map.get(m, :base_url) end)
-
-    {:endpoint, url}
+    if function_exported?(module, :endpoint, 2),
+      do: module.endpoint(memory, models),
+      else: :in_process
   end
 
-  defp endpoint(_in_process, _memory, _models), do: :in_process
+  # Slice 134: the embedder's own configuration faults, after its locality.
+  defp own_config(module, memory) do
+    Code.ensure_loaded(module)
+    if function_exported?(module, :check_config, 1), do: module.check_config(memory), else: :ok
+  end
 end

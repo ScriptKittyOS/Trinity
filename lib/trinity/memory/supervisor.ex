@@ -3,7 +3,8 @@
 defmodule Trinity.Memory.Supervisor do
   @moduledoc """
   The memory side's processes (slice 032): the task supervisor the observer runs under, and
-  the embedding serving when the local embedder can serve. The serving is started at boot
+  the embedding serving when the local embedder can serve; at 134, whatever a configured
+  embedder's `children/0` names (the Tier 3 client's pin watcher). The serving is started at boot
   when the model is present and on demand after a download (`ensure_embedding/0`); when it
   cannot start, the tier is off and the reason is logged once, and the tree boots.
   """
@@ -17,7 +18,10 @@ defmodule Trinity.Memory.Supervisor do
 
   @impl true
   def init(_opts) do
-    children = [{Task.Supervisor, name: Trinity.Memory.TaskSupervisor}] ++ embedding_children()
+    children =
+      [{Task.Supervisor, name: Trinity.Memory.TaskSupervisor}] ++
+        embedding_children() ++ embedder_children()
+
     Supervisor.init(children, strategy: :one_for_one)
   end
 
@@ -54,6 +58,17 @@ defmodule Trinity.Memory.Supervisor do
     else
       []
     end
+  end
+
+  # Slice 134: what each configured embedder asks for (`children/0`), e.g. the Tier 3 client's
+  # pin watcher. An embedder named twice is started once.
+  defp embedder_children do
+    Embedder.modules()
+    |> Enum.uniq()
+    |> Enum.flat_map(fn m ->
+      Code.ensure_loaded(m)
+      if function_exported?(m, :children, 0), do: m.children(), else: []
+    end)
   end
 
   defp embedding_child do

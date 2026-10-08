@@ -31,6 +31,12 @@ defmodule Trinity.Memory do
       Vector,
       Scorer,
       EmbedderConfig,
+      # Slice 134: the Tier 3 client, its token counter, the GGUF reader and the import path.
+      Embedders.Ollama,
+      Embedders.Ollama.Watch,
+      BPE,
+      GGUF,
+      Tier3.Import,
       ReEmbedWorker,
       Observer,
       Retriever,
