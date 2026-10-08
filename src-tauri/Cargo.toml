@@ -6,17 +6,41 @@ edition = "2021"
 description = ""
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+# Slice 100: held on the line the lock already had (2.6.x, with tauri 2.11.x below), so adding
+# plugins does not move the shell's tauri; see the plugins' comment.
+tauri-build = { version = "~2.6.3", features = [] }
 
 [dependencies]
 log = "0.4"
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "2", features = ["tray-icon"] }
+tauri = { version = "~2.11.5", features = ["tray-icon"] }
 tauri-plugin-shell = "2"
 tauri-plugin-log = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-single-instance = "2"
+# Slice 100. The global show/hide shortcut, launch at login, the folder dialog for the
+# filesystem allowlist, and Open data folder. Tauri's own plugins, driven from Rust: none of them
+# is exposed to the webview, so capabilities/default.json does not change. Each is on the newest
+# line whose release still accepts tauri 2.11: the next minors require tauri 2.12, and this slice
+# does not move the shell's tauri (`cargo info <plugin>@<version> -v`, 2026-10-08; NOTES).
+tauri-plugin-global-shortcut = "~2.3.2"
+tauri-plugin-autostart = "~2.5.1"
+tauri-plugin-dialog = "~2.7.1"
+tauri-plugin-opener = "~2.5.4"
+# Slice 100. The OS keychain for `trinity --keychain` (src/keychain.rs): the macOS Keychain, the
+# Windows Credential Manager, and the Secret Service over D-Bus on Linux, the last through zbus with
+# its own executor (async-io) and pure-Rust crypto, so no system library is added to the build.
+keyring = { version = "3.6.3", features = ["apple-native", "windows-native", "async-secret-service", "async-io", "crypto-rust"] }
+
+# Slice 100. A notification whose click is reported back (a freedesktop action on Linux, the
+# notification centre's response on macOS, the toast's activation on Windows), which is how a click
+# on an approval's notification shows the window on the approval. Already in the lock through the
+# notification plugin; named here because this code calls it.
+notify-rust = "4.18.0"
+# Slice 100. The token the shell hands the sidecar and presents in its hello (finding F2). Already
+# in the lock; named here because this code calls it.
+getrandom = "0.3.4"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem and the built-in dev server is disabled.
