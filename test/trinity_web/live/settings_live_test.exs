@@ -159,6 +159,17 @@ defmodule TrinityWeb.SettingsLiveTest do
       assert Settings.get(:fs_roots) == []
     end
 
+    # Slice 135: the boot refuses a root that overlaps the data or secrets directory, so the page
+    # refuses to save one rather than leave a folder that stops the next start.
+    test "a folder that contains the secrets directory is refused with the reason", %{conn: conn} do
+      secrets = Trinity.Paths.ensure_secrets_dir()
+      parent = Path.dirname(secrets)
+      {:ok, view, _html} = live(conn, ~p"/settings")
+      html = view |> form("#root-form", %{"root" => parent}) |> render_submit()
+      assert html =~ "data or secrets folder"
+      assert Settings.get(:fs_roots) == []
+    end
+
     test "the gateways can be paused from here as from the tray", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/settings")
       view |> element("#gateways-pause") |> render_click()

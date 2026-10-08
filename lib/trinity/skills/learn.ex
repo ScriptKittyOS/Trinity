@@ -14,6 +14,7 @@ defmodule Trinity.Skills.Learn do
   alias Trinity.LLM.Request
   alias Trinity.Skills.Staging
   alias Trinity.Tools.{Context, FS}
+  alias Trinity.Tools.FS.Guard
 
   Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
 
@@ -46,13 +47,14 @@ defmodule Trinity.Skills.Learn do
   # against the session's working directory and read only when inside the configured roots.
   @sobelow_skip ["Traversal.FileModule"]
   def read_source(%{"file" => path}, %Context{cwd: cwd}) when is_binary(path) do
-    case FS.resolve(path, cwd) do
-      {:ok, real, :inside} ->
-        with {:ok, bytes} <- File.read(real),
-             do: {:ok, String.slice(bytes, 0, @max_source_bytes), "file:" <> real}
-
-      {:ok, _real, :outside} ->
-        {:error, {:outside_roots, path}}
+    # Slice 135: opened by the guard, which refuses links, protected files and inodes, and fstats
+    # the descriptor before a byte is read; still only inside the roots.
+    with {:ok, _, :inside} <- FS.resolve(path, cwd),
+         {:ok, bytes, %{canonical: real}} <- Guard.read(path, cwd) do
+      {:ok, String.slice(bytes, 0, @max_source_bytes), "file:" <> real}
+    else
+      {:ok, _real, :outside} -> {:error, {:outside_roots, path}}
+      {:error, _} = refused -> refused
     end
   end
 

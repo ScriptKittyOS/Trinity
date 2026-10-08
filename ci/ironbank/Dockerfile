@@ -137,14 +137,18 @@ COPY --from=release --chown=0:0 /build/trinity/_build/prod/rel/headless /opt/tri
 COPY --chown=0:0 scripts/entrypoint.sh /usr/local/bin/trinity-entrypoint
 
 # Distribution is off: the image serves MCP and the web pages on PORT and nothing else. The data
-# directory is /data (XDG_DATA_HOME), the only path the runtime user can write. Slice 136: 0.0.0.0
-# is not the loopback, so the node refuses to boot until TRINITY_WEB_AUTH says how the web pages
-# authenticate (docs/mcp-server.md).
+# directory is /data (XDG_DATA_HOME), the only path the runtime user can write. The secrets
+# directory is /data/secrets (TRINITY_SECRETS_DIR, slice 135), beside the data directory on the
+# same volume and never inside it: the receipt keys, the envelope key, the generated token. Point
+# it at a systemd credential or a Kubernetes Secret mount instead (docs/packaging.md).
+# Slice 136: 0.0.0.0 is not the loopback, so the node refuses to boot until TRINITY_WEB_AUTH says
+# how the web pages authenticate (docs/mcp-server.md).
 ENV LANG=C.UTF-8 \
     TRINITY_MODE=headless \
     TRINITY_BIND=0.0.0.0 \
     PORT=4000 \
     XDG_DATA_HOME=/data \
+    TRINITY_SECRETS_DIR=/data/secrets \
     HOME=/data \
     RELEASE_DISTRIBUTION=none \
     RELEASE_TMP=/tmp

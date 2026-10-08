@@ -28,6 +28,7 @@ defmodule Trinity.Tools.Runner do
 
   alias Trinity.Permissions
   alias Trinity.Tools.{Context, Registry, Result, Schema}
+  alias Trinity.Tools.FS.Guard
 
   @default_timeout 30_000
   @grace 100
@@ -107,6 +108,7 @@ defmodule Trinity.Tools.Runner do
   def execute_direct(entry, args, ctx) do
     case decide(entry, args, ctx) do
       {:allow, _fp, _basis} -> call_tool(entry, args, ctx)
+      {:deny, _fp, "fs_guard"} -> {:error, fs_denied(entry, args, ctx)}
       {:deny, _fp, _basis} -> {:error, :denied}
       {:ask, reason, _fp, _basis} -> {:error, reason}
     end
@@ -123,9 +125,43 @@ defmodule Trinity.Tools.Runner do
           {:allow, String.t(), String.t()}
           | {:deny, String.t(), String.t()}
           | {:ask, term(), String.t(), String.t()}
-  def decide(%{name: name} = entry, args, ctx) do
+  def decide(entry, args, ctx), do: decide(entry, args, ctx, fs_verdicts(entry, args, ctx))
+
+  @doc """
+  The same, with the guard's verdicts for the call's host paths already taken (slice 135), so the
+  caller that receipts them (`Trinity.Effects.Runner`) records the verdicts that decided. A refused
+  path is `{:deny, fp, "fs_guard"}`, before the policy is asked: no grant, rule or approval lifts it.
+  """
+  @spec decide(Registry.entry(), map(), Context.t(), [Guard.verdict()]) ::
+          {:allow, String.t(), String.t()}
+          | {:deny, String.t(), String.t()}
+          | {:ask, term(), String.t(), String.t()}
+  def decide(%{name: name} = entry, args, ctx, verdicts) do
     fp = Permissions.fingerprint(ctx.session_id, name, args, ctx.cwd)
 
+    if Enum.any?(verdicts, &(&1.decision == :deny)),
+      do: {:deny, fp, "fs_guard"},
+      else: decide_by_policy(entry, args, ctx, fp)
+  end
+
+  @doc """
+  The guard's verdict for each host path the call names (`Trinity.Tools.Tool.fs_paths/2`), in the
+  order the tool listed them; empty for a tool that names none.
+  """
+  @spec fs_verdicts(Registry.entry(), map(), Context.t()) :: [Guard.verdict()]
+  def fs_verdicts(%{module: module}, args, ctx) when is_atom(module) do
+    if function_exported?(module, :fs_paths, 2) do
+      paths = module.fs_paths(args, ctx)
+      scope = if paths == [], do: nil, else: Guard.scope(ctx.cwd)
+      for {path, mode} <- paths, do: Guard.check(path, ctx.cwd, mode, scope)
+    else
+      []
+    end
+  end
+
+  def fs_verdicts(_entry, _args, _ctx), do: []
+
+  defp decide_by_policy(%{name: name} = entry, args, ctx, fp) do
     case Permissions.decide_with_basis(ctx.session_id, name, args,
            persona: ctx.persona,
            cwd: ctx.cwd,
@@ -136,6 +172,12 @@ defmodule Trinity.Tools.Runner do
       {:deny, basis} -> {:deny, fp, basis}
       {:ask, basis} -> {:ask, ask(ctx, entry, args), fp, basis}
     end
+  end
+
+  @doc "The refusal a guard denial answers the model with: the first refused path's verdict."
+  @spec fs_denied(Registry.entry(), map(), Context.t()) :: {:fs_denied, Guard.verdict()}
+  def fs_denied(entry, args, ctx) do
+    {:fs_denied, entry |> fs_verdicts(args, ctx) |> Enum.find(&(&1.decision == :deny))}
   end
 
   # Slice 028: the context states this call is made under. They can only make the gate stricter

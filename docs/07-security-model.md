@@ -84,7 +84,7 @@ BEAM is not an OS sandbox. The shell is a `:catalog` effect (`Trinity.Effects.Ca
 
 ## Filesystem (Slice 022)
 
-- Path allowlist (project roots + data dir). Writes outside → ask.
+- Path allowlist (project roots; the data directory is not one since slice 135). Writes outside → ask.
 - **Write-validation hook**: reject writes whose content contains truncation markers (`/* ... */`, `// ...`,
   `# ... rest unchanged`) unless the file is new or the tool is called with `allow_placeholders: true` after approval.
 - Atomic writes (temp + rename) and a per-file backup ring (last 5) under the data dir.
@@ -96,6 +96,62 @@ resolution through its nearest existing ancestor; outside the roots every filesy
 `Trinity.Tools.FS.Placeholders`, applied to `fs_write`'s content and `fs_edit`'s replacement, and
 `allow_placeholders` raises the call to `:destructive`; backups live under `<data dir>/backups/<sha256 of the
 path>/`, five per file, `Trinity.Tools.FS.restore/2` puts one back through the same atomic write.
+
+**As built at slice 135: secrets out of the data directory, roots that fail closed.** Until this slice
+the data directory was always a root, and the keys directory was `<data dir>/keys`, so with the
+default policy (`read: :allow`) `fs_read` of the receipt signing key returned it with no approval.
+The fix is in three layers, the deny-list last.
+
+1. **Secrets leave the data directory.** `Trinity.Paths.secrets_dir/0` (`TRINITY_SECRETS_DIR`, else
+   `config :trinity, :secrets_dir`, else `$XDG_CONFIG_HOME/trinity/secrets` on Linux,
+   `~/Library/Application Support/Trinity Secrets` on macOS, `%LOCALAPPDATA%\Trinity\Secrets` on
+   Windows; mode 0700) holds `keys/` (the receipt key when no keychain holds it, its registry, the MCP
+   state key, the device id), the MCP bearer token and the MCP client's OAuth tokens.
+   `Trinity.Secrets.Migration` moves an earlier release's files on boot, before the signer reads
+   them, by rename, so the key keeps its id and every earlier receipt still verifies; a file already
+   at the destination is never overwritten; the boot receipt names the move in its signed subject
+   (`secrets_migration`). The process still *uses* its keys through the signing API; no tool reads
+   them. The data directory is no longer a root, and nothing replaces it: skills are read by the
+   skill tools, which are jailed to a skill's directory.
+2. **Roots fail closed, in every profile.** `Trinity.Tools.FS.Guard.verify_boot!/0` runs before any
+   child: a configured root (`TRINITY_FS_ROOTS`, or a folder chosen in Settings) that is equal to,
+   an ancestor of or a descendant of the data directory or the secrets directory refuses the boot,
+   naming the root, the directory and the relation; the Settings page refuses to save such a folder.
+   At every call the guard judges each host path a tool names (`Trinity.Tools.Tool.fs_paths/2`)
+   before the policy is asked, and a refusal is a `deny` (basis `fs_guard`) no grant, rule or
+   approval lifts: `/proc` and `/dev`; a symlink in any component (no link is followed, so the
+   lexical path is the physical one; a configured root's own symlinked spelling is rewritten to its
+   canonical form); a component whose `(st_dev, st_ino)` is in the inventory (every entry under the
+   secrets directory and the configured keys directory, the databases and their journals, and the
+   data and secrets directories themselves, taken fresh at each call), which is what catches a bind
+   mount; a path under the data or secrets directory; a special file; a regular file with
+   `st_nlink > 1` unless `config :trinity, :fs, allow_hard_links: true`. At open the file is opened
+   and its descriptor `fstat`ed (`:file.read_file_info/1` on the open device is `fstat`, measured on
+   OTP 28): an inventoried inode, a second link, a non-regular file or an inode other than the one
+   the walk saw is refused. `fs_grep` and `fs_glob` judge every file they meet the same way.
+3. **The deny-list, second:** `*.key`, `*.db`, `*.db-wal`, `*.db-shm`, `*.sqlite*`, `.env*`, `id_*`,
+   `*.pem`, on the canonical basename, after the structural checks.
+
+**Receipts.** Every fs decision is on the chain with the tool, the requested and canonical paths,
+`(dev, ino)`, the root matched or none, the rule matched, nlink, the decision, the core policy hash,
+the principal and the turn id: the decision receipt carries them under `decision.fs`, and a refusal
+made at open (a file met inside a directory `fs_grep` walked, a swap since the decision) rides on the
+read's query receipt the same way. Never the file's contents.
+
+**What is not covered, stated.** No NIF: `file:open/2` has no `O_NOFOLLOW` or `openat2`, and the
+post-open `fstat` closes the window between the walk and the open for every protected inode. A swap
+inside a root, between the walk and the open, to an ordinary file outside the roots that is neither
+inventoried nor hard-linked would be read; that is not one of Trinity's secrets, and it needs a
+process already able to write links inside the root at that moment. A write's parent directory
+swapped for a link between the check and the rename is the same residual for writes. The shell's
+path argument (its working directory) is judged; the command text is not, because no path check can
+read free text: the shell is `:exec`, asks every time, and the BEAM is not an OS sandbox (above).
+
+**The network half.** A read outside the roots tags the session (`Trinity.Tools.Taint`), and every
+`web_fetch` in that session asks from then on: whether a request carries bytes read earlier cannot be
+decided against any encoding of them. The taint never gates the read itself. Under `:regulated`, a
+`network: :allow` default with no `TRINITY_REGULATED_EGRESS` refuses the boot (OWASP ASI02's egress
+allow-list), and with one, `web_fetch` asks for a host not on it.
 
 ## Provenance (Slice 022, M1 as built)
 
@@ -276,7 +332,7 @@ regulated effect.
   issuer's metadata (its `issuer` must equal the one asked for), begins the code flow with PKCE, `state`
   and `resource`, sends the owner to the authorization server, and finishes at `/oauth/callback` (`iss`
   checked against the issuer, the code exchanged with the verifier). The token is stored per resource
-  under `<data dir>/secrets/oauth/` (mode 0600, until slice 100's keychain) and the driver presents it,
+  under `<secrets dir>/oauth/` (mode 0600; `<data dir>/secrets/oauth/` before slice 135) and the driver presents it,
   performing no flow of its own (a census over its files). The client identifies itself by the configured
   `client_id` (pre-registered at the enterprise server), by a Client ID Metadata Document URL, or by
   registering once when the server offers it and `dcr: true`.
@@ -380,9 +436,9 @@ AC-6(9) are the controls; finding F-132-1 (slice 132) is what opened it.
   and denies every effect, the fail-closed shape of slice 024; `TRINITY_KEYCHAIN_HELPER` pointed at
   a built shell binary restores it. An export made with the private key does not carry a
   keychain-held key; that is a follow-up of slice 034's backup story.
-- **Not yet in the keychain:** the MCP OAuth client tokens (`<data dir>/secrets/oauth/`, slice 062)
-  and the MCP server's token and state key (slice 061). They stay files, mode 0600, until a slice
-  moves them.
+- **Not yet in the keychain:** the MCP OAuth client tokens (`<secrets dir>/oauth/`, slice 062)
+  and the MCP server's token and state key (slice 061). They stay files in the secrets directory
+  (slice 135; under the data directory before it) until a slice moves them.
 
 ## The desktop shell's channel (slice 100)
 
@@ -458,7 +514,7 @@ The signature is over DSSE's PAE of a payload type and the canonical body, the t
 same key signs. `key_id` is the RFC 7638 thumbprint of the public key and sits inside the signed body; the
 registry row binds one algorithm to it and the verifier takes the algorithm from there, refusing a scheme whose
 family is not the row's before any signature check, and refusing schemes the caller did not allow. The key is a
-0600 file under the data directory's `keys/`, read on every sign and never cached, so a key removed mid-run is a
+file under the secrets directory's `keys/` (the data directory's before slice 135), read on every sign and never cached, so a key removed mid-run is a
 signer unavailable at the next receipt. What a file-backed key establishes: that the chain was not altered after
 the fact by anything lacking read access to that file, and nothing more. Selection is once, at boot: P-384 when
 `crypto:info_fips/0` is `enabled` (proven on the `fips` leg), Ed25519 otherwise, ML-DSA-87 by configuration

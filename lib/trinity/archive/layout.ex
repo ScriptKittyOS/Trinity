@@ -46,8 +46,10 @@ defmodule Trinity.Archive.Layout do
       receipts_db:
         Application.get_env(:trinity, Trinity.Repo.Receipts)[:database] ||
           Path.join(data_dir, "receipts.db"),
+      # Slice 135: the keys live in the secrets directory, not the data directory.
       keys_dir:
-        Application.get_env(:trinity, :receipts, [])[:keys_dir] || Path.join(data_dir, "keys"),
+        Application.get_env(:trinity, :receipts, [])[:keys_dir] ||
+          Path.join(Trinity.Paths.secrets_dir(), "keys"),
       skills_dir: Path.join(data_dir, "skills"),
       personas_dir: Path.join(data_dir, "personas")
     }

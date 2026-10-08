@@ -12,6 +12,7 @@ defmodule Trinity.Sessions.State do
   alias Trinity.Sessions.SessionRow
 
   @type turn :: %{
+          id: String.t(),
           ref: reference() | nil,
           task: pid() | nil,
           buffer: iodata(),
@@ -49,6 +50,8 @@ defmodule Trinity.Sessions.State do
   @spec new_turn() :: turn()
   def new_turn do
     %{
+      # Slice 135: the turn's own id, which every fs decision receipt of its tool calls carries.
+      id: Trinity.UUID.generate(),
       ref: nil,
       task: nil,
       buffer: [],

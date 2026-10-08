@@ -13,7 +13,7 @@ defmodule Trinity.Tools.FS.List do
   @impl true
   def description,
     do:
-      "Lists a directory: one entry per line as `kind size name` (kind d or f). Hidden entries included; at most 2,000."
+      "Lists a directory: one entry per line as `kind size name` (kind d, f or l for a link). Hidden entries included; at most 2,000."
 
   @impl true
   def schema,
@@ -31,17 +31,19 @@ defmodule Trinity.Tools.FS.List do
   def effect, do: :none
 
   @impl true
-  def escalate(args, %Context{cwd: cwd}) do
-    case FS.resolve(Map.get(args, "path", "."), cwd) do
-      {:ok, _, :inside} -> nil
-      {:ok, _, :outside} -> :ask
-    end
-  end
+  def escalate(args, %Context{cwd: cwd}), do: FS.escalation(Map.get(args, "path", "."), cwd, :dir)
+
+  @impl true
+  def fs_paths(args, _ctx), do: [{Map.get(args, "path", "."), :dir}]
 
   @impl true
   def execute(args, %Context{cwd: cwd}) do
-    {:ok, real, _} = FS.resolve(Map.get(args, "path", "."), cwd)
+    with {:ok, real, _} <- FS.resolve(Map.get(args, "path", "."), cwd, :dir) do
+      list(real)
+    end
+  end
 
+  defp list(real) do
     case File.ls(real) do
       {:ok, names} ->
         lines =
@@ -55,9 +57,11 @@ defmodule Trinity.Tools.FS.List do
     end
   end
 
+  # Slice 135: `lstat`, so a link is listed as a link and its target is never stat'ed.
   defp entry(dir, name) do
-    case File.stat(Path.join(dir, name)) do
+    case File.lstat(Path.join(dir, name)) do
       {:ok, %{type: :directory}} -> "d\t-\t#{name}/"
+      {:ok, %{type: :symlink}} -> "l\t-\t#{name}"
       {:ok, %{size: size}} -> "f\t#{size}\t#{name}"
       _ -> "?\t-\t#{name}"
     end

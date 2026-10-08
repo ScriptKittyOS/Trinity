@@ -17,6 +17,7 @@ defmodule TrinityWeb.SettingsComponents do
   require Phoenix.LiveView
 
   alias Trinity.{Desktop, Secrets, Settings}
+  alias Trinity.Tools.FS.Guard
 
   ## State
 
@@ -96,6 +97,17 @@ defmodule TrinityWeb.SettingsComponents do
 
       not File.dir?(root) ->
         assign(socket, root_error: gettext("No folder exists at %{root}.", root: root))
+
+      # Slice 135: a folder that is, contains or sits inside the data or secrets directory would
+      # refuse the next boot; it is refused here instead, with the reason.
+      match?({:error, _}, Guard.check_roots([root], Guard.protected_dirs())) ->
+        assign(socket,
+          root_error:
+            gettext(
+              "%{root} is, contains or sits inside Trinity's data or secrets folder, which no tool may reach.",
+              root: root
+            )
+        )
 
       true ->
         roots = Enum.uniq(Settings.get(:fs_roots) ++ [root])

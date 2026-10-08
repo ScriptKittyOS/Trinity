@@ -4,7 +4,8 @@ defmodule Trinity.Tools.FS.Read do
   @moduledoc "`fs_read`: a file's text, by line range, capped. Outside the roots it asks. Slice 022."
   @behaviour Trinity.Tools.Tool
 
-  alias Trinity.Tools.{Context, FS, Untrusted}
+  alias Trinity.Tools.{Context, FS, Taint, Untrusted}
+  alias Trinity.Tools.FS.Guard
 
   @max_bytes 256 * 1024
 
@@ -41,28 +42,29 @@ defmodule Trinity.Tools.FS.Read do
   def effect, do: :none
 
   @impl true
-  def escalate(%{"path" => path}, %Context{cwd: cwd}) do
-    case FS.resolve(path, cwd) do
-      {:ok, _, :inside} -> nil
-      {:ok, _, :outside} -> :ask
-    end
-  end
+  def escalate(%{"path" => path}, %Context{cwd: cwd}), do: FS.escalation(path, cwd)
+
+  @impl true
+  def fs_paths(%{"path" => path}, _ctx), do: [{path, :read}]
 
   # sobelow_skip reason: Traversal.FileModule fires on every File call whose path is a variable,
   # and a filesystem tool's path is the model's argument by design. The control is not the
-  # path's shape but the gate: `Trinity.Tools.FS.resolve/2` judges every path after symlink
-  # resolution against the roots and the tools escalate anything outside to `:ask` (docs/07,
-  # filesystem; slice 022 AC1), and a write is atomic with a backup. Scoped to the function
-  # rather than .sobelow-skips, which keys on file and line.
+  # path's shape but the gate: `Trinity.Tools.FS.Guard` judges every path (no symlink
+  # followed, protected directories and inodes refused) against the roots and the tools
+  # escalate anything outside to `:ask` (docs/07, filesystem; slice 022 AC1), and a write is
+  # atomic with a backup. Scoped to the function rather than .sobelow-skips, which keys on file
+  # and line.
   @sobelow_skip ["Traversal.FileModule"]
   @impl true
-  def execute(%{"path" => path} = args, %Context{cwd: cwd}) do
-    {:ok, real, _} = FS.resolve(path, cwd)
+  def execute(%{"path" => path} = args, %Context{cwd: cwd} = ctx) do
     offset = Map.get(args, "offset", 1)
     limit = Map.get(args, "limit", 500)
 
-    case File.read(real) do
-      {:ok, bytes} ->
+    # Slice 135: opened by the guard, which fstats the descriptor before a byte is read.
+    case Guard.read(path, cwd) do
+      {:ok, bytes, %{canonical: real} = verdict} ->
+        Taint.note_read(verdict, ctx.session_id)
+
         {text, cut?} = cap(bytes)
 
         lines =
@@ -77,7 +79,7 @@ defmodule Trinity.Tools.FS.Read do
         {:ok, Untrusted.result(lines, tool: "fs_read", source_ref: real, meta: meta)}
 
       {:error, reason} ->
-        {:error, {:file, reason, real}}
+        {:error, reason}
     end
   end
 

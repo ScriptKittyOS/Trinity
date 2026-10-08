@@ -3,7 +3,7 @@
 defmodule Trinity.MCP.AuthHost do
   @moduledoc """
   The tree's side of the authorization boundary (slice 062): builds `Trinity.MCP.Auth.Config`
-  from `config :trinity, :mcp_auth` and the paths and facts only the tree knows (the data
+  from `config :trinity, :mcp_auth` and the paths and facts only the tree knows (the secrets
   directory, the keys directory, whether the local authority is in force), starts the personal
   profile's authorization server when that profile is chosen (and refuses to boot it under an
   external authority adapter, by raising with the reason), authorizes a request and receipts
@@ -32,15 +32,17 @@ defmodule Trinity.MCP.AuthHost do
   @spec reload() :: Config.t()
   def reload do
     env = Application.get_env(:trinity, :mcp_auth, [])
-    data_dir = Trinity.Paths.ensure_data_dir()
+    # Slice 135: the bearer token and the OAuth store live in the secrets directory, never under
+    # the data directory (`Trinity.Secrets.Migration` moves an earlier release's).
+    secrets_dir = Trinity.Paths.ensure_secrets_dir()
     profile = Keyword.get(env, :profile, :local)
 
     opts =
       env
       |> Keyword.put(:profile, profile)
-      |> Keyword.put_new(:token_path, Path.join(data_dir, "mcp-server-token"))
+      |> Keyword.put_new(:token_path, Path.join(secrets_dir, "mcp-server-token"))
       |> Keyword.put_new(:key_dir, Trinity.Receipts.KeyCustody.keys_dir())
-      |> Keyword.put_new(:store_dir, Path.join([data_dir, "secrets", "oauth"]))
+      |> Keyword.put_new(:store_dir, Path.join(secrets_dir, "oauth"))
       |> Keyword.put(:local_authority?, Trinity.Authority.impl() == Trinity.Authority.Local)
 
     config = Config.new!(opts)

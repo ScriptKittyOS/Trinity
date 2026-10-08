@@ -270,6 +270,17 @@ config :trinity, :receipts,
   keys_dir: Path.expand("../tmp/test_keys", __DIR__),
   forward_interval_ms: 0
 
+# Slice 135: the secrets directory for the suite, under the project's ignored tmp/ and per test
+# partition, never the machine's own. A test that needs the release layout sets
+# TRINITY_SECRETS_DIR, which wins over this.
+config :trinity,
+  secrets_dir:
+    Path.expand("../tmp/test_secrets-#{System.get_env("MIX_TEST_PARTITION", "0")}", __DIR__)
+
+# Slice 135: the suite's application runs against the machine's own data directory, so the boot
+# migration is off here; the boot-node test turns it on in a child with its own data directory.
+config :trinity, Trinity.Secrets.Migration, enabled: false
+
 # Slice 032: the suite embeds with the deterministic fake; nothing leaves the machine and no
 # model is needed.
 config :trinity, :memory, embedder: :fake, observer: false

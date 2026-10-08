@@ -5,6 +5,7 @@ defmodule Trinity.Tools.FS.Glob do
   @behaviour Trinity.Tools.Tool
 
   alias Trinity.Tools.{Context, FS, Untrusted}
+  alias Trinity.Tools.FS.Guard
 
   @max_matches 1_000
 
@@ -36,30 +37,39 @@ defmodule Trinity.Tools.FS.Glob do
   def effect, do: :none
 
   @impl true
-  def escalate(args, %Context{cwd: cwd}) do
-    case FS.resolve(Map.get(args, "path", "."), cwd) do
-      {:ok, _, :inside} -> nil
-      {:ok, _, :outside} -> :ask
-    end
-  end
+  def escalate(args, %Context{cwd: cwd}), do: FS.escalation(Map.get(args, "path", "."), cwd, :dir)
+
+  @impl true
+  def fs_paths(args, _ctx), do: [{Map.get(args, "path", "."), :dir}]
 
   @impl true
   def execute(%{"pattern" => pattern} = args, %Context{cwd: cwd}) do
-    {:ok, real, _} = FS.resolve(Map.get(args, "path", "."), cwd)
+    with {:ok, real, _} <- FS.resolve(Map.get(args, "path", "."), cwd, :dir) do
+      glob(real, pattern, cwd)
+    end
+  end
 
-    matches =
+  # Slice 135: the wildcard follows links into directories, so every match is judged by the guard
+  # and a refused one (reached through a link, a hard link, a protected name) is left out and
+  # counted, never named.
+  defp glob(real, pattern, cwd) do
+    scope = Guard.scope(cwd)
+
+    {kept, refused} =
       real
       |> Path.join(pattern)
       |> Path.wildcard(match_dot: true)
-      |> Enum.map(&Path.relative_to(&1, real))
-      |> Enum.sort()
+      |> Enum.split_with(&(Guard.check(&1, cwd, :read, scope).decision != :deny))
+
+    matches = kept |> Enum.map(&Path.relative_to(&1, real)) |> Enum.sort()
 
     lines = matches |> Enum.take(@max_matches) |> Enum.join("\n")
 
     meta = %{
       "path" => real,
       "matches" => length(matches),
-      "shown" => min(length(matches), @max_matches)
+      "shown" => min(length(matches), @max_matches),
+      "refused" => length(refused)
     }
 
     {:ok, Untrusted.result(lines, tool: "fs_glob", source_ref: real, meta: meta)}
