@@ -86,4 +86,40 @@ defmodule Trinity.Repo.SqliteTransactionModeTest do
     assert :ok = Sqlite3.execute(a, "INSERT INTO t (v) VALUES ('from a')")
     :ok = Sqlite3.execute(a, "COMMIT")
   end
+
+  # Added 2026-10-07 for SCR-376 and SCR-377. The two cases above settle the question slice 005
+  # asked: DEFERRED-then-upgrade cannot wait, IMMEDIATE can. Neither answers the question the
+  # **suite** poses, because `Ecto.Adapters.SQL.Sandbox` begins every test's transaction with an
+  # explicit `mode: :transaction`, which is a plain DEFERRED `BEGIN` and overrides
+  # `default_transaction_mode: :immediate`. The sandbox's BEGIN is not ours to change.
+  #
+  # So: inside a transaction that is already DEFERRED, does issuing a **write as the first
+  # statement** — no read, therefore no upgrade — reach the busy handler? If it does, a sandboxed
+  # test can be made a writer at its start and the five Database busy failures lose their
+  # mechanism. If it does not, there is no mitigation at this layer and saying so is the finding.
+  test "DEFERRED, first statement a write: the handler is consulted, because this is not an upgrade",
+       %{a: a, b: b} do
+    :ok = Sqlite3.execute(b, "BEGIN IMMEDIATE")
+    :ok = Sqlite3.execute(b, "INSERT INTO t (v) VALUES ('from b')")
+
+    :ok = Sqlite3.execute(a, "BEGIN DEFERRED")
+
+    started = System.monotonic_time(:millisecond)
+    task = Task.async(fn -> Sqlite3.execute(a, "INSERT INTO t (v) VALUES ('from a')") end)
+    Process.sleep(200)
+    :ok = Sqlite3.execute(b, "COMMIT")
+    result = Task.await(task, 5_000)
+    elapsed = System.monotonic_time(:millisecond) - started
+
+    assert :ok = result,
+           "a first-statement write in a DEFERRED transaction was refused rather than waiting. " <>
+             "Then taking the write lock at the start of a sandboxed test is not a mitigation for " <>
+             "SCR-377, and the fix has to be somewhere else."
+
+    assert elapsed >= 200,
+           "it returned in #{elapsed} ms, before the holder committed at 200 ms, so it never " <>
+             "contended and this case proves nothing"
+
+    :ok = Sqlite3.execute(a, "COMMIT")
+  end
 end
