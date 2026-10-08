@@ -100,6 +100,9 @@ defmodule TrinityWeb.Auth.BootRefusalNodeTest do
       {"TRINITY_PROFILE", "regulated"},
       {"TRINITY_AUTHORITY", "WebBootFixture"},
       {"TRINITY_REGULATED_LLM_ENDPOINTS", "https://models.internal"},
+      # Slice 135: a regulated node with the default `network: :allow` needs an egress allow-list,
+      # so every case here has one and refuses (or boots) for the web reason it names.
+      {"TRINITY_REGULATED_EGRESS", "docs.internal"},
       {"TRINITY_MCP_AUTH_PROFILE", nil},
       {"TRINITY_WEB_AUTH", nil},
       {"TRINITY_TRUSTED_PROXY", nil}
