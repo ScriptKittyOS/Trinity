@@ -184,3 +184,42 @@ appears in a mark or a count.
 **It may retire AC2 and AC3 without a machine**, and it is the first thing to try before waiting
 for one. It is not slice 001's work: this ADR records the correction and the manual queue
 carries the step.
+
+---
+
+## Fourth correction, 2026-10-08: slice 100. **Still `proposed`; the lift condition is unchanged.**
+
+Slice 100's Definition of Done lists "ADR-0004 status accepted". It is not, and the reason is the one
+the second correction gave: this ADR chooses a cross-platform shell, and the shell has still been
+*run* on one operating system. Stamping `accepted` because the slice that was supposed to end it has
+ended would be a mark doing work the facts do not support.
+
+### What slice 100 adds to the evidence
+
+* **The shell does the desktop's work on Linux**, driven end to end on an isolated X display (Xvfb,
+  no window manager) with a private D-Bus session, a real Secret Service, and stand-ins for the
+  notification daemon and the tray host: the tray menu reads and acts, a notification's click shows
+  the window on the approval, the global shortcut hides and shows the window, a second launch
+  focuses the first, launch at login writes its entry, the keychain stores and returns a key, and
+  quitting during a reply keeps it as interrupted. The evidence and what it does not prove (no real
+  panel, no real notification daemon, no compositor) are in the slice's proof.
+* **Everything it needed fits the chosen shell without a NIF and without leaving `ex_tauri`.** The
+  window's commands use the channel `ex_tauri` already keeps; the keychain is the shell binary run
+  as a command (`trinity --keychain`); Tauri's own plugins do the rest. The fallback path remains
+  untriggered.
+* **Finding F1** (the packaged sidecar orphaned when its parent dies): the shell now sends SIGTERM to
+  the sidecar's `beam.smp` child as well as to the Burrito wrapper, and OTP's SIGTERM is a graceful
+  stop. Measured on the development path, where the sidecar is the BEAM itself: quit from the tray
+  left no process of the run behind. The production shape (the Burrito wrapper with its child) is
+  the first package run's to measure on each OS.
+* **Finding F2** (the Windows channel is an unauthenticated loopback port): the shell presents a
+  per-launch token in a hello, and Trinity believes tray clicks and dialog answers only after it.
+  The denial of service F2 names (connect, then stop the heartbeat) is not closed; it needs a change
+  to the heartbeat itself.
+
+### Lift condition, unchanged from the second correction
+
+**Owner: Ayla Croft.** Confirmed or amended when the shell has opened a window on macOS and on
+Windows, and the sidecar has been observed dying with its window on at least one of them by a
+mechanism this project owns. Slice 100's manual queue carries both, and the first `package` run of
+the slice's branch builds the shell on all three.
