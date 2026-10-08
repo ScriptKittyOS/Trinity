@@ -60,8 +60,9 @@ defmodule Trinity.MixProject do
       desktop: [
         steps: [:assemble, &Burrito.wrap/1],
         # Slice 032: exla in the release, loaded and not started (see `exla_deps/0`); on a
-        # Windows host it is not declared at all.
-        applications: exla_release_applications(),
+        # Windows host it is not declared at all. Slice 133: not in the Linux bundle either
+        # (`desktop_release_applications/1`).
+        applications: desktop_release_applications(System.get_env("BURRITO_TARGET")),
         burrito: [
           targets: [
             linux_x86_64: [os: :linux, cpu: :x86_64],
@@ -125,6 +126,19 @@ defmodule Trinity.MixProject do
       _ -> [exla: :load]
     end
   end
+
+  @doc """
+  The desktop release's applications for one Burrito target (slice 133, AC12). The Linux
+  bundle leaves exla out: its NIF never loaded there (Burrito's musl ERTS against a glibc
+  `.so`, the `__libc_single_threaded` failure above), so the bundle already ran with the local
+  embedder off and the Elixir scorer in `Trinity.Memory.VectorStores.Brute`, and the 68.7 MB
+  it carried was dead weight (slice 032's PROOF). macOS keeps it until slice 133's eval; the
+  headless release keeps `exla_release_applications/0`. Public only so a test can call it.
+  `package.yml` sets `BURRITO_TARGET` per job; a local `mix release desktop` without it builds
+  every target with what the host declares, as before.
+  """
+  def desktop_release_applications("linux_x86_64"), do: []
+  def desktop_release_applications(_target), do: exla_release_applications()
 
   defp exla_deps do
     case :os.type() do
