@@ -228,6 +228,20 @@ defmodule Trinity.Versions do
         "JOSE (JWK, JWS, JWKS) over OTP's crypto, for the MCP resource server's token validation and the personal profile's embedded authorization server. MIT; 1.11.12 measured on hex.pm 2026-09-22. Not joken, a layer over it this tree does not need. Added at Slice 062."
     },
     %{
+      name: "oidcc",
+      pin: "~> 3.9",
+      lock: "oidcc",
+      note:
+        "OpenID Connect relying party for the web pages' login (`TrinityWeb.Auth.OIDC`): authorization code with PKCE S256, `state`, `nonce`, ID token validation. EEF Security WG, OpenID Certified; Apache-2.0. 3.9.0 measured on hex.pm 2026-10-08, released 2026-08-30; it fixes CVE-2026-75759 (GHSA-533g-4vf3-xwrj, high: an encrypted but unsigned ID token was accepted, affected >= 3.2.0-beta.1 and < 3.9.0), so the floor is 3.9 and a test asserts it. Brings `telemetry_registry` 0.3.2 (Apache-2.0). Added at Slice 136."
+    },
+    %{
+      name: "oidcc_plug",
+      pin: "~> 0.5.1",
+      lock: "oidcc_plug",
+      note:
+        "Plugs over oidcc for the login's redirect and callback. Apache-2.0. 0.5.1 measured on hex.pm 2026-10-08, released 2026-08-04; 0.5.0 fixed CVE-2026-66884 (GHSA-fg66-w5gp-22cr, state check broken) and CVE-2026-66883 (GHSA-w5r8-m75h-98fc, user agent binding inert) and is itself retired on hex.pm (invalid igniter requirement), so the floor is 0.5.1 and a test asserts it. Ships no LiveView `on_mount`; `TrinityWeb.Auth` is that. Added at Slice 136."
+    },
+    %{
       name: "oban_web",
       pin: "~> 2.13",
       lock: "oban_web",

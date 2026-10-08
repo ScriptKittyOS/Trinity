@@ -18,6 +18,11 @@ should not plan as though it does.
 | Choosing the profile | **Yes**, three exist: `:local`, `:production`, `:personal` at `config/runtime.exs:92-98` | **Yes.** `TRINITY_MCP_AUTH_PROFILE` is yours to set | No |
 | Mapping a subject to an authorization decision | Scopes only, `lib/trinity/mcp/auth/scopes.ex` | **Yes.** Entitlement policy is yours | No |
 | Token revocation and session lifetime | Introspection when enabled, `config/runtime.exs:105` | **Yes** | No |
+| Authenticating a person on the web pages (IA-2) | **Yes**, since slice 136: an OpenID Connect login, `lib/trinity_web/auth/oidc.ex`; `:regulated` refuses to boot on a non-loopback bind without it, `lib/trinity/profile.ex` (`check_web_auth/3`) | **Yes.** Provide the issuer, register the client (`TRINITY_WEB_AUTH_*`), and grant the roles `view`, `approve`, `administer` in a claim the ID token carries | No |
+| Enforcing a role on each page and action (AC-3, AC-6) | **Yes.** `lib/trinity_web/auth/require_role.ex`, `lib/trinity_web/auth/policy.ex` | **Yes.** Who holds which role is your entitlement policy | No |
+| Logging the use of privileged functions (AC-6(9)) | **Yes.** Every approval and every privileged route or event is a signed receipt on the `access` chain with `sub`, `iss` and the role used, `lib/trinity_web/auth.ex` | **Yes.** Retain and review the chain | No |
+| Refusing a request whose Host is not this deployment's | **Yes.** `lib/trinity_web/plugs/host_allow_list.ex`; set `PHX_HOST` | **Yes.** Set the host your users reach | No |
+| Believing `x-forwarded-proto` | Only when `TRINITY_TRUSTED_PROXY=true`; `:regulated` refuses to boot otherwise | **Yes.** Your proxy must strip and set the header | **Yes** |
 
 ## Model
 
@@ -67,7 +72,7 @@ deployment, and it does not supply what the deployment has to.
 |---|---|---|---|
 | TLS on connections Trinity makes | **Yes.** The runtime offers TLS 1.2 and 1.3 and nothing older, `test/supply_chain_test.exs`. That test checks the versions offered and nothing else: not peer verification, not the trust store | **Yes.** The trust store peers are verified against (in a DoD deployment, the DoD roots) | No |
 | TLS on connections made to Trinity | **No.** The headless release serves plain HTTP on `TRINITY_BIND`: the loopback by default (`config/runtime.exs`), every interface in the image (`ci/ironbank/Dockerfile`). `config/prod.exs` sets `force_ssl` with `rewrite_on: [:x_forwarded_proto]`, so a request carrying `x-forwarded-proto: https` is treated as HTTPS, and any client can send that header unless a proxy strips it | **Yes.** Terminate TLS in front of it, and strip inbound `x-forwarded-*` headers at that proxy | **Yes** |
-| Authenticating access to the web pages | **Partial.** MCP endpoints require a token from the external issuer (implemented). The web pages, among them the permissions page where approvals are answered, carry no authentication of their own (`lib/trinity_web/router.ex`, `docs/mcp-server.md`): a product gap, tracked as slice 136, which authenticates them against the same issuer. The image binds every interface | **Yes.** The OIDC issuer. Until slice 136 lands, an authenticating reverse proxy in front of the port, or a network only the owner reaches, as an interim compensating control with a POA&M entry, never the sole mitigation | **Yes** |
+| Authenticating access to the web pages | **Yes**, since slice 136. Every page and every LiveView mount and event requires a principal holding the role the access policy names (`lib/trinity_web/router.ex`, `lib/trinity_web/auth/policy.ex`), a foreign `Host` is refused before routing, and the websocket origin check is an explicit list. MCP endpoints still require the external issuer's token | **Yes.** The OIDC issuer, and the roles `view`, `approve` and `administer` granted to each person | No |
 
 ## Backups
 

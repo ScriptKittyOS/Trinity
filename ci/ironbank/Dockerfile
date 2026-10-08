@@ -13,7 +13,8 @@
 # exception, and it reaches only the UBI repositories, which Iron Bank proxies.
 #
 #   scripts/headless_image.sh build trinity-headless:hardened
-#   docker run --rm -p 4000:4000 -e TRINITY_MCP_SERVER_TOKEN=... trinity-headless:hardened
+#   docker run --rm -p 4000:4000 -e TRINITY_MCP_SERVER_TOKEN=... -e TRINITY_WEB_AUTH=oidc \
+#     -e TRINITY_WEB_AUTH_ISSUER=... -e TRINITY_WEB_AUTH_CLIENT_ID=... trinity-headless:hardened
 
 ARG BASE_REGISTRY=registry1.dso.mil/ironbank
 ARG BASE_IMAGE=redhat/ubi/ubi9-micro
@@ -140,6 +141,8 @@ COPY --chown=0:0 scripts/entrypoint.sh /usr/local/bin/trinity-entrypoint
 # directory is /data/secrets (TRINITY_SECRETS_DIR, slice 135), beside the data directory on the
 # same volume and never inside it: the receipt keys, the envelope key, the generated token. Point
 # it at a systemd credential or a Kubernetes Secret mount instead (docs/packaging.md).
+# Slice 136: 0.0.0.0 is not the loopback, so the node refuses to boot until TRINITY_WEB_AUTH says
+# how the web pages authenticate (docs/mcp-server.md).
 ENV LANG=C.UTF-8 \
     TRINITY_MODE=headless \
     TRINITY_BIND=0.0.0.0 \

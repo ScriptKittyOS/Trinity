@@ -229,6 +229,18 @@ config :trinity, TrinityWeb.Endpoint,
   secret_key_base: "PAlioLgquSvnIrD4YjwqUt4LEP1x1E5d56Z7KY/QhgmyRUFR9ynpk3oz/hITAYwN",
   server: true
 
+# Slice 136: the suite binds the loopback, so the web pages run in `:none` unless a test says
+# otherwise (those tests are synchronous and put their own `:web_auth`). `www.example.com` is the
+# Host `Phoenix.ConnTest.build_conn/0` sends; it is the suite's configured host for the Host
+# allow-list, as `PHX_HOST` is a deployment's. The OIDC tests run their issuer on a loopback
+# port over plain HTTP, which oidcc refuses unless told; nothing outside this file tells it.
+config :trinity, :web_auth,
+  extra_hosts: ["www.example.com"],
+  allow_unsafe_http: true,
+  idle_timeout_ms: 1_800_000,
+  absolute_timeout_ms: 43_200_000,
+  token_rate_window_ms: 2_000
+
 # Slice 090: the LiveDashboard routes are compiled in the test environment too. They are
 # `compile_env`-gated and were dev-only, which meant the custom sessions page had no test and no
 # way to be screenshotted without running a dev server against a dev database. A route that exists

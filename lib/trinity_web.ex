@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 defmodule TrinityWeb do
   # Slice 060: the MCP page reads the servers and their clients.
-  use Boundary, deps: [Trinity, Trinity.MCP], exports: [Endpoint]
+  use Boundary, deps: [Trinity, Trinity.MCP], exports: [Endpoint, Auth]
 
   @moduledoc """
   The entrypoint for defining your web interface, such

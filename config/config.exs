@@ -202,8 +202,15 @@ if System.get_env("TRINITY_DB", "sqlite") == "sqlite" do
 end
 
 # Configure the endpoint
+#
+# Slice 136: `check_origin` is an explicit list in every environment, never `false` and never
+# `:conn` (which compares the Origin with the request's own Host, a value a DNS rebinding page
+# controls). The loopback names here; config/runtime.exs adds the configured host in :prod. A
+# list entry with no scheme and no port matches any scheme and port, which the desktop's
+# ephemeral port needs.
 config :trinity, TrinityWeb.Endpoint,
   url: [host: "localhost"],
+  check_origin: ["//localhost", "//127.0.0.1", "//[::1]"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
     formats: [html: TrinityWeb.ErrorHTML, json: TrinityWeb.ErrorJSON],

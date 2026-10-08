@@ -22,6 +22,8 @@ defmodule Trinity.Application do
 
   use Application
 
+  require Logger
+
   @impl true
   def start(_type, _args) do
     # Slice 090. Installed before anything can log, and as a primary filter so it applies to every
@@ -39,9 +41,17 @@ defmodule Trinity.Application do
     # without reading anything.
     verify_regulated_configuration!()
 
+    # Slice 136: who the web pages answer. Every profile, before any child: a page on a bind other
+    # machines can reach with no login is refused here rather than served, and `:regulated` refuses
+    # a shared token or no login there too. The mode resolved is recorded for the request path and
+    # for the boot receipt.
+    verify_web_auth!()
+
     # ADR-0014: say once whether this runtime holds its TLS clients to TLS 1.2.
     Trinity.TLS.log_decision()
 
+    # Slice 136: the web sessions, and under `:oidc` the issuer's configuration worker,
+    # before the endpoint that asks them.
     children =
       desktop_children() ++
         [
@@ -110,6 +120,7 @@ defmodule Trinity.Application do
           {Oban, Application.fetch_env!(:trinity, Oban)}
         ] ++
         Trinity.Smoke.probe(Trinity.Smoke.argv()) ++
+        TrinityWeb.Auth.children() ++
         [
           # Start to serve requests, typically the last entry
           TrinityWeb.Endpoint
@@ -172,6 +183,64 @@ defmodule Trinity.Application do
 
     :ok
   end
+
+  # Slice 136 AC4, AC6 and AC13. The decisions are `Trinity.WebAuth`'s and `Trinity.Profile`'s,
+  # both pure; this reads the endpoint's configuration and hands them the values.
+  defp verify_web_auth! do
+    profile = Trinity.Profile.current()
+    endpoint = Application.get_env(:trinity, TrinityWeb.Endpoint, [])
+    # An `http:` list with no `:ip` is Bandit's default, every interface; never assume loopback.
+    bind = endpoint |> Keyword.get(:http, []) |> Keyword.get(:ip, {0, 0, 0, 0})
+    config = Trinity.WebAuth.config()
+
+    refuse = fn reason -> raise "Trinity refuses to boot: #{inspect(reason)}" end
+
+    mode =
+      case Trinity.WebAuth.resolve(Keyword.get(config, :mode), bind) do
+        {:ok, mode} -> mode
+        {:error, reason} -> refuse.(reason)
+      end
+
+    rewrite_on = endpoint |> Keyword.get(:force_ssl, []) |> Keyword.get(:rewrite_on)
+
+    [
+      Trinity.Profile.check_web_auth(profile, bind, mode),
+      Trinity.Profile.check_trusted_proxy(
+        profile,
+        rewrite_on,
+        System.get_env(Trinity.Profile.trusted_proxy_env())
+      ),
+      Trinity.Profile.check_origin(profile, Keyword.get(endpoint, :check_origin, true)),
+      mode_requirements(mode, config)
+    ]
+    |> Enum.each(fn
+      :ok -> :ok
+      {:error, reason} -> refuse.(reason)
+    end)
+
+    loopback? = Trinity.WebAuth.loopback?(bind)
+
+    if mode == :none and not loopback? do
+      Logger.warning(
+        "web pages: #{Trinity.WebAuth.env()}=none on #{Trinity.WebAuth.format_ip(bind)}: " <>
+          "every page answers whoever reaches this address"
+      )
+    end
+
+    Application.put_env(
+      :trinity,
+      :web_auth,
+      Keyword.merge(config,
+        mode_in_force: mode,
+        bind_in_force: Trinity.WebAuth.format_ip(bind),
+        loopback_in_force: loopback?
+      )
+    )
+  end
+
+  defp mode_requirements(:oidc, config), do: Trinity.WebAuth.check_oidc(config)
+  defp mode_requirements(:local_token, config), do: Trinity.WebAuth.check_token(config[:token])
+  defp mode_requirements(:none, _config), do: :ok
 
   # AC5's input. `Trinity.Authority.Selection.select/1` is the same pure rule the selection child
   # uses, asked here before that child exists rather than duplicated.

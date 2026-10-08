@@ -29,8 +29,14 @@ images declare as their sources.
 ```
 scripts/headless_image.sh build trinity-headless:local
 docker run --rm -p 4000:4000 -v trinity-data:/data \
-  -e TRINITY_MCP_SERVER_TOKEN=<token> trinity-headless:local
+  -e TRINITY_MCP_SERVER_TOKEN=<token> \
+  -e TRINITY_WEB_AUTH=oidc -e TRINITY_WEB_AUTH_ISSUER=https://idp.example \
+  -e TRINITY_WEB_AUTH_CLIENT_ID=trinity -e TRINITY_WEB_AUTH_CLIENT_SECRET=<secret> \
+  trinity-headless:local
 ```
+
+The image binds `0.0.0.0` inside its own network namespace, which is not the loopback, so it refuses
+to start until `TRINITY_WEB_AUTH` says how the web pages authenticate (`docs/mcp-server.md`).
 
 The build reaches no network. Every input that is not a UBI package (the OTP and Elixir sources,
 Hex and rebar3, the asset tools, and today's precompiled native pieces) is a file in the build

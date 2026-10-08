@@ -33,6 +33,7 @@ defmodule Trinity.Receipts do
   @boot_key {__MODULE__, :boot_hash}
   @boot_scope "boot"
   @policy_scope "policy"
+  @access_scope "access"
 
   @doc "The scope of a session's chain."
   @spec session_scope(String.t()) :: String.t()
@@ -51,6 +52,15 @@ defmodule Trinity.Receipts do
   """
   @spec policy_scope() :: String.t()
   def policy_scope, do: @policy_scope
+
+  @doc """
+  The chain for what a person did through the web pages (slice 136): an approval decided, a
+  privileged route used or refused. Each carries the principal (`sub`, `iss`) and the role the act
+  needed, so "who approved this, and on what authority" is answered in one place rather than by
+  walking every session's chain (NIST SP 800-53 AC-6(9), AU-2).
+  """
+  @spec access_scope() :: String.t()
+  def access_scope, do: @access_scope
 
   @doc "Appends a receipt to a scope, starting its writer if needed. See `ChainWriter.append/2`."
   @spec append(String.t(), map()) :: {:ok, Receipt.t()} | {:error, term()}

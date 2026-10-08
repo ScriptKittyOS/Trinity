@@ -24,6 +24,31 @@ evidence for each increment is retained by the maintainers and summarised here.
 
 ## 2026-10-08
 
+### `slice/136`: the web pages ask who is there
+
+Every page and route now answers only someone who has signed in with the role it needs, or, on the
+desktop, a browser on the same machine. Three roles: `view` reads and converses, `approve` decides
+approvals, `administer` changes what Trinity is (MCP servers, gateways, settings and keys, the
+export, the dashboards). Signing in is an OpenID Connect login at your identity provider, with roles
+read from Keycloak, Microsoft Entra ID, Okta or a claim you name; a sign-in whose roles cannot be
+read is refused with a page that says why. On a home network a single shared token can stand in,
+and every page then says that it identifies a token and not a person.
+
+A request whose Host is not this machine's own is refused before anything else sees it, and a
+websocket from another site's page is refused; this is what keeps the desktop, which has no login,
+from being read by a web page through DNS rebinding. A server bound to anything but the loopback
+refuses to start until it is told how the pages authenticate, and the regulated profile refuses a
+shared token or no login there, and refuses to believe a forwarded protocol header unless a trusted
+proxy is declared. Sessions end on the server when revoked, after 30 idle minutes, after 12 hours,
+or on sign-out. Every approval now records who gave it, and every approval and privileged action is
+a signed receipt carrying the person's subject, issuer and the role used.
+
+Verified by the test suite: a census of every route and every page event, an unauthenticated sweep
+of every route, the login against an identity provider running inside the test, the role and
+receipt checks through the pages, and the refusals at boot in separate operating system processes.
+An Entra tenant with a user in more than 200 groups, and the desktop build refusing a foreign Host,
+are listed for manual verification.
+
 ### `slice/135`: secrets out of the data directory, and filesystem roots that fail closed
 
 A defect, fixed. The data directory was always a filesystem root and the receipt signing key lived

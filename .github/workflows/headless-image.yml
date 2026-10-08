@@ -92,8 +92,13 @@ jobs:
         run: |
           docker run --rm --read-only --tmpfs /tmp "$IMAGE" /opt/trinity/bin/headless eval \
             'IO.puts("otp=#{System.otp_release()} fips_provider=#{inspect(:crypto.info()[:fips_provider_available])} node=#{inspect(Node.self())}")'
+          # Slice 136: the image binds 0.0.0.0, which is not the loopback, so the node refuses to
+          # boot until TRINITY_WEB_AUTH says how the web pages authenticate. A shared token is the
+          # one mode that needs no identity provider (and is refused under the regulated profile).
           cid=$(docker run -d --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \
-            -p 127.0.0.1:4000:4000 -e TRINITY_MCP_SERVER_TOKEN=ci-token "$IMAGE")
+            -p 127.0.0.1:4000:4000 -e TRINITY_MCP_SERVER_TOKEN=ci-token \
+            -e TRINITY_WEB_AUTH=local_token -e TRINITY_WEB_AUTH_TOKEN=ci-web-token-not-a-secret-0001 \
+            "$IMAGE")
           for _ in $(seq 1 60); do
             curl -s -o /dev/null http://127.0.0.1:4000/ && break
             sleep 1

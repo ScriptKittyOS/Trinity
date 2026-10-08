@@ -15,7 +15,7 @@ defmodule Trinity.Skills.Manager do
   alias Trinity.Repo
   alias Trinity.Skills.{Change, Promotion, Staging}
 
-  @doc "Approves and promotes a pending change; `opts`: `by:` (default `\"ui\"`), `comment:`, `session_id:`."
+  @doc "Approves and promotes a pending change; `opts`: `by:` (default `\"ui\"`), `comment:`, `session_id:`, `principal:` (slice 136: the decider's receipt form, for the approval receipt)."
   @spec approve(Change.t(), keyword()) :: {:ok, Change.t()} | {:error, term()}
   def approve(%Change{status: "pending"} = change, opts \\ []) do
     by = Keyword.get(opts, :by, "ui")
@@ -26,7 +26,12 @@ defmodule Trinity.Skills.Manager do
 
     with {:ok, approval} <-
            Permissions.request_approval(session_id, Promotion.tool(), args, risk: :write),
-         {:ok, _} <- Permissions.decide_request(approval.id, :once, by: by) do
+         {:ok, _} <-
+           Permissions.decide_request(
+             approval.id,
+             :once,
+             [by: by] ++ Keyword.take(opts, [:principal])
+           ) do
       Promotion.swap(change, approval.id, by, Keyword.get(opts, :comment))
     end
   end

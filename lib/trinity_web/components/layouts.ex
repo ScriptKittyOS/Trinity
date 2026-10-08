@@ -35,8 +35,21 @@ defmodule TrinityWeb.Layouts do
   slot :bar, doc: "what the page puts in the top bar, beside the brand"
 
   def app(assigns) do
+    # Slice 136: under a shared token every page says so, persistently; under any login the bar
+    # carries a sign-out. Read per render from the mode in force, not from the page's assigns, so
+    # no page can leave it out.
+    assigns = assign(assigns, :web_auth_mode, Trinity.WebAuth.mode())
+
     ~H"""
     <div class="flex h-dvh flex-col">
+      <div
+        :if={@web_auth_mode == :local_token}
+        id="shared-token-banner"
+        role="status"
+        class="shrink-0 bg-warning px-4 py-1 text-center text-meta text-warning-content"
+      >
+        {gettext("Shared token, no per-user identity: whoever holds the token acts as the owner.")}
+      </div>
       <header class="flex h-12 shrink-0 items-center gap-3 border-b border-base-300 bg-base-100 px-4">
         <.link navigate={~p"/"} class="flex items-center gap-2 font-semibold tracking-tight">
           <span class="grid size-6 place-items-center rounded-pill bg-primary text-primary-content text-meta font-bold">
@@ -47,6 +60,15 @@ defmodule TrinityWeb.Layouts do
         <div class="flex min-w-0 flex-1 items-center gap-3 text-ui">
           {render_slot(@bar)}
         </div>
+        <.form
+          :if={@web_auth_mode != :none}
+          for={%{}}
+          action={~p"/auth/logout"}
+          method="post"
+          id="sign-out"
+        >
+          <button type="submit" class="btn btn-ghost btn-xs">{gettext("Sign out")}</button>
+        </.form>
         <.theme_toggle />
       </header>
 

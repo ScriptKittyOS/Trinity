@@ -148,9 +148,12 @@ the same data directory (docs/07 says what it binds and what the replay defence 
 `mix release headless` assembles the tree as an ordinary OTP release: no desktop shell, no
 self-extracting binary. `TRINITY_MODE=headless` makes it a server: it binds `TRINITY_BIND` (the
 loopback by default; a LAN address is your decision, made by setting it) on `PORT` (4000 by default)
-and serves the web pages and `/mcp`. The bearer is required on `/mcp` whatever the bind; the web
-pages carry no authentication yet, which is why the default bind is the loopback and why a LAN bind
-belongs behind a reverse proxy that authenticates.
+and serves the web pages and `/mcp`. The bearer is required on `/mcp` whatever the bind. The web
+pages answer only a principal (slice 136, docs/07 "Web pages"): on the loopback with no login set
+they answer this machine's own browser, held to it by the Host allow-list and the websocket origin
+list; on any other bind `TRINITY_WEB_AUTH` must be set, to `oidc` (a login at your identity
+provider) or, outside `TRINITY_PROFILE=regulated`, `local_token` (one shared token), or the node
+refuses to boot and names the variable.
 
 A container: `ci/ironbank/Dockerfile` builds the release on UBI9, with OTP from source, and runs it
 on UBI9 micro as UID 10001, the data directory on the `/data` volume. Slice 130 replaced the slice
@@ -160,8 +163,14 @@ it is built and what is checked about it.
 ```
 scripts/headless_image.sh build trinity-headless:local
 docker run --rm -p 4000:4000 -v trinity-data:/data \
-  -e TRINITY_MCP_SERVER_TOKEN=<token> trinity-headless:local
+  -e TRINITY_MCP_SERVER_TOKEN=<token> \
+  -e TRINITY_WEB_AUTH=oidc -e TRINITY_WEB_AUTH_ISSUER=https://idp.example \
+  -e TRINITY_WEB_AUTH_CLIENT_ID=trinity -e TRINITY_WEB_AUTH_CLIENT_SECRET=<secret> \
+  -e PHX_HOST=trinity.example trinity-headless:local
 ```
+
+The image binds `0.0.0.0` inside its own network namespace, which is not the loopback, so it
+refuses to start until `TRINITY_WEB_AUTH` says how the pages authenticate.
 
 A systemd unit for the release on a host:
 
