@@ -54,6 +54,9 @@ defmodule Trinity.Gateways.Router do
 
   ## The API an adapter uses
 
+  # Slice 100: what a sender on any channel is told while the gateways are paused.
+  @paused_notice "Trinity is paused and is not reading messages right now. Try again later."
+
   @doc "Starts the router."
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -61,8 +64,10 @@ defmodule Trinity.Gateways.Router do
   @doc """
   One inbound message. Answers once the message has been placed (the reply arrives on the channel
   as the turn streams), or with why it was refused: `{:error, :pending}` when a pairing prompt was
-  shown instead, `{:error, :revoked}`, `{:error, :rate_limited}`. Options: `:display_name`, and
-  `:attachments` (slice 071), fetched only once the message is admitted.
+  shown instead, `{:error, :revoked}`, `{:error, :rate_limited}`, and since slice 100
+  `{:error, :paused}` while the owner has paused the gateways (`Trinity.Gateways.pause/0`): the
+  sender is told so, and nothing else happens, not even admission. Options: `:display_name`,
+  and `:attachments` (slice 071), fetched only once the message is admitted.
   """
   @spec inbound(module(), Adapter.conversation(), String.t(), String.t(), keyword()) ::
           {:ok, :placed | :command | :paired} | {:error, term()}
@@ -108,10 +113,9 @@ defmodule Trinity.Gateways.Router do
 
   @impl GenServer
   def handle_call({:inbound, message}, _from, state) do
-    case admit(message) do
-      {:ok, :paired} -> route(message, state)
-      {:refused, reply, result} -> {:reply, result, say(message, reply, state)}
-    end
+    if Trinity.Gateways.paused?(),
+      do: {:reply, {:error, :paused}, say(message, @paused_notice, state)},
+      else: admit_and_route(message, state)
   end
 
   def handle_call({:session_of, adapter, conversation}, _from, state),
@@ -468,6 +472,13 @@ defmodule Trinity.Gateways.Router do
     do: :trinity |> Application.get_env(:gateways, []) |> Keyword.get(:rate_limit, [])
 
   ## Saying something back without a session
+
+  defp admit_and_route(message, state) do
+    case admit(message) do
+      {:ok, :paired} -> route(message, state)
+      {:refused, reply, result} -> {:reply, result, say(message, reply, state)}
+    end
+  end
 
   defp say(message, text, state) do
     caps = message.adapter.capabilities()

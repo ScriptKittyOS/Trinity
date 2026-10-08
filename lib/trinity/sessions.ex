@@ -236,6 +236,29 @@ defmodule Trinity.Sessions do
     end
   end
 
+  @doc """
+  Slice 100, AC7: interrupts every turn in flight, keeping what arrived as interrupted with
+  `reason` recorded, and answers how many there were. `Trinity.Application.prep_stop/1` calls it
+  with `:shutdown`, before any child stops, so the rows are written while everything they need is
+  still running. A session that does not answer in time is left to its own `terminate/3`.
+  """
+  @spec interrupt_all(atom()) :: non_neg_integer()
+  def interrupt_all(reason) when is_atom(reason) do
+    Trinity.Sessions.Supervisor
+    |> DynamicSupervisor.which_children()
+    |> Enum.count(fn
+      {_, pid, _, _} when is_pid(pid) ->
+        try do
+          Session.interrupt(pid, reason) == :interrupted
+        catch
+          :exit, _ -> false
+        end
+
+      _ ->
+        false
+    end)
+  end
+
   @doc "The state name and a redacted view of the process's data."
   @spec state(session_id()) :: map() | {:error, :not_running}
   def state(session_id) do

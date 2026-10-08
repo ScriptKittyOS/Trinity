@@ -78,8 +78,15 @@ defmodule Trinity.Effects.Boot do
 
   defp signer_subject do
     case Trinity.Receipts.KeyCustody.selected() do
-      %{algorithm: a, scheme: s, key_id: k} ->
-        %{"algorithm" => Atom.to_string(a), "scheme" => s, "key_id" => k}
+      %{algorithm: a, scheme: s, key_id: k} = selection ->
+        # Slice 100: where the key is held ("file", "sealed" or "keychain"), so a rotation into
+        # the keychain is on the signed record of the boot that made it, not only in a log.
+        %{
+          "algorithm" => Atom.to_string(a),
+          "scheme" => s,
+          "key_id" => k,
+          "custody" => Map.get(selection, :custody, "file")
+        }
 
       other ->
         %{"unavailable" => inspect(other)}

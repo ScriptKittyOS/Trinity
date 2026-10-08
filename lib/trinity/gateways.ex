@@ -19,6 +19,28 @@ defmodule Trinity.Gateways do
     deps: [Trinity, Trinity.Sessions],
     exports: [Adapter, Cap, Console, Format, Identities, Identity, Router, Supervisor, Telegram]
 
+  @paused {__MODULE__, :paused}
+
+  @doc """
+  Pauses every gateway (slice 100, the tray's "Pause gateways"): `Router` answers each inbound
+  message with a short notice and goes no further. Held in `:persistent_term` for the life of the
+  node, not saved: a restart resumes, which is the safer default for a switch that silences
+  channels.
+  """
+  @spec pause() :: :ok
+  def pause, do: :persistent_term.put(@paused, true)
+
+  @doc "Resumes the gateways."
+  @spec resume() :: :ok
+  def resume do
+    _ = :persistent_term.erase(@paused)
+    :ok
+  end
+
+  @doc "Whether the gateways are paused."
+  @spec paused?() :: boolean()
+  def paused?, do: :persistent_term.get(@paused, false)
+
   @doc """
   The adapter modules in force: those named in `adapters:`, then those from `available:` whose
   name (`Trinity.Gateways.Adapter.name/1`) is in `enabled:`, each once.

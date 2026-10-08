@@ -86,6 +86,10 @@ defmodule Trinity.Application do
           Trinity.MCP.Server.Replay,
           Trinity.MCP.Boot,
           Trinity.Sessions.Supervisor,
+          # Slice 100: the tray, the notifications and the tray's actions, on whichever
+          # `Trinity.Desktop` implementation this process selected (`Noop` with no shell). After
+          # the sessions it counts and creates, before Oban, so it stops first.
+          Trinity.Desktop.Shell,
           # Slice 050: Oban after the sessions its workers drive (a run is a turn in a session),
           # the engine chosen by the adapter (config.exs).
           {Oban, Application.fetch_env!(:trinity, Oban)},
@@ -187,6 +191,21 @@ defmodule Trinity.Application do
     else
       {:ok, pid}
     end
+  end
+
+  # Slice 100, AC7: quitting during a turn keeps what arrived. Called by OTP before any child is
+  # stopped, so every session can still write its row through a running Repo; the supervisor's
+  # own shutdown (`Session.terminate/3`) is the backstop for one that does not answer here. Oban,
+  # which stops before the sessions, drains for `shutdown_grace_period` (config/config.exs).
+  @impl true
+  def prep_stop(state) do
+    try do
+      _ = Trinity.Sessions.interrupt_all(:shutdown)
+    catch
+      :exit, _ -> :ok
+    end
+
+    state
   end
 
   # Tell Phoenix to update the endpoint configuration

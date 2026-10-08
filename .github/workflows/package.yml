@@ -258,6 +258,11 @@ jobs:
           # asserted: whether the XLA library loads in Burrito's ERTS is what they measure.
           grep -q '^TRINITY_SMOKE_VEC=ok:' smoke.log
           grep -E '^TRINITY_SMOKE_(EXLA|SEMANTIC)=' smoke.log
+          # Slice 100, AC9: FTS5 and the model cache bind (exit 5 and 6 otherwise); the watcher line
+          # is recorded, because a polling fallback is the skills registry's documented behaviour.
+          grep -q '^TRINITY_SMOKE_FTS5=ok$' smoke.log
+          grep -q '^TRINITY_SMOKE_MODEL_CACHE=ok:' smoke.log
+          grep -E '^TRINITY_SMOKE_WATCHER=' smoke.log
           echo "--- ours, before ---"; cat ps-before.txt
           echo "--- ours, after ----"; cat ps-after.txt
           diff ps-before.txt ps-after.txt
@@ -281,6 +286,14 @@ jobs:
             throw "the vector search did not run inside this binary (slice 032)"
           }
           Select-String -Path smoke.log -Pattern '^TRINITY_SMOKE_(EXLA|SEMANTIC)='
+          # Slice 100, AC9, as on the other two.
+          if (-not (Select-String -Path smoke.log -Pattern '^TRINITY_SMOKE_FTS5=ok$')) {
+            throw "FTS5 did not work inside this binary (slice 100)"
+          }
+          if (-not (Select-String -Path smoke.log -Pattern '^TRINITY_SMOKE_MODEL_CACHE=ok:')) {
+            throw "the model cache did not resolve inside this binary (slice 100)"
+          }
+          Select-String -Path smoke.log -Pattern '^TRINITY_SMOKE_WATCHER='
 
       # AC1's property on a runner, and AC6's per-OS cold start, which used to be skipped.
       # `bash` on every OS, Windows included: the job that never curled was the one gap in
@@ -334,15 +347,24 @@ jobs:
             exit 1
           fi
           elapsed=$(( $(now_ms) - start ))
-          code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/")
-          echo "HTTP $code on port $PORT"
+          # A fresh data directory has no model key, so `/` answers 302 to `/setup` (slice 100,
+          # AC11): run 37743757349 failed all three OSes on that redirect. Follow it, and require
+          # that it lands on `/setup`, so a redirect anywhere else still fails here.
+          answer=$(curl -sS -L -o /dev/null -w '%{http_code} %{url_effective}' "http://127.0.0.1:$PORT/")
+          code=${answer%% *}
+          landed=${answer#* }
+          echo "HTTP $code on port $PORT at $landed"
+          case "$landed" in
+            "http://127.0.0.1:$PORT/" | "http://127.0.0.1:$PORT/setup") ;;
+            *) echo "GET / ended at $landed, neither / nor /setup" >&2; exit 1 ;;
+          esac
           echo "COLD_START_MS=$elapsed" | tee -a "$GITHUB_ENV"
           echo "### ${{ matrix.name }}: cold start to first HTTP 200: **${elapsed} ms**" >> "$GITHUB_STEP_SUMMARY"
           # A non-200 says nothing on its own: run 35518054546 (slice 013) printed "HTTP 500"
           # and nothing else, and the log that would have named the exception was never
           # read. The body and the tail of serve.log go to stderr before the step fails.
           if [ "$code" != "200" ]; then
-            echo "--- body of GET / ---" >&2; curl -sS "http://127.0.0.1:$PORT/" | head -c 2000 >&2; echo >&2
+            echo "--- body of GET / ---" >&2; curl -sS -L "http://127.0.0.1:$PORT/" | head -c 2000 >&2; echo >&2
             echo "--- serve.log ---" >&2; tail -60 serve.log >&2
           fi
           test "$code" = "200"

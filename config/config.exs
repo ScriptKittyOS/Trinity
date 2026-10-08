@@ -146,6 +146,11 @@ config :trinity, Oban,
     ),
   notifier: Oban.Notifiers.PG,
   queues: [agent_tasks: 1, memory: 2, maintenance: 1],
+  # Slice 100, AC7: on quit, a running job gets this long to finish before Oban stops it. Named
+  # rather than inherited (Oban's own default is the same 15 s) so a change upstream is a diff
+  # here; a job cut short is retried by the lifeline below, and a turn it was driving keeps what
+  # arrived through the sessions' interrupt path.
+  shutdown_grace_period: :timer.seconds(15),
   plugins: [
     {Oban.Plugins.Cron,
      crontab: [
@@ -233,6 +238,11 @@ config :logger, :default_formatter,
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
+
+# Slice 100: the Settings page and the setup path take provider keys in a form whose parameter is
+# `secret`. Phoenix and LiveView log a request's or an event's parameters at debug level; anything
+# whose name contains one of these is logged as "[FILTERED]". Phoenix's own default is the first.
+config :phoenix, :filter_parameters, ["password", "secret"]
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
