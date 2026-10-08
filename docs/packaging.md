@@ -84,6 +84,37 @@ and is writable, created if absent and otherwise only looked at; binding, exit 6
 which the slice's criterion also names, is not in the bundle: slice 032 measured it incompatible
 with the pinned `nx` and chose the Elixir scorer, which `TRINITY_SMOKE_VEC` already exercises.
 
+## The secrets directory (slice 135)
+
+Trinity keeps its own secrets in a directory of their own, never inside the data directory: the
+receipt signing key when no keychain holds it and its registry (`keys/`), the MCP state key, the MCP
+bearer token (`mcp-server-token`) and the MCP client's OAuth tokens (`oauth/`). The directory is mode
+0700. No filesystem root may be, contain or sit inside it or the data directory: the boot refuses one
+that does, naming it.
+
+| Where | Default |
+|---|---|
+| Linux | `$XDG_CONFIG_HOME/trinity/secrets`, else `~/.config/trinity/secrets` |
+| macOS | `~/Library/Application Support/Trinity Secrets` |
+| Windows | `%LOCALAPPDATA%\Trinity\Secrets` |
+| The headless container | `/data/secrets`, beside the data directory on the `/data` volume |
+
+`TRINITY_SECRETS_DIR` overrides all of them. An installation made before slice 135 keeps these files
+under the data directory; the first boot after it moves them (a rename, so the key keeps its id and
+every receipt signed before the move still verifies), and the boot receipt names what moved.
+
+**A systemd service** can hold the directory in a credential store: with
+`LoadCredential=` (or `LoadCredentialEncrypted=`) for each file, `$CREDENTIALS_DIRECTORY` is a
+private, read-only directory only the service can read, and `TRINITY_SECRETS_DIR=%d` points Trinity
+at it. **A Kubernetes pod** can mount a Secret as a volume (`tmpfs`, read-only, `defaultMode: 0400`)
+and set `TRINITY_SECRETS_DIR` to the mount path. Either way the directory is read-only, so it must
+already hold what Trinity would otherwise create on its first boot: run once with a writable secrets
+directory, then load the resulting files (`keys/receipts-<algorithm>.key`, `keys/registry.json`,
+`keys/mcp-state.key`, and `mcp-server-token` unless `TRINITY_MCP_SERVER_TOKEN` is set) into the
+credential store. A read-only directory also means the MCP client cannot store new OAuth tokens and a
+key rotation cannot write its registry rows; keep the secrets directory writable where either is
+needed.
+
 ## The desktop shell (slice 100)
 
 `src-tauri/` is the Tauri shell. It starts the sidecar (the Burrito binary, or in development a

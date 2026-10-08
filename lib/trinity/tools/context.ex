@@ -8,7 +8,9 @@ defmodule Trinity.Tools.Context do
   `call_id` (slice 024) is the model's id for this call, set by the runner per call; with
   the session it is the effect's idempotency key. `tool` (slice 060) is the registry name the
   call was made under, set beside `call_id`, so a module serving many dynamic tools (the MCP
-  bridge) knows which one it is.
+  bridge) knows which one it is. `turn_id` (slice 135) is the Session's id for the turn the call
+  belongs to, carried onto every fs decision receipt; `nil` for a call made outside a turn (an MCP
+  client, a test).
   """
 
   @type t :: %__MODULE__{
@@ -20,7 +22,8 @@ defmodule Trinity.Tools.Context do
           tool: String.t() | nil,
           origin: String.t() | nil,
           trace: map() | nil,
-          principal: map() | nil
+          principal: map() | nil,
+          turn_id: String.t() | nil
         }
 
   defstruct session_id: nil,
@@ -31,5 +34,6 @@ defmodule Trinity.Tools.Context do
             tool: nil,
             origin: nil,
             trace: nil,
-            principal: nil
+            principal: nil,
+            turn_id: nil
 end

@@ -14,7 +14,7 @@ defmodule Trinity.Tools.Web.Fetch do
   """
   @behaviour Trinity.Tools.Tool
 
-  alias Trinity.Tools.Untrusted
+  alias Trinity.Tools.{Taint, Untrusted}
 
   @max_bytes 1_048_576
   @timeout_ms 20_000
@@ -42,16 +42,27 @@ defmodule Trinity.Tools.Web.Fetch do
   @impl true
   def timeout, do: @timeout_ms + 5_000
 
+  # Slice 135: two more reasons to ask, each only ever raising the tier. A session that has read a
+  # file from a path tagged sensitive (outside the roots: `Trinity.Tools.Taint`) asks for every
+  # fetch after it; and under `:regulated` a host off `TRINITY_REGULATED_EGRESS` asks.
   @impl true
-  def escalate(%{"url" => url}, _ctx) do
+  def escalate(%{"url" => url}, ctx) do
     case URI.parse(url) do
       %URI{scheme: scheme, host: host} when scheme in ["http", "https"] and is_binary(host) ->
-        if public_host?(host), do: nil, else: :ask
+        cond do
+          not public_host?(host) -> :ask
+          Taint.sensitive?(session_id(ctx)) -> :ask
+          not Trinity.Profile.allowed_egress?(Trinity.Profile.current(), host) -> :ask
+          true -> nil
+        end
 
       _ ->
         :ask
     end
   end
+
+  defp session_id(%{session_id: sid}), do: sid
+  defp session_id(_), do: nil
 
   @impl true
   def execute(%{"url" => url}, _ctx) do

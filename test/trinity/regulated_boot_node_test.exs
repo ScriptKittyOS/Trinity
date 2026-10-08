@@ -98,6 +98,10 @@ defmodule Trinity.RegulatedBootNodeTest do
       {"TRINITY_PROFILE", nil},
       {"TRINITY_AUTHORITY", nil},
       {"TRINITY_REGULATED_LLM_ENDPOINTS", nil},
+      # Slice 135: a regulated node with the default `network: :allow` needs an egress
+      # allow-list. Every case here has one, so each refuses (or boots) for the reason it names;
+      # the refusal without one is `Trinity.SecretsBootNodeTest`'s AC5.
+      {"TRINITY_REGULATED_EGRESS", "docs.internal"},
       {"TRINITY_MCP_AUTH_PROFILE", nil}
     ]
 

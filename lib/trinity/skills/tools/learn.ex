@@ -37,6 +37,11 @@ defmodule Trinity.Skills.Tools.Learn do
   @impl true
   def effect, do: :artifact
 
+  # Slice 135: the `file` source is a host path the guard judges before the gate is asked.
+  @impl true
+  def fs_paths(%{"file" => file}, _ctx) when is_binary(file), do: [{file, :read}]
+  def fs_paths(_args, _ctx), do: []
+
   @impl true
   def execute(args, %Context{session_id: sid, persona: persona} = ctx) do
     model = persona && Map.get(persona, :model)

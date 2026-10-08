@@ -24,6 +24,10 @@ defmodule Trinity.Permissions.Policy.Layered do
 
   @default %{read: :allow, network: :allow, write: :ask, exec: :ask, destructive: :ask}
 
+  @doc "The built-in decision per tier, before `config :trinity, :permissions, default:` overrides it."
+  @spec defaults() :: %{atom() => Trinity.Permissions.decision()}
+  def defaults, do: @default
+
   # Slice 030: the answer names the layer that decided, for the decision receipt.
   @impl true
   def decide(session_id, tool, args, opts) do

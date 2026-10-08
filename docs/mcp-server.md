@@ -17,9 +17,10 @@ configuration is refused at boot with a logged reason, and the tool never appear
 `tools/list`. The list is sorted, and it carries `ttlMs` (60 s by default) and `cacheScope`
 (`private`).
 
-Two files the server keeps in the data directory: `mcp-server-token`, the bearer clients present
-(generated once, mode 0600; `TRINITY_MCP_SERVER_TOKEN` overrides it), and `keys/mcp-state.key`, the
-key that seals the state a held call carries between round trips (docs/07, "MCP server").
+Two files the server keeps in the secrets directory (`TRINITY_SECRETS_DIR`; under the data
+directory before slice 135, and moved on the first boot after it): `mcp-server-token`, the bearer
+clients present (generated once; `TRINITY_MCP_SERVER_TOKEN` overrides it), and `keys/mcp-state.key`,
+the key that seals the state a held call carries between round trips (docs/07, "MCP server").
 
 ## Authorization profiles (slice 062)
 
@@ -50,7 +51,7 @@ and what you may ask for, never that a thing may happen.
 Trinity as a client of a protected server: add the server on the `/mcp` page as usual; when it answers
 `401` with resource metadata, the row shows the challenge and an "authorize" button that sends you to
 that server's authorization server and back to `/oauth/callback`. The token is stored under
-`<data dir>/secrets/oauth/` (mode 0600) and presented on every request; `TRINITY_MCP_AUTH_CLIENT_ID` is the
+`<secrets dir>/oauth/` (mode 0600) and presented on every request; `TRINITY_MCP_AUTH_CLIENT_ID` is the
 client id you registered there (or `_CLIENT_METADATA_URL` for a metadata document; `_DCR=1` to register on
 the spot when the server allows it).
 
@@ -60,7 +61,7 @@ The URL is `http://127.0.0.1:<port>/mcp` (the port the app prints at start, `400
 profile) and the bearer is the token above:
 
 ```
-$ cat ~/.local/share/trinity/mcp-server-token        # Linux; the data directory differs per OS
+$ cat ~/.config/trinity/secrets/mcp-server-token     # Linux; the secrets directory differs per OS
 ```
 
 **Claude Code** (its `mcp add` command, or `.mcp.json` in a project):

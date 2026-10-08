@@ -11,6 +11,7 @@ defmodule Trinity.Skills.Tools.File do
   @behaviour Trinity.Tools.Tool
 
   alias Trinity.Tools.{Context, Untrusted}
+  alias Trinity.Tools.FS.Guard
 
   Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
 
@@ -55,7 +56,9 @@ defmodule Trinity.Skills.Tools.File do
            Enum.find(Trinity.Skills.active(project_root: cwd), &(&1.name == name)) ||
              {:error, {:no_such_skill, name}},
          {:ok, path} <- resolve(skill.path, rel),
-         {:ok, content} <- File.read(path) do
+         # Slice 135: opened by the guard inside the jail: a protected inode, a hard link, a
+         # special file or a deny-listed name is refused, the descriptor fstat'ed before a read.
+         {:ok, content, _verdict} <- Guard.read(path, nil, zones: false) do
       {text, truncated} =
         if byte_size(content) > @max_bytes,
           do: {binary_part(content, 0, @max_bytes) <> "\n[cut at #{@max_bytes} bytes]", true},
@@ -71,7 +74,7 @@ defmodule Trinity.Skills.Tools.File do
       {:ok,
        Untrusted.result(text, tool: name(), source_ref: "skill:#{skill.name}/#{rel}", meta: meta)}
     else
-      {:error, :enoent} -> {:error, {:no_such_file, rel}}
+      {:error, {:file, :enoent, _}} -> {:error, {:no_such_file, rel}}
       {:error, reason} -> {:error, reason}
     end
   end

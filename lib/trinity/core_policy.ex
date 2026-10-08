@@ -24,6 +24,9 @@ defmodule Trinity.CorePolicy do
     Trinity.Permissions.Gate,
     Trinity.Tools.Catalog,
     Trinity.Tools.Runner,
+    # Slice 135: the guard denies a path before the policy is asked, so it decides what the agent
+    # may do as much as the policy does.
+    Trinity.Tools.FS.Guard,
     Trinity.Effects,
     Trinity.Effects.Runner,
     Trinity.Authority,

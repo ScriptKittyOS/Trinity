@@ -28,6 +28,10 @@ defmodule Trinity.Paths do
   These are the three `SLICE.md` names. The case difference is not a slip: `trinity` lower-case
   is the XDG convention, `Trinity` capitalised is the macOS and Windows convention, and a
   packaged app that ignores either looks wrong to the person whose disk it is on.
+
+  The secrets directory (slice 135, `secrets_dir/0`) is a separate directory with its own default
+  per OS, never inside the data directory: the receipt keys, the MCP state key and bearer token, the
+  MCP client's OAuth tokens. A filesystem tool can reach neither (`Trinity.Tools.FS.Guard`).
   """
 
   # Sobelow reads `@sobelow_skip` out of the source AST; the compiler never sees it used and
@@ -106,16 +110,75 @@ defmodule Trinity.Paths do
   def receipts_database_path, do: Path.join(ensure_data_dir(), "receipts.db")
 
   @doc """
-  The directory the receipt signing key and the key registry live in (slice 024): under the
-  data directory, not `priv/`, because `priv` is the packaged tree and a key made on this
-  machine is not the tree's to carry. Created with mode 0700 when absent.
+  The directory Trinity's own secrets live in (slice 135): the receipt key and its registry when no
+  keychain holds the key, the MCP server's state key and bearer token, the MCP client's OAuth tokens.
+  Never under the data directory, so no filesystem root that reaches the data directory reaches a
+  secret, and a backup or a sync of the data directory carries none.
+
+  `TRINITY_SECRETS_DIR`, else `config :trinity, :secrets_dir`, else the OS default
+  (`secrets_dir/2`). A container points the variable at a systemd `LoadCredential` directory or a
+  Kubernetes Secret volume (docs/packaging.md). Not created here: see `ensure_secrets_dir/0`.
   """
-  # sobelow_skip reason: Traversal.FileModule, as ensure_data_dir/0 above: the path is the data
+  @spec secrets_dir() :: String.t()
+  def secrets_dir do
+    case System.get_env("TRINITY_SECRETS_DIR") do
+      dir when is_binary(dir) and dir != "" ->
+        Path.expand(dir)
+
+      _ ->
+        case Application.get_env(:trinity, :secrets_dir) do
+          dir when is_binary(dir) and dir != "" -> Path.expand(dir)
+          _ -> secrets_dir(:os.type(), &System.get_env/1)
+        end
+    end
+  end
+
+  @doc """
+  The default secrets directory for `os_type`: beside the data directory's conventions, never
+  inside it. Linux `$XDG_CONFIG_HOME/trinity/secrets` (else `~/.config/trinity/secrets`), macOS
+  `~/Library/Application Support/Trinity Secrets`, Windows `%LOCALAPPDATA%\\Trinity\\Secrets`
+  (local, not roaming: a key made on this machine is not the roaming profile's to carry).
+  """
+  @spec secrets_dir(os_type(), getenv()) :: String.t()
+  def secrets_dir({:win32, _}, getenv) do
+    root = getenv.("LOCALAPPDATA") || Path.join(home(getenv), "AppData\\Local")
+    root <> "\\" <> @display_name <> "\\Secrets"
+  end
+
+  def secrets_dir({:unix, :darwin}, getenv) do
+    Path.join([home(getenv), "Library", "Application Support", @display_name <> " Secrets"])
+  end
+
+  def secrets_dir({:unix, _}, getenv) do
+    root = getenv.("XDG_CONFIG_HOME") || Path.join(home(getenv), ".config")
+    Path.join([root, @unix_name, "secrets"])
+  end
+
+  @doc "`secrets_dir/0`, created with mode 0700 when absent (and set to 0700 when present). Returns the path."
+  # sobelow_skip reason: Traversal.FileModule, as ensure_data_dir/0: the path is the operator's
+  # variable, this application's configuration or the OS default, never request input.
+  @sobelow_skip ["Traversal.FileModule"]
+  @spec ensure_secrets_dir() :: String.t()
+  def ensure_secrets_dir do
+    dir = secrets_dir()
+    File.mkdir_p!(dir)
+    File.chmod!(dir, 0o700)
+    dir
+  end
+
+  @doc """
+  The directory the receipt signing key and the key registry live in (slice 024): `keys/` under
+  the secrets directory since slice 135 (under the data directory before it, where a filesystem
+  tool could read it; `Trinity.Secrets.Migration` moves an existing one). Not `priv/`, because
+  `priv` is the packaged tree and a key made on this machine is not the tree's to carry. Created
+  with mode 0700 when absent.
+  """
+  # sobelow_skip reason: Traversal.FileModule, as ensure_data_dir/0 above: the path is the secrets
   # directory plus a constant, never input.
   @sobelow_skip ["Traversal.FileModule"]
   @spec keys_dir() :: String.t()
   def keys_dir do
-    dir = Path.join(ensure_data_dir(), "keys")
+    dir = Path.join(ensure_secrets_dir(), "keys")
     File.mkdir_p!(dir)
     File.chmod!(dir, 0o700)
     dir

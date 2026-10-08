@@ -14,6 +14,8 @@ defmodule Trinity.Tools.Supervisor do
   def init(_opts) do
     children = [
       {Task.Supervisor, name: Trinity.Tools.TaskSupervisor},
+      # Slice 135: which sessions read a path tagged sensitive, for web_fetch's escalation.
+      Trinity.Tools.Taint,
       Trinity.Tools.Registry
     ]
 

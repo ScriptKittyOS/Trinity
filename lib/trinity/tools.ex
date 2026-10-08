@@ -30,6 +30,8 @@ defmodule Trinity.Tools do
       DefinitionDigest,
       Surface,
       FS,
+      FS.Guard,
+      Taint,
       Web.Fetch
     ]
 

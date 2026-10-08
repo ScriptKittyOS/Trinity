@@ -32,6 +32,7 @@ defmodule Trinity.Profile do
   @env "TRINITY_PROFILE"
   @endpoints_env "TRINITY_REGULATED_LLM_ENDPOINTS"
   @gateways_env "TRINITY_REGULATED_GATEWAYS"
+  @egress_env "TRINITY_REGULATED_EGRESS"
 
   @doc """
   The profile in force: `#{@env}`, else `config :trinity, :profile`, else `:default`.
@@ -70,6 +71,83 @@ defmodule Trinity.Profile do
   @doc "The name of the gateway allow-list variable."
   @spec gateways_env() :: String.t()
   def gateways_env, do: @gateways_env
+
+  @doc "The raw value of `#{@egress_env}`, unparsed."
+  @spec raw_egress() :: String.t() | nil
+  def raw_egress, do: System.get_env(@egress_env)
+
+  @doc "The name of the egress allow-list variable."
+  @spec egress_env() :: String.t()
+  def egress_env, do: @egress_env
+
+  @doc """
+  Slice 135, AC5. Under `:regulated`, a permission default of `network: :allow` needs an egress
+  allow-list: `#{@egress_env}`, comma separated hosts. That is OWASP Agentic Top 10 2026 ASI02's
+  "egress allowlists" as a boot refusal. With the list set, `web_fetch` asks for a host not on it
+  (`allowed_egress?/2`). A regulated node whose network default is `:ask` or `:deny` needs no list,
+  since every fetch already reaches a person.
+  """
+  @spec check_egress(t(), atom(), String.t() | nil) :: :ok | {:error, term()}
+  def check_egress(:default, _network_default, _raw), do: :ok
+  def check_egress(:regulated, network_default, _raw) when network_default != :allow, do: :ok
+
+  def check_egress(:regulated, :allow, raw) do
+    if allowed_egress(raw) == [],
+      do: {:error, {:regulated_network_allow_without_egress_allowlist, @egress_env}},
+      else: :ok
+  end
+
+  @doc "Parses the egress allow-list into lower-case host names; an entry may be a bare host or a URL."
+  @spec allowed_egress(String.t() | nil) :: [String.t()]
+  def allowed_egress(nil), do: []
+
+  def allowed_egress(raw) when is_binary(raw) do
+    raw
+    |> String.split(",", trim: true)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.flat_map(&egress_host/1)
+  end
+
+  defp egress_host(entry) do
+    url = if String.contains?(entry, "://"), do: entry, else: "https://" <> entry
+
+    case URI.parse(url) do
+      %URI{host: h} when is_binary(h) and h != "" -> [String.downcase(h)]
+      _ -> []
+    end
+  end
+
+  @doc """
+  Whether `host` may be fetched without asking under `profile`: always under `:default`; under
+  `:regulated`, when it is on the egress allow-list (exactly, or a subdomain of an entry written
+  with a leading dot, `.example.com`).
+  """
+  @spec allowed_egress?(t(), String.t()) :: boolean()
+  def allowed_egress?(:default, _host), do: true
+
+  def allowed_egress?(:regulated, host) when is_binary(host) do
+    host = String.downcase(host)
+
+    raw_egress()
+    |> allowed_entries()
+    |> Enum.any?(fn
+      "." <> suffix -> String.ends_with?(host, "." <> suffix)
+      entry -> host == entry
+    end)
+  end
+
+  defp allowed_entries(nil), do: []
+
+  defp allowed_entries(raw) do
+    raw
+    |> String.split(",", trim: true)
+    |> Enum.map(&String.trim/1)
+    |> Enum.flat_map(fn
+      "." <> _ = suffix -> [String.downcase(suffix)]
+      entry -> allowed_egress(entry)
+    end)
+  end
 
   @doc """
   AC1. Under `:regulated` the MCP authorization profile must be `:production`.

@@ -48,6 +48,8 @@ defmodule Trinity do
         # check, and the desktop seam (a boundary of its own under this one, as `Gateways` is).
         Secrets,
         Secrets.Keychain,
+        # Slice 135: the application runs the move at boot; the boot receipt names it.
+        Secrets.Migration,
         Settings,
         Setup,
         Desktop,
@@ -91,6 +93,9 @@ defmodule Trinity do
         # Slice 061: the MCP server reads the exported entries' definitions and runs calls
         # through the membrane's runner.
         Tools.Registry,
+        # Slice 135: the application asks it before any child, the Settings page before saving a
+        # folder.
+        Tools.FS.Guard,
         Effects.Runner,
         Permissions,
         Permissions.Approval,
