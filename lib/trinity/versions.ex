@@ -321,10 +321,17 @@ defmodule Trinity.Versions do
     },
     %{
       name: "nostrum",
-      pin: "~> 0.10",
-      lock: "nostrum",
+      pin: "not used (Slice 072 retargeted to Mattermost, 2026-10-07)",
+      lock: nil,
       note:
-        "Discord. ⚠️ No release in roughly 18 months. R11's trigger already fires. Check intents and components against the current gateway before Slice 072."
+        "Discord. Was the planned library for Slice 072, which the owner retargeted to Mattermost on 2026-10-07: Discord has no authorization path for a regulated deployment, and the work is dropped rather than deferred. The row stays so the decision is visible where a reader would look for the package."
+    },
+    %{
+      name: "websockex",
+      pin: "~> 0.5.1",
+      lock: "websockex",
+      note:
+        "The Mattermost gateway's connection to its server's WebSocket (`Trinity.Gateways.Mattermost.Socket`, Slice 072). Was transitive through req_llm and already in every release; direct since Slice 072 because a module of ours calls it. ⚠️ Its own default is `insecure: true` (`verify: :verify_none`); the socket always passes verifying `ssl_options` and never relies on the default."
     },
     %{
       name: "telegex",

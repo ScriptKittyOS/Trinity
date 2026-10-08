@@ -21,7 +21,7 @@ with adapter-specific `execute/1` guarded by `repo().__adapter__()`.
 | title | string | auto-generated after first turn |
 | persona_id | fk personas | |
 | parent_id | fk sessions, nullable | lineage across compactions (Slice 023) |
-| origin | string | "desktop" \| "telegram" \| "discord" \| "console" \| "cron" \| "subagent" \| "mcp" \| "a2a" |
+| origin | string | "desktop" \| "telegram" \| "mattermost" \| "console" \| "cron" \| "subagent" \| "mcp" \| "a2a" (slice 072: "mattermost" replaced "discord", a platform that was dropped and never had an adapter) |
 | origin_ref | map | platform ids (chat_id, channel_id) |
 | status | string | "active" \| "archived" \| "compacted" |
 | model | string | current model (may differ from persona default) |

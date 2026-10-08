@@ -18,6 +18,10 @@ defmodule Mix.Tasks.Trinity.Secrets.Scan do
     {"private key block", ~r/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/},
     # Slice 071: `<bot id>:AA<33 more>`, the shape BotFather issues.
     {"Telegram bot token", ~r/\b[0-9]{8,10}:AA[A-Za-z0-9_-]{33}\b/},
+    # Slice 072: a Mattermost token has the shape of every Mattermost id (26 lower-case letters and
+    # digits), so it is found where it is named, not by its shape alone.
+    {"Mattermost token assignment",
+     ~r/(?i)\b(?:MMAUTHTOKEN|mattermost[_-]?(?:bot[_-]?|command[_-]?)?token)\b\s*[:=]\s*["']?[a-z0-9]{26}\b/},
     {"generic long secret assignment",
      ~r/(?i)\b(?:api[_-]?key|secret[_-]?key|access[_-]?token)\b\s*[:=]\s*["'][A-Za-z0-9\/+_-]{24,}["']/}
   ]

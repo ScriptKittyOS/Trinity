@@ -25,18 +25,27 @@ defmodule Trinity.Scheduler.Delivery.Gateway do
   @impl true
   def deliver(%Run{} = run, %Task{deliver_to: destination} = task) do
     with {:ok, adapter} <- adapter(destination),
-         {:ok, conversation} <- fetch(destination, "conversation") do
-      send_summary(adapter, conversation, run, task)
+         {:ok, conversation} <- fetch(destination, "conversation"),
+         :ok <- send_summary(adapter, conversation, run, task) do
       mark(run)
     end
   end
 
+  # Slice 072: the adapter's answer is read. A platform adapter can be refused (a server down, a
+  # token revoked, a channel id that is not one), and a run marked delivered when nothing arrived
+  # is a silent drop with a timestamp on it. The first refusal stops the delivery and is the
+  # answer; the run keeps its undelivered state for the page to show.
   defp send_summary(adapter, conversation, run, task) do
     text = "#{task.name}: #{run.summary || "(no summary)"}"
 
-    for chunk <- adapter.format(text, adapter.capabilities()) do
-      adapter.deliver(conversation, {:message, chunk})
-    end
+    text
+    |> adapter.format(adapter.capabilities())
+    |> Enum.reduce_while(:ok, fn chunk, :ok ->
+      case adapter.deliver(conversation, {:message, chunk}) do
+        {:error, reason} -> {:halt, {:error, {:not_delivered, reason}}}
+        _ok -> {:cont, :ok}
+      end
+    end)
   end
 
   defp mark(run) do

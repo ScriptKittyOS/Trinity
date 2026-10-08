@@ -136,6 +136,10 @@ enforces it.
   a bot that answers in private chats and in groups where it is mentioned, streams its reply by
   editing one message, offers approvals as buttons (within the same cap), and passes a photo to a
   model that can see. Set `TELEGRAM_BOT_TOKEN` and `TRINITY_GATEWAYS=telegram` to turn it on.
+  A Mattermost adapter ships too, for a server the operator names: direct messages and channel
+  mentions, replies streamed by editing one post, approvals answered in an interactive dialog
+  (within the same cap), a `/trinity` slash command, and scheduled results delivered to a channel.
+  Set `MATTERMOST_URL`, `MATTERMOST_BOT_TOKEN` and `TRINITY_GATEWAYS=mattermost` to turn it on.
 - **Delegates.** The assistant can hand a bounded piece of work to a child session with a
   `delegate` tool: its own context, its own history, and a result handed back as text. The
   parent's conversation never contains the child's messages, which is the point:
@@ -174,9 +178,9 @@ enforces it.
   curator that marks old memories stale and archives the untouched ones (never deleting)
   run on the same queues; `/oban` shows the jobs.
 
-Not there yet: the second messaging platform (072), the native desktop shell and signed releases
-(the rest of M6), store-and-forward receipts for disconnected operation (026, waiting on an answer
-from the external authority plane). The [Milestones](#milestones) section below sets out the order the remaining work
+Not there yet: the native desktop shell and signed releases (the rest of M6),
+store-and-forward receipts for disconnected operation (026, waiting on an answer from the external
+authority plane). The [Milestones](#milestones) section below sets out the order the remaining work
 is being built in.
 
 The interface is a local web page; the desktop shell exists as a packaging spike, not a product.
@@ -191,7 +195,7 @@ Those are failures of the substrate, not of the product. The BEAM was built to r
 of failure, so on it these properties can be structural rather than aspirational:
 
 - A crash in one session, tool or gateway never affects another and never loses persisted state.
-- One agent, seen on the desktop, in Telegram and in Discord at the same time, in real time.
+- One agent, seen on the desktop, in Telegram and in Mattermost at the same time, in real time.
 - Memory in tiers: a small always-on set of facts plus unlimited retrievable history.
 - Every side-effecting action passes a permission gate, and dangerous ones need explicit approval.
 - Any model or provider, cloud or local, switched by configuration.

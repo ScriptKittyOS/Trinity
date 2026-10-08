@@ -1,0 +1,113 @@
+{
+  "_about": "Recorded from a throwaway Mattermost Team Edition 11.11.1 server (mattermost/mattermost-preview pinned by digest in slice 072's proof) on 2026-10-08. Frames are the server's text frames to the bot's WebSocket, byte for byte and in arrival order; the second list is a later capture of a system post. The REST bodies are the server's answers to the bot. Every account, team and token was created for the capture and deleted with the server; no credential appears here.",
+  "frames": [
+    "{\"event\":\"hello\",\"data\":{\"connection_id\":\"cm57pzd7xfrk3rhj8iaujc85da\",\"server_hostname\":\"26170425a35e\",\"server_version\":\"11.11.1.35958890150.28b84ae09199518c7c3fe29aed8bc8d26078084ad73d1caa1586f6ed3a8b5f08.false\"},\"broadcast\":{\"omit_users\":null,\"user_id\":\"e1ebrnrgupbh3jynty5wi5qwcr\",\"channel_id\":\"\",\"team_id\":\"\",\"connection_id\":\"\",\"omit_connection_id\":\"\"},\"seq\":0}",
+    "{\"status\":\"OK\",\"seq_reply\":1}",
+    "{\"event\": \"status_change\", \"data\": {\"status\":\"online\",\"user_id\":\"e1ebrnrgupbh3jynty5wi5qwcr\"}, \"broadcast\": {\"omit_users\":null,\"user_id\":\"e1ebrnrgupbh3jynty5wi5qwcr\",\"channel_id\":\"\",\"team_id\":\"\",\"connection_id\":\"\",\"omit_connection_id\":\"\"}, \"seq\": 1}",
+    "{\"event\": \"direct_added\", \"data\": {\"creator_id\":\"yuadbo77878m8myazrtkfyi5pw\",\"teammate_id\":\"e1ebrnrgupbh3jynty5wi5qwcr\"}, \"broadcast\": {\"omit_users\":null,\"user_id\":\"\",\"channel_id\":\"rebfe39yetygpyn11ma3gbairy\",\"team_id\":\"\",\"connection_id\":\"\",\"omit_connection_id\":\"\"}, \"seq\": 2}",
+    "{\"event\":\"posted\",\"data\":{\"channel_display_name\":\"@tester\",\"channel_name\":\"e1ebrnrgupbh3jynty5wi5qwcr__yuadbo77878m8myazrtkfyi5pw\",\"channel_type\":\"D\",\"mentions\":\"[\\\"e1ebrnrgupbh3jynty5wi5qwcr\\\"]\",\"post\":\"{\\\"id\\\":\\\"ky337kc5c3rsipgxr6p16xuxrr\\\",\\\"create_at\\\":1791446993334,\\\"update_at\\\":1791446993334,\\\"edit_at\\\":0,\\\"delete_at\\\":0,\\\"is_pinned\\\":false,\\\"user_id\\\":\\\"yuadbo77878m8myazrtkfyi5pw\\\",\\\"channel_id\\\":\\\"rebfe39yetygpyn11ma3gbairy\\\",\\\"root_id\\\":\\\"\\\",\\\"original_id\\\":\\\"\\\",\\\"message\\\":\\\"hello from a direct message\\\",\\\"type\\\":\\\"\\\",\\\"props\\\":{},\\\"hashtags\\\":\\\"\\\",\\\"file_ids\\\":[],\\\"pending_post_id\\\":\\\"\\\",\\\"remote_id\\\":\\\"\\\",\\\"reply_count\\\":0,\\\"last_reply_at\\\":0,\\\"participants\\\":null,\\\"metadata\\\":{}}\",\"sender_name\":\"@tester\",\"set_online\":true,\"team_id\":\"\"},\"broadcast\":{\"omit_users\":null,\"user_id\":\"\",\"channel_id\":\"rebfe39yetygpyn11ma3gbairy\",\"team_id\":\"\",\"connection_id\":\"\",\"omit_connection_id\":\"\"},\"seq\":3}",
+    "{\"event\":\"posted\",\"data\":{\"channel_display_name\":\"@tester\",\"channel_name\":\"e1ebrnrgupbh3jynty5wi5qwcr__yuadbo77878m8myazrtkfyi5pw\",\"channel_type\":\"D\",\"followers\":\"[\\\"e1ebrnrgupbh3jynty5wi5qwcr\\\"]\",\"mentions\":\"[\\\"e1ebrnrgupbh3jynty5wi5qwcr\\\"]\",\"post\":\"{\\\"id\\\":\\\"k8nueuesmpfd3qsaphjng855zh\\\",\\\"create_at\\\":1791446993840,\\\"update_at\\\":1791446993840,\\\"edit_at\\\":0,\\\"delete_at\\\":0,\\\"is_pinned\\\":false,\\\"user_id\\\":\\\"yuadbo77878m8myazrtkfyi5pw\\\",\\\"channel_id\\\":\\\"rebfe39yetygpyn11ma3gbairy\\\",\\\"root_id\\\":\\\"ky337kc5c3rsipgxr6p16xuxrr\\\",\\\"original_id\\\":\\\"\\\",\\\"message\\\":\\\"a reply inside a DM thread\\\",\\\"type\\\":\\\"\\\",\\\"props\\\":{},\\\"hashtags\\\":\\\"\\\",\\\"file_ids\\\":[],\\\"pending_post_id\\\":\\\"\\\",\\\"remote_id\\\":\\\"\\\",\\\"reply_count\\\":1,\\\"last_reply_at\\\":0,\\\"participants\\\":null,\\\"metadata\\\":{}}\",\"sender_name\":\"@tester\",\"set_online\":true,\"team_id\":\"\"},\"broadcast\":{\"omit_users\":null,\"user_id\":\"\",\"channel_id\":\"rebfe39yetygpyn11ma3gbairy\",\"team_id\":\"\",\"connection_id\":\"\",\"omit_connection_id\":\"\"},\"seq\":4}",
+    "{\"event\": \"thread_updated\", \"data\": {\"previous_unread_mentions\":0,\"previous_unread_replies\":0,\"thread\":\"{\\\"id\\\":\\\"ky337kc5c3rsipgxr6p16xuxrr\\\",\\\"reply_count\\\":1,\\\"last_reply_at\\\":1791446993840,\\\"last_viewed_at\\\":0,\\\"participants\\\":[{\\\"id\\\":\\\"yuadbo77878m8myazrtkfyi5pw\\\",\\\"create_at\\\":1791446964099,\\\"update_at\\\":1791446993327,\\\"delete_at\\\":0,\\\"username\\\":\\\"tester\\\",\\\"auth_data\\\":\\\"\\\",\\\"auth_service\\\":\\\"\\\",\\\"email\\\":\\\"tester@example.test\\\",\\\"nickname\\\":\\\"\\\",\\\"first_name\\\":\\\"Test\\\",\\\"last_name\\\":\\\"Operator\\\",\\\"position\\\":\\\"\\\",\\\"roles\\\":\\\"system_user\\\",\\\"locale\\\":\\\"en\\\",\\\"timezone\\\":{\\\"automaticTimezone\\\":\\\"\\\",\\\"manualTimezone\\\":\\\"\\\",\\\"useAutomaticTimezone\\\":\\\"true\\\"},\\\"remote_id\\\":\\\"\\\",\\\"disable_welcome_email\\\":false}],\\\"post\\\":{\\\"id\\\":\\\"ky337kc5c3rsipgxr6p16xuxrr\\\",\\\"create_at\\\":1791446993334,\\\"update_at\\\":1791446993840,\\\"edit_at\\\":0,\\\"delete_at\\\":0,\\\"is_pinned\\\":false,\\\"user_id\\\":\\\"yuadbo77878m8myazrtkfyi5pw\\\",\\\"channel_id\\\":\\\"rebfe39yetygpyn11ma3gbairy\\\",\\\"root_id\\\":\\\"\\\",\\\"original_id\\\":\\\"\\\",\\\"message\\\":\\\"hello from a direct message\\\",\\\"type\\\":\\\"\\\",\\\"props\\\":{},\\\"hashtags\\\":\\\"\\\",\\\"file_ids\\\":[],\\\"pending_post_id\\\":\\\"\\\",\\\"remote_id\\\":\\\"\\\",\\\"reply_count\\\":0,\\\"last_reply_at\\\":0,\\\"participants\\\":null},\\\"unread_replies\\\":1,\\\"unread_mentions\\\":1,\\\"is_urgent\\\":false,\\\"delete_at\\\":0}\"}, \"broadcast\": {\"omit_users\":null,\"user_id\":\"e1ebrnrgupbh3jynty5wi5qwcr\",\"channel_id\":\"\",\"team_id\":\"\",\"connection_id\":\"\",\"omit_connection_id\":\"\"}, \"seq\": 5}",
+    "{\"event\":\"posted\",\"data\":{\"channel_display_name\":\"ops\",\"channel_name\":\"ops\",\"channel_type\":\"O\",\"mentions\":\"[\\\"e1ebrnrgupbh3jynty5wi5qwcr\\\"]\",\"post\":\"{\\\"id\\\":\\\"6dmyi373n38txc4shos1j6qzse\\\",\\\"create_at\\\":1791446994352,\\\"update_at\\\":1791446994352,\\\"edit_at\\\":0,\\\"delete_at\\\":0,\\\"is_pinned\\\":false,\\\"user_id\\\":\\\"yuadbo77878m8myazrtkfyi5pw\\\",\\\"channel_id\\\":\\\"pxejam7xm3njbrsuo4zh6d897w\\\",\\\"root_id\\\":\\\"\\\",\\\"original_id\\\":\\\"\\\",\\\"message\\\":\\\"@trinity what is on the list today?\\\",\\\"type\\\":\\\"\\\",\\\"props\\\":{},\\\"hashtags\\\":\\\"\\\",\\\"file_ids\\\":[],\\\"pending_post_id\\\":\\\"\\\",\\\"remote_id\\\":\\\"\\\",\\\"reply_count\\\":0,\\\"last_reply_at\\\":0,\\\"participants\\\":null,\\\"metadata\\\":{}}\",\"sender_name\":\"@tester\",\"set_online\":true,\"team_id\":\"1pedc3q4ppdc8ext5xgwaunsgh\"},\"broadcast\":{\"omit_users\":null,\"user_id\":\"\",\"channel_id\":\"pxejam7xm3njbrsuo4zh6d897w\",\"team_id\":\"\",\"connection_id\":\"\",\"omit_connection_id\":\"\"},\"seq\":6}",
+    "{\"event\": \"posted\", \"data\": {\"channel_display_name\":\"ops\",\"channel_name\":\"ops\",\"channel_type\":\"O\",\"post\":\"{\\\"id\\\":\\\"onafwng5b7nbtxjk8tborpc84e\\\",\\\"create_at\\\":1791446994864,\\\"update_at\\\":1791446994864,\\\"edit_at\\\":0,\\\"delete_at\\\":0,\\\"is_pinned\\\":false,\\\"user_id\\\":\\\"yuadbo77878m8myazrtkfyi5pw\\\",\\\"channel_id\\\":\\\"pxejam7xm3njbrsuo4zh6d897w\\\",\\\"root_id\\\":\\\"6dmyi373n38txc4shos1j6qzse\\\",\\\"original_id\\\":\\\"\\\",\\\"message\\\":\\\"and tomorrow?\\\",\\\"type\\\":\\\"\\\",\\\"props\\\":{},\\\"hashtags\\\":\\\"\\\",\\\"file_ids\\\":[],\\\"pending_post_id\\\":\\\"\\\",\\\"remote_id\\\":\\\"\\\",\\\"reply_count\\\":1,\\\"last_reply_at\\\":0,\\\"participants\\\":null,\\\"metadata\\\":{}}\",\"sender_name\":\"@tester\",\"set_online\":true,\"team_id\":\"1pedc3q4ppdc8ext5xgwaunsgh\"}, \"broadcast\": {\"omit_users\":null,\"user_id\":\"\",\"channel_id\":\"pxejam7xm3njbrsuo4zh6d897w\",\"team_id\":\"\",\"connection_id\":\"\",\"omit_connection_id\":\"\"}, \"seq\": 7}",
+    "{\"event\": \"thread_updated\", \"data\": {\"previous_unread_mentions\":0,\"previous_unread_replies\":0,\"thread\":\"{\\\"id\\\":\\\"6dmyi373n38txc4shos1j6qzse\\\",\\\"reply_count\\\":1,\\\"last_reply_at\\\":1791446994864,\\\"last_viewed_at\\\":0,\\\"participants\\\":[{\\\"id\\\":\\\"yuadbo77878m8myazrtkfyi5pw\\\",\\\"create_at\\\":1791446964099,\\\"update_at\\\":1791446993327,\\\"delete_at\\\":0,\\\"username\\\":\\\"tester\\\",\\\"auth_data\\\":\\\"\\\",\\\"auth_service\\\":\\\"\\\",\\\"email\\\":\\\"tester@example.test\\\",\\\"nickname\\\":\\\"\\\",\\\"first_name\\\":\\\"Test\\\",\\\"last_name\\\":\\\"Operator\\\",\\\"position\\\":\\\"\\\",\\\"roles\\\":\\\"system_user\\\",\\\"locale\\\":\\\"en\\\",\\\"timezone\\\":{\\\"automaticTimezone\\\":\\\"\\\",\\\"manualTimezone\\\":\\\"\\\",\\\"useAutomaticTimezone\\\":\\\"true\\\"},\\\"remote_id\\\":\\\"\\\",\\\"disable_welcome_email\\\":false}],\\\"post\\\":{\\\"id\\\":\\\"6dmyi373n38txc4shos1j6qzse\\\",\\\"create_at\\\":1791446994352,\\\"update_at\\\":1791446994864,\\\"edit_at\\\":0,\\\"delete_at\\\":0,\\\"is_pinned\\\":false,\\\"user_id\\\":\\\"yuadbo77878m8myazrtkfyi5pw\\\",\\\"channel_id\\\":\\\"pxejam7xm3njbrsuo4zh6d897w\\\",\\\"root_id\\\":\\\"\\\",\\\"original_id\\\":\\\"\\\",\\\"message\\\":\\\"@trinity what is on the list today?\\\",\\\"type\\\":\\\"\\\",\\\"props\\\":{},\\\"hashtags\\\":\\\"\\\",\\\"file_ids\\\":[],\\\"pending_post_id\\\":\\\"\\\",\\\"remote_id\\\":\\\"\\\",\\\"reply_count\\\":0,\\\"last_reply_at\\\":0,\\\"participants\\\":null},\\\"unread_replies\\\":1,\\\"unread_mentions\\\":0,\\\"is_urgent\\\":false,\\\"delete_at\\\":0}\"}, \"broadcast\": {\"omit_users\":null,\"user_id\":\"e1ebrnrgupbh3jynty5wi5qwcr\",\"channel_id\":\"\",\"team_id\":\"1pedc3q4ppdc8ext5xgwaunsgh\",\"connection_id\":\"\",\"omit_connection_id\":\"\"}, \"seq\": 8}",
+    "{\"event\": \"posted\", \"data\": {\"channel_display_name\":\"ops\",\"channel_name\":\"ops\",\"channel_type\":\"O\",\"post\":\"{\\\"id\\\":\\\"j3iy6w138jbrxyjt4guccf9tpc\\\",\\\"create_at\\\":1791446995375,\\\"update_at\\\":1791446995375,\\\"edit_at\\\":0,\\\"delete_at\\\":0,\\\"is_pinned\\\":false,\\\"user_id\\\":\\\"yuadbo77878m8myazrtkfyi5pw\\\",\\\"channel_id\\\":\\\"pxejam7xm3njbrsuo4zh6d897w\\\",\\\"root_id\\\":\\\"\\\",\\\"original_id\\\":\\\"\\\",\\\"message\\\":\\\"people talking among themselves\\\",\\\"type\\\":\\\"\\\",\\\"props\\\":{},\\\"hashtags\\\":\\\"\\\",\\\"file_ids\\\":[],\\\"pending_post_id\\\":\\\"\\\",\\\"remote_id\\\":\\\"\\\",\\\"reply_count\\\":0,\\\"last_reply_at\\\":0,\\\"participants\\\":null,\\\"metadata\\\":{}}\",\"sender_name\":\"@tester\",\"set_online\":true,\"team_id\":\"1pedc3q4ppdc8ext5xgwaunsgh\"}, \"broadcast\": {\"omit_users\":null,\"user_id\":\"\",\"channel_id\":\"pxejam7xm3njbrsuo4zh6d897w\",\"team_id\":\"\",\"connection_id\":\"\",\"omit_connection_id\":\"\"}, \"seq\": 9}",
+    "{\"event\":\"posted\",\"data\":{\"channel_display_name\":\"@tester\",\"channel_name\":\"e1ebrnrgupbh3jynty5wi5qwcr__yuadbo77878m8myazrtkfyi5pw\",\"channel_type\":\"D\",\"mentions\":\"[\\\"e1ebrnrgupbh3jynty5wi5qwcr\\\"]\",\"otherFile\":\"true\",\"post\":\"{\\\"id\\\":\\\"psyny8jiw3dqdr8dzhjm37gegy\\\",\\\"create_at\\\":1791446995912,\\\"update_at\\\":1791446995912,\\\"edit_at\\\":0,\\\"delete_at\\\":0,\\\"is_pinned\\\":false,\\\"user_id\\\":\\\"yuadbo77878m8myazrtkfyi5pw\\\",\\\"channel_id\\\":\\\"rebfe39yetygpyn11ma3gbairy\\\",\\\"root_id\\\":\\\"\\\",\\\"original_id\\\":\\\"\\\",\\\"message\\\":\\\"here is a file\\\",\\\"type\\\":\\\"\\\",\\\"props\\\":{},\\\"hashtags\\\":\\\"\\\",\\\"file_ids\\\":[\\\"mwrcx9pdu3n68cz5sm4uiky3jh\\\"],\\\"pending_post_id\\\":\\\"\\\",\\\"remote_id\\\":\\\"\\\",\\\"reply_count\\\":0,\\\"last_reply_at\\\":0,\\\"participants\\\":null,\\\"metadata\\\":{\\\"files\\\":[{\\\"id\\\":\\\"mwrcx9pdu3n68cz5sm4uiky3jh\\\",\\\"user_id\\\":\\\"yuadbo77878m8myazrtkfyi5pw\\\",\\\"post_id\\\":\\\"psyny8jiw3dqdr8dzhjm37gegy\\\",\\\"channel_id\\\":\\\"rebfe39yetygpyn11ma3gbairy\\\",\\\"create_at\\\":1791446995895,\\\"update_at\\\":1791446995895,\\\"delete_at\\\":0,\\\"name\\\":\\\"notes.txt\\\",\\\"extension\\\":\\\"txt\\\",\\\"size\\\":10,\\\"mime_type\\\":\\\"text/plain; charset=utf-8\\\",\\\"mini_preview\\\":null,\\\"remote_id\\\":\\\"\\\",\\\"archived\\\":false}]}}\",\"sender_name\":\"@tester\",\"set_online\":true,\"team_id\":\"\"},\"broadcast\":{\"omit_users\":null,\"user_id\":\"\",\"channel_id\":\"rebfe39yetygpyn11ma3gbairy\",\"team_id\":\"\",\"connection_id\":\"\",\"omit_connection_id\":\"\"},\"seq\":10}",
+    "{\"event\": \"posted\", \"data\": {\"channel_display_name\":\"@trinity\",\"channel_name\":\"e1ebrnrgupbh3jynty5wi5qwcr__yuadbo77878m8myazrtkfyi5pw\",\"channel_type\":\"D\",\"post\":\"{\\\"id\\\":\\\"jrhkkj65hibt3fespfdprjuc3c\\\",\\\"create_at\\\":1791446996421,\\\"update_at\\\":1791446996421,\\\"edit_at\\\":0,\\\"delete_at\\\":0,\\\"is_pinned\\\":false,\\\"user_id\\\":\\\"e1ebrnrgupbh3jynty5wi5qwcr\\\",\\\"channel_id\\\":\\\"rebfe39yetygpyn11ma3gbairy\\\",\\\"root_id\\\":\\\"\\\",\\\"original_id\\\":\\\"\\\",\\\"message\\\":\\\"partial\\\",\\\"type\\\":\\\"\\\",\\\"props\\\":{\\\"from_bot\\\":\\\"true\\\"},\\\"hashtags\\\":\\\"\\\",\\\"file_ids\\\":[],\\\"pending_post_id\\\":\\\"\\\",\\\"remote_id\\\":\\\"\\\",\\\"reply_count\\\":0,\\\"last_reply_at\\\":0,\\\"participants\\\":null,\\\"metadata\\\":{}}\",\"sender_name\":\"@trinity\",\"set_online\":true,\"team_id\":\"\"}, \"broadcast\": {\"omit_users\":null,\"user_id\":\"\",\"channel_id\":\"rebfe39yetygpyn11ma3gbairy\",\"team_id\":\"\",\"connection_id\":\"\",\"omit_connection_id\":\"\"}, \"seq\": 11}",
+    "{\"event\": \"post_edited\", \"data\": {\"post\":\"{\\\"id\\\":\\\"jrhkkj65hibt3fespfdprjuc3c\\\",\\\"create_at\\\":1791446996421,\\\"update_at\\\":1791446996743,\\\"edit_at\\\":1791446996742,\\\"delete_at\\\":0,\\\"is_pinned\\\":false,\\\"user_id\\\":\\\"e1ebrnrgupbh3jynty5wi5qwcr\\\",\\\"channel_id\\\":\\\"rebfe39yetygpyn11ma3gbairy\\\",\\\"root_id\\\":\\\"\\\",\\\"original_id\\\":\\\"\\\",\\\"message\\\":\\\"partial, then whole\\\",\\\"type\\\":\\\"\\\",\\\"props\\\":{\\\"from_bot\\\":\\\"true\\\"},\\\"hashtags\\\":\\\"\\\",\\\"file_ids\\\":[],\\\"pending_post_id\\\":\\\"\\\",\\\"reply_count\\\":0,\\\"last_reply_at\\\":0,\\\"participants\\\":null,\\\"metadata\\\":{}}\"}, \"broadcast\": {\"omit_users\":null,\"user_id\":\"\",\"channel_id\":\"rebfe39yetygpyn11ma3gbairy\",\"team_id\":\"\",\"connection_id\":\"\",\"omit_connection_id\":\"\"}, \"seq\": 12}"
+  ],
+  "system_frames": [
+    "{\"event\": \"posted\", \"data\": {\"channel_display_name\":\"ops\",\"channel_name\":\"ops\",\"channel_type\":\"O\",\"post\":\"{\\\"id\\\":\\\"gh7ciuy5upbw5kptnhkpepr5xo\\\",\\\"create_at\\\":1791447061724,\\\"update_at\\\":1791447061724,\\\"edit_at\\\":0,\\\"delete_at\\\":0,\\\"is_pinned\\\":false,\\\"user_id\\\":\\\"yuadbo77878m8myazrtkfyi5pw\\\",\\\"channel_id\\\":\\\"pxejam7xm3njbrsuo4zh6d897w\\\",\\\"root_id\\\":\\\"\\\",\\\"original_id\\\":\\\"\\\",\\\"message\\\":\\\"tester updated the channel header to: Where Trinity is tested\\\",\\\"type\\\":\\\"system_header_change\\\",\\\"props\\\":{\\\"new_header\\\":\\\"Where Trinity is tested\\\",\\\"old_header\\\":\\\"\\\",\\\"username\\\":\\\"tester\\\"},\\\"hashtags\\\":\\\"\\\",\\\"file_ids\\\":[],\\\"pending_post_id\\\":\\\"\\\",\\\"reply_count\\\":0,\\\"last_reply_at\\\":0,\\\"participants\\\":null,\\\"metadata\\\":{}}\",\"sender_name\":\"System\",\"set_online\":true,\"team_id\":\"1pedc3q4ppdc8ext5xgwaunsgh\"}, \"broadcast\": {\"omit_users\":null,\"user_id\":\"\",\"channel_id\":\"pxejam7xm3njbrsuo4zh6d897w\",\"team_id\":\"\",\"connection_id\":\"\",\"omit_connection_id\":\"\"}, \"seq\": 3}"
+  ],
+  "rest": {
+    "users_me": {
+      "id": "e1ebrnrgupbh3jynty5wi5qwcr",
+      "create_at": 1791446964188,
+      "update_at": 1791446964197,
+      "delete_at": 0,
+      "username": "trinity",
+      "auth_service": "",
+      "email": "trinity@localhost",
+      "nickname": "",
+      "first_name": "Trinity",
+      "last_name": "",
+      "position": "",
+      "roles": "system_user",
+      "notify_props": {
+        "channel": "true",
+        "channel_mention_auto_follow_threads": "true",
+        "comments": "never",
+        "desktop": "mention",
+        "desktop_sound": "true",
+        "desktop_threads": "all",
+        "email": "true",
+        "email_threads": "all",
+        "first_name": "false",
+        "mention_keys": "",
+        "push": "mention",
+        "push_status": "online",
+        "push_threads": "all"
+      },
+      "last_password_update": 1791446964188,
+      "locale": "en",
+      "timezone": {
+        "automaticTimezone": "",
+        "manualTimezone": "",
+        "useAutomaticTimezone": "true"
+      },
+      "is_bot": true,
+      "bot_description": "throwaway test bot",
+      "disable_welcome_email": false
+    },
+    "create_post": {
+      "id": "jrhkkj65hibt3fespfdprjuc3c",
+      "create_at": 1791446996421,
+      "update_at": 1791446996421,
+      "edit_at": 0,
+      "delete_at": 0,
+      "is_pinned": false,
+      "user_id": "e1ebrnrgupbh3jynty5wi5qwcr",
+      "channel_id": "rebfe39yetygpyn11ma3gbairy",
+      "root_id": "",
+      "original_id": "",
+      "message": "partial",
+      "type": "",
+      "props": {
+        "from_bot": "true"
+      },
+      "hashtags": "",
+      "file_ids": [],
+      "pending_post_id": "",
+      "remote_id": "",
+      "reply_count": 0,
+      "last_reply_at": 0,
+      "participants": null,
+      "metadata": {}
+    },
+    "patch_post": {
+      "id": "jrhkkj65hibt3fespfdprjuc3c",
+      "create_at": 1791446996421,
+      "update_at": 1791446996743,
+      "edit_at": 1791446996742,
+      "delete_at": 0,
+      "is_pinned": false,
+      "user_id": "e1ebrnrgupbh3jynty5wi5qwcr",
+      "channel_id": "rebfe39yetygpyn11ma3gbairy",
+      "root_id": "",
+      "original_id": "",
+      "message": "partial, then whole",
+      "type": "",
+      "props": {
+        "from_bot": "true"
+      },
+      "hashtags": "",
+      "file_ids": [],
+      "pending_post_id": "",
+      "reply_count": 0,
+      "last_reply_at": 0,
+      "participants": null,
+      "metadata": {}
+    },
+    "client_config_MaxPostSize": "16383"
+  }
+}

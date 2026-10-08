@@ -234,6 +234,12 @@ config :logger, :default_formatter,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# Slice 072: request parameters whose names contain these are logged as [FILTERED]. Phoenix's
+# default is "password" alone, and a Mattermost slash command arrives with its verification token
+# in a parameter called `token` (and an action's signed context under `context.token`), and with a
+# `response_url` that lets whoever holds it post into the channel for a time after the command.
+config :phoenix, :filter_parameters, ["password", "token", "secret", "response_url"]
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"
@@ -246,4 +252,5 @@ config :trinity, :deliveries, %{"gateway" => Trinity.Scheduler.Delivery.Gateway}
 # `config :trinity, :gateways, adapters: [...]` names modules, and `TRINITY_GATEWAYS`
 # (config/runtime.exs) names adapters from this list by their name ("telegram", "console"), so an
 # environment variable never mints an atom. A new platform is a module and a line here.
-config :trinity, :gateways, available: [Trinity.Gateways.Console, Trinity.Gateways.Telegram]
+config :trinity, :gateways,
+  available: [Trinity.Gateways.Console, Trinity.Gateways.Telegram, Trinity.Gateways.Mattermost]

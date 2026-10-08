@@ -365,6 +365,50 @@ regulated effect.
 - **Not built:** webhook mode (an inbound HTTPS route whose only credential is a header, worth a
   review of its own), sending images, voice notes and stickers.
 
+### Mattermost (Slice 072, as built)
+
+The second platform adapter. Nothing above changes for it: it carries text to the router, the cap
+applies to it with the default ceiling (`:write`), and `test/trinity/gateways/census_test.exs`
+reads every adapter's compiled calls and fails if one reaches the LLM, a session, the gate, an
+effect or a tool. What is particular to it:
+
+- **Which way the network goes.** Messages arrive over the server's WebSocket, which Trinity
+  opens. The server reaches Trinity only for the interactive controls (the approval dialog and
+  the `/trinity` slash command), and only when the operator sets a callback URL; without one the
+  adapter offers no control and approvals are answered by command.
+- **A callback proves where it came from, or nothing in it is read.** The "Answer" button's
+  context is an HMAC-SHA-256 over the answers it offers, the conversation and an expiry, under a key
+  generated at adapter start and kept only in memory. The dialog it opens carries a second HMAC,
+  under a separately derived key, binding the person who pressed the button, the conversation, a
+  ten-minute expiry and a nonce spent on first use. The slash command is compared in constant time
+  with the command token the server issued (`MATTERMOST_COMMAND_TOKEN`). Anything else answers
+  403 before a field is read.
+- **A dialog decides nothing.** It offers the post's buttons (071's shape: a label and the command
+  a press sends, `/approve <id>` with the full id), and the one chosen is handed to the router as
+  that command, from that person, in that conversation; the commands live in the signed state and
+  are never sent to the client. Pairing, the rate
+  limit, the cap and `Trinity.Permissions.decide_request/3` see it exactly as they see a typed
+  command, so an `:exec` or `:destructive` request answered from a dialog is refused and receipted
+  like any other. The router offers a control only where the cap would allow the answer; the cap
+  is still enforced where it always was.
+- **The token** is read through `Trinity.Config.secret/1` each time a request or a connection is
+  built. The socket keeps it in its connection for the life of that connection, which is what
+  lets the server resume a dropped connection and replay what was missed (measured; slice 072
+  NOTES D11). No log line carries it, tested on every error path with SASL reports turned on.
+  `token` and `response_url` are filtered from the request log.
+- **TLS** to the server is verified (OTP's trust store or a configured CA bundle, hostname
+  checked, TLS 1.2 at least). The WebSocket library's own default does not verify, and is not used.
+- **Under `TRINITY_PROFILE=regulated`** the adapter must be named on `TRINITY_REGULATED_GATEWAYS`
+  or the node refuses to boot, asserted for this adapter in a spawned boot
+  (`test/trinity/gateways/mattermost/regulated_boot_test.exs`). Naming it makes the channel
+  allowed on this node; it says nothing about whether the server it talks to is authorized, which
+  is the operator's statement to make.
+
+Egress, enumerated: to the server Trinity named, the assistant's replies and approval renderings
+(tool name, risk and up to forty characters of each argument), the scheduled-run summaries, and
+the bot token as a bearer credential. Nothing is hashed; it is the conversation itself, sent to
+the server the conversation is on.
+
 ## Effects and receipts (Slice 024, as built)
 
 The runner in force is `Trinity.Effects.Runner`. For every validated call it asks the gate once and writes a

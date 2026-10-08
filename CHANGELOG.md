@@ -22,6 +22,32 @@ evidence for each increment is retained by the maintainers and summarised here.
   tree, engineering rules consolidated into `docs/03-conventions.md`, and this changelog added as
   the public record of delivered work.
 
+## 2026-10-08
+
+### `slice/072`: Trinity answers in Mattermost
+
+The second messaging platform, after Telegram. A Mattermost adapter for a server the operator names: direct
+messages and channel mentions are answered, each thread its own conversation, and the reply
+streams into one post that is edited as the words arrive. An approval raised during the turn is
+posted with a button that opens an interactive dialog; the answer goes back through the same
+router, pairing check, rate limit and channel cap as a typed command, so a request above what a
+channel may approve is refused there and receipted. A `/trinity` slash command carries the
+commands, and the scheduler can deliver a task's result to a channel. Posts are cut to the size
+the server says it accepts, counted the way the server counts.
+
+Trinity opens the connection; the server is not assumed to be reachable from anywhere, and it only
+calls back for the dialog and the slash command, when the operator gives it an address to call.
+Every callback carries proof of where it came from or is refused unread. The bot token is read
+when it is used and appears in no log line, checked on every failure path including a crash.
+A node under the regulated profile refuses to start with the adapter configured unless it is named
+on the gateway allow-list. Choosing Mattermost makes the channel authorizable; whether a given
+deployment is authorized remains the operator's statement.
+
+Along the way: a scheduled delivery the platform refused is no longer recorded as delivered, and
+the session origin vocabulary names Mattermost in place of the dropped Discord slot.
+
+Verified: gate green at exit 0; 1,065 tests passing (24 properties); coverage 80.49%.
+
 ### `slice/071`: Trinity answers on Telegram
 
 A Telegram bot is now a channel Trinity can be reached from, alongside the console. It answers in
