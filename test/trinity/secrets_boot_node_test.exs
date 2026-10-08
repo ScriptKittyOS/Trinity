@@ -148,15 +148,20 @@ defmodule Trinity.SecretsBootNodeTest do
       r = Application.get_env(:trinity, :receipts, [])
       Application.put_env(:trinity, :receipts, Keyword.put(r, :keys_dir, #{inspect(Path.join(data, "keys"))}))
       {:ok, _} = Application.ensure_all_started(:trinity)
-      %{key_id: kid} = Trinity.Receipts.KeyCustody.selected()
+      %{key_id: kid, key_path: path} = Trinity.Receipts.KeyCustody.selected()
       IO.puts("OLD_KEY " <> kid)
+      IO.puts("OLD_PATH " <> path)
       IO.puts("OLD_COUNT " <> Integer.to_string(Trinity.Receipts.count("boot")))
       System.halt(0)
       """
 
       {out, 0} = boot(env, old)
       [_, old_kid] = Regex.run(~r/OLD_KEY (\S+)/, out)
-      assert File.regular?(Path.join([data, "keys", "receipts-ed25519.key"])), out
+      # The file is named for the signing algorithm, which is Ed25519 off the FIPS leg and P-384
+      # on it (`KeyCustody.select/0`), so the path is the signer's own answer, not a literal.
+      [_, old_path] = Regex.run(~r/OLD_PATH (\S+)/, out)
+      assert Path.dirname(old_path) == Path.join(data, "keys")
+      assert File.regular?(old_path), out
 
       # The same data directory, booted with nothing pinned, as a release would.
       new = """
@@ -182,7 +187,7 @@ defmodule Trinity.SecretsBootNodeTest do
 
       assert new_kid == old_kid, "the key was replaced rather than moved"
       assert Path.dirname(new_path) == Path.join(secrets, "keys")
-      refute File.exists?(Path.join([data, "keys", "receipts-ed25519.key"]))
+      refute File.exists?(old_path)
       assert {:ok, %{mode: mode}} = File.stat(new_path)
       assert Bitwise.band(mode, 0o777) == 0o400
       assert {:ok, %{mode: dmode}} = File.stat(Path.join(secrets, "keys"))
@@ -191,7 +196,7 @@ defmodule Trinity.SecretsBootNodeTest do
       [_, move] = Regex.run(~r/MOVE (.+)/, out)
       move = JSON.decode!(move)
       assert move["to"] == Path.join(secrets, "keys")
-      assert "receipts-ed25519.key" in move["files"]
+      assert Path.basename(old_path) in move["files"]
 
       [_, count] = Regex.run(~r/COUNT (\d+)/, out)
       assert String.to_integer(count) >= 2, "the earlier boot's receipt is in the chain"
