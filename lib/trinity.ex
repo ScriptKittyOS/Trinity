@@ -21,6 +21,9 @@ defmodule Trinity do
     exports:
       [
         Paths,
+        # Owner decision D2 (ADR-0014): a client that needs transport options of its own takes
+        # them from here so the TLS 1.2 clamp survives (slices 071 and 072's gateways).
+        TLS,
         # Slice 025: the skills staging and the archive export seal through it.
         Vault,
         # Slice 080: the delegate tool and the session view's subagent panel call it.

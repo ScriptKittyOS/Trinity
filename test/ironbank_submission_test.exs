@@ -275,16 +275,58 @@ defmodule IronbankSubmissionTest do
       assert "AC6a: label org.opencontainers.image.version is not mix.exs's version 9.9.9" in found
     end
 
-    test "an OTP resource that disagrees with .tool-versions is refused" do
+    test "an OTP resource that disagrees with the container's declared OTP is refused" do
       tree = %{
         @tree
-        | tool_versions: String.replace(@tree.tool_versions, "erlang 28.5.0.5", "erlang 28.5.0.7")
+        | container_tool_versions:
+            String.replace(@tree.container_tool_versions, "erlang 28.5.0.7", "erlang 28.5.0.8")
       }
 
       assert_only(
         tree,
-        ~r/^AC6a: no resource otp_src_28\.5\.0\.7\.tar\.gz, the OTP 28\.5\.0\.7 that \.tool-versions names/
+        ~r/^AC6a: no resource otp_src_28\.5\.0\.8\.tar\.gz, the OTP 28\.5\.0\.8 that ci\/container\.tool-versions names/
       )
+    end
+
+    # ADR-0014: the desktop pin moves when Burrito's CDN has an ERTS, and the submission does not
+    # follow it. Before the split, this plant failed the tree.
+    test "the desktop pin moving alone leaves the submission as it is" do
+      tree = %{
+        @tree
+        | tool_versions: String.replace(@tree.tool_versions, "erlang 28.5.0.6", "erlang 28.5.0.5")
+      }
+
+      assert violations(tree) == []
+    end
+
+    test "a container OTP of another major than the desktop's is refused" do
+      tree = %{
+        @tree
+        | tool_versions:
+            String.replace(@tree.tool_versions, "erlang 28.5.0.6", "erlang 27.3.4.18")
+      }
+
+      assert_only(tree, ~r/^ADR-0014: the container's OTP 28\.5\.0\.7 .* are different majors/)
+    end
+
+    test "a container OTP older than the desktop's is refused" do
+      tree = %{
+        @tree
+        | tool_versions:
+            String.replace(@tree.tool_versions, "erlang 28.5.0.6", "erlang 28.5.0.10")
+      }
+
+      assert_only(
+        tree,
+        ~r/^ADR-0014: the container's OTP 28\.5\.0\.7 .* is older than the desktop's 28\.5\.0\.10/
+      )
+    end
+
+    test "a container pin that is not a version is refused" do
+      tree = %{@tree | container_tool_versions: "# nothing pinned\n"}
+      found = violations(tree)
+
+      assert "ADR-0014: ci/container.tool-versions and .tool-versions must each pin erlang to a version" in found
     end
   end
 

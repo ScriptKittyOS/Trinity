@@ -57,11 +57,19 @@ defmodule Trinity.Versions do
   @toolchain [
     %{
       name: "Erlang/OTP",
-      pin: "**28.5.0.5**",
+      pin: "**28.5.0.6**",
       lock: nil,
-      from: {:file, ".tool-versions", "erlang 28.5.0.5"},
+      from: {:file, ".tool-versions", "erlang 28.5.0.6"},
       note:
-        "Measured at Slice 000, not read from a README: Burrito 1.6.0's ERTS resolver names one artifact source per target, and 28.5.0.5 is the newest OTP returning 200 on all four (macOS universal, Linux x86_64, Linux aarch64, Windows). 28.5.0.6 is released but its macOS and Linux artifacts are unbuilt (404). OTP 29 is 404 on macOS and both Linux arches. ⚠️ Windows tracks OTP releases immediately while the other three lag a third-party CDN's build queue, so re-probe at every phase boundary. See ADR-0005's second correction."
+        "The desktop build and the gate. Pinned to the newest OTP whose ERTS Burrito 1.6.0 can fetch for all three targets (macOS universal, Linux x86_64, Windows), measured by probing Burrito's artifact sources, not read from a README (ADR-0005). Was 28.5.0.5 from Slice 000. 28.5.0.6 since 2026-10-08 (owner decision D2, ADR-0014): 200 on all three; 28.5.0.7, which fixes CVE-2026-89422, is 404 on Burrito's CDN for Linux and macOS, so this runtime carries that CVE and `Trinity.TLS` holds every outbound TLS client to TLS 1.2 while it runs. `.github/workflows/otp-canary.yml` probes the CDN daily and opens the pull request that moves this pin to the container's. ⚠️ Windows tracks OTP releases immediately while the other two lag a third-party CDN's build queue."
+    },
+    %{
+      name: "Erlang/OTP (container images)",
+      pin: "**28.5.0.7**",
+      lock: nil,
+      from: {:file, "ci/container.tool-versions", "erlang 28.5.0.7"},
+      note:
+        "Added 2026-10-08 (owner decision D2, ADR-0014): the OTP the hardened headless image (`ci/ironbank/`) and the FIPS leg's image (`ci/fips/Containerfile`) build from source, so it does not wait for Burrito. 28.5.0.7 (released 2026-09-22) fixes CVE-2026-89422 (ssl, Critical) and CVE-2026-65634 (asn1, High). The source archive's SHA-256, `ddf17db6d3e9b7a7cfac0d72238ddc8ea040fedc5e3dfad82fc90675319d6c93`, was read from the release's SHA256.txt and its asset digest and matched a download. `mix trinity.ironbank.lint` holds the manifest to this file, and this pin to the desktop's major and to no older than it."
     },
     %{
       name: "Elixir",
@@ -111,7 +119,7 @@ defmodule Trinity.Versions do
         {:file, "ci/fips/Containerfile",
          "registry.access.redhat.com/ubi9/ubi@sha256:9295c5c688f487fa5cf27a734fa55ecd57aeb7dc0904ba537da4f42dfa1d0acb"},
       note:
-        "Added at Slice 003: the base of the FIPS build leg's image (docs/fips-leg.md), `registry.access.redhat.com/ubi9/ubi:latest` resolved by digest on 2026-09-20 (Red Hat Enterprise Linux release 9.8, `openssl-libs 3.5.8-1.el9_8`, `openssl-fips-provider-so 3.0.7-11.el9_8`). The image itself is OTP 28.5.0.5 built from source with `--enable-fips` against that OpenSSL, plus Elixir 1.20.4; the two archives are pinned by SHA-256 in the Containerfile and the image tag is `scripts/fips_image_tag.sh` over `.tool-versions` and the Containerfile. The FIPS provider the image runs is what the distribution ships and names; docs/fips-leg.md states what Trinity does and does not claim about it."
+        "Added at Slice 003: the base of the FIPS build leg's image (docs/fips-leg.md), `registry.access.redhat.com/ubi9/ubi:latest` resolved by digest on 2026-09-20 (Red Hat Enterprise Linux release 9.8, `openssl-libs 3.5.8-1.el9_8`, `openssl-fips-provider-so 3.0.7-11.el9_8`). The image itself is OTP built from source with `--enable-fips` against that OpenSSL (the container pin, `ci/container.tool-versions`: 28.5.0.5 until 2026-10-08, 28.5.0.7 since), plus Elixir 1.20.4; the two archives are pinned by SHA-256 in the Containerfile and the image tag is `scripts/fips_image_tag.sh` over `.tool-versions`, `ci/container.tool-versions` and the Containerfile. The FIPS provider the image runs is what the distribution ships and names; docs/fips-leg.md states what Trinity does and does not claim about it."
     },
     %{
       name: "Headless image runtime base (UBI9 micro)",
@@ -236,10 +244,10 @@ defmodule Trinity.Versions do
     },
     %{
       name: "beam_mcp",
-      pin: "~> 0.9",
+      pin: "~> 0.10.1",
       lock: "beam_mcp",
       note:
-        "MCP server core, Apache-2.0, ADR-0007 decision 5 (owner decision 2026-09-08, recorded 2026-09-20). 0.9.0 on hex.pm (2026-09-22): the :server seam on both transports and the core server as a named behaviour, which slice 061's wrapper implements; standing before 1.0.0. Server side only: the client, MRTR and OAuth are Trinity's, above it. Added at Slice 059, bumped at 061. The earlier candidate list (anubis_mcp, fastest_mcp, gen_mcp) is history."
+        "MCP server core, Apache-2.0, ADR-0007 decision 5 (owner decision 2026-09-08, recorded 2026-09-20). 0.9.0 on hex.pm (2026-09-22): the :server seam on both transports and the core server as a named behaviour, which slice 061's wrapper implements; standing before 1.0.0. Bumped 2026-10-08 to 0.10.1 (2026-09-26), a security patch: `mix hex.audit` refused 0.9.0 for EEF-CVE-2026-88257 (nested schema constraints advertised, not enforced) and EEF-CVE-2026-104634 (JSON booleans and null reached dispatch as strings); 0.10.0 changed copy and CI only, and the pin excludes it. Server side only: the client, MRTR and OAuth are Trinity's, above it. Added at Slice 059, bumped at 061. The earlier candidate list (anubis_mcp, fastest_mcp, gen_mcp) is history."
     },
     %{
       name: "jido",

@@ -47,12 +47,14 @@ labels:
 # Dockerfile copies it from there and nothing in the build reaches the network.
 # `scripts/headless_image.sh` plays that part for the image this project publishes.
 resources:
-  # Erlang/OTP, built from source in the builder with --enable-fips against UBI's OpenSSL.
-  - url: "https://github.com/erlang/otp/releases/download/OTP-28.5.0.5/otp_src_28.5.0.5.tar.gz"
-    filename: "otp_src_28.5.0.5.tar.gz"
+  # Erlang/OTP, built from source in the builder with --enable-fips against UBI's OpenSSL. The
+  # version is the container's, `ci/container.tool-versions`, which can run ahead of the desktop's
+  # `.tool-versions` (ADR-0014); the lint holds the two files and this resource together.
+  - url: "https://github.com/erlang/otp/releases/download/OTP-28.5.0.7/otp_src_28.5.0.7.tar.gz"
+    filename: "otp_src_28.5.0.7.tar.gz"
     validation:
       type: "sha256"
-      value: "5231ba18f31f8041c2d6514cc8842e46954d3b39a53f1617f03f2abe6fea59c7"
+      value: "ddf17db6d3e9b7a7cfac0d72238ddc8ea040fedc5e3dfad82fc90675319d6c93"
   # Elixir, precompiled for OTP 28 (BEAM files only, no native code).
   - url: "https://github.com/elixir-lang/elixir/releases/download/v1.20.4/elixir-otp-28.zip"
     filename: "elixir-1.20.4-otp-28.zip"
