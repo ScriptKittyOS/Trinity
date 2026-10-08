@@ -244,10 +244,10 @@ defmodule Trinity.Versions do
     },
     %{
       name: "beam_mcp",
-      pin: "~> 0.9",
+      pin: "~> 0.10.1",
       lock: "beam_mcp",
       note:
-        "MCP server core, Apache-2.0, ADR-0007 decision 5 (owner decision 2026-09-08, recorded 2026-09-20). 0.9.0 on hex.pm (2026-09-22): the :server seam on both transports and the core server as a named behaviour, which slice 061's wrapper implements; standing before 1.0.0. Server side only: the client, MRTR and OAuth are Trinity's, above it. Added at Slice 059, bumped at 061. The earlier candidate list (anubis_mcp, fastest_mcp, gen_mcp) is history."
+        "MCP server core, Apache-2.0, ADR-0007 decision 5 (owner decision 2026-09-08, recorded 2026-09-20). 0.9.0 on hex.pm (2026-09-22): the :server seam on both transports and the core server as a named behaviour, which slice 061's wrapper implements; standing before 1.0.0. Bumped 2026-10-08 to 0.10.1 (2026-09-26), a security patch: `mix hex.audit` refused 0.9.0 for EEF-CVE-2026-88257 (nested schema constraints advertised, not enforced) and EEF-CVE-2026-104634 (JSON booleans and null reached dispatch as strings); 0.10.0 changed copy and CI only, and the pin excludes it. Server side only: the client, MRTR and OAuth are Trinity's, above it. Added at Slice 059, bumped at 061. The earlier candidate list (anubis_mcp, fastest_mcp, gen_mcp) is history."
     },
     %{
       name: "jido",
