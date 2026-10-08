@@ -321,6 +321,7 @@ do over the next year, and why the order is what it is.
 | `docs/adr/` | Architecture decision records. One is added whenever a decision changes |
 | `docs/10-assurance-case.md` | The structured argument that the security claims hold, with the evidence for each and the assumptions and limits named |
 | `docs/09-standards-register.md` | One row per control a regulated deployment may ask about, with its evidence path and status |
+| `docs/regulated/` | The pack for a regulated deployment: boundary, data flow, responsibility matrix, cryptographic inventory, the hardened image and its STIG statement, and `control-mapping.md`, which maps each mechanism to the NIST SP 800-53 controls and SP 800-218 practices it contributes to and says whose the rest of each control is. The mapping is not an assessment, and a test fails when a path, check or control identifier it names stops existing |
 | `lib/`, `test/`, `config/` | The application |
 | `src-tauri/` | The native desktop shell |
 | `scripts/`, `credo_checks/` | The release check, the benchmark scripts and this project's own Credo checks |
