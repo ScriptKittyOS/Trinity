@@ -5,15 +5,17 @@ defmodule TrinityWeb.Endpoint do
 
   # The session will be stored in the cookie and signed,
   # this means its contents can be read but not tampered with.
-  # Set :encryption_salt if you would also like to encrypt it.
-  # Slice 136: encrypted as well as signed (the OpenID Connect login keeps its PKCE verifier and
-  # nonce here between the redirect and the callback), and `SameSite`/`Secure` chosen per request
-  # by `TrinityWeb.Plugs.Session`.
+  # Slice 136: signed and never encrypted. Plug encrypts a cookie with XChaCha20-Poly1305 and
+  # offers nothing else, and the FIPS provider refuses it ("Forbidden in FIPS"), so an encrypted
+  # session would fail every page on a FIPS node. What the cookie holds does not need hiding from
+  # the browser that holds it: a server-side session id, and during a login the PKCE verifier and
+  # nonce, under HttpOnly, SameSite and (behind TLS) Secure, chosen per request by
+  # `TrinityWeb.Plugs.Session`. HMAC-SHA256 signing is FIPS-approved.
+  # `test/trinity_web/session_cookie_test.exs` holds it.
   @session_options [
     store: :cookie,
     key: "_trinity_key",
     signing_salt: "NacAdZLW",
-    encryption_salt: "q8N3vXwT",
     same_site: "Lax"
   ]
 
