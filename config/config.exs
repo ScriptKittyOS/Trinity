@@ -74,6 +74,14 @@ if nif_target != "" do
   config :mdex_native, MDExNative.Native, target: nif_target
 end
 
+# Slice 130: the hardened headless image builds exqlite's NIF from the C source in its Hex package
+# instead of downloading a precompiled artifact, because its build has no network
+# (ci/ironbank/Dockerfile). exqlite reads this when its own mix.exs is evaluated, so it is compile
+# time. Unset, every other build downloads the precompiled artifact as before.
+if System.get_env("EXQLITE_FORCE_BUILD") in ~w(1 true) do
+  config :exqlite, force_build: true
+end
+
 # Slice 022: the core tools, every environment, and the toolsets they belong to. A tool is a
 # module implementing Trinity.Tools.Tool plus a line here (docs/03). The shell answers
 # available?/0 false on Windows and is skipped there with a logged reason.

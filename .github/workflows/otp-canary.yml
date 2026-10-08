@@ -1,0 +1,124 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# The OTP canary (owner decision D2, ADR-0014). The desktop pin in .tool-versions waits for
+# Burrito's ERTS builds; the container pin in ci/container.tool-versions does not. Every day this
+# asks whether Burrito can now fetch the container's OTP for all three desktop targets, and the
+# first day it can, it opens a pull request that moves the desktop pin there. Merging that pull
+# request is how the desktop gets the CVE-2026-89422 fix, and with it `Trinity.TLS` stops holding
+# the desktop's TLS clients to TLS 1.2 (it decides from the running runtime, not from a flag).
+#
+# Two things a reader of the pull request needs to know:
+#   * a pull request opened with GITHUB_TOKEN starts no workflow, so its gate runs when a person
+#     pushes to the branch (or closes and reopens it);
+#   * the repository setting "Allow GitHub Actions to create and approve pull requests" must be on,
+#     or the last step fails with a permissions error that names it.
+# It never opens a second pull request for the same version: a closed one is a person's answer.
+name: otp-canary
+
+on:
+  schedule:
+    - cron: "41 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.probe.outputs.result }}
+      version: ${{ steps.probe.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Can Burrito fetch the container's OTP for every desktop target?
+        id: probe
+        run: scripts/otp_canary.sh probe | tee -a "$GITHUB_OUTPUT"
+
+  flip:
+    needs: probe
+    if: needs.probe.outputs.result == 'ready'
+    runs-on: ubuntu-latest
+    # The branch push and the pull request, and nothing else in this workflow.
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      VERSION: ${{ needs.probe.outputs.version }}
+      BRANCH: canary/otp-${{ needs.probe.outputs.version }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Has a pull request for this version been opened before?
+        id: seen
+        run: |
+          count=$(gh pr list --head "$BRANCH" --state all --json number --jq length)
+          if [ "$count" != 0 ] || git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null; then
+            echo "::notice::$BRANCH already has a pull request or a branch; nothing to do"
+            echo "seen=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "seen=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The flip first, so setup-beam installs the OTP the pull request moves to: the licence list
+      # names the OTP applications of the runtime that generates it, and VERSIONS.md is generated
+      # from the pin list the flip edits. The gate checks both.
+      - name: Move the desktop pin
+        if: steps.seen.outputs.seen == 'false'
+        run: scripts/otp_canary.sh flip
+
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        if: steps.seen.outputs.seen == 'false'
+        with:
+          version-file: .tool-versions
+          version-type: strict
+
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        if: steps.seen.outputs.seen == 'false'
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-canary-${{ hashFiles('mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-
+
+      - name: Regenerate VERSIONS.md and THIRD_PARTY_LICENSES.md on the new OTP
+        if: steps.seen.outputs.seen == 'false'
+        env:
+          MIX_ENV: test
+        run: |
+          mix deps.get
+          mix versions.gen
+          mix trinity.sbom
+          mix trinity.third_party_licenses --write
+
+      - name: Open the pull request
+        if: steps.seen.outputs.seen == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git commit -s -a -m "build(otp): move the desktop pin to OTP $VERSION (ADR-0014)"
+          git push origin "$BRANCH"
+          cat > "$RUNNER_TEMP/body.md" <<EOF
+          Burrito can now fetch OTP $VERSION for every desktop target (the probe in this run's
+          log), so the desktop pin in \`.tool-versions\` moves to the container's pin.
+
+          What this changes: the desktop runs an OTP with the CVE-2026-89422 fix, and
+          \`Trinity.TLS\` stops holding its TLS clients to TLS 1.2 on its own.
+
+          Before merging, by hand:
+          - push a commit to this branch so the gate runs (a pull request opened by a workflow
+            starts none);
+          - update the Erlang/OTP row's note in \`lib/trinity/versions.ex\`, then \`mix versions.gen\`
+            (the pin itself, \`VERSIONS.md\` and \`THIRD_PARTY_LICENSES.md\` are already moved);
+          - update the OTP lines in \`README.md\` and \`docs/packaging.md\`;
+          - append the closing of the window to \`docs/adr/0014-otp-pins-split.md\`;
+          - check the \`package\` workflow on all three targets.
+          EOF
+          gh pr create --base main --head "$BRANCH" \
+            --title "build(otp): move the desktop pin to OTP $VERSION" \
+            --body-file "$RUNNER_TEMP/body.md"

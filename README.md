@@ -206,8 +206,10 @@ demonstrate, each tied to the slice that proves it.
 
 ## Running from source
 
-Requires the pinned toolchain in `.tool-versions` (Erlang 28.5.0.5, Elixir 1.20.4, Zig 0.16.0),
-installed with `asdf install`. Rust 1.92.0 is pinned separately in `rust-toolchain.toml` and is
+Requires the pinned toolchain in `.tool-versions` (Erlang 28.5.0.6, Elixir 1.20.4, Zig 0.16.0),
+installed with `asdf install`. The container images build Erlang 28.5.0.7 from source
+(`ci/container.tool-versions`); the desktop's pin waits for Burrito's builds of it and, until then,
+holds every outbound TLS connection to TLS 1.2 (`docs/adr/0014-otp-pins-split.md`). Rust 1.92.0 is pinned separately in `rust-toolchain.toml` and is
 only needed for the desktop shell.
 
 ```

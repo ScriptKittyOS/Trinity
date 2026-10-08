@@ -36,7 +36,7 @@
     ],
     "targets": "all"
   },
-  "identifier": "you.app.trinity",
+  "identifier": "com.scriptkittyos.trinity",
   "productName": "Trinity",
   "version": "0.1.0"
 }

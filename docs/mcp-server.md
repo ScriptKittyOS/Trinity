@@ -154,11 +154,13 @@ list; on any other bind `TRINITY_WEB_AUTH` must be set, to `oidc` (a login at yo
 provider) or, outside `TRINITY_PROFILE=regulated`, `local_token` (one shared token), or the node
 refuses to boot and names the variable.
 
-A container: `ci/headless/Containerfile` builds the release on the Elixir image whose toolchain is
-the tree's and runs it on a slim Debian, the data directory on the `/data` volume:
+A container: `ci/ironbank/Dockerfile` builds the release on UBI9, with OTP from source, and runs it
+on UBI9 micro as UID 10001, the data directory on the `/data` volume. Slice 130 replaced the slice
+061 image (`ci/headless/Containerfile`, Debian) with it; `docs/regulated/headless-image.md` says how
+it is built and what is checked about it.
 
 ```
-docker build -f ci/headless/Containerfile -t trinity-headless:local .
+scripts/headless_image.sh build trinity-headless:local
 docker run --rm -p 4000:4000 -v trinity-data:/data \
   -e TRINITY_MCP_SERVER_TOKEN=<token> \
   -e TRINITY_WEB_AUTH=oidc -e TRINITY_WEB_AUTH_ISSUER=https://idp.example \
