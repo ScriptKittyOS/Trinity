@@ -7,7 +7,8 @@ defmodule Trinity.Memory.Embedder do
   all-MiniLM-L6-v2 through Bumblebee and EXLA, on this machine), `:static`
   (`Embedders.Static`, slice 133: the pure-Elixir floor), `:hosted` (`Embedders.Hosted`, a
   configured alternative only: it sends text to a provider and is never chosen for the
-  operator), `:fake` (the suite), or a module implementing this behaviour.
+  operator), `:ollama` (`Embedders.Ollama`, slice 134: an operator-run Ollama, admitted on the
+  operator's pin), `:fake` (the suite), or a module implementing this behaviour.
 
   Slice 133: every embedder names the embedding space it writes (`space/0`, a
   `Trinity.Memory.Space`), and every stored vector carries that space's ID. A store answers
@@ -40,8 +41,33 @@ defmodule Trinity.Memory.Embedder do
   """
   @callback thresholds() :: %{floor: float(), dedupe: float()}
 
+  @doc """
+  Slice 134: the vectors for queries, when the model embeds a query differently from a document
+  (an instruction-tuned model's query template). Without it, `embed/1` serves both.
+  """
+  @callback embed_query([String.t()]) :: {:ok, [vector()]} | {:error, term()}
+
+  @doc """
+  Slice 134: the endpoint the embedder sends text to, from `config :trinity, :memory` and the
+  LLM registry's models: `{:endpoint, url}` (nil when unstated), or `:in_process`. Without it the
+  embedder runs in this BEAM. `Trinity.Memory.EmbedderConfig` holds its locality to it.
+  """
+  @callback endpoint(memory :: keyword(), models :: [map()]) ::
+              {:endpoint, String.t() | nil} | :in_process
+
+  @doc """
+  Slice 134: the embedder's own configuration faults (`:ok` or `{:error, reason}`), which refuse
+  a regulated boot and turn semantic memory OFF under `:default`, like 133's locality faults.
+  """
+  @callback check_config(memory :: keyword()) :: :ok | {:error, term()}
+
+  @doc "Slice 134: the processes the embedder needs, started by `Trinity.Memory.Supervisor`."
+  @callback children() :: [Supervisor.child_spec() | module() | {module(), term()}]
+
+  @optional_callbacks embed_query: 1, endpoint: 2, check_config: 1, children: 0
+
   @typedoc "An embedder as configuration names it."
-  @type name :: :local | :static | :hosted | :fake | module()
+  @type name :: :local | :static | :hosted | :ollama | :fake | module()
 
   @doc """
   The configured choice: `:local` unless configuration says otherwise. Slice 133:
@@ -65,6 +91,7 @@ defmodule Trinity.Memory.Embedder do
   def module(:local), do: Trinity.Memory.Embedders.Bumblebee
   def module(:static), do: Trinity.Memory.Embedders.Static
   def module(:hosted), do: Trinity.Memory.Embedders.Hosted
+  def module(:ollama), do: Trinity.Memory.Embedders.Ollama
   def module(:fake), do: Trinity.Memory.Embedders.Fake
   def module(module) when is_atom(module), do: module
 
@@ -72,6 +99,7 @@ defmodule Trinity.Memory.Embedder do
     "local" => :local,
     "static" => :static,
     "hosted" => :hosted,
+    "ollama" => :ollama,
     "fake" => :fake
   }
 
@@ -100,6 +128,19 @@ defmodule Trinity.Memory.Embedder do
   @doc "Embeds through the first configured embedder (`Trinity.Memory.Semantic` embeds through the one serving the store)."
   @spec embed([String.t()]) :: {:ok, [vector()]} | {:error, term()}
   def embed(texts) when is_list(texts), do: impl().embed(texts)
+
+  @doc """
+  Embeds queries through `module`: its `embed_query/1` when it has one (slice 134), else
+  `embed/1`.
+  """
+  @spec embed_query(module(), [String.t()]) :: {:ok, [vector()]} | {:error, term()}
+  def embed_query(module, texts) when is_atom(module) and is_list(texts) do
+    Code.ensure_loaded(module)
+
+    if function_exported?(module, :embed_query, 1),
+      do: module.embed_query(texts),
+      else: module.embed(texts)
+  end
 
   @doc "Cosine similarity of two vectors of the same length (both L2-normalised: their dot)."
   @spec cosine(vector(), vector()) :: float()

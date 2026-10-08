@@ -19,6 +19,8 @@ defmodule Trinity.ExcludedCounter do
 
   @reasons %{
     static_weights: "TRINITY_STATIC_MODEL_DIR unset",
+    tier3_model: "TRINITY_TIER3_MODEL_DIR unset",
+    signing_tools: "TRINITY_COSIGN or TRINITY_MODEL_SIGNING unset",
     local_model: "TRINITY_LOCAL_MODEL_CACHE unset",
     postgres: "not the Postgres adapter",
     fips: "TRINITY_FIPS_LEG unset"

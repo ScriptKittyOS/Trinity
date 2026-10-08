@@ -175,6 +175,32 @@ defmodule Trinity.Memory.Semantic do
   def describe({:off, {:mixed_space, n}}),
     do: "semantic recall is unavailable: #{n} stored vector(s) do not fit the active space"
 
+  def describe({:off, :model_digest_changed}),
+    do:
+      "semantic recall is unavailable: the embedding service's model digest is not the pinned one " <>
+        "(the model behind the tag changed; an operator re-import and re-tier changes the space)"
+
+  def describe({:off, :runtime_version_changed}),
+    do: "semantic recall is unavailable: the embedding service's version is not the pinned one"
+
+  def describe({:off, :digest_unchecked}),
+    do:
+      "semantic recall is unavailable: the embedding service has not been checked against its pin yet"
+
+  def describe({:off, :model_not_served}),
+    do: "semantic recall is unavailable: the embedding service does not serve the pinned model"
+
+  def describe({:off, {:service_truncated, %{counted: c, served: s}}}),
+    do:
+      "semantic recall is unavailable: the embedding service embedded #{s} of #{c} tokens " <>
+        "despite truncate:false (restart after the service is fixed)"
+
+  def describe({:off, :tokenizer_missing}),
+    do: "semantic recall is unavailable: the Tier 3 tokenizer file is not installed"
+
+  def describe({:off, :tokenizer_digest_mismatch}),
+    do: "semantic recall is unavailable: the Tier 3 tokenizer file failed its digest check"
+
   def describe({:off, {:config, reason}}),
     do:
       "semantic recall is unavailable: the embedder configuration is refused (#{inspect(reason)})"
@@ -205,16 +231,25 @@ defmodule Trinity.Memory.Semantic do
 
   @doc """
   Embeds texts for the store: through the serving embedder, tagged with the space the vectors
-  belong to. A failure is recorded as the tier's runtime fault (an endpoint error as
-  `:endpoint_unreachable`); a success clears it.
+  belong to. `kind` is `:document` (a memory) or `:query` (a search; slice 134: the embedder's
+  `embed_query/1` when it has one). A failure is recorded as the tier's runtime fault (an
+  endpoint error as `:endpoint_unreachable`); a success clears it. Slice 134:
+  `{:error, :input_too_long}` is returned and **not** recorded, because it is a property of that
+  one input, not of the tier (NOTES decision 4).
   """
-  @spec embed([String.t()]) :: {:ok, [Embedder.vector()], Space.id()} | {:error, term()}
-  def embed(texts) do
+  @spec embed([String.t()], :document | :query) ::
+          {:ok, [Embedder.vector()], Space.id()} | {:error, term()}
+  def embed(texts, kind \\ :document) do
     with {:ok, %{module: m, space_id: id}} <- serving_on() do
-      case m.embed(texts) do
+      result = if kind == :query, do: Embedder.embed_query(m, texts), else: m.embed(texts)
+
+      case result do
         {:ok, vectors} ->
           clear_fault(id, :embed)
           {:ok, vectors, id}
+
+        {:error, :input_too_long} ->
+          {:error, :input_too_long}
 
         {:error, reason} ->
           {:error, put_fault(id, runtime_reason(reason))}
@@ -246,7 +281,7 @@ defmodule Trinity.Memory.Semantic do
   @spec search(String.t(), [String.t()], String.t(), pos_integer()) ::
           {:ok, [VectorStore.hit()]} | {:error, term()}
   def search(persona_id, scopes, query, k) do
-    with {:ok, [vector], space_id} <- embed([query]) do
+    with {:ok, [vector], space_id} <- embed([query], :query) do
       search_vector(persona_id, scopes, vector, space_id, k)
     end
   end

@@ -14,11 +14,22 @@
 # where TRINITY_STATIC_MODEL_DIR names the directory holding them; excluded by tag elsewhere,
 # and where the variable is set a missing file is a failure, never a skip (the owner's rule,
 # 2026-10-07). No weights are in the tree before legal review (slice 133 NOTES, D7).
+# Slice 134: :tier3_model (the Tier 3 tokenizer's parity with the reference, over the GGUF and
+# the fixtures in the model cache) runs where TRINITY_TIER3_MODEL_DIR names that directory, and
+# :signing_tools (the import path's signature cases, through the real cosign and model_signing)
+# where TRINITY_COSIGN and TRINITY_MODEL_SIGNING name the two programs; excluded by tag
+# elsewhere, and where set, a missing file is a failure, never a skip.
 # :postgres (EXPLAIN plans and the per-space HNSW indexes) runs only on the Postgres adapter.
 # `Trinity.ExcludedCounter` prints, after the summary, how many each of these tags excluded.
 fips_leg? = System.get_env("TRINITY_FIPS_LEG") == "1"
 local_model? = System.get_env("TRINITY_LOCAL_MODEL_CACHE") not in [nil, ""]
 static_weights? = System.get_env("TRINITY_STATIC_MODEL_DIR") not in [nil, ""]
+tier3_model? = System.get_env("TRINITY_TIER3_MODEL_DIR") not in [nil, ""]
+
+signing_tools? =
+  System.get_env("TRINITY_COSIGN") not in [nil, ""] and
+    System.get_env("TRINITY_MODEL_SIGNING") not in [nil, ""]
+
 postgres? = Application.get_env(:trinity, :db_adapter) == Ecto.Adapters.Postgres
 
 ExUnit.start(
@@ -27,6 +38,8 @@ ExUnit.start(
       if(fips_leg?, do: [], else: [:fips]) ++
       if(local_model?, do: [], else: [:local_model]) ++
       if(static_weights?, do: [], else: [:static_weights]) ++
+      if(tier3_model?, do: [], else: [:tier3_model]) ++
+      if(signing_tools?, do: [], else: [:signing_tools]) ++
       if(postgres?, do: [], else: [:postgres]),
   formatters: [ExUnit.CLIFormatter, Trinity.ExcludedCounter]
 )

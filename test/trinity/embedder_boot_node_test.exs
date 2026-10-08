@@ -278,4 +278,57 @@ defmodule Trinity.EmbedderBootNodeTest do
       assert line(out, "SEMANTIC") == "SEMANTIC {:off, :weights_digest_mismatch}"
     end
   end
+
+  describe "slice 134: the Tier 3 client's own configuration faults refuse a regulated boot" do
+    # The memory configuration of a Tier 3 client on an allow-listed endpoint; `overrides` go into
+    # its `ollama:` list. Nothing listens there: a correct configuration boots, and the watcher's
+    # first check records the service as unreachable, which is a runtime fault, not a refusal.
+    defp ollama_memory(overrides) do
+      ollama =
+        Keyword.merge(
+          [
+            base_url: "https://models.internal:11434",
+            model: "embed",
+            digest: String.duplicate("d", 64),
+            weights_sha256: String.duplicate("a", 64),
+            tokenizer_sha256: String.duplicate("c", 64),
+            runtime_version: "0.40.0",
+            num_ctx: 2048,
+            max_input_tokens: 2047,
+            dim: 1024,
+            timeout_ms: 200
+          ],
+          overrides
+        )
+
+      [embedder: :ollama, locality: :within_boundary, ollama: ollama]
+    end
+
+    # The chat model on the allow-list (as the cases above), then the Tier 3 memory configuration.
+    defp ollama_script(memory),
+      do: @fixture <> models_and_memory("https://models.internal/v1", memory) <> @report
+
+    test "max_input_tokens not below num_ctx: refused with :ollama_config" do
+      script = ollama_script(ollama_memory(max_input_tokens: 2048))
+      {out, status} = boot("ollama_bad_limit", regulated(), script)
+      refusal = refused!(out, status, "ollama_config")
+      assert refusal =~ "max_input_not_below_num_ctx"
+    end
+
+    test "a correct configuration boots, and the unreachable service is a runtime fault" do
+      {out, status} = boot("ollama_good", regulated(), ollama_script(ollama_memory([])))
+
+      assert status == 0, """
+      a correctly configured regulated node refused: if this fails while the refusal passes, the
+      check refuses everything and proves nothing.
+      #{String.slice(out, -3000, 3000)}
+      """
+
+      assert line(out, "BOOT_OK") == "BOOT_OK"
+      IO.puts("\n" <> line(out, "SEMANTIC"))
+
+      assert line(out, "SEMANTIC") =~
+               ~r/^SEMANTIC \{:off, :(digest_unchecked|tokenizer_missing|endpoint_unreachable)\}$/
+    end
+  end
 end

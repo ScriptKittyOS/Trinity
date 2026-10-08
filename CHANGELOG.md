@@ -47,6 +47,35 @@ missing or wrong declaration, and full-text recall keeps working through every r
 The evaluation that decides the default model is built and waiting: a generated corpus, 300 queries,
 and labels that the scored run will not read until 100 of them have been audited and frozen.
 
+### `slice/134`: a stronger embedding model from a service the operator runs, held to a pin
+
+Semantic memory can now use an embedding model served by an Ollama the operator runs, without any
+neural runtime inside Trinity. The service is admitted on the operator's pin and nothing else: the
+model's digest as the service lists it, the weights' and tokenizer's SHA-256, the context length,
+the prompt templates and the service's version are all part of the embedding space. If the model
+behind the name is replaced, the version changes, the model disappears or the service stops
+answering, semantic recall turns off with that reason within one check interval, full-text recall
+keeps answering, and no other model or space is chosen.
+
+Every request asks the service to refuse rather than truncate an input that is too long, which is
+not its default. Trinity also counts every input's tokens itself, with the tokenizer read out of the
+signed weights (it gives the reference library's token ids on 5,000 natural sentences and 1,221
+hostile inputs), refuses an over-length input before sending it, and treats a service that reports
+fewer tokens than it was sent as cutting inputs short: no vector, and the embedder off until restart.
+
+Weights reach the service only through `mix trinity.tier3.import`: an OCI artifact whose cosign
+signature and OMS signature over the model files are verified offline against keys the operator
+holds, every blob's digest checked as it is unpacked, the model created through the service's API,
+and the resulting digest recorded. Trinity ships no Tier 3 weights.
+
+Four gates decide whether a model is admitted on a given image, and they were run on the upstream
+Ollama 0.40.0 image with Qwen3-Embedding-0.6B (16-bit weights): every one of 500 fixtures within a
+cosine of 0.999 of the sentence-transformers reference (lowest 0.99969); an input one token too long
+refused, never embedded; a running node off 160 ms after the model behind its tag was swapped; and
+the service answering with networking disabled. The 8-bit build of the same model missed the
+parity bar (lowest 0.99854) and is not offered. The gates have yet to be run on the hardened image
+this is meant for. `docs/tier3-embedder.md` is the operator's page and `docs/perf.md` has the figures.
+
 ## 2026-09-26
 
 ### `slice/128`: the checks that guard attribution now say what they check
