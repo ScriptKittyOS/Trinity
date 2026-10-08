@@ -29,9 +29,20 @@ should not plan as though it does.
 | Control | Trinity software | Customer | Host or AWS |
 |---|---|---|---|
 | Which model is called | Configuration only, `config/llm.exs:14` | **Yes.** You choose the endpoint and the provider | Network path |
-| Enforcing that only an approved model may be called | **NOT IN TREE.** No allow-list mechanism exists in the tree; the model list is configuration and nothing refuses an unapproved one at runtime | **Yes.** Enforce by configuration control and egress policy | Egress filtering |
+| Enforcing that only an approved model may be called | **Yes, under `TRINITY_PROFILE=regulated`, at boot.** `lib/trinity/profile.ex` refuses to start when a configured model's endpoint is not on `TRINITY_REGULATED_LLM_ENDPOINTS`, or states none. Under the default profile nothing refuses an unapproved model | **Yes.** The allow-list is yours, and so is the egress policy that holds it at run time | Egress filtering |
 | Whether the model provider trains on your data | No | **Yes.** A contract question with your provider | No |
 | Keeping the model inside your boundary | No | **Yes**, if required. Self-hosting is a customer deployment choice | **Yes** |
+
+## Regulated profile
+
+`TRINITY_PROFILE=regulated` adds refusals at boot (`lib/trinity/profile.ex`). Each is a refusal, not
+a capability: it stops a node starting in a configuration that cannot support a regulated
+deployment, and it does not supply what the deployment has to.
+
+| Control | Trinity software | Customer | Host or AWS |
+|---|---|---|---|
+| Which chat gateways may carry conversation text | **Yes, under the regulated profile, at boot.** Every configured adapter must be named in `TRINITY_REGULATED_GATEWAYS` (`lib/trinity/profile.ex`) | **Yes.** Naming the channels, and authorizing each one | No |
+| Who decides whether an effect may happen | **Yes, as a refusal.** Under the regulated profile the node will not boot on the local authority (`lib/trinity/profile.ex`); no other adapter ships in this tree (`authorization-boundary.md`) | **Yes.** The external authority adapter, and its assessment | No |
 
 ## Keys
 
@@ -53,6 +64,14 @@ should not plan as though it does.
 | Restricting which hosts the process may reach | **NOT IN TREE** | **Yes** | **Yes.** Security group, egress proxy, firewall |
 | Redacting credential-shaped strings from logs | **Yes**, as a last line. `lib/trinity/telemetry/redaction.ex` | No | No |
 | Deciding what may leave the boundary at all | No | **Yes.** See `data-flow.md` | **Yes** |
+
+## Transport and access
+
+| Control | Trinity software | Customer | Host or AWS |
+|---|---|---|---|
+| TLS on connections Trinity makes | **Yes.** The runtime offers TLS 1.2 and 1.3 and nothing older, `test/supply_chain_test.exs`. That test checks the versions offered and nothing else: not peer verification, not the trust store | **Yes.** The trust store peers are verified against (in a DoD deployment, the DoD roots) | No |
+| TLS on connections made to Trinity | **No.** The headless release serves plain HTTP on `TRINITY_BIND`: the loopback by default (`config/runtime.exs`), every interface in the image (`ci/ironbank/Dockerfile`). `config/prod.exs` sets `force_ssl` with `rewrite_on: [:x_forwarded_proto]`, so a request carrying `x-forwarded-proto: https` is treated as HTTPS, and any client can send that header unless a proxy strips it | **Yes.** Terminate TLS in front of it, and strip inbound `x-forwarded-*` headers at that proxy | **Yes** |
+| Authenticating access to the web pages | **Partial.** MCP endpoints require a token from the external issuer (implemented). The web pages, among them the permissions page where approvals are answered, carry no authentication of their own (`lib/trinity_web/router.ex`, `docs/mcp-server.md`): a product gap, tracked as slice 136, which authenticates them against the same issuer. The image binds every interface | **Yes.** The OIDC issuer. Until slice 136 lands, an authenticating reverse proxy in front of the port, or a network only the owner reaches, as an interim compensating control with a POA&M entry, never the sole mitigation | **Yes** |
 
 ## Backups
 
@@ -81,3 +100,14 @@ should not plan as though it does.
 | Shipping logs or metrics anywhere | **NOT IN TREE.** Trinity emits; it does not forward | **Yes** | **Yes** |
 | Reporting to a government customer within a clock | No | **Yes.** See `incident.md` | No |
 | A published vulnerability disclosure process for this software | **Yes.** `SECURITY.md` | Report to it | No |
+
+## Container image
+
+The headless image, `docs/regulated/headless-image.md`.
+
+| Control | Trinity software | Customer | Host or AWS |
+|---|---|---|---|
+| What the image contains | **Yes.** No package manager, compiler, shell history or key material beyond what is allowed by name; distribution off and no baked cookie. Checked on the built image by `mix trinity.image.inspect` | No | No |
+| Running the image read-only, with no capabilities and no privilege escalation | The image runs as UID 10001 and writes only `/data` and `/tmp`, so it needs nothing more (`ci/ironbank/Dockerfile`) | **Yes.** Set them in the runtime that starts it | **Yes** |
+| STIG rules for the image | **Yes.** `stig-applicability.md`, generated by `mix trinity.image.stig`, gives every rule of the profile a disposition | **Yes.** The rules it dispositions as the deployment's, and the host's own STIG | **Yes** |
+| Scanning for known vulnerabilities | **Yes.** `mix deps.audit` in the gate; `mix trinity.image.findings` over a grype scan of the built image, which fails today on OTP findings that have no justification (`headless-image.md`) | **Yes.** Scanning what you run, on your schedule | **Yes** |
