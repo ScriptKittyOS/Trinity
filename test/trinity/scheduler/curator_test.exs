@@ -85,6 +85,8 @@ defmodule Trinity.Memory.CuratorTest do
     scope: scope
   } do
     vector = Enum.map(1..8, fn _ -> 0.1 end)
+    space = Trinity.Memory.Space.legacy("fake:embed", 8)
+    {:ok, row} = Trinity.Memory.Spaces.register(space)
 
     {:ok, e} =
       %Entry{}
@@ -94,21 +96,15 @@ defmodule Trinity.Memory.CuratorTest do
         scope: scope,
         key: "cat",
         body: "the cat is grey",
-        confidence: 0.9,
-        embedding: Trinity.Memory.Embedder.to_binary(vector),
-        embedding_model: "fake:embed",
-        embedding_dim: 8
+        confidence: 0.9
       })
       |> Repo.insert()
 
-    assert [_] = Semantic.entries(persona.id, [scope])
+    :ok = Trinity.Memory.Spaces.put_vector(e.id, row.id, space, vector)
+    filter = Semantic.filter(persona.id, [scope], row)
 
-    assert [_] =
-             Trinity.Memory.VectorStores.Brute.search(vector, 5, %{
-               persona_id: persona.id,
-               scopes: [scope],
-               model: "fake:embed"
-             })
+    assert [_] = Semantic.entries(persona.id, [scope])
+    assert {:ok, [_]} = Trinity.Memory.VectorStores.Brute.search(vector, 5, filter)
 
     Repo.update_all(from(x in Entry, where: x.id == ^e.id),
       set: [archived_at: DateTime.utc_now()]
@@ -116,12 +112,7 @@ defmodule Trinity.Memory.CuratorTest do
 
     assert [] = Semantic.entries(persona.id, [scope])
 
-    assert [] =
-             Trinity.Memory.VectorStores.Brute.search(vector, 5, %{
-               persona_id: persona.id,
-               scopes: [scope],
-               model: "fake:embed"
-             })
+    assert {:ok, []} = Trinity.Memory.VectorStores.Brute.search(vector, 5, filter)
   end
 
   test "the observer enqueues a memory job carrying the message ids and not their text; the job runs run/2",

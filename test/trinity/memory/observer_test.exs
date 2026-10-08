@@ -77,7 +77,9 @@ defmodule Trinity.Memory.ObserverTest do
                  6
                )
 
-    assert entry.embedding_model == "fake:sha256-384"
+    # Slice 133: the vector is a row of memory_embeddings under the fake's space.
+    assert Trinity.Repo.get_by!(Trinity.Memory.Vector, memory_id: entry.id).space_id ==
+             Trinity.Memory.Space.id(Trinity.Memory.Embedders.Fake.space())
 
     assert Enum.map(Semantic.entries(persona.id, [pscope]), & &1.id) |> Enum.sort() ==
              Enum.sort([planted.id, entry.id])

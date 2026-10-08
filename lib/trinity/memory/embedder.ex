@@ -4,10 +4,17 @@ defmodule Trinity.Memory.Embedder do
   @moduledoc """
   Text to vectors (slice 032). One implementation is in force, chosen by
   `config :trinity, :memory, embedder:`: `:local` (`Embedders.Bumblebee`, the default:
-  all-MiniLM-L6-v2 through Bumblebee and EXLA, on this machine), `:hosted`
-  (`Embedders.Hosted`, a configured alternative only: it sends text to a provider and is
-  never chosen for the operator), `:fake` (the suite). Every vector records the embedder's
-  `model_id/0` and `dim/0` on its row, and a store never mixes models (NOTES decision 4).
+  all-MiniLM-L6-v2 through Bumblebee and EXLA, on this machine), `:static`
+  (`Embedders.Static`, slice 133: the pure-Elixir floor), `:hosted` (`Embedders.Hosted`, a
+  configured alternative only: it sends text to a provider and is never chosen for the
+  operator), `:fake` (the suite), or a module implementing this behaviour.
+
+  Slice 133: every embedder names the embedding space it writes (`space/0`, a
+  `Trinity.Memory.Space`), and every stored vector carries that space's ID. A store answers
+  from exactly one space, pinned by the operator (`Trinity.Memory.Spaces`); an embedder whose
+  space is not the pinned one does not serve that store, and nothing switches spaces
+  implicitly. Thresholds are the space's own (`thresholds/0`): a cosine that means "the same
+  memory" for one model means something else for another.
   """
 
   @type vector :: [float()]
@@ -24,21 +31,73 @@ defmodule Trinity.Memory.Embedder do
   @doc "`:ok`, or the reason this embedder cannot serve here (no model, no backend on this OS, not configured)."
   @callback availability() :: :ok | {:off, term()}
 
-  @doc "The configured choice: `:local` unless configuration says otherwise."
-  @spec configured() :: :local | :hosted | :fake
+  @doc "The embedding space this embedder writes and reads (slice 133)."
+  @callback space() :: Trinity.Memory.Space.t()
+
+  @doc """
+  The space's cosine thresholds (slice 133, AC11): `floor`, under which a vector hit is not
+  recalled, and `dedupe`, at or over which a new memory is the same as an existing one.
+  """
+  @callback thresholds() :: %{floor: float(), dedupe: float()}
+
+  @typedoc "An embedder as configuration names it."
+  @type name :: :local | :static | :hosted | :fake | module()
+
+  @doc """
+  The configured choice: `:local` unless configuration says otherwise. Slice 133:
+  `embedder:` may also be a list, the first being the one a re-tier targets and an empty store
+  is first pinned to; the store is served by whichever configured embedder writes its active
+  space, and by none when no configured embedder does (`Trinity.Memory.Semantic.status/0`).
+  """
+  @spec configured() :: name() | [name()]
   def configured, do: Application.get_env(:trinity, :memory, []) |> Keyword.get(:embedder, :local)
 
-  @doc "The implementation the configuration names."
+  @doc "Every configured embedder's module, in the configured order."
+  @spec modules() :: [module()]
+  def modules, do: configured() |> List.wrap() |> Enum.map(&module/1)
+
+  @doc "The first configured embedder's module."
   @spec impl() :: module()
-  def impl do
-    case configured() do
-      :local -> Trinity.Memory.Embedders.Bumblebee
-      :hosted -> Trinity.Memory.Embedders.Hosted
-      :fake -> Trinity.Memory.Embedders.Fake
+  def impl, do: hd(modules())
+
+  @doc "The module an embedder name stands for."
+  @spec module(name()) :: module()
+  def module(:local), do: Trinity.Memory.Embedders.Bumblebee
+  def module(:static), do: Trinity.Memory.Embedders.Static
+  def module(:hosted), do: Trinity.Memory.Embedders.Hosted
+  def module(:fake), do: Trinity.Memory.Embedders.Fake
+  def module(module) when is_atom(module), do: module
+
+  @names %{
+    "local" => :local,
+    "static" => :static,
+    "hosted" => :hosted,
+    "fake" => :fake
+  }
+
+  @doc "The embedder names an operator may type (a re-tier's target)."
+  @spec names() :: [String.t()]
+  def names, do: Map.keys(@names) |> Enum.sort()
+
+  @doc """
+  The module for a typed name: one of `names/0`, or a configured embedder module by its name.
+  Never mints an atom from the string.
+  """
+  @spec from_name(String.t()) :: {:ok, module()} | {:error, {:unknown_embedder, String.t()}}
+  def from_name(name) when is_binary(name) do
+    case Map.fetch(@names, name) do
+      {:ok, atom} ->
+        {:ok, module(atom)}
+
+      :error ->
+        case Enum.find(modules(), &(inspect(&1) == name)) do
+          nil -> {:error, {:unknown_embedder, name}}
+          module -> {:ok, module}
+        end
     end
   end
 
-  @doc "Embeds through the implementation in force."
+  @doc "Embeds through the first configured embedder (`Trinity.Memory.Semantic` embeds through the one serving the store)."
   @spec embed([String.t()]) :: {:ok, [vector()]} | {:error, term()}
   def embed(texts) when is_list(texts), do: impl().embed(texts)
 

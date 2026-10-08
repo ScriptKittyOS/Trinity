@@ -31,6 +31,9 @@ defmodule Trinity.DataCase do
 
   setup tags do
     Trinity.DataCase.setup_sandbox(tags)
+    # Slice 133: the semantic tier's runtime fault lives outside the database (it is a fact about
+    # the node, not the store), so a test that provoked one would otherwise hand it to the next.
+    Trinity.Memory.Semantic.clear_fault(:all)
     :ok
   end
 

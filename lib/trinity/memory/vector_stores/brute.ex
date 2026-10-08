@@ -2,80 +2,101 @@
 # SPDX-License-Identifier: Apache-2.0
 defmodule Trinity.Memory.VectorStores.Brute do
   @moduledoc """
-  The SQLite vector store (slice 032): vectors as float32 bytes on `memories.embedding`,
-  a search loads the filter's rows (a persona's semantic tier, the named scopes, the
-  embedder in force's model) and scores them by cosine: as one matrix product on EXLA when
-  the NIF is loaded (the local embedder's own backend), in Elixir over decoded lists when
-  it is not (the hosted embedder on a machine without EXLA). Measured at G3 over 10,000
-  rows (docs/perf.md): loading the rows 93 ms, the Elixir cosine 571 ms, the EXLA product
-  6 ms after its first compile for that row count (102 ms). docs/02's "fine to about 10^5"
-  holds for the product, not for the Elixir path; hnswlib is the step after.
+  The SQLite vector store (slice 032; spaces at slice 133): a search loads the filter's rows (a
+  persona's semantic tier, the named scopes, one space's vectors from `memory_embeddings`) and
+  scores them all.
+
+  * **An int8 space** (the static floor) is scored by `Trinity.Memory.Scorer`, exact int8 cosine,
+    in pure Elixir, always: D-scoring makes the floor's path NIF-free, and AC7 holds it to that
+    (slice 133 NOTES, R5: before this, the static path loaded EXLA through this module).
+  * **A float32 space** (MiniLM) keeps slice 032's choice: one matrix product on EXLA's host
+    client when that NIF is loaded, the Elixir cosine over decoded lists when it is not
+    (docs/perf.md: at 10^4 rows the product is 24 ms after its compile, the lists 390 ms).
+
+  Before ranking, a space with a row that does not fit it is refused
+  (`Trinity.Memory.VectorStore.misfits/1`).
   """
   @behaviour Trinity.Memory.VectorStore
 
+  # The float32 path's EXLA product; a build without the neural group (`TRINITY_WITHOUT_ML=1`)
+  # compiles this module with none of these present and never reaches them (`exla?/0`).
+  @compile {:no_warn_undefined, [Nx, Nx.LinAlg, EXLA.Backend]}
+
   import Ecto.Query
 
-  alias Trinity.Memory.{Embedder, Entry}
+  alias Trinity.Memory.{Embedder, Entry, Scorer, Space, SpaceRow, Vector, VectorStore}
   alias Trinity.Repo
 
   @impl true
-  def upsert(id, vector, model) when is_list(vector) do
-    {n, _} =
-      Repo.update_all(from(e in Entry, where: e.id == ^id),
-        set: [
-          embedding: Embedder.to_binary(vector),
-          embedding_model: model,
-          embedding_dim: length(vector)
-        ]
-      )
+  def search(query, k, %{persona_id: persona_id, scopes: scopes, space: %SpaceRow{} = space})
+      when is_list(query) do
+    case VectorStore.misfits(space) do
+      0 ->
+        rows = load(persona_id, scopes, space.id)
+        {:ok, rows |> rank(query, k, space) |> with_entries()}
 
-    if n == 1, do: :ok, else: {:error, :no_such_entry}
+      n ->
+        {:error, {:mixed_space, n}}
+    end
   end
 
-  @impl true
-  def search(query, k, %{persona_id: persona_id, scopes: scopes, model: model})
-      when is_list(query) do
+  # The ids and the vectors only: the rows themselves are read for the `k` that rank, not for
+  # all of them (at 10^4 rows reading every entry was most of a search's time).
+  defp load(persona_id, scopes, space_id) do
     from(e in Entry,
+      join: v in Vector,
+      on: v.memory_id == e.id and v.space_id == ^space_id,
       where:
         e.persona_id == ^persona_id and e.tier == "semantic" and e.scope in ^scopes and
-          e.embedding_model == ^model and not is_nil(e.embedding) and is_nil(e.archived_at)
+          is_nil(e.archived_at),
+      select: {e.id, v.vector}
     )
     |> Repo.all()
-    |> score(query)
-    |> Enum.sort_by(& &1.score, :desc)
+  end
+
+  defp rank([], _query, _k, _space), do: []
+
+  defp rank(rows, query, k, %SpaceRow{quantization: "int8", id: space_id}) do
+    rows
+    |> Enum.map(fn {id, v} -> {id, v, Scorer.norm2(v), nil} end)
+    |> Scorer.exact(Scorer.quantize(query), k)
+    |> Enum.map(fn {id, score} -> %{id: id, score: score, space_id: space_id} end)
+  end
+
+  defp rank(rows, query, k, %SpaceRow{id: space_id}) do
+    ids = Enum.map(rows, &elem(&1, 0))
+    scores = if exla?(), do: exla_scores(rows, query), else: elixir_scores(rows, query)
+
+    ids
+    |> Enum.zip_with(scores, fn id, s -> %{id: id, score: s, space_id: space_id} end)
+    |> Enum.sort_by(&{-&1.score, &1.id})
     |> Enum.take(k)
   end
 
-  @doc "Cosine of the query against every row's vector, as hits; the EXLA product when the NIF is loaded, Elixir otherwise."
-  @spec score([Entry.t()], Embedder.vector()) :: [Trinity.Memory.VectorStore.hit()]
-  def score([], _query), do: []
+  defp with_entries([]), do: []
 
-  def score(rows, query) do
-    scores = if exla?(), do: exla_scores(rows, query), else: elixir_scores(rows, query)
-    Enum.zip_with(rows, scores, fn e, s -> %{id: e.id, score: s, entry: e} end)
+  defp with_entries(hits) do
+    ids = Enum.map(hits, & &1.id)
+    entries = Map.new(Repo.all(from(e in Entry, where: e.id in ^ids)), &{&1.id, &1})
+    for %{id: id} = hit <- hits, entry = entries[id], do: Map.put(hit, :entry, entry)
   end
 
-  @doc "Cosines in Elixir over decoded lists (the path without EXLA); public so the suite can hold the two paths to the same numbers."
-  @spec elixir_scores([Entry.t()], Embedder.vector()) :: [float()]
+  @doc "Cosines in Elixir over decoded lists (the float32 path without EXLA), for rows `{id, bytes}`."
+  @spec elixir_scores([{term(), binary()}], Embedder.vector()) :: [float()]
   def elixir_scores(rows, query),
-    do: Enum.map(rows, &Embedder.cosine(query, Embedder.from_binary(&1.embedding)))
+    do: Enum.map(rows, fn {_, v} -> Embedder.cosine(query, Space.decode_vector("f32", v)) end)
 
-  @doc "Cosines as one (rows x dim) . dim product on the EXLA host client; a row of another width scores 0.0, as `cosine/2` refuses it."
-  @spec exla_scores([Entry.t()], Embedder.vector()) :: [float()]
+  @doc "Cosines as one (rows x dim) . dim product on the EXLA host client, for rows `{id, bytes}`."
+  @spec exla_scores([{term(), binary()}], Embedder.vector()) :: [float()]
   def exla_scores(rows, query) do
     dim = length(query)
-    fit = Enum.filter(rows, &(byte_size(&1.embedding) == dim * 4))
-    scores = if fit == [], do: %{}, else: product(fit, query, dim)
-    Enum.map(rows, &Map.get(scores, &1.id, 0.0))
-  end
 
-  defp product(fit, query, dim) do
     m =
-      fit
-      |> Enum.map(& &1.embedding)
+      rows
+      |> Enum.map(&elem(&1, 1))
       |> IO.iodata_to_binary()
       |> Nx.from_binary(:f32, backend: EXLA.Backend)
-      |> Nx.reshape({length(fit), dim})
+      |> Nx.reshape({length(rows), dim})
 
     q = Nx.tensor(query, type: :f32, backend: EXLA.Backend)
     norms = Nx.multiply(Nx.LinAlg.norm(m, axes: [1]), Nx.LinAlg.norm(q))
@@ -84,28 +105,20 @@ defmodule Trinity.Memory.VectorStores.Brute do
     |> Nx.dot(q)
     |> Nx.divide(Nx.select(Nx.equal(norms, 0.0), 1.0, norms))
     |> Nx.to_flat_list()
-    |> then(&Map.new(Enum.zip(Enum.map(fit, fn e -> e.id end), &1)))
   end
 
   defp exla?,
     do: Code.ensure_loaded?(EXLA.Backend) and Trinity.Memory.Embedders.Bumblebee.exla() == :ok
 
   @impl true
-  def delete(id) do
-    Repo.update_all(from(e in Entry, where: e.id == ^id),
-      set: [embedding: nil, embedding_model: nil, embedding_dim: nil]
-    )
-
-    :ok
-  end
-
-  @impl true
-  def count(%{persona_id: persona_id, scopes: scopes, model: model}) do
+  def count(%{persona_id: persona_id, scopes: scopes, space: %SpaceRow{id: space_id}}) do
     Repo.aggregate(
       from(e in Entry,
+        join: v in Vector,
+        on: v.memory_id == e.id and v.space_id == ^space_id,
         where:
           e.persona_id == ^persona_id and e.tier == "semantic" and e.scope in ^scopes and
-            e.embedding_model == ^model and not is_nil(e.embedding) and is_nil(e.archived_at)
+            is_nil(e.archived_at)
       ),
       :count
     )

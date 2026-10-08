@@ -221,9 +221,12 @@ one of its tools asks for input mid-call, is answered there too), `/tasks` the s
 their results, `/oban` the jobs (in development, or when configured), `/settings` the export. `mix trinity.export` and `mix trinity.import` do what `/settings` does from a terminal;
 `docs/backup.md` explains the archive.
 
-Semantic recall needs the local embedding model (91 MB, downloaded from the memory page on your
-say-so, never on its own). Without it the tier is off and full-text search still works;
-`docs/perf.md` has what it costs.
+Semantic recall needs a local embedding model: all-MiniLM-L6-v2 (91 MB, downloaded from the memory page on your
+say-so, never on its own) or the static floor (a 7.8 MB weights file, pure Elixir, no native code, installed
+under the data directory; not yet distributed with Trinity while its licence is reviewed). Without one the tier
+is off and full-text search still works. Every stored vector belongs to one named embedding space, and a store
+answers only from the space it is pinned to: changing models is an explicit re-embed (`mix trinity.space.retier`),
+never a silent switch. `docs/perf.md` has what it costs.
 
 `mix gate` runs the full quality gate and has to pass before every commit: format check, compile
 with warnings as errors, Credo, Sobelow, dependency audits, version verification, the naming and

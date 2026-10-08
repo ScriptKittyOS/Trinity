@@ -26,11 +26,8 @@ defmodule Trinity.Memory.Entry do
     field :source_message_id, Trinity.UUID
     field :confidence, :float
     field :last_used_at, :utc_datetime_usec
-    # Slice 032: the vector, the model that produced it (never mixed: docs/05 § semantic) and
-    # its width. `nil` until the observer embeds the row.
-    field :embedding, :binary
-    field :embedding_model, :string
-    field :embedding_dim, :integer
+    # Slice 032 kept the vector on this row; slice 133 moved it to `memory_embeddings`, one row
+    # a space (`Trinity.Memory.Vector`).
     # Slice 050: the curator's marks. Stale is untouched for a while and still recalled;
     # archived leaves recall and stays in the row (nothing is deleted by the curator).
     field :stale_at, :utc_datetime_usec
@@ -57,10 +54,7 @@ defmodule Trinity.Memory.Entry do
       :body,
       :source_message_id,
       :confidence,
-      :last_used_at,
-      :embedding,
-      :embedding_model,
-      :embedding_dim
+      :last_used_at
     ])
     |> validate_required([:persona_id, :tier, :scope, :key, :body])
     |> validate_inclusion(:tier, @always_on_tiers)
@@ -88,10 +82,7 @@ defmodule Trinity.Memory.Entry do
       :body,
       :source_message_id,
       :confidence,
-      :last_used_at,
-      :embedding,
-      :embedding_model,
-      :embedding_dim
+      :last_used_at
     ])
     |> put_change(:tier, "semantic")
     |> validate_required([:persona_id, :scope, :key, :body])

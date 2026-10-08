@@ -63,7 +63,7 @@ every term for FTS5, so operators are text.
 | scope | string | "global" \| "persona:<id>" \| "project:<path>" |
 | key | string, nullable | for always_on/profile: short stable key, unique within (tier, scope) |
 | body | text | |
-| embedding | vector(384), nullable | semantic tier only; sqlite_vec virtual table `memories_vec` on SQLite |
+| embedding | vector(384), nullable | semantic tier only; sqlite_vec virtual table `memories_vec` on SQLite (as planned; as built see below: slice 032 put it on the row, slice 133 moved it to `memory_embeddings`) |
 | source_message_id | fk, nullable | provenance |
 | confidence | float | agent-assigned |
 | last_used_at | utc_datetime_usec | for decay/pruning |
@@ -90,6 +90,32 @@ embedder in force's: models are never mixed, a change of embedder is a re-embed.
 The change log's `action` vocabulary grows by `pin` (a semantic memory promoted to `always_on` through
 `AlwaysOn.add/2`, so the budget applies) and `by` by `observer`. Recall marks its memory hits' `last_used_at`,
 which the retriever's recency decay reads.
+
+As built at slice 133 (embedding spaces): the three `embedding*` columns, the index on them and Postgres's
+`embedding_vector vector(384)` are gone from `memories`. Migration `20261008120000_create_memory_embeddings`
+moved every row that had a vector (the count before equals the count after, held by
+`test/trinity/memory/migration_test.exs`) into two tables:
+
+- **`embedding_spaces`**: `id` (string, primary key: the space ID, 64 lowercase hex, the SHA-256 of the
+  manifest's RFC 8785 JSON), `manifest` (map: the fourteen identity fields of `Trinity.Memory.Space`), `dim`,
+  `quantization` (`f32` or `int8`), `state` (`building` while a re-tier fills it, `complete` after), `active`
+  (boolean), `completed_at`, timestamps. A unique partial index (`embedding_spaces_one_active`, `WHERE active`)
+  lets the database hold at most one active space: the store's pinned space. A row written before slice 133 is
+  under a legacy space whose unrecorded fields read `"unrecorded"` (`Space.legacy/2`); the space of the most
+  recently embedded row was made active.
+- **`memory_embeddings`**: `memory_id` (references `memories`, `ON DELETE CASCADE`) and `space_id` (references
+  `embedding_spaces`, `ON DELETE RESTRICT`) together the primary key, `dim`, `vector` (binary: float32
+  little-endian, or for an `int8` space one signed byte a component, the vector scaled to a largest magnitude
+  of 127), `inserted_at`, and an index on `space_id`. A memory may hold a vector in several spaces at once,
+  which is what a re-tier builds. On Postgres there is also `embedding_vector`, an **untyped** pgvector
+  column, and one partial expression HNSW index per space,
+  `((embedding_vector::vector(<dim>)) vector_cosine_ops) WHERE space_id = '<id>'`, named
+  `memory_embeddings_hnsw_<first 16 hex of the id>` and built when the space is registered.
+
+Vectors are written by `Trinity.Memory.Spaces.put_vector/5` alone (bytes and, on Postgres, the pgvector value in
+one statement, the width checked against the space). A search names one space; a space with a row whose width
+or byte length does not fit it is refused rather than ranked. `mix trinity.space.list`, `mix
+trinity.space.retier` and `mix trinity.space.drop <id> --confirm` are the operator's commands.
 
 ### memory_changes (Slice 030)
 `persona_id`, `action` (add | replace | remove | promote | consolidate), `tier`, `scope`, `key`, `before`,

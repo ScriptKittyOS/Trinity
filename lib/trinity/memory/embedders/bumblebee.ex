@@ -17,6 +17,11 @@ defmodule Trinity.Memory.Embedders.Bumblebee do
   """
   @behaviour Trinity.Memory.Embedder
 
+  # Slice 133: a build without the neural group (`TRINITY_WITHOUT_ML=1`, mix.exs) compiles this
+  # module with none of these present; `availability/0` answers `{:off, {:exla, :not_compiled}}`
+  # there before anything below is called.
+  @compile {:no_warn_undefined, [Nx, Nx.Serving, Bumblebee, Bumblebee.Text, EXLA]}
+
   @repo "sentence-transformers/all-MiniLM-L6-v2"
   @dim 384
   @serving Trinity.Memory.Embedding
@@ -26,6 +31,19 @@ defmodule Trinity.Memory.Embedders.Bumblebee do
 
   @impl true
   def model_id, do: "bumblebee:" <> @repo
+
+  @doc """
+  Slice 133: the legacy space (`Trinity.Memory.Space.legacy/2`). Bumblebee loads the model from
+  the hub's moving `main`, so there is no revision and no digest to pin; rather than invent
+  them, this embedder keeps the identity rows written before slice 133 carry, so an upgraded
+  store stays pinned to what it holds. Pinning the revision is a follow-up (NOTES).
+  """
+  @impl true
+  def space, do: Trinity.Memory.Space.legacy(model_id(), @dim)
+
+  @doc "Slice 032's measured values: unrelated pairs at 0.062, related at 0.858 (AC2)."
+  @impl true
+  def thresholds, do: %{floor: 0.3, dedupe: 0.92}
 
   @doc "The Hugging Face repository the weights come from."
   @spec repo() :: String.t()

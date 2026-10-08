@@ -25,6 +25,42 @@ defmodule Trinity.Memory.Embedders.Hosted do
   @impl true
   def model_id, do: "hosted:" <> model()
 
+  @doc """
+  Slice 133: the space of a provider's model. The provider pools, normalises and versions the
+  weights out of sight, so those fields are `"provider"` or `"unrecorded"`; the operator's
+  declared `locality:` is part of it, so declaring another locality is another space.
+  """
+  @impl true
+  def space do
+    u = "unrecorded"
+
+    %Trinity.Memory.Space{
+      model_id: model_id(),
+      revision: u,
+      weights_digest: u,
+      tokenizer_digest: u,
+      dim: dim(),
+      pooling: "provider",
+      normalisation: u,
+      quantization: "f32",
+      query_prompt: "",
+      document_prompt: "",
+      max_input_tokens: u,
+      truncation: u,
+      runtime: "req_llm",
+      runtime_version: to_string(Application.spec(:req_llm, :vsn) || u),
+      locality: (Application.get_env(:trinity, :memory, [])[:locality] || u) |> to_string(),
+      num_ctx: "none"
+    }
+  end
+
+  @doc "Not measured for any hosted model (slice 032 G1: nemotron's raw vectors do not separate)."
+  @impl true
+  def thresholds do
+    Application.get_env(:trinity, :memory, [])
+    |> Keyword.get(:hosted_thresholds, %{floor: 0.3, dedupe: 0.92})
+  end
+
   @impl true
   def availability do
     with :hosted <- Trinity.Memory.Embedder.configured(),

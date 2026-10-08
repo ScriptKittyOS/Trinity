@@ -129,6 +129,18 @@ defmodule Trinity.Application do
         Trinity.Profile.check_mcp_auth(profile, mcp_auth),
         Trinity.Profile.check_embedded_as(profile, mcp_auth),
         check_authority(profile),
+        # Slice 133: the embedder's configuration faults (a missing or wrong locality, an
+        # external embedder without the operator's opt-in, an endpoint off the allow-list) refuse
+        # the boot under `:regulated`; under `:default` they turn semantic memory off with the
+        # same reason (`Trinity.Memory.Semantic.status/0`) and the node starts. Asked before the
+        # models' own endpoint check, so an embedding model off the allow-list is refused with
+        # the embedder's reason (`:not_allow_listed`), which is the one that names its locality.
+        Trinity.Memory.EmbedderConfig.check(
+          profile,
+          Application.get_env(:trinity, :memory, []),
+          Keyword.get(llm, :models, []),
+          Trinity.Profile.raw_endpoints()
+        ),
         Trinity.Profile.check_llm_endpoints(
           profile,
           Trinity.Profile.raw_endpoints(),

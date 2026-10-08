@@ -75,6 +75,14 @@ defmodule Trinity do
         Memory.Semantic,
         Memory.Retriever,
         Memory.Embedders.Bumblebee,
+        # Slice 133: the application asks it what the regulated profile refuses; the memory page
+        # and the space commands read the spaces.
+        Memory.EmbedderConfig,
+        Memory.Spaces,
+        Memory.Space,
+        # Slice 133: the eval (its own top-level boundary) reads these.
+        Memory.Scorer,
+        Memory.Embedders.Static,
         Tools,
         # Slice 060: what the MCP bridge (a top-level boundary) implements and returns.
         Tools.Tool,
