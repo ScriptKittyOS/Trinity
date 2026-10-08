@@ -47,28 +47,23 @@ defmodule TrinityWeb.SettingsLiveTest do
   end
 
   describe "provider keys (AC5)" do
-    test "a key typed in goes to the keychain, is never shown back, and is in no file or log",
+    test "a key typed in goes to the keychain, is never shown back, and is in no log",
          %{conn: conn} do
-      FakeKeychain.install!()
-      value = "sk-test-" <> Base.encode16(:crypto.strong_rand_bytes(12), case: :lower)
-      {:ok, view, html} = live(conn, ~p"/settings")
-      assert html =~ @name
-      assert has_element?(view, "#key-#{@name} [data-source=none]")
-
-      log =
-        capture_log([level: :debug], fn ->
-          view
-          |> form("#key-#{@name}", %{"secret" => %{"value" => value}})
-          |> render_submit()
-        end)
+      {view, value, log} = submit_key(conn)
 
       assert {:ok, ^value} = Secrets.fetch(@name)
       assert has_element?(view, "#key-#{@name} [data-source=keychain]")
       refute render(view) =~ value
       refute log =~ value
+    end
 
-      # `strings trinity.db | grep`, as AC5 words it, over every database file and the settings
-      # file. The databases are the suite's own; the settings file is the page's.
+    # `strings trinity.db | grep`, as AC5 words it, over every database file and the settings
+    # file. The databases are the suite's own; the settings file is the page's. SQLite only: on
+    # the postgres job there is no database file to read, and the list came back empty.
+    @tag :sqlite
+    test "a key typed in is in no database file and not in the settings file", %{conn: conn} do
+      {_view, value, _log} = submit_key(conn)
+
       files =
         Path.wildcard(Path.expand("../../../trinity_test*.db*", __DIR__)) ++
           Enum.filter([Settings.path()], &File.exists?/1)
@@ -176,5 +171,23 @@ defmodule TrinityWeb.SettingsLiveTest do
       assert html =~ Trinity.Paths.data_dir()
       assert html =~ "Budgets"
     end
+  end
+
+  # Types a fresh key into the page's form; returns the view, the key and the log of the submit.
+  defp submit_key(conn) do
+    FakeKeychain.install!()
+    value = "sk-test-" <> Base.encode16(:crypto.strong_rand_bytes(12), case: :lower)
+    {:ok, view, html} = live(conn, ~p"/settings")
+    assert html =~ @name
+    assert has_element?(view, "#key-#{@name} [data-source=none]")
+
+    log =
+      capture_log([level: :debug], fn ->
+        view
+        |> form("#key-#{@name}", %{"secret" => %{"value" => value}})
+        |> render_submit()
+      end)
+
+    {view, value, log}
   end
 end
