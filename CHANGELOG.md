@@ -50,6 +50,25 @@ file in both directories against every tool that takes a path; and the boot refu
 migration in separate operating system processes. The bind-mount case in the hardened container is
 listed for manual verification.
 
+### `slice/132`: a control mapping an assessor can check against the tree
+
+The regulated pack explained the boundary, the data flow, the cryptography and who owns what, and
+named not one control. `docs/regulated/control-mapping.md` now states which NIST SP 800-53 Rev. 5
+controls and SP 800-218 practices each mechanism in this tree contributes to, where the mechanism
+lives, what proves it, and whether the rest of the control is Trinity's, shared, or the
+deployment's. It opens with what it is not: not an assessment, not an authorization to operate, not
+a System Security Plan, and not a claim that any baseline is met.
+
+The mapping is checked rather than maintained. A test fails when a row names a file that has moved,
+a test or function that no longer exists, or a control identifier that NIST's own catalogue, pinned
+by commit and digest, does not have; when a row's ownership disagrees with the customer
+responsibility matrix or its status with the standards register; and when a refusal of the regulated
+profile, a census, a step of the gate, a row of the matrix or a control family is left unmapped. The
+matrix was brought up to date first. It still said nothing refused an unapproved model, which the
+regulated profile has done since it landed, and it now also covers the gateway allow-list, the
+external authority, transport, the web pages' lack of their own authentication, and the container
+image.
+
 ### `slice/130`: the headless image, hardened, and checked as built
 
 The headless container is what a government program would actually run, and it was built to run

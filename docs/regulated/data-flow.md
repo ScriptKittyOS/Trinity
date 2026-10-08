@@ -56,9 +56,12 @@ prompt.
 The requirement: CUI or PHI must not leave the boundary except to a model the lab has approved for
 that category of data, under a contract that permits it.
 
-The enforcement: **NOT IN TREE.** There is no allow-list of approved models in this repository, and
-nothing refuses a call to an unapproved endpoint at runtime. The model in force is configuration
-(`config/llm.exs:14`, and `TRINITY_MODEL` at runtime). Trinity will call whatever it is pointed at.
+The enforcement, under `TRINITY_PROFILE=regulated` only: the node refuses to boot when a configured
+model's endpoint is not on `TRINITY_REGULATED_LLM_ENDPOINTS`, or when a model states no endpoint
+(`lib/trinity/profile.ex`, `check_llm_endpoints/3`). The check runs once, at boot, over the models the
+configuration lists; it does not watch traffic and it is not an egress control. Under the default
+profile there is no such check: the model in force is configuration (`config/llm.exs:14`, and
+`TRINITY_MODEL` at runtime), and Trinity will call whatever it is pointed at.
 
 What this means for an accreditation:
 
