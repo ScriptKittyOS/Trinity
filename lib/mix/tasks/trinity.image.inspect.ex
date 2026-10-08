@@ -467,6 +467,7 @@ defmodule Mix.Tasks.Trinity.Image.Inspect do
   def unpack(image, base, work) do
     File.mkdir_p!(work)
     {image_config, image_layers} = save_and_read(image, Path.join(work, "image"))
+    :ok = ensure_local(base)
     {_base_config, base_layers} = save_and_read(base, Path.join(work, "base"))
     base_ids = Enum.map(base_layers, &elem(&1, 0))
     image_ids = Enum.map(image_layers, &elem(&1, 0))
@@ -480,6 +481,21 @@ defmodule Mix.Tasks.Trinity.Image.Inspect do
     to_layer = fn {_id, tar, dir} -> read_layer(tar, dir) end
     added = Enum.drop(image_layers, length(base_ids))
     {image_config, Enum.map(base_layers, to_layer), Enum.map(added, to_layer)}
+  end
+
+  # BuildKit, the builder on a GitHub runner, keeps the base in its own cache and never in the
+  # image store, so `docker save` of the base failed there (run 37764956008). The base is pinned
+  # by digest, so a pull fetches the same bytes the build used.
+  defp ensure_local(ref) do
+    case System.cmd("docker", ["image", "inspect", ref], stderr_to_stdout: true) do
+      {_, 0} ->
+        :ok
+
+      _ ->
+        {out, status} = System.cmd("docker", ["pull", ref], stderr_to_stdout: true)
+        if status != 0, do: Mix.raise("docker pull #{ref} failed (#{status}): #{out}")
+        :ok
+    end
   end
 
   defp save_and_read(ref, dir) do
