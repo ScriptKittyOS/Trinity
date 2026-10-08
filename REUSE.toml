@@ -56,3 +56,14 @@ path = ["lib/trinity_web/components/layouts/root.html.heex"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Sudo Apt Holdings LLC"
 SPDX-License-Identifier = "Apache-2.0"
+
+# Slice 132. **Not ours either.** The identifier lists the control mapping is checked against are
+# derived from NIST's OSCAL catalogues (`usnistgov/oscal-content`), which that repository dedicates
+# to the public domain under CC0 1.0; each file's header names the commit and the SHA-256 of the
+# catalogue it came from, and `scripts/nist_catalogues.exs` re-derives them. The `**/*.tsv` line
+# above would otherwise assign them to this project.
+[[annotations]]
+path = ["test/support/fixtures/nist/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "National Institute of Standards and Technology"
+SPDX-License-Identifier = "CC0-1.0"
