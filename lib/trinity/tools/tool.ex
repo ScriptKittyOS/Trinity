@@ -55,7 +55,14 @@ defmodule Trinity.Tools.Tool do
   @doc "False on a platform where the tool cannot keep its guarantee (slice 022: the shell on Windows); the registry skips it."
   @callback available?() :: boolean()
 
-  @optional_callbacks timeout: 0, format_result: 1, escalate: 2, available?: 0
+  @doc """
+  The host paths this call names, each with how the tool uses it (slice 135): `:read`, `:write` or
+  `:dir`. The runner hands each to `Trinity.Tools.FS.Guard` before the gate is asked, and a refused
+  path is a denial no grant or approval can lift. A tool that takes no host path omits it.
+  """
+  @callback fs_paths(args(), Context.t()) :: [{String.t(), :read | :write | :dir}]
+
+  @optional_callbacks timeout: 0, format_result: 1, escalate: 2, available?: 0, fs_paths: 2
 
   @doc "True when `module` implements this behaviour."
   @spec implemented_by?(module()) :: boolean()

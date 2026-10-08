@@ -108,6 +108,20 @@ defmodule Trinity.Permissions do
     {tightened, Policy.State.basis(basis, applied)}
   end
 
+  @doc """
+  The default decision for a tier in force: `config :trinity, :permissions, default:` when set,
+  else the layered policy's built-in table (`read: :allow, network: :allow`, the rest `:ask`).
+  Slice 135: the regulated boot asks it for `:network`.
+  """
+  @spec default_decision(tier()) :: decision()
+  def default_decision(tier) do
+    defaults =
+      Application.get_env(:trinity, :permissions, [])
+      |> Keyword.get(:default, Policy.Layered.defaults())
+
+    Map.get(defaults, tier, :ask)
+  end
+
   @doc "The fingerprint of a call as this session would bind it."
   @spec fingerprint(String.t() | nil, String.t(), map(), String.t() | nil) :: String.t()
   def fingerprint(session_id, tool, args, cwd),

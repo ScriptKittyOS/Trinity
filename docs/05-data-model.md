@@ -242,7 +242,7 @@ call is timed at the one place every call passes.
 | receipt_hash | binary | over the canonical signed bytes |
 | signed_payload | map | RFC 8785 canonical JSON. Field set is a legal-review question before Slice 024 |
 | signature | binary | through the signer seam: Ed25519 by default, ECDSA P-384 in FIPS mode, ML-DSA-87 opt-in (slice 024 amendments 1 to 6) |
-| key_id | string | inside the signed bytes; resolves in the key registry (as built: `<data dir>/keys/registry.json`, not `priv/`), whose row names the algorithm; the verifier reads the algorithm from there and nowhere else |
+| key_id | string | inside the signed bytes; resolves in the key registry (as built: `<secrets dir>/keys/registry.json` since slice 135, `<data dir>/keys/registry.json` before it, never `priv/`), whose row names the algorithm; the verifier reads the algorithm from there and nowhere else |
 | kind | string | "decision" \| "effect" \| "query" \| "boot" \| "cap" |
 | subject | map | refs to the session, tool call, approval or effect this receipts |
 Append-only. Never updated, never deleted. Signing unavailable means the effect is denied, not that an unsigned

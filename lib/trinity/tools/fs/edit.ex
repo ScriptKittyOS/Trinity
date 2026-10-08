@@ -8,8 +8,8 @@ defmodule Trinity.Tools.FS.Edit do
   """
   @behaviour Trinity.Tools.Tool
 
-  alias Trinity.Tools.{Context, FS, Result}
-  alias Trinity.Tools.FS.Placeholders
+  alias Trinity.Tools.{Context, FS, Result, Taint}
+  alias Trinity.Tools.FS.{Guard, Placeholders}
 
   # Sobelow reads `@sobelow_skip` from the source; the compiler would call it unused (the
   # measure `Trinity.Paths` takes).
@@ -41,26 +41,38 @@ defmodule Trinity.Tools.FS.Edit do
   def effect, do: :artifact
 
   @impl true
-  def escalate(%{"path" => path}, %Context{cwd: cwd}) do
-    case FS.resolve(path, cwd) do
-      {:ok, _, :outside} -> :ask
-      _ -> nil
-    end
-  end
+  def escalate(%{"path" => path}, %Context{cwd: cwd}), do: FS.escalation(path, cwd, :write)
+
+  @impl true
+  def fs_paths(%{"path" => path}, _ctx), do: [{path, :write}]
 
   # sobelow_skip reason: Traversal.FileModule fires on every File call whose path is a variable,
   # and a filesystem tool's path is the model's argument by design. The control is not the
-  # path's shape but the gate: `Trinity.Tools.FS.resolve/2` judges every path after symlink
-  # resolution against the roots and the tools escalate anything outside to `:ask` (docs/07,
-  # filesystem; slice 022 AC1), and a write is atomic with a backup. Scoped to the function
-  # rather than .sobelow-skips, which keys on file and line.
+  # path's shape but the gate: `Trinity.Tools.FS.Guard` judges every path (no symlink
+  # followed, protected directories and inodes refused) against the roots and the tools
+  # escalate anything outside to `:ask` (docs/07, filesystem; slice 022 AC1), and a write is
+  # atomic with a backup. Scoped to the function rather than .sobelow-skips, which keys on file
+  # and line.
   @sobelow_skip ["Traversal.FileModule"]
   @impl true
-  def execute(%{"path" => path, "search" => search, "replace" => replace}, %Context{cwd: cwd}) do
-    {:ok, real, _} = FS.resolve(path, cwd)
+  def execute(
+        %{"path" => path, "search" => search, "replace" => replace},
+        %Context{cwd: cwd} = ctx
+      ) do
+    # Slice 135: the current bytes come through the guard's open, which fstats the descriptor; the
+    # diff carries them back, so an edit outside the roots (approved) taints the session as a read.
+    case Guard.read(path, cwd) do
+      {:ok, before, %{canonical: real} = verdict} ->
+        Taint.note_read(verdict, ctx.session_id)
+        edit(real, before, search, replace)
 
-    with {:ok, before} <- File.read(real),
-         :ok <- placeholders(replace),
+      {:error, _} = refused ->
+        refused
+    end
+  end
+
+  defp edit(real, before, search, replace) do
+    with :ok <- placeholders(replace),
          {:ok, after_text} <- replace_once(before, search, replace),
          {:ok, backup} <- FS.backup(real),
          :ok <- FS.atomic_write(real, after_text) do

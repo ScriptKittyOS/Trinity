@@ -61,22 +61,28 @@ defmodule Trinity.Tools.Shell.Run do
 
   @impl true
   def escalate(%{"command" => command} = args, %Context{cwd: cwd}) do
-    cond do
-      Dangerous.match(command) != [] -> :destructive
-      match?({:ok, _, :outside}, FS.resolve(Map.get(args, "cwd", "."), cwd)) -> :ask
-      true -> nil
-    end
+    if Dangerous.match(command) != [],
+      do: :destructive,
+      else: FS.escalation(Map.get(args, "cwd", "."), cwd, :dir)
   end
+
+  # Slice 135: the working directory is a path the guard judges; the command text is not (no path
+  # check can read free text), which docs/07 states.
+  @impl true
+  def fs_paths(args, _ctx), do: [{Map.get(args, "cwd", "."), :dir}]
 
   @impl true
   def execute(%{"command" => command} = args, %Context{cwd: cwd}) do
-    {:ok, dir, _} = FS.resolve(Map.get(args, "cwd", "."), cwd)
     timeout = args |> Map.get("timeout_ms", @default_timeout_ms) |> min(@max_timeout_ms)
 
-    if File.dir?(dir) do
-      run(command, dir, timeout)
-    else
-      {:error, {:cwd, "no such directory: #{dir}"}}
+    case FS.resolve(Map.get(args, "cwd", "."), cwd, :dir) do
+      {:ok, dir, _} ->
+        if File.dir?(dir),
+          do: run(command, dir, timeout),
+          else: {:error, {:cwd, "no such directory: #{dir}"}}
+
+      {:error, _} = refused ->
+        refused
     end
   end
 

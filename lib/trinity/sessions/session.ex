@@ -810,7 +810,14 @@ defmodule Trinity.Sessions.Session do
     # Slice 033: the project root is the tools' working directory (the row is read again so
     # a root set between turns is this turn's).
     row = Store.get_session(id) || session
-    context = %{session_id: id, caller: id, persona: persona, cwd: row.project_root}
+
+    context = %{
+      session_id: id,
+      caller: id,
+      persona: persona,
+      cwd: row.project_root,
+      turn_id: Map.get(turn, :id)
+    }
 
     # Slice 020: the turn's calls run at once through the runner in force.
     %Task{pid: pid} =

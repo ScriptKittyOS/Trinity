@@ -29,6 +29,11 @@ defmodule Trinity.Application do
     # project's rules about key material, and the filter is the last line for exactly that case.
     install_log_redaction()
 
+    # Slice 135, in every profile: a filesystem root that is, contains or sits inside the data
+    # directory or the secrets directory refuses the boot, before any child (and before the
+    # regulated refusals, so the reason printed is this one when both apply).
+    Trinity.Tools.FS.Guard.verify_boot!()
+
     # Slice regulated-boot. Before any child, because a refused boot should have started nothing:
     # the same reasoning the DataDir lock is placed early for. Under `:default` this returns :ok
     # without reading anything.
@@ -44,6 +49,10 @@ defmodule Trinity.Application do
           # Slice 010: one node per data directory. Before the Repo, so a refused boot has
           # opened no database file; the reason names the holder's OS pid and mode.
           {Trinity.DataDir.Lock, dir: lock_dir(), mode: mode()},
+          # Slice 135: secrets an earlier release kept under the data directory move to the
+          # secrets directory, once the lock is held and before the signer or the MCP server
+          # reads them. A task that finishes inside `start_link`, so the order is the boot's.
+          Trinity.Secrets.Migration,
           # Slice 024 (ADR-0010): the authority is selected once, here, before anything that
           # could act; a refused selection stops the boot with its reason.
           Trinity.Authority.Selection,
@@ -141,6 +150,12 @@ defmodule Trinity.Application do
           profile,
           Trinity.Profile.raw_gateways(),
           Trinity.Gateways.adapters()
+        ),
+        # Slice 135: a network default of :allow is only regulated with an egress allow-list.
+        Trinity.Profile.check_egress(
+          profile,
+          Trinity.Permissions.default_decision(:network),
+          Trinity.Profile.raw_egress()
         )
       ]
       |> Enum.each(fn

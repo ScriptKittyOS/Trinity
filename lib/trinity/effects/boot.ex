@@ -27,6 +27,14 @@ defmodule Trinity.Effects.Boot do
       "node" => Atom.to_string(node())
     }
 
+    # Slice 135: a boot that moved secrets out of the data directory says so on its signed record:
+    # from where, to where, which files, and any left behind because the destination was taken.
+    subject =
+      case Trinity.Secrets.Migration.report() do
+        nil -> subject
+        report -> Map.put(subject, "secrets_migration", report)
+      end
+
     meta = %{
       "core_policy_hash" => Trinity.CorePolicy.hash(),
       "canonicalization_version" => Trinity.Permissions.Fingerprint.version()

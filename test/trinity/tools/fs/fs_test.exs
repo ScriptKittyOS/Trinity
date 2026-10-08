@@ -42,15 +42,21 @@ defmodule Trinity.Tools.FSTest do
       assert Permissions.decide(nil, "fs_read", %{"path" => "a.txt"}, escalate: nil) == :allow
     end
 
-    test "a symlink pointing outside the roots resolves outside", %{dir: dir, ctx: ctx} do
+    # Slice 135 changed this rule: a symlink was followed and its target judged (outside, so it
+    # asked); now no symlink is followed, and one anywhere in the path is refused outright.
+    test "a symlink pointing outside the roots is refused, not followed", %{dir: dir, ctx: ctx} do
       outside_dir =
         Path.join(System.tmp_dir!(), "trinity-out-#{System.unique_integer([:positive])}")
 
       File.mkdir_p!(outside_dir)
       on_exit(fn -> File.rm_rf!(outside_dir) end)
       File.ln_s!(outside_dir, Path.join(dir, "link"))
-      assert {:ok, _, :outside} = FS.resolve("link/x.txt", dir)
+      assert {:error, {:fs_denied, %{rule: "symlink"}}} = FS.resolve("link/x.txt", dir)
       assert Read.escalate(%{"path" => "link/x.txt"}, ctx) == :ask
+
+      assert {:error, {:fs_denied, %{rule: "symlink"}}} =
+               Read.execute(%{"path" => "link/x.txt"}, ctx)
+
       assert {:ok, _, :inside} = FS.resolve("new/file.txt", dir)
     end
 

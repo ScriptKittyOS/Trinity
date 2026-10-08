@@ -33,7 +33,7 @@ should not plan as though it does.
 | Control | Trinity software | Customer | Host or AWS |
 |---|---|---|---|
 | Receipt signing key generation and use | **Yes.** `lib/trinity/receipts/key_custody.ex`, seam at `lib/trinity/keys.ex` | No | No |
-| Where key material lives | Default is a 0600 file in the data directory, `lib/trinity/paths.ex` (`keys_dir/0`) | **Yes.** Custody is a deployment decision | Filesystem permissions |
+| Where key material lives | Default is a file in the secrets directory, outside the data directory and unreachable by any tool (`lib/trinity/paths.ex`, `secrets_dir/0` and `keys_dir/0`; `TRINITY_SECRETS_DIR`, slice 135) | **Yes.** Custody is a deployment decision | Filesystem permissions |
 | A KMS or HSM adapter | Seam exists (`lib/trinity/keys.ex`); **no KMS or HSM adapter is in the tree** | **Yes**, if required | **Yes** |
 | Custody of the signing key | **No, and this is stated rather than implied.** `docs/10-assurance-case.md` C6 | **Yes** | **Yes** |
 | Envelope encryption of blobs | **Yes.** AES-256-GCM, `docs/encryption-at-rest.md` | No | No |

@@ -90,7 +90,10 @@ enforces it.
 - **Acts.** Filesystem, web and shell tools behind a permission gate with fingerprint-bound
   approvals; every effect passes one membrane and leaves a signed, hash-chained receipt you can
   verify offline (`mix trinity.receipts.verify`). A FIPS build leg in CI proves the receipt scheme
-  under OpenSSL's FIPS provider.
+  under OpenSSL's FIPS provider. No tool can read or write Trinity's own keys or databases, by any
+  path: the secrets live in their own directory outside the data directory, a filesystem root that
+  overlaps either refuses the boot, and every path is checked for links, hard links, `/proc` and
+  protected inodes before the file is opened and again on the open file (slice 135).
 - **Remembers.** A persona (its SOUL), a small always-on memory with a byte budget and a
   consolidator instead of truncation, full-text search over every past conversation, a semantic
   tier filled by an observer after each turn and recalled by meaning (local embeddings, never a

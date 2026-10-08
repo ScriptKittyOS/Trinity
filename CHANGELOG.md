@@ -24,6 +24,32 @@ evidence for each increment is retained by the maintainers and summarised here.
 
 ## 2026-10-08
 
+### `slice/135`: secrets out of the data directory, and filesystem roots that fail closed
+
+A defect, fixed. The data directory was always a filesystem root and the receipt signing key lived
+inside it, so with the default policy a file read of the key returned it without asking. Now no tool
+can read or write Trinity's own keys or databases, by any path. The keys, the MCP bearer token and
+the MCP client's tokens live in a secrets directory of their own (`TRINITY_SECRETS_DIR`, with a
+default per operating system outside the data directory), and an existing installation's files move
+there on the first boot, receipted, with every earlier receipt still verifying. The data directory
+is no longer a root, and a root that is, contains or sits inside either directory refuses the boot
+in every profile and is refused by the Settings page.
+
+Every path a tool is given is judged before the permission policy is asked, and a refusal cannot be
+approved away: no symbolic link is followed, `/proc` and `/dev` are refused, a hard link is refused,
+and the file's device and inode are compared against an inventory of Trinity's secrets and databases
+(which catches a bind mount) both before the open and on the open file. A short list of secret file
+names is the last check, not the first. Every filesystem decision, refusals included, is on the
+receipt chain with the paths, the inode, the rule and the turn. A session that read a file outside
+its folders asks before every web fetch after it, and a regulated deployment that allows network
+access without an egress allow-list refuses to boot.
+
+Verified by the test suite: each route to the key (direct, `..`, a symbolic link, a hard link,
+`/proc/self/fd`) shown returning the key before the fix and refused after it; a census of every
+file in both directories against every tool that takes a path; and the boot refusals and the
+migration in separate operating system processes. The bind-mount case in the hardened container is
+listed for manual verification.
+
 ### `slice/100`: Trinity as a desktop application
 
 The Tauri window now does what a desktop application is expected to do. A tray icon shows whether

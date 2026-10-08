@@ -11,8 +11,10 @@
 #
 # The container binds 0.0.0.0 inside its own network namespace (TRINITY_BIND) so the published
 # port reaches it; the bearer is required on /mcp whatever the bind. The data directory is
-# /data/trinity (XDG_DATA_HOME=/data, a volume): the databases, the receipt keys, the
-# envelope key, the generated token.
+# /data/trinity (XDG_DATA_HOME=/data, a volume): the databases. The secrets directory is
+# /data/secrets (TRINITY_SECRETS_DIR, slice 135), beside the data directory on the same volume
+# and never inside it: the receipt keys, the envelope key, the generated token. Point it at a
+# systemd credential or a Kubernetes Secret mount instead (docs/packaging.md).
 FROM hexpm/elixir:1.20.4-erlang-28.5.0.5-debian-bookworm-20260824-slim AS build
 
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
@@ -40,7 +42,8 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends \
     && sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
 
 ENV LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8
-ENV TRINITY_MODE=headless TRINITY_BIND=0.0.0.0 PORT=4000 XDG_DATA_HOME=/data
+ENV TRINITY_MODE=headless TRINITY_BIND=0.0.0.0 PORT=4000 XDG_DATA_HOME=/data \
+    TRINITY_SECRETS_DIR=/data/secrets
 WORKDIR /app
 RUN useradd --create-home --uid 10001 trinity && mkdir -p /data && chown trinity:trinity /data /app
 COPY --from=build --chown=trinity:trinity /app/_build/prod/rel/headless ./

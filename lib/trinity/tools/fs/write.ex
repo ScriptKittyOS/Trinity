@@ -42,16 +42,24 @@ defmodule Trinity.Tools.FS.Write do
 
   @impl true
   def escalate(%{"path" => path} = args, %Context{cwd: cwd}) do
-    cond do
-      Map.get(args, "allow_placeholders", false) -> :destructive
-      match?({:ok, _, :outside}, FS.resolve(path, cwd)) -> :ask
-      true -> nil
-    end
+    if Map.get(args, "allow_placeholders", false),
+      do: :destructive,
+      else: FS.escalation(path, cwd, :write)
   end
 
   @impl true
+  def fs_paths(%{"path" => path}, _ctx), do: [{path, :write}]
+
+  # Slice 135: judged again here, at execution, by the same guard the runner asked: a path that
+  # became a link or a protected file since the decision is refused rather than written.
+  @impl true
   def execute(%{"path" => path, "content" => content} = args, %Context{cwd: cwd}) do
-    {:ok, real, _} = FS.resolve(path, cwd)
+    with {:ok, real, _} <- FS.resolve(path, cwd, :write) do
+      write(real, content, args)
+    end
+  end
+
+  defp write(real, content, args) do
     new? = not File.exists?(real)
 
     with :ok <- validate(content, new?, Map.get(args, "allow_placeholders", false)),

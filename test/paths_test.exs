@@ -15,6 +15,12 @@ defmodule PathsTest do
 
   defp env(map), do: fn key -> Map.get(map, key) end
 
+  # By path component, either separator: "Trinity Secrets" is not inside "Trinity".
+  defp inside?(path, dir),
+    do:
+      path == dir or String.starts_with?(path, dir <> "/") or
+        String.starts_with?(path, dir <> "\\")
+
   describe "data_dir/2 resolves a different root per OS" do
     test "linux honours XDG_DATA_HOME" do
       got = Paths.data_dir({:unix, :linux}, env(%{"XDG_DATA_HOME" => "/home/a/.local/share"}))
@@ -52,6 +58,39 @@ defmodule PathsTest do
         |> Enum.uniq()
 
       assert length(roots) == 3, "branches collapsed to #{inspect(roots)}"
+    end
+  end
+
+  # Slice 135: the secrets directory, per OS, never inside the data directory (nor the other way).
+  describe "secrets_dir/2 is outside the data directory on every OS" do
+    test "linux: XDG_CONFIG_HOME, else ~/.config" do
+      assert Paths.secrets_dir({:unix, :linux}, env(%{"XDG_CONFIG_HOME" => "/home/a/.cfg"})) ==
+               "/home/a/.cfg/trinity/secrets"
+
+      assert Paths.secrets_dir({:unix, :linux}, env(%{"HOME" => "/home/a"})) ==
+               "/home/a/.config/trinity/secrets"
+    end
+
+    test "macOS and windows have their own" do
+      assert Paths.secrets_dir({:unix, :darwin}, env(%{"HOME" => "/Users/a"})) ==
+               "/Users/a/Library/Application Support/Trinity Secrets"
+
+      assert Paths.secrets_dir(
+               {:win32, :nt},
+               env(%{"LOCALAPPDATA" => "C:\\Users\\a\\AppData\\Local"})
+             ) ==
+               "C:\\Users\\a\\AppData\\Local\\Trinity\\Secrets"
+    end
+
+    test "neither directory contains the other, for the same environment" do
+      e = env(%{"HOME" => "/home/a", "APPDATA" => "R", "LOCALAPPDATA" => "L"})
+
+      for os <- [{:unix, :linux}, {:unix, :darwin}, {:win32, :nt}] do
+        data = Paths.data_dir(os, e)
+        secrets = Paths.secrets_dir(os, e)
+        refute inside?(secrets, data), "#{inspect(os)}: #{secrets} in #{data}"
+        refute inside?(data, secrets), "#{inspect(os)}: #{data} in #{secrets}"
+      end
     end
   end
 
