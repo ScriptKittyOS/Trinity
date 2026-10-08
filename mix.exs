@@ -121,9 +121,36 @@ defmodule Trinity.MixProject do
   # (`__libc_single_threaded: symbol not found`, package run 35600216451); started at boot
   # it took the whole release down, started on demand it is the tier's reason.
   defp exla_release_applications do
-    case :os.type() do
-      {:win32, _} -> []
-      _ -> [exla: :load]
+    cond do
+      without_ml?() -> []
+      match?({:win32, _}, :os.type()) -> []
+      true -> [exla: :load]
+    end
+  end
+
+  # Slice 133, AC8: `TRINITY_WITHOUT_ML=1` builds the tree without the neural group (nx, exla,
+  # and bumblebee, which brings axon and tokenizers; xla comes with exla). Dropping them from
+  # the release alone is not possible: pgvector lists nx as an optional application, and
+  # `Mix.Release` includes an optional application whenever it is compiled, so the group leaves
+  # only a build that never had it. Use a build root of its own (`MIX_BUILD_ROOT`): the adapter of
+  # dependencies differs from the default build's. `config/config.exs` makes the static floor the
+  # embedder of such a build, and the modules that name the group check for it at run time
+  # (`scripts/static_floor_release.sh` assembles one and boots it).
+  defp without_ml?, do: System.get_env("TRINITY_WITHOUT_ML") == "1"
+
+  defp ml_deps do
+    if without_ml?() do
+      []
+    else
+      exla_deps() ++
+        [
+          # Slice 032: local embeddings (Trinity.Memory.Embedders.Bumblebee). The 0.13 line of nx
+          # and exla is what bumblebee 0.7.1 accepts (nx 1.0.0 shipped 2026-09-10 and bumblebee
+          # has no release for it at G1); measured for bundle size and latency in the slice's
+          # NOTES.md.
+          {:nx, "~> 0.13.1"},
+          {:bumblebee, "~> 0.7.1"}
+        ]
     end
   end
 
@@ -148,7 +175,7 @@ defmodule Trinity.MixProject do
   end
 
   defp deps do
-    exla_deps() ++
+    ml_deps() ++
       [
         {:phoenix, "~> 1.8.13"},
         {:phoenix_ecto, "~> 4.5"},
@@ -172,11 +199,6 @@ defmodule Trinity.MixProject do
         {:jcs, "~> 0.2"},
         # Slice 022: HTML to text for web_fetch (Trinity.Tools.Web.Fetch).
         {:floki, "~> 0.38"},
-        # Slice 032: local embeddings (Trinity.Memory.Embedders.Bumblebee). The 0.13 line of nx
-        # and exla is what bumblebee 0.7.1 accepts (nx 1.0.0 shipped 2026-09-10 and bumblebee has
-        # no release for it at G1); measured for bundle size and latency in the slice's NOTES.md.
-        {:nx, "~> 0.13.1"},
-        {:bumblebee, "~> 0.7.1"},
         # Slice 032: vectors on the Postgres job (Trinity.Memory.VectorStores.Pgvector).
         {:pgvector, "~> 0.4.1"},
         # Slice 040: SKILL.md frontmatter (Trinity.Skills.Parser) and the skill roots' watcher

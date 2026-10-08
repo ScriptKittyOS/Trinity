@@ -234,6 +234,19 @@ config :logger, :default_formatter,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# Slice 133: the static floor is the embedder where the neural group cannot run. A build without
+# it (`TRINITY_WITHOUT_ML=1`, mix.exs) has nothing else in process; the Linux desktop bundle
+# leaves exla out (its NIF never loaded in Burrito's musl ERTS) and a Windows host never declares
+# it. Chosen at build time, the way mix.exs composes exla per `BURRITO_TARGET`: this is the
+# configuration such a build ships with, not a fallback, and the store still answers only from
+# the space it is pinned to. Until the weights may be bundled (slice 133 NOTES, D7) these builds
+# report `:weights_missing` unless an operator installs the artifact (`Embedders.Static`).
+# Everywhere else the default stays `:local` (MiniLM) until the eval decides (D5).
+if System.get_env("TRINITY_WITHOUT_ML") == "1" or
+     System.get_env("BURRITO_TARGET") in ["linux_x86_64", "windows_x86_64"] do
+  config :trinity, :memory, embedder: :static
+end
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

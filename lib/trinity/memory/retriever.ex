@@ -12,20 +12,24 @@ defmodule Trinity.Memory.Retriever do
   half its score, so it is demoted below a recent one of the same rank, never lost.
 
   A vector search always has `k` nearest rows, however far; a memory enters the vector list
-  only at a cosine of `recall_min_cosine:` (0.3) or more, the slice's own "unrelated" line
-  (AC2: the unrelated pair measures 0.062 on the local model, the related one 0.858), so a
-  question about nothing the person ever said recalls nothing.
+  only at a cosine of the serving space's floor or more (`Semantic.thresholds/0`; 0.3 for MiniLM,
+  slice 032's "unrelated" line, where the unrelated pair measures 0.062 and the related one
+  0.858; `recall_min_cosine:` overrides), so a question about nothing the person ever said
+  recalls nothing.
+
+  Slice 133: the vector list comes from the store's one active space; when the store refuses
+  to rank (a row that does not fit the space) the vector list is empty, the refusal is the
+  tier's recorded fault, and the full-text list still answers.
 
   When the semantic tier is off, the vector list is empty and recall is the full-text list
   alone: 031 keeps working (NOTES decision 3). Memories that come back are marked used.
   """
 
-  alias Trinity.Memory.{AlwaysOn, Embedder, Search, Semantic, VectorStore}
+  alias Trinity.Memory.{AlwaysOn, Search, Semantic}
 
   @rrf_k 60
   @half_life_days 30
   @default_k 8
-  @default_min_cosine 0.3
 
   @typedoc "A fused hit: a semantic memory or a past message, with the fused score and which lists found it."
   @type hit :: %{
@@ -105,20 +109,13 @@ defmodule Trinity.Memory.Retriever do
 
   defp vector_hits(persona_id, session_id, query, depth) do
     with true <- Semantic.on?(),
-         {:ok, [vector]} <- Embedder.embed([query]) do
-      chain = AlwaysOn.chain(persona_id, session_id)
+         chain = AlwaysOn.chain(persona_id, session_id),
+         {:ok, hits} <- Semantic.search(persona_id, chain, query, depth) do
+      floor = Semantic.thresholds().floor
 
-      floor =
-        Keyword.get(
-          Application.get_env(:trinity, :memory, []),
-          :recall_min_cosine,
-          @default_min_cosine
-        )
-
-      vector
-      |> VectorStore.search(depth, Semantic.filter(persona_id, chain))
+      hits
       |> Enum.filter(&(&1.score >= floor))
-      |> Enum.map(fn %{entry: e, score: s} ->
+      |> Enum.map(fn %{entry: e, score: s, space_id: space_id} ->
         %{
           kind: :memory,
           id: e.id,
@@ -126,7 +123,13 @@ defmodule Trinity.Memory.Retriever do
           at: e.last_used_at || e.inserted_at,
           score: s,
           found_by: [],
-          ref: %{key: e.key, scope: e.scope, source_message_id: e.source_message_id, cosine: s}
+          ref: %{
+            key: e.key,
+            scope: e.scope,
+            source_message_id: e.source_message_id,
+            cosine: s,
+            space_id: space_id
+          }
         }
       end)
     else

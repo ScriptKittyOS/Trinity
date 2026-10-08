@@ -22,6 +22,31 @@ evidence for each increment is retained by the maintainers and summarised here.
   tree, engineering rules consolidated into `docs/03-conventions.md`, and this changelog added as
   the public record of delivered work.
 
+### `slice/133`: semantic memory without native code, and vectors that know where they came from
+
+Semantic recall used to need EXLA, a 463 MB native library that does not load in the Linux desktop
+bundle and has no Windows build, so on those builds it was simply off. This adds a floor that needs
+no native code at all: a static embedding model (`static-retrieval-mrl-en-v1`, 256 dimensions, int8,
+7.8 MB of weights) run in plain Elixir, with its own implementation of the BERT tokenizer that gives
+the reference library's token ids on 5,000 natural sentences and 1,000 hostile ones. Its vectors
+match the reference implementation's to a cosine of 0.9999 or better on 500 fixtures, and scoring
+10,000 of them takes 10 to 25 ms at the 95th percentile on the owner's machine, depending on the
+method. A release built without the neural libraries boots, embeds and recalls through it. The
+weights are not distributed with Trinity while their licence and training-data terms are reviewed.
+
+Every stored vector now belongs to a named embedding space, identified by a digest over fourteen
+fields (model, revision, weights and tokenizer digests, width, pooling, quantization, prompts,
+runtime, declared locality and more), in a table of its own. A store answers from exactly one space,
+chosen by the operator: configuring a different model turns semantic recall off with a reason
+instead of quietly finding nothing, moving to a new model is an explicit re-embed built beside the
+old vectors, and the old vectors stay until the operator confirms their removal. A store row that
+does not fit its space makes recall refuse rather than rank. An embedder that reaches an endpoint
+must declare whether it is inside the deployment's boundary; a regulated node refuses to boot on a
+missing or wrong declaration, and full-text recall keeps working through every runtime fault.
+
+The evaluation that decides the default model is built and waiting: a generated corpus, 300 queries,
+and labels that the scored run will not read until 100 of them have been audited and frozen.
+
 ## 2026-09-26
 
 ### `slice/128`: the checks that guard attribution now say what they check

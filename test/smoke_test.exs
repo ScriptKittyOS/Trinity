@@ -119,7 +119,8 @@ defmodule SmokeTest do
 
     test "the EXLA line on this machine (the NIF is compiled and loads here; the bundle's answer is AC7's)" do
       assert Smoke.exla_line() == "TRINITY_SMOKE_EXLA=ok"
-      assert Smoke.semantic_line() == "TRINITY_SMOKE_SEMANTIC=on"
+      # Slice 133: the semantic line reads the store's active space, so it needs the database;
+      # Trinity.Memory.VectorStoreTest asserts it through the probe, under the sandbox.
     end
   end
 end

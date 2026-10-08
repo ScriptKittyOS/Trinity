@@ -9,14 +9,19 @@ defmodule Trinity.Memory.Observer do
   own model (`Trinity.LLM.generate_object/3`, the one the operator chose for the conversation:
   no text goes anywhere new, NOTES decision 5) for 0 to 3 durable facts, preferences or
   decisions, embeds them in one batch, drops each whose cosine to a memory already in the
-  session's scope chain is at or over the dedupe threshold (0.92, `dedupe_cosine:`) or to
-  one earlier in the same batch, and inserts the rest as `semantic` rows in the persona's
+  session's scope chain is at or over the dedupe threshold or to one earlier in the same batch,
+  and inserts the rest as `semantic` rows in the persona's
   scope with the source message, the model's confidence and a row in the change log
   (`by: "observer"`).
 
   Off, and nothing runs, when the tier is off (`Trinity.Memory.Semantic.status/0`), when the
   session has no persona, or when `config :trinity, :memory, observer: false` (the test
   suite's default: the AC3 test calls `run/2` itself).
+
+  Slice 133: the dedupe threshold is the serving space's own (`Trinity.Memory.Semantic.thresholds/0`:
+  MiniLM's 0.92, the static floor's 0.98, `dedupe_cosine:` overriding), and the batch is
+  embedded and stored in one space, named with the vectors, so a re-tier that cuts over between
+  the embed and the write cannot put one space's vectors under another (AC11; slice 133 NOTES).
   """
 
   alias Trinity.LLM
@@ -25,7 +30,6 @@ defmodule Trinity.Memory.Observer do
 
   require Logger
 
-  @default_dedupe 0.92
   @max_memories 3
 
   @schema %{
@@ -90,20 +94,20 @@ defmodule Trinity.Memory.Observer do
 
   @doc """
   Extracts, dedupes and stores; synchronous. Returns the entries inserted, `:off`, or the
-  model's error. The dedupe threshold is `dedupe_cosine:` in `config :trinity, :memory`.
+  model's error. The dedupe threshold is the serving space's (`Semantic.thresholds/0`).
   """
   @spec run(turn(), [message()]) :: {:ok, [Entry.t()]} | :off | {:error, term()}
   def run(%{persona_id: persona_id, session_id: session_id} = turn, messages) do
     with true <- on?(turn) || :off,
          {:ok, proposed} <- extract(turn, messages),
-         {:ok, vectors} <- Embedder.embed(Enum.map(proposed, & &1.body)) do
+         {:ok, vectors, space_id} <- Semantic.embed(Enum.map(proposed, & &1.body)) do
       source = source_id(messages)
 
       inserted =
         proposed
         |> Enum.zip(vectors)
-        |> dedupe(persona_id, AlwaysOn.chain(persona_id, session_id))
-        |> Enum.flat_map(fn {m, v} -> insert(m, v, persona_id, session_id, source) end)
+        |> dedupe(persona_id, AlwaysOn.chain(persona_id, session_id), space_id)
+        |> Enum.flat_map(fn {m, v} -> insert(m, v, space_id, persona_id, session_id, source) end)
 
       {:ok, inserted}
     else
@@ -114,13 +118,12 @@ defmodule Trinity.Memory.Observer do
 
   # Drops a proposal whose vector is within the threshold of a memory in the chain or of one
   # kept earlier in this batch; order preserved.
-  defp dedupe(pairs, persona_id, chain) do
-    threshold =
-      Keyword.get(Application.get_env(:trinity, :memory, []), :dedupe_cosine, @default_dedupe)
+  defp dedupe(pairs, persona_id, chain, space_id) do
+    threshold = Semantic.thresholds().dedupe
 
     {kept, _} =
       Enum.reduce(pairs, {[], []}, fn {m, v}, {kept, seen} ->
-        if duplicate?(persona_id, chain, v, seen, threshold),
+        if duplicate?(persona_id, chain, v, space_id, seen, threshold),
           do: {kept, seen},
           else: {[{m, v} | kept], [v | seen]}
       end)
@@ -128,7 +131,7 @@ defmodule Trinity.Memory.Observer do
     Enum.reverse(kept)
   end
 
-  defp insert(m, vector, persona_id, session_id, source) do
+  defp insert(m, vector, space_id, persona_id, session_id, source) do
     attrs = %{
       persona_id: persona_id,
       scope: AlwaysOn.persona_scope(persona_id),
@@ -138,7 +141,12 @@ defmodule Trinity.Memory.Observer do
       confidence: m.confidence
     }
 
-    case Semantic.add(attrs, by: "observer", session_id: session_id, vector: vector) do
+    case Semantic.add(attrs,
+           by: "observer",
+           session_id: session_id,
+           vector: vector,
+           space_id: space_id
+         ) do
       {:ok, entry} ->
         [entry]
 
@@ -211,9 +219,9 @@ defmodule Trinity.Memory.Observer do
 
   defp clean(_), do: []
 
-  defp duplicate?(persona_id, chain, vector, seen, threshold) do
+  defp duplicate?(persona_id, chain, vector, space_id, seen, threshold) do
     Enum.any?(seen, &(Embedder.cosine(&1, vector) >= threshold)) or
-      Semantic.near(persona_id, chain, vector, threshold) != nil
+      Semantic.near(persona_id, chain, vector, space_id, threshold) != nil
   end
 
   # Provenance: the assistant's last message of the turn, else the user's.

@@ -10,13 +10,25 @@
 # Slice 032: :local_model (the real embedder through the serving) runs where
 # TRINITY_LOCAL_MODEL_CACHE names a cache that already holds all-MiniLM-L6-v2 (no download,
 # no network: a missing model is a failure there, not a skip); excluded by tag elsewhere.
+# Slice 133: :static_weights (the static embedder's real weights and its parity fixtures) runs
+# where TRINITY_STATIC_MODEL_DIR names the directory holding them; excluded by tag elsewhere,
+# and where the variable is set a missing file is a failure, never a skip (the owner's rule,
+# 2026-10-07). No weights are in the tree before legal review (slice 133 NOTES, D7).
+# :postgres (EXPLAIN plans and the per-space HNSW indexes) runs only on the Postgres adapter.
+# `Trinity.ExcludedCounter` prints, after the summary, how many each of these tags excluded.
 fips_leg? = System.get_env("TRINITY_FIPS_LEG") == "1"
 local_model? = System.get_env("TRINITY_LOCAL_MODEL_CACHE") not in [nil, ""]
+static_weights? = System.get_env("TRINITY_STATIC_MODEL_DIR") not in [nil, ""]
+postgres? = Application.get_env(:trinity, :db_adapter) == Ecto.Adapters.Postgres
 
 ExUnit.start(
   exclude:
     [:live, :desktop, :eval] ++
-      if(fips_leg?, do: [], else: [:fips]) ++ if(local_model?, do: [], else: [:local_model])
+      if(fips_leg?, do: [], else: [:fips]) ++
+      if(local_model?, do: [], else: [:local_model]) ++
+      if(static_weights?, do: [], else: [:static_weights]) ++
+      if(postgres?, do: [], else: [:postgres]),
+  formatters: [ExUnit.CLIFormatter, Trinity.ExcludedCounter]
 )
 
 # Slice 024's boot receipt is written by a transient Task after the tree starts; once the

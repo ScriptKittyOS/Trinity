@@ -94,6 +94,11 @@ defmodule Trinity.Tools.RecallTest do
       )
     )
 
+    # Slice 133: a store pinned to the local model's space, on a machine without the model (the
+    # store's fake vectors stay under their own space). A store pinned to the fake's space would
+    # be off for another reason, the mismatch, which `Trinity.Memory.PinningTest` holds.
+    Trinity.SpacesHelper.pin!(Trinity.Memory.Embedders.Bumblebee.space())
+
     call = %{id: "c5", name: "recall", args: %{"query" => "#near:dog what is my dog called"}}
     assert {:ok, %{content: text, meta: meta}, _} = Effects.Runner.run(call, ctx)
 

@@ -5,7 +5,8 @@ defmodule Trinity.Memory.EmbedderTest do
   Slice 032, G1 line 2: the fake's determinism, the tier's status by configuration, and the
   rule that the hosted embedder is never selected without the configuration (decision 2).
   """
-  use ExUnit.Case, async: false
+  # Slice 133: the status reads the store's active space, so the tests run under the sandbox.
+  use Trinity.DataCase, async: false
 
   alias Trinity.Memory.{Embedder, Embedders, Semantic}
 

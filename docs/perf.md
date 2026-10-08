@@ -96,3 +96,58 @@ index, `<=>`), the same script against a local container on 2026-09-21:
 |---|---|---|---|
 | 1,000 | 921 ms | 4.2 ms | 5.5 ms |
 | 10,000 | 13,402 ms | 1.9 ms | 2.3 ms |
+
+## The static floor and its scorer (slice 133)
+
+MEASURED on 2026-10-08 on the owner's machine: AMD RYZEN AI MAX+ 395 w/ Radeon 8060S, 32 logical CPUs, 125 GiB,
+Linux 6.14.0-37-generic x86_64; OTP 28 (ERTS 16.4.0.5), Elixir 1.20.4, 32 schedulers; under a 24 GiB cgroup,
+with other work on the machine (load average 4.7 to 5.8 on 32 CPUs during the run).
+
+### Scoring at 10^4 x 256 int8 (AC13, D-scoring)
+
+`TRINITY_STATIC_MODEL_DIR=<dir> MIX_ENV=test mix run --no-start scripts/scorer_bench.exs`: the static model's
+own 256-dimension int8 embeddings of 10,000 generated memory-shaped sentences, 200 queries one at a time after
+20 discarded, the script's output:
+
+| scorer | p50 | p95 |
+|---|---|---|
+| sign bits by Hamming distance, then the exact int8 cosine over the 256 nearest (`Scorer.prefilter/4`) | 8.513 ms | 10.296 ms |
+| the exact int8 cosine over every row (`Scorer.exact/3`) | 20.179 ms | 24.5 ms |
+| deliberately unoptimised: every row decoded to floats per query (AC13's red) | 248.829 ms | 303.452 ms |
+
+Preparing the index (norms and sign bits for 10,000 rows) took 43 ms, once per load. The prefilter's recall@10
+against the exact search was 0.9995 over the 200 queries. The pre-set line was 50 ms p95: both real scorers are
+under it, so no scoring crate is opened; the unoptimised one is over it by six times, which is what shows the
+measurement can tell them apart. Slice 032's figure for the old path (the Elixir cosine over decoded float lists
+at 10^4 x 384) was 390 ms.
+
+### The store, end to end
+
+`scripts/vector_bench.exs` (`TRINITY_BENCH_QUANT=int8`, fake vectors under an int8 space, one persona, SQLite),
+after the store stopped reading every entry and reads only ids and vectors, then the k that rank:
+
+| rows | int8 search p50 | max | float32 search p50 (EXLA product) | max |
+|---|---|---|---|---|
+| 1,000 | 4.571 ms | 5.704 ms | 5.678 ms | 7.812 ms |
+| 10,000 | 71.959 ms | 87.604 ms | 50.033 ms | 53.817 ms |
+
+At 10^4 the int8 path's time is mostly the database: the rows' load and the fit check that refuses a mixed
+space. A cached, prepared index per space would let the store use the prefilter; it is a follow-up for past 10^4.
+
+### The weights
+
+| artifact | bytes | SHA-256 |
+|---|---|---|
+| upstream `0_StaticEmbedding/model.safetensors` at `f60985c706f192d45d218078e49e5a8b6f15283a` (30,522 x 1024 float32) | 125,018,208 | `164fc63ee9f9267be7378fcbd7df99d09788a2f45244c92aa99ae5a574925716` |
+| `static-retrieval-mrl-en-v1-256-int8.tsw` (`mix trinity.static.build`) | 8,167,604 | `5990c1104963d8e2402854c80b9a8f8e3a490085c037f25ced63642f4578c520` |
+| `static-retrieval-mrl-en-v1-1024-f32.tsw` | 125,249,996 | `c8e427cc6aa3d55755d9c4085f6ab7572e95a509ff9e665f352f7d231db66299` |
+
+Sizes from `ls -la`, digests from `sha256sum` and the build task. The 256 int8 file is the matrix (7,813,632
+bytes), a float32 scale per token row (122,088) and the vocabulary. Building it from the snapshot took under two
+seconds, and rebuilding gave the same digest.
+
+### A release without the neural group
+
+`scripts/static_floor_release.sh` (`TRINITY_WITHOUT_ML=1`): the headless release assembled from a build that never
+had nx, exla, xla, axon, bumblebee or tokenizers holds none of them in `lib/`, boots, writes two memories and
+recalls one through the static space (slice 133, AC8). Slice 130 measured exla at 443 MB of a 522 MB release.

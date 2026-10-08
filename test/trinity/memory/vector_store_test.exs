@@ -3,13 +3,14 @@
 defmodule Trinity.Memory.VectorStoreTest do
   @moduledoc """
   Slice 032, AC1: 1,000 fake vectors through the store in force (`Brute` on SQLite,
-  `Pgvector` on the postgres job), the known nearest in order; the scope filter (M6) and the
-  model filter (NOTES decision 4) hold.
+  `Pgvector` on the postgres job), the known nearest in order; the scope filter (M6) holds.
+  Slice 133: vectors live in `memory_embeddings` under a space, a search ranks one space, and
+  another space's vectors of the same memory are never mixed in.
   """
   use Trinity.DataCase, async: false
 
   alias Trinity.Factory
-  alias Trinity.Memory.{AlwaysOn, Embedder, Embedders.Fake, Semantic, VectorStore}
+  alias Trinity.Memory.{AlwaysOn, Embedder, Embedders.Fake, Semantic, Space, Spaces, VectorStore}
 
   setup do
     persona = Factory.persona!()
@@ -21,13 +22,21 @@ defmodule Trinity.Memory.VectorStoreTest do
     e
   end
 
+  # The store's active space: the fake's, pinned by the first write of each test.
+  defp filter(persona_id, scopes), do: Semantic.filter(persona_id, scopes, Spaces.active())
+
+  defp search!(query, k, filter) do
+    {:ok, hits} = VectorStore.search(query, k, filter)
+    hits
+  end
+
   test "AC1: 1,000 vectors, search/3 returns the known nearest with correct ordering", %{
     persona: persona,
     scope: scope
   } do
     texts = for i <- 1..1_000, do: "fact number #{i}"
     ids = for {t, i} <- Enum.with_index(texts, 1), do: add!(persona, scope, "fact-#{i}", t).id
-    filter = Semantic.filter(persona.id, [scope])
+    filter = filter(persona.id, [scope])
     assert VectorStore.count(filter) == 1_000
 
     # The expected order comes from the same cosine over the same vectors, computed here.
@@ -40,7 +49,7 @@ defmodule Trinity.Memory.VectorStoreTest do
       |> Enum.sort_by(&elem(&1, 1), :desc)
       |> Enum.take(10)
 
-    hits = VectorStore.search(query, 10, filter)
+    hits = search!(query, 10, filter)
     assert Enum.map(hits, & &1.id) == Enum.map(expected, &elem(&1, 0))
     assert hd(hits).entry.body == "fact number 500"
     assert_in_delta hd(hits).score, 1.0, 1.0e-5
@@ -64,22 +73,22 @@ defmodule Trinity.Memory.VectorStoreTest do
     b = add!(persona, "global", "a", "the same text")
     query = Fake.vector("the same text")
 
-    assert Enum.map(VectorStore.search(query, 5, Semantic.filter(persona.id, [scope])), & &1.id) ==
+    assert Enum.map(search!(query, 5, filter(persona.id, [scope])), & &1.id) ==
              [a.id]
 
     assert Enum.map(
-             VectorStore.search(query, 5, Semantic.filter(persona.id, ["global"])),
+             search!(query, 5, filter(persona.id, ["global"])),
              & &1.id
            ) == [b.id]
 
     assert Enum.sort(
              Enum.map(
-               VectorStore.search(query, 5, Semantic.filter(persona.id, [scope, "global"])),
+               search!(query, 5, filter(persona.id, [scope, "global"])),
                & &1.id
              )
            ) == Enum.sort([a.id, b.id])
 
-    assert VectorStore.search(query, 5, Semantic.filter(persona.id, [])) == []
+    assert search!(query, 5, filter(persona.id, [])) == []
 
     assert_raise FunctionClauseError, fn ->
       VectorStore.search(query, 5, %{persona_id: persona.id})
@@ -90,54 +99,59 @@ defmodule Trinity.Memory.VectorStoreTest do
     other = Factory.persona!()
     add!(other, AlwaysOn.persona_scope(other.id), "a", "shared words")
 
-    assert VectorStore.search(
+    assert search!(
              Fake.vector("shared words"),
              5,
-             Semantic.filter(persona.id, [scope, AlwaysOn.persona_scope(other.id)])
+             filter(persona.id, [scope, AlwaysOn.persona_scope(other.id)])
            ) == []
   end
 
-  test "vectors of another model are never mixed in (decision 4)", %{
+  test "another space's vector of the same memory is never mixed in (slice 133)", %{
     persona: persona,
     scope: scope
   } do
     e = add!(persona, scope, "a", "one text")
     query = Fake.vector("one text")
-    assert [%{id: id}] = VectorStore.search(query, 5, Semantic.filter(persona.id, [scope]))
-    assert id == e.id
+    a = Spaces.active()
+    assert [%{id: id, space_id: space_id}] = search!(query, 5, filter(persona.id, [scope]))
+    assert {id, space_id} == {e.id, a.id}
 
-    :ok = VectorStore.upsert(e.id, query, "other:model-384")
-    assert VectorStore.search(query, 5, Semantic.filter(persona.id, [scope])) == []
-    assert VectorStore.count(Semantic.filter(persona.id, [scope])) == 0
+    # The same memory in a second space, 256 wide: two rows, one per space.
+    other = %{Fake.space() | model_id: "other:model", dim: 256}
+    {:ok, b} = Spaces.register(other)
+    :ok = Spaces.put_vector(e.id, b.id, other, Enum.take(query, 256))
 
-    assert VectorStore.count(%{persona_id: persona.id, scopes: [scope], model: "other:model-384"}) ==
-             1
+    assert [%{space_id: ^space_id}] = search!(query, 5, filter(persona.id, [scope]))
+
+    assert [%{space_id: b_id}] =
+             search!(Enum.take(query, 256), 5, Semantic.filter(persona.id, [scope], b))
+
+    assert b_id == b.id
+    assert VectorStore.count(filter(persona.id, [scope])) == 1
+    assert VectorStore.count(Semantic.filter(persona.id, [scope], b)) == 1
+
+    # A vector of another width is refused at the write, never stored under the space.
+    assert {:error, {:wrong_width, 384, 256}} = Spaces.put_vector(e.id, b.id, other, query)
   end
 
-  test "delete/1 clears the vector and the row stays; upsert on a missing row is an error", %{
+  test "deleting a memory deletes its vectors in every space", %{persona: persona, scope: scope} do
+    e = add!(persona, scope, "a", "one text")
+    assert Spaces.count(Spaces.active().id) == 1
+    {:ok, _} = Semantic.remove(e, by: "test")
+    assert Spaces.count(Spaces.active().id) == 0
+    assert search!(Fake.vector("one text"), 5, filter(persona.id, [scope])) == []
+  end
+
+  test "the vector row records its space, its width and its bytes, float32 little-endian", %{
     persona: persona,
     scope: scope
   } do
     e = add!(persona, scope, "a", "one text")
-    :ok = VectorStore.delete(e.id)
-    assert %{embedding: nil, embedding_model: nil, embedding_dim: nil} = Trinity.Repo.reload!(e)
-
-    assert VectorStore.search(Fake.vector("one text"), 5, Semantic.filter(persona.id, [scope])) ==
-             []
-
-    assert {:error, :no_such_entry} =
-             VectorStore.upsert(Ecto.UUID.generate(), Fake.vector("x"), "fake")
-  end
-
-  test "the row records the embedder that produced its vector, float32 little-endian", %{
-    persona: persona,
-    scope: scope
-  } do
-    e = add!(persona, scope, "a", "one text")
-    assert e.embedding_model == "fake:sha256-384"
-    assert e.embedding_dim == 384
-    assert byte_size(e.embedding) == 384 * 4
-    stored = Embedder.from_binary(e.embedding)
+    row = Trinity.Repo.get_by!(Trinity.Memory.Vector, memory_id: e.id)
+    assert row.space_id == Space.id(Fake.space())
+    assert row.dim == 384
+    assert byte_size(row.vector) == 384 * 4
+    stored = Space.decode_vector("f32", row.vector)
     for {x, y} <- Enum.zip(stored, Fake.vector("one text")), do: assert_in_delta(x, y, 1.0e-6)
   end
 
@@ -158,9 +172,14 @@ defmodule Trinity.Memory.VectorStoreTest do
     assert Trinity.Smoke.probe([]) == []
   end
 
-  test "the EXLA product and the Elixir cosine agree, and a row of another width scores 0.0 on both",
+  test "the EXLA product and the Elixir cosine agree on a float32 space",
        %{persona: persona, scope: scope} do
-    rows = for i <- 1..50, do: add!(persona, scope, "k#{i}", "text #{i}")
+    rows =
+      for i <- 1..50 do
+        e = add!(persona, scope, "k#{i}", "text #{i}")
+        {e, Space.encode_vector("f32", Fake.vector("text #{i}"))}
+      end
+
     query = Fake.vector("text 7")
     elixir = Trinity.Memory.VectorStores.Brute.elixir_scores(rows, query)
     assert Enum.max(elixir) > 0.999
@@ -169,9 +188,6 @@ defmodule Trinity.Memory.VectorStoreTest do
     if Code.ensure_loaded?(EXLA.Backend) and Trinity.Memory.Embedders.Bumblebee.exla() == :ok do
       exla = Trinity.Memory.VectorStores.Brute.exla_scores(rows, query)
       for {a, b} <- Enum.zip(elixir, exla), do: assert_in_delta(a, b, 1.0e-5)
-      odd = %{hd(rows) | embedding: Embedder.to_binary([1.0, 0.0])}
-      assert [first | _] = Trinity.Memory.VectorStores.Brute.exla_scores([odd | tl(rows)], query)
-      assert first == 0.0
     else
       IO.puts("\nEXLA not loaded here: the Elixir path is the one in force")
     end

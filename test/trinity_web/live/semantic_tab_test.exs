@@ -41,7 +41,7 @@ defmodule TrinityWeb.SemanticTabTest do
     view |> element("#tab-semantic") |> render_click()
     assert_patch(view, ~p"/memory?persona_id=#{persona.id}&tab=semantic")
     html = render(view)
-    assert html =~ "semantic recall is on (fake:sha256-384)"
+    assert html =~ "semantic recall is on (fake:sha256-384, space "
     refute html =~ "Download the model"
     refute html =~ "Nothing kept in this tier."
     assert has_element?(view, "#semantic-#{entry.id}", "has a dog named Rex")
@@ -114,6 +114,9 @@ defmodule TrinityWeb.SemanticTabTest do
       :memory,
       Keyword.merge(old, embedder: :local, model_cache_dir: cache)
     )
+
+    # Slice 133: the store pinned to the local model's space (see recall_test.exs).
+    Trinity.SpacesHelper.pin!(Trinity.Memory.Embedders.Bumblebee.space())
 
     {:ok, view, _} = live(conn, ~p"/memory?persona_id=#{persona.id}&tab=semantic")
     html = render(view)

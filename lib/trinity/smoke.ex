@@ -29,6 +29,10 @@ defmodule Trinity.Smoke do
 
   use Boundary, top_level?: true, deps: [Trinity, TrinityWeb], exports: []
 
+  # Slice 133: `exla_line/0` names these only after `Code.ensure_loaded?(EXLA)`; a build without
+  # the neural group (`TRINITY_WITHOUT_ML=1`) compiles this module with none of them present.
+  @compile {:no_warn_undefined, [Nx, EXLA.Backend]}
+
   @flag "--smoke"
 
   @type halt_fun :: (non_neg_integer() -> any())
