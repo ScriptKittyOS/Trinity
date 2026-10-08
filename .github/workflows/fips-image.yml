@@ -12,6 +12,7 @@ on:
   push:
     paths:
       - .tool-versions
+      - ci/container.tool-versions
       - ci/fips/Containerfile
       - scripts/fips_image_tag.sh
       - .github/workflows/fips-image.yml
@@ -34,11 +35,13 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - name: The tag, and the versions .tool-versions names
+      # OTP is the container's (ci/container.tool-versions), which may lead the desktop's pin in
+      # .tool-versions (ADR-0014); Elixir is the one Elixir pin.
+      - name: The tag, the container's OTP and the Elixir .tool-versions names
         id: meta
         run: |
           echo "ref=$(scripts/fips_image_tag.sh --ref)" >> "$GITHUB_OUTPUT"
-          echo "otp=$(awk '$1 == "erlang" { print $2 }' .tool-versions)" >> "$GITHUB_OUTPUT"
+          echo "otp=$(awk '$1 == "erlang" { print $2 }' ci/container.tool-versions)" >> "$GITHUB_OUTPUT"
           echo "elixir=$(awk '$1 == "elixir" { print $2 }' .tool-versions | cut -d- -f1)" >> "$GITHUB_OUTPUT"
 
       - name: Log in to the registry

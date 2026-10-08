@@ -6,9 +6,12 @@
 # publishes a validation for, plus Elixir and everything `mix gate` shells out to. The gate
 # leg pulls this image; nothing here runs Trinity.
 #
-# The versions arrive as build arguments read from .tool-versions by the image workflow, so
-# that file stays the one source. The two archives are checked against digests pinned here;
-# a new OTP or Elixir pin is a new pair of digests in this file, read from the release page.
+# The versions arrive as build arguments read by the image workflow: OTP from
+# ci/container.tool-versions, the container images' OTP, and Elixir from .tool-versions (ADR-0014:
+# the container's OTP can lead the desktop's). The two archives are checked against digests pinned
+# here; a new OTP or Elixir pin is a new digest in this file, read from the release page.
+# OTP 28.5.0.7's digest was read from the release's SHA256.txt and the release API's asset digest,
+# and matched a download, on 2026-10-08.
 #
 # Base pinned by digest, not tag: registry.access.redhat.com/ubi9/ubi:latest resolved on
 # 2026-09-20 (Red Hat Enterprise Linux release 9.8, openssl-libs 3.5.8-1.el9_8, FIPS provider
@@ -17,7 +20,7 @@ FROM registry.access.redhat.com/ubi9/ubi@sha256:9295c5c688f487fa5cf27a734fa55ecd
 
 ARG OTP_VERSION
 ARG ELIXIR_VERSION
-ARG OTP_SHA256=5231ba18f31f8041c2d6514cc8842e46954d3b39a53f1617f03f2abe6fea59c7
+ARG OTP_SHA256=ddf17db6d3e9b7a7cfac0d72238ddc8ea040fedc5e3dfad82fc90675319d6c93
 ARG ELIXIR_SHA256=ea7ff98bc1ed76c663a5d034c863c6fd37e65c9c855b6bbf6ccb2034d806673c
 
 # The toolchain OTP's configure needs, plus what the gate's steps call from the shell: git

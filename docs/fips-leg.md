@@ -12,9 +12,9 @@ name the command that produced them.
 
 | Piece | Where | What it does |
 |---|---|---|
-| `ci/fips/Containerfile` | the image | UBI9 by digest; OTP 28.5.0.5 from the release tarball with `--enable-fips --with-ssl=/usr`; Elixir 1.20.4 from the release zip; both archives checked against SHA-256 digests pinned in the file; git, python3 with PyYAML, gcc and procps for the gate's own steps |
-| `.github/workflows/fips-image.yml` | builds the image | On a change to `.tool-versions`, the Containerfile or the tag script, and on demand; pushes to `ghcr.io/scriptkittyos/trinity-fips` under the tag below; a tag already published is not rebuilt |
-| `scripts/fips_image_tag.sh` | both workflows | The tag: sixteen hex digits of SHA-256 over `.tool-versions` and the Containerfile, so the builder and the puller cannot disagree |
+| `ci/fips/Containerfile` | the image | UBI9 by digest; OTP (the version `ci/container.tool-versions` names, 28.5.0.7; ADR-0014) from the release tarball with `--enable-fips --with-ssl=/usr`; Elixir 1.20.4 from the release zip; both archives checked against SHA-256 digests pinned in the file; git, python3 with PyYAML, gcc and procps for the gate's own steps |
+| `.github/workflows/fips-image.yml` | builds the image | On a change to `.tool-versions` (Elixir), `ci/container.tool-versions` (OTP), the Containerfile or the tag script, and on demand; pushes to `ghcr.io/scriptkittyos/trinity-fips` under the tag below; a tag already published is not rebuilt |
+| `scripts/fips_image_tag.sh` | both workflows | The tag: sixteen hex digits of SHA-256 over `.tool-versions`, `ci/container.tool-versions` and the Containerfile, so the builder and the puller cannot disagree |
 | `.github/workflows/gate.yml`, jobs `fips-tag` and `fips` | the leg | Pulls the image, fetches and compiles dependencies with the mode off, asserts the mode, checks the mode-off listing, then runs `plan_check`, the DCO check and `mix gate`, all in the mode |
 | `test/fips/mode_test.exs` | the suite | One untagged test binds `TRINITY_FIPS_LEG` to `crypto:info_fips/0` on every leg; three `:fips` tests (AC1 to AC3) run only where the leg declares itself |
 | `scripts/crypto_supports.exs` | the listing | Prints `crypto:supports/0` one item per line, sorted, with the mode and library named first |
@@ -118,7 +118,7 @@ owner. No skip tag exists for this: `git grep -n '@tag :skip\|@moduletag :skip' 
 ## Reproducing the image and the leg on a machine
 
 ```
-docker build --build-arg OTP_VERSION=28.5.0.5 --build-arg ELIXIR_VERSION=1.20.4 \
+docker build --build-arg OTP_VERSION=28.5.0.7 --build-arg ELIXIR_VERSION=1.20.4 \
   -t trinity-fips:local -f ci/fips/Containerfile ci/fips
 docker run --rm -v "$PWD:/work" -w /work \
   -e MIX_ENV=test -e TRINITY_DB=sqlite -e TRINITY_FIPS_LEG=1 trinity-fips:local bash -c '
