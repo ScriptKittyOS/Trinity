@@ -285,6 +285,60 @@ regulated effect.
 - Never in DB, never in logs, never in prompts. `mix gate` runs a regex secret scan on the diff.
 - Provider keys are read at call time by the provider module; not held in Session state.
 
+**As built at slice 100.** The first line above named two candidates; neither was chosen.
+
+- **Where.** `Trinity.Secrets` asks the OS keychain first and the environment second, by name (an
+  environment-variable name such as `OPENROUTER_API_KEY`); `Trinity.Config.secret/1`, the one reader
+  providers use, goes through it. The keychain is reached through the Tauri shell's own binary run as
+  a command, `trinity --keychain probe | get | set | delete <NAME>`, whose `keyring` crate uses the
+  macOS Keychain, the Windows Credential Manager or the Secret Service. The shell hands the sidecar
+  its path as `TRINITY_KEYCHAIN_HELPER`. A command rather than the window's channel because the
+  channel exists only once the window has attached, and the receipt signer needs its key before
+  that; a command rather than a NIF because the Rust is already in the shell.
+- **How a value travels.** On the helper's stdin (set) or stdout (get), hex-encoded, one line; never
+  on argv, where any process on the machine could read it with `ps`. The helper reports a failure by
+  kind and never prints a value (`keyring`'s encoding error carries the stored bytes, so its form is
+  never printed).
+- **Never anywhere else.** `store/2` with no keychain is `{:error, :keychain_unavailable}`, not a
+  file. The Settings page and the setup path submit the key as a parameter named `secret`, which
+  `config :phoenix, :filter_parameters` logs as `[FILTERED]`, and never render it back.
+  `Trinity.Settings` (the non-secret settings file) refuses an unknown key and any string shaped like
+  key material. Tests scan the database files, the settings file and the captured log for the value;
+  the Linux run scans the data, config, cache and runtime directories and greps the database with
+  `strings`.
+- **The receipt signing key** moves into the keychain by rotation when the keychain first answers:
+  a new key whose private half is stored there and read back before anything changes, a registry row
+  for it (`custody: keychain`), a `retired` row for the old key with `valid_until` and
+  `superseded_by`, the old key file kept (renamed, mode 0600), and the boot receipt naming the
+  custody. The verifier refuses a retired key's receipt dated after its `valid_until`. A process
+  with no helper (a `mix phx.server` on a data directory the desktop app has migrated) cannot sign
+  and denies every effect, the fail-closed shape of slice 024; `TRINITY_KEYCHAIN_HELPER` pointed at
+  a built shell binary restores it. An export made with the private key does not carry a
+  keychain-held key; that is a follow-up of slice 034's backup story.
+- **Not yet in the keychain:** the MCP OAuth client tokens (`<data dir>/secrets/oauth/`, slice 062)
+  and the MCP server's token and state key (slice 061). They stay files, mode 0600, until a slice
+  moves them.
+
+## The desktop shell's channel (slice 100)
+
+The Rust window and the BEAM share the channel `ex_tauri` keeps for its heartbeat: a Unix socket in
+the temporary directory, mode 0600, on macOS and Linux, and a loopback TCP port whose number is in a
+file on Windows (slice 001 finding F2: any local process can connect there). The shell generates a
+token per launch, hands it to the BEAM as `TRINITY_SHELL_TOKEN`, and presents it in a `hello` on
+every connection; `Trinity.Desktop.Shell` compares it in constant time and, until it has matched,
+ignores tray clicks and dialog answers and refuses requests. A peer that is not the shell therefore
+cannot quit Trinity through the tray, open a folder, or put a folder of its choosing into the
+filesystem allowlist. Window focus is believed from anyone; the worst it does is cause or suppress a
+notification. **What remains open:** any peer can still connect and then stop sending heartbeats,
+which shuts the BEAM down (the denial of service F2 names), and `ex_tauri` 0.2.0 does not tell
+subscribers when a peer disconnects, so trust lasts until the next hello rather than until the
+connection ends. Closing those needs a change to the heartbeat itself.
+
+**What leaves the machine, or the app, through the shell.** OS notifications are shown and kept by
+the operating system's notification centre, so they carry the tool's name, the task page or the
+channel's name, and nothing else: no tool arguments, no message text, no result. A notification's
+click can send the window only to a path of this app, never to a URL.
+
 ## Gateways (Slice 070, as built)
 
 - **An unknown sender gets a pairing prompt and nothing else.** No session is created, no model is

@@ -23,11 +23,15 @@ defmodule Trinity.Tools.FS do
   # measure `Trinity.Paths` takes).
   Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
 
-  @doc "The configured roots plus the data directory, each expanded."
+  @doc """
+  The configured roots plus the data directory, each expanded. Slice 100 adds the folders the
+  owner chose in Settings or the setup path (`Trinity.Settings`, `:fs_roots`).
+  """
   @spec roots() :: [String.t()]
   def roots do
     configured = Application.get_env(:trinity, :fs, []) |> Keyword.get(:roots, [])
-    Enum.map([Trinity.Paths.data_dir() | configured], &Path.expand/1) |> Enum.uniq()
+    chosen = Trinity.Settings.get(:fs_roots)
+    Enum.map([Trinity.Paths.data_dir() | configured ++ chosen], &Path.expand/1) |> Enum.uniq()
   end
 
   @doc """

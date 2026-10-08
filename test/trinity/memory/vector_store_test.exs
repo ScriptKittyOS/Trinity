@@ -162,11 +162,18 @@ defmodule Trinity.Memory.VectorStoreTest do
     assert length(Trinity.Personas.list()) == before
     assert Trinity.Smoke.vec_line() == "TRINITY_SMOKE_VEC=ok:#{inspect(store)}"
 
-    # The probe child (placed before the endpoint) computes the three lines and starts nothing.
+    # The probe child (placed before the endpoint) computes the lines and starts nothing. Slice
+    # 100 appended its three (AC9) after slice 032's three.
     assert :ignore = Trinity.Smoke.Probe.start_link()
 
-    assert ["TRINITY_SMOKE_EXLA=" <> _, "TRINITY_SMOKE_VEC=ok:" <> _, "TRINITY_SMOKE_SEMANTIC=on"] =
-             Trinity.Smoke.probed()
+    assert [
+             "TRINITY_SMOKE_EXLA=" <> _,
+             "TRINITY_SMOKE_VEC=ok:" <> _,
+             "TRINITY_SMOKE_SEMANTIC=on",
+             "TRINITY_SMOKE_FTS5=ok",
+             "TRINITY_SMOKE_WATCHER=" <> _,
+             "TRINITY_SMOKE_MODEL_CACHE=ok:" <> _
+           ] = Trinity.Smoke.probed()
 
     assert Trinity.Smoke.probe(["--smoke"]) == [Trinity.Smoke.Probe]
     assert Trinity.Smoke.probe([]) == []

@@ -15,10 +15,14 @@ defmodule SmokeTest do
 
   # Slice 032: the three lines that need the Repo are injected here (SmokeTest has no
   # sandbox); Trinity.Memory.VectorStoreTest proves `Semantic.smoke/0` on a database.
+  # Slice 100 appends the three AC9 lines; they are computed by the probe the same way.
   @rest [
     "TRINITY_SMOKE_EXLA=ok",
     "TRINITY_SMOKE_VEC=ok:Trinity.Memory.VectorStores.Brute",
-    "TRINITY_SMOKE_SEMANTIC=on"
+    "TRINITY_SMOKE_SEMANTIC=on",
+    "TRINITY_SMOKE_FTS5=ok",
+    "TRINITY_SMOKE_WATCHER=ok:fs_inotify",
+    "TRINITY_SMOKE_MODEL_CACHE=ok:/tmp/models"
   ]
 
   describe "requested?/1" do
@@ -105,16 +109,87 @@ defmodule SmokeTest do
         "TRINITY_SMOKE_SEMANTIC=off:z"
       ]
 
-      Smoke.run(fn _ -> :ok end, &send(me, {:halted, &1}), Smoke.markdown_line(), failed)
+      Smoke.run(
+        fn _ -> :ok end,
+        &send(me, {:halted, &1}),
+        Smoke.markdown_line(),
+        failed ++ Enum.drop(@rest, 3)
+      )
+
       assert_received {:halted, 4}
 
-      Smoke.run(fn _ -> :ok end, &send(me, {:halted, &1}), Smoke.markdown_line(), [
-        "TRINITY_SMOKE_EXLA=failed:x",
-        "TRINITY_SMOKE_VEC=ok:S",
-        "TRINITY_SMOKE_SEMANTIC=off:z"
+      Smoke.run(
+        fn _ -> :ok end,
+        &send(me, {:halted, &1}),
+        Smoke.markdown_line(),
+        [
+          "TRINITY_SMOKE_EXLA=failed:x",
+          "TRINITY_SMOKE_VEC=ok:S",
+          "TRINITY_SMOKE_SEMANTIC=off:z"
+        ] ++ Enum.drop(@rest, 3)
+      )
+
+      assert_received {:halted, 0}
+    end
+
+    # Slice 100, AC9: the packaged-binary checks the slice names. FTS5 and the model cache are
+    # binding (exit 5 and 6); the watcher is informative, because the skills registry already
+    # falls back to polling where no native backend runs, and the line says which it got.
+    test "AC9: says whether FTS5, the file watcher and the model cache work, each on its own line" do
+      me = self()
+      Smoke.run(&send(me, {:said, &1}), &send(me, {:halted, &1}), Smoke.markdown_line(), @rest)
+      assert_received {:said, "TRINITY_SMOKE_FTS5=ok"}
+      assert_received {:said, "TRINITY_SMOKE_WATCHER=ok:fs_inotify"}
+      assert_received {:said, "TRINITY_SMOKE_MODEL_CACHE=ok:/tmp/models"}
+      assert_received {:halted, 0}
+    end
+
+    test "AC9: exits 5 when FTS5 is missing and 6 when the model cache does not resolve; a watcher fallback alone still exits 0" do
+      me = self()
+      [exla, vec, sem | _] = @rest
+      halt = &send(me, {:halted, &1})
+      quiet = fn _ -> :ok end
+
+      Smoke.run(quiet, halt, Smoke.markdown_line(), [
+        exla,
+        vec,
+        sem,
+        "TRINITY_SMOKE_FTS5=failed:no such module: fts5",
+        "TRINITY_SMOKE_WATCHER=ok:fs_inotify",
+        "TRINITY_SMOKE_MODEL_CACHE=ok:/tmp/models"
+      ])
+
+      assert_received {:halted, 5}
+
+      Smoke.run(quiet, halt, Smoke.markdown_line(), [
+        exla,
+        vec,
+        sem,
+        "TRINITY_SMOKE_FTS5=ok",
+        "TRINITY_SMOKE_WATCHER=ok:fs_inotify",
+        "TRINITY_SMOKE_MODEL_CACHE=failed:eacces"
+      ])
+
+      assert_received {:halted, 6}
+
+      Smoke.run(quiet, halt, Smoke.markdown_line(), [
+        exla,
+        vec,
+        sem,
+        "TRINITY_SMOKE_FTS5=ok",
+        "TRINITY_SMOKE_WATCHER=fallback:fs_poll",
+        "TRINITY_SMOKE_MODEL_CACHE=ok:/tmp/models"
       ])
 
       assert_received {:halted, 0}
+    end
+
+    test "AC9: the three lines measured on this machine" do
+      assert Smoke.fts5_line() == "TRINITY_SMOKE_FTS5=ok"
+      assert "TRINITY_SMOKE_WATCHER=" <> watcher = Smoke.watcher_line()
+      assert watcher =~ ~r/^(ok|fallback):fs_(inotify|poll|mac|windows)/
+      assert "TRINITY_SMOKE_MODEL_CACHE=ok:" <> dir = Smoke.model_cache_line()
+      assert File.dir?(dir)
     end
 
     test "the EXLA line on this machine (the NIF is compiled and loads here; the bundle's answer is AC7's)" do

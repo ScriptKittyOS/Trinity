@@ -58,6 +58,12 @@ Trinity.Application
 ├── Trinity.Subagents.Supervisor (DynamicSupervisor) # Slice 080
 ├── Trinity.Sandbox.Supervisor                    # Luerl workers. Slice 110
 ├── Trinity.Desktop                               # ex_tauri bridge (tray, notifications). Slice 100
+│                                                 # As built: `Trinity.Desktop.Shell`, after the sessions and
+│                                                 # before Oban; the tray, the notifications, the tray's
+│                                                 # actions, on the `Trinity.Desktop` implementation the
+│                                                 # process selected (`Tauri` when the shell launched it,
+│                                                 # `Noop` otherwise). `ExTauri.ShutdownManager` (the
+│                                                 # channel and heartbeat) is first in the tree outside :test
 └── TrinityWeb.Endpoint                           # LiveView. Slice 013
 ```
 
@@ -95,7 +101,7 @@ without anything failing.
 | `Trinity.Gateways` | Adapter behaviour, router, allowlists, pairing (as built at 070: `Adapter` (the behaviour: `child_spec/1`, `capabilities/0`, `deliver/2`, `format/2`, `render_approval/2`, plus `name/1` deriving the row's adapter name from the module), `Console` (the in-process adapter the tests and `mix trinity.console` talk to), `Format` (chunking to the channel's limit, re-opening a split code fence, markdown reduced to text where a channel renders none, the default approval rendering), `Identity` and `Identities` (the `gateway_identities` rows, the pairing code and the allowlist), `Router` (one process: admission, then the token bucket, then commands, then the session; it subscribes to `session:<id>` and `approvals:<id>` per conversation and coalesces deltas into an edited message), `Commands` (the slash registry, including `/attach`, `/approve` and `/deny`), `Cap` (the channel trust cap) and `Receipts` (the capped-decision receipt)) | Sessions, **Permissions**, PubSub |
 | `Trinity.Subagents` | Delegation, result collection (as built at 080: `delegate/3` and `delegate_many/3` creating child sessions with `origin: "subagent"` and `parent_id` set, one turn each under a monitor, the awaiting shape reused from slice 050's `RunTask` including its drain of the start `:idle`; budgets of turns, tokens and wall clock; `restarts` defaulting to **0**, because replaying a turn replays arbitrary tool calls and a `:session` or `:always` approval would cover the replay silently; `cancel_subtree/1` depth first; `running?/1` asked of the process rather than of `SessionRow.status`, which is the session lifecycle and stays `active` after a subagent finishes; `short_id/1` taking the **tail** of a UUIDv7, whose head is shared between children created in the same second) | Sessions |
 | `Trinity.Sandbox` | Luerl runners, resource limits | none |
-| `Trinity.Desktop` | ex_tauri bridge | PubSub |
+| `Trinity.Desktop` | ex_tauri bridge (as built at 100: the behaviour with `Noop` and `Tauri`; `Shell`, the process that keeps the tray and decides notifications; commands to the Rust window over ex_tauri's channel, events back; `Trinity.Secrets`, `Trinity.Settings` and `Trinity.Setup` sit in `Trinity` itself because providers, tools and receipts read them) | PubSub (as built at 100: `Trinity`, Gateways, Sessions, Permissions, Scheduler: it counts approvals and busy sessions, creates a session, pauses the gateways, and notifies on a finished task) |
 | `Trinity.Telemetry` | The event catalogue and the only module that names an event (as built at 090: `span/3` and `emit/3` routing everything through one place; emitters for the LLM, tool, approval, session, gateway and budget events listed in `docs/telemetry.md`, which was written **before** them because an event name is an interface and a handler attached to a name that no longer fires simply never runs; `trace/2` giving a turn one trace id so its events nest, with no tracing library and no dependency; `Telemetry.Costs` reading `usage_events` schemalessly, because `Trinity.LLM` depends on `Trinity` and naming its schema would be a cycle; `Telemetry.Activity`, a bounded buffer whose handler does one `send` because a telemetry handler runs in the emitting process; `Telemetry.Redaction`, a primary Logger filter that masks shapes rather than names and never drops a line) | Repo |
 | `TrinityWeb` | LiveViews, components, API | all `Trinity.*` public APIs |
 
@@ -181,7 +187,10 @@ development under `TRINITY_FAKE_PROVIDER=1`.
   is size 1 for writes; reads may use a second pool). FTS5 virtual table for message search. `sqlite_vec` for vectors.
 - Secondary: **Postgres + pgvector**, selected by `TRINITY_DB=postgres`. Enables Oban Pro Workflows later. Kept
   compiling and tested in CI (matrix), not default.
-- Durable settings/secrets: OS keychain via `Trinity.Secrets` (Slice 100); before that, env vars.
+- Durable settings/secrets: OS keychain via `Trinity.Secrets` (Slice 100); before that, env vars. As built at
+  100: secrets in the keychain (through the shell binary's `--keychain` mode), the environment as the fallback;
+  non-secret desktop settings (hotkey, notifications, launch at login, chosen folders, the setup's default model)
+  in `<data dir>/settings.json` (`Trinity.Settings`), mode 0600.
 
 ## Concurrency and state rules
 
@@ -202,5 +211,6 @@ priv/personas/             default SOUL.md
 test/support/              Mox definitions, factories, fake tools/providers
 docs/                      architecture, data model, security model, standards, ADRs
 docs/                      this plan's docs and ADRs
-tauri/                     desktop shell (Slice 001+)
+tauri/                     desktop shell (Slice 001+; as built, `src-tauri/`, the generator's name: main.rs
+                           and keychain.rs, slice 100)
 ```

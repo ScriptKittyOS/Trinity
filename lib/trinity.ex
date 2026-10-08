@@ -41,6 +41,16 @@ defmodule Trinity do
         Profile,
         UUID,
         Config,
+        # Slice 100: the keychain-first secrets, the non-secret desktop settings, the first-run
+        # check, and the desktop seam (a boundary of its own under this one, as `Gateways` is).
+        Secrets,
+        Secrets.Keychain,
+        Settings,
+        Setup,
+        Desktop,
+        Desktop.Noop,
+        Desktop.Tauri,
+        Desktop.Shell,
         Sessions,
         Sessions.Message,
         Sessions.SessionRow,

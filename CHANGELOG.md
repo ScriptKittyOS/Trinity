@@ -47,6 +47,39 @@ missing or wrong declaration, and full-text recall keeps working through every r
 The evaluation that decides the default model is built and waiting: a generated corpus, 300 queries,
 and labels that the scored run will not read until 100 of them have been audited and frozen.
 
+## 2026-10-08
+
+### `slice/100`: Trinity as a desktop application
+
+The Tauri window now does what a desktop application is expected to do. A tray icon shows whether
+Trinity is idle or working and how many approvals are waiting, and offers New session, Pause
+gateways, Open data folder and Quit. An approval requested while the window is hidden or in the
+background becomes an operating system notification, and clicking it brings the window up on that
+approval. A global shortcut (Ctrl+Shift+Space by default, configurable) shows and hides the window;
+a second launch brings the first one forward instead of starting another; Trinity can start at
+login.
+
+Provider keys typed into Settings are stored in the operating system's keychain (the macOS Keychain,
+the Windows Credential Manager, the Secret Service on Linux) and nowhere else: not in the database,
+not in a settings file, not in a log. The shell binary itself is the keychain helper, so the key is
+reachable from the moment Trinity starts. A key in the keychain takes precedence over the same name
+in the environment, and with no keychain (a server, or `mix phx.server`) the environment works as
+before. The receipt signing key moves into the keychain the same way, by rotation: a new key is
+created there, the old one is marked retired with the moment it stopped being used, and receipts
+signed before the move still verify.
+
+Quitting during a reply keeps what had arrived, marked as interrupted, and the conversation shows
+that on the next launch. A machine with nothing configured now opens a short setup (a model and its
+key, the data folder, the first project folders) instead of a chat that cannot answer. The packaged
+binary's self-check reports three more things: full-text search, the file watcher, and the model
+cache.
+
+Verified by the test suite (the keychain through a stand-in helper, the shell's channel through a
+real socket, shutdown and startup through separate operating system processes) and on Linux by
+driving the real shell on an isolated display with a real keyring. The window, tray, notification,
+shortcut and second-launch behaviour on macOS and Windows have not been observed yet and are listed
+for manual verification.
+
 ## 2026-09-26
 
 ### `slice/128`: the checks that guard attribution now say what they check
