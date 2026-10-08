@@ -26,6 +26,14 @@ defmodule SecretsScanTest do
     assert Scan.findings("071000001:TEST_fake_token_for_the_suite_only") == []
   end
 
+  # Slice 072. A Mattermost token is 26 lower-case letters and digits, the shape of every id the
+  # server issues, so only a named assignment is a finding. Composed, as above.
+  test "RED: a Mattermost token assigned by name is found; an id of the same shape is not" do
+    token = "abc" <> String.duplicate("7", 23)
+    assert [{"Mattermost token assignment", 1}] = Scan.findings("MATTERMOST_BOT_TOKEN=" <> token)
+    assert Scan.findings(~s|channel_id: "#{token}"|) == []
+  end
+
   test "GREEN: ordinary source is clean" do
     assert Scan.findings("def hello, do: :world\n# AKIA is mentioned but not a key\n") == []
   end

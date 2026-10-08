@@ -14,7 +14,9 @@ defmodule Trinity.Sessions.SessionRow do
   @foreign_key_type Trinity.UUID
   @timestamps_opts [type: :utc_datetime_usec]
 
-  @origins ~w(desktop telegram discord console cron subagent mcp a2a)
+  # Slice 072: `mattermost` replaces `discord`. The Discord slot was retargeted to Mattermost on
+  # 2026-10-07 and dropped rather than deferred, and no code path ever produced that origin.
+  @origins ~w(desktop telegram mattermost console cron subagent mcp a2a)
   @statuses ~w(active archived compacted)
 
   @type t :: %__MODULE__{}

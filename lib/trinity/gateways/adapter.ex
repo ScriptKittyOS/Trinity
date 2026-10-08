@@ -98,5 +98,18 @@ defmodule Trinity.Gateways.Adapter do
   """
   @callback status() :: status()
 
-  @optional_callbacks status: 0
+  @doc """
+  An HTTP request the platform made to Trinity (slice 072): a button pressed, a dialog submitted,
+  a slash command. `kind` is the last segment of `POST /gateways/callback/<adapter>/<kind>` and
+  `params` the decoded body. Answers the JSON body to return, or why the request is refused.
+
+  Optional, because a platform that only ever talks over a connection Trinity opened (the
+  console, a long-polling bot) never calls back. An adapter that implements it verifies the
+  request itself, since nothing in the web layer knows what a platform's proof of origin is, and
+  it still decides nothing: anything that is a decision goes to `Router.inbound/5` as a command.
+  """
+  @callback callback(kind :: String.t(), params :: map()) ::
+              {:ok, map()} | {:error, :not_found | :forbidden | :bad_request}
+
+  @optional_callbacks status: 0, callback: 2
 end

@@ -58,6 +58,13 @@ defmodule Trinity.Telemetry.Redaction do
     # URL path (`/bot<token>/<method>`) where no key name precedes it. Not anchored on `\b`, since
     # in that path the token follows the letters "bot" with no boundary between them.
     {~r/(?<![0-9])[0-9]{5,12}:[A-Za-z0-9_-]{30,}/, "[REDACTED-BOT-TOKEN]"},
+    # Slice 072: a Mattermost token is 26 lower-case letters and digits, the same shape as every id
+    # the server issues, so the shape alone would mask every post and channel id in a log. It is
+    # masked where it is named: the session cookie, a variable or key named for it, and the
+    # `"token"` field of a JSON body. (`Bearer <token>`, its header form, is the first pattern.)
+    {~r/(?i)\b(MMAUTHTOKEN|mattermost[_-]?(?:bot[_-]?|command[_-]?)?token)(\s*[:=]\s*"?)[a-z0-9]{26}\b/,
+     "\\1\\2[REDACTED]"},
+    {~r/("token"\s*:\s*")[a-z0-9]{26}(")/, "\\1[REDACTED]\\2"},
     {~r/(?i)\b(password|passwd|secret|api[_-]?key|access[_-]?token|private[_-]?key)(\s*[:=]\s*)\S+/,
      "\\1\\2[REDACTED]"}
   ]

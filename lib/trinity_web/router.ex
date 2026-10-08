@@ -35,6 +35,12 @@ defmodule TrinityWeb.Router do
     post "/oauth/register", OAuthController, :register
   end
 
+  # Slice 072: a messaging platform calling back (a button, a dialog, a slash command). No session
+  # and no CSRF: the caller is a server, and the adapter verifies what it sent.
+  scope "/gateways/callback", TrinityWeb do
+    post "/:adapter/:kind", GatewayCallbackController, :create
+  end
+
   # Slice 013: the chat. One local user, so no scope is fetched; the session id is the URL.
   scope "/", TrinityWeb do
     pipe_through :browser

@@ -52,6 +52,24 @@ defmodule Trinity.Telemetry.RedactionTest do
       end
     end
 
+    test "a Mattermost token where it is named, and an id of the same shape left alone" do
+      token = "mm072" <> String.duplicate("q", 21)
+
+      for line <- [
+            "MATTERMOST_BOT_TOKEN=#{token}",
+            "cookie MMAUTHTOKEN=#{token}; MMUSERID=x",
+            ~s({"seq":1,"action":"authentication_challenge","data":{"token":"#{token}"}})
+          ] do
+        out = Redaction.redact(line)
+        refute out =~ token, "not masked: #{line} -> #{out}"
+        assert out =~ "[REDACTED"
+      end
+
+      # The same shape as a post id is not a credential, and a log full of ids stays readable.
+      line = "mattermost: post #{token} handed to the router"
+      assert Redaction.redact(line) == line
+    end
+
     test "a named secret in a key/value position" do
       for line <- [
             "password: hunter2-and-then-some",

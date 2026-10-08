@@ -192,6 +192,9 @@ defmodule Trinity.MixProject do
         {:oban_web, "~> 2.13"},
         # Slice 062: JWT validation and issuance (JWK, JWS, JWKS) over OTP's crypto.
         {:jose, "~> 1.11"},
+        # Slice 072: the Mattermost gateway's connection to its server's WebSocket. Already in
+        # the lock and the release through req_llm; direct because a module of ours calls it.
+        {:websockex, "~> 0.5.1"},
         # Slice 013 (owner decision, 2026-09-20): the linux package builds mdex's NIF from
         # source for musl (MDEX_NATIVE_BUILD=1 and TRINITY_NIF_TARGET in config/config.exs),
         # because neither precompiled artifact loads in Burrito's musl ERTS (NOTES finding 13).

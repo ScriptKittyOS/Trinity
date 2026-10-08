@@ -52,6 +52,24 @@ if roots = System.get_env("TRINITY_FS_ROOTS") do
   config :trinity, :fs, roots: String.split(roots, ":", trim: true)
 end
 
+# Slice 072: the Mattermost gateway's server, when the operator names one. It runs when it is
+# named on TRINITY_GATEWAYS ("mattermost"); named without MATTERMOST_URL it starts idle and says
+# why on /gateways. MATTERMOST_CALLBACK_URL, if set, is the base URL the server reaches this node at,
+# for the approval dialog and the /trinity slash command. The bot token is MATTERMOST_BOT_TOKEN and
+# the command's token MATTERMOST_COMMAND_TOKEN, both read when used (`Trinity.Config.secret/1`)
+# and never here. Under TRINITY_PROFILE=regulated the adapter must also be named on
+# TRINITY_REGULATED_GATEWAYS or the node refuses to boot.
+if config_env() != :test do
+  mattermost =
+    [
+      url: System.get_env("MATTERMOST_URL"),
+      callback_url: System.get_env("MATTERMOST_CALLBACK_URL")
+    ]
+    |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
+
+  if mattermost != [], do: config(:trinity, :mattermost, mattermost)
+end
+
 # Slice 022: the search provider's key is read at call time from BRAVE_SEARCH_API_KEY; the
 # provider module is configuration so a fake can stand in.
 if config_env() != :test do
