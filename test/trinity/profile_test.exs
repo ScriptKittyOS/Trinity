@@ -116,6 +116,49 @@ defmodule Trinity.ProfileTest do
     end
   end
 
+  describe "regulated refuses a gateway that is not on the allow-list" do
+    @adapters [Trinity.Gateways.Console]
+
+    test "no gateway configured needs no allow-list" do
+      # A regulated node that reaches nothing does not have to name what it may reach. Requiring
+      # the variable here would make every regulated operator set one they do not use.
+      assert :ok = Profile.check_gateways(:regulated, nil, [])
+    end
+
+    test "a configured gateway with no allow-list refuses, naming the variable" do
+      for raw <- [nil, ""] do
+        assert {:error, {:regulated_gateways_unset, var}} =
+                 Profile.check_gateways(:regulated, raw, @adapters)
+
+        assert var == Profile.gateways_env()
+      end
+    end
+
+    test "an adapter on the list is accepted, with or without the Elixir prefix" do
+      assert :ok = Profile.check_gateways(:regulated, "Trinity.Gateways.Console", @adapters)
+
+      assert :ok =
+               Profile.check_gateways(:regulated, "Elixir.Trinity.Gateways.Console", @adapters)
+    end
+
+    test "an adapter off the list is refused, naming the adapter" do
+      assert {:error, {:regulated_gateway_not_allowed, Trinity.Gateways.Console}} =
+               Profile.check_gateways(:regulated, "MyOrg.Mattermost", @adapters)
+    end
+
+    test "every adapter must be listed, not just one of them" do
+      assert {:error, {:regulated_gateway_not_allowed, Trinity.Gateways.Console}} =
+               Profile.check_gateways(:regulated, "MyOrg.Mattermost", [
+                 MyOrg.Mattermost,
+                 Trinity.Gateways.Console
+               ])
+    end
+
+    test "default accepts any adapter at all, unchanged" do
+      assert :ok = Profile.check_gateways(:default, nil, [SomeChatCloud.Adapter])
+    end
+  end
+
   describe "AC5: regulated must not run on the local authority" do
     test "Local is refused, by name" do
       assert {:error, :regulated_refuses_local_authority} =

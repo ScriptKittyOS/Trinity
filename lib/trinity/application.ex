@@ -129,6 +129,14 @@ defmodule Trinity.Application do
           profile,
           Trinity.Profile.raw_endpoints(),
           Keyword.get(llm, :models, [])
+        ),
+        # A gateway carries conversation text off this host, which is the same egress a model
+        # endpoint is, so it is held to the same allow-list rather than to nothing. Asked here with
+        # the others, before any child exists.
+        Trinity.Profile.check_gateways(
+          profile,
+          Trinity.Profile.raw_gateways(),
+          Trinity.Gateways.adapters()
         )
       ]
       |> Enum.each(fn
