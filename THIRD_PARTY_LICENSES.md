@@ -23,7 +23,7 @@ it, and a reader should not infer from an entry here that the component is in a 
 | `asn1` | `5.4.3` | Apache-2.0 | bom |
 | `axon` | `0.8.1` | Apache-2.0 | bom |
 | `bandit` | `1.12.5` | MIT | bom |
-| `beam_mcp` | `0.9.0` | Apache-2.0 | bom |
+| `beam_mcp` | `0.10.1` | Apache-2.0 | bom |
 | `boundary` | `0.10.4` | MIT | bom |
 | `bumblebee` | `0.7.1` | Apache-2.0 | bom |
 | `bunt` | `1.0.0` | MIT | bom |
