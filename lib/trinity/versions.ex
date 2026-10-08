@@ -188,7 +188,13 @@ defmodule Trinity.Versions do
       note:
         "The Oban dashboard, a LiveView mounted at /oban (dev, and behind `config :trinity, :oban_web, true` elsewhere). Apache-2.0 on hex.pm since the 2.12 line (2.13.0 measured 2026-09-22); the plan of 2026-09-05 wrote it in when it was commercial. Added at Slice 050."
     },
-    %{name: "req", pin: "~> 0.5", lock: "req", note: "HTTP client."},
+    %{
+      name: "req",
+      pin: "~> 0.5",
+      lock: "req",
+      note:
+        "HTTP client. Since Slice 071 also the Telegram Bot API client, in place of a Telegram library."
+    },
     %{
       name: "req_llm",
       pin: "~> 1.22",
@@ -322,10 +328,17 @@ defmodule Trinity.Versions do
     },
     %{
       name: "telegex",
-      pin: "**not pinned**",
+      pin: "not used (measured at Slice 071, 2026-10-08)",
       lock: nil,
       note:
-        "Telegram. ⚠️ The latest release on hex is a release candidate, roughly two years old, and this file's own rule forbids pinning an `-rc`. Alternative: ex_gram. Slice 071 decides with the measurement."
+        "Telegram. Measured at Slice 071: the latest release on hex is `1.9.0-rc.0` (2024-09-18) and the last stable `1.8.0` (2024-05-28); this file's own rule forbids pinning an `-rc`. Not used: `Trinity.Gateways.Telegram` speaks the Bot API with `req` (slice 071 NOTES, \"The library, measured\"). The row stays so the decision is visible where a reader would look for the package."
+    },
+    %{
+      name: "ex_gram",
+      pin: "not used (measured at Slice 071, 2026-10-08)",
+      lock: nil,
+      note:
+        "Telegram. Measured at Slice 071 on `0.71.0` (2026-10-01): its poller keeps the `getUpdates` offset in process state and starts at `-1`, so a restarted poller reprocesses or skips unconfirmed updates (Slice 071's AC5 is that property); its file download host is a module attribute that cannot be pointed at a test server; Beerware licence; 18,054 lines for what is here a handful of JSON calls. Not used: `Trinity.Gateways.Telegram` speaks the Bot API with `req` and owns its poller."
     },
     %{
       name: "phoenix_streamdown",

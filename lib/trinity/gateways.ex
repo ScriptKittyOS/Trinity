@@ -9,14 +9,30 @@ defmodule Trinity.Gateways do
   the permission gate's answer, as it is for the desktop, and what an approval arriving from a
   channel may authorise is capped besides (`Cap`, docs/07 "Gateways").
 
-  Adapters are configured, not compiled in: `config :trinity, :gateways, adapters: [Module, …]`.
-  `Console` ships here and is what the tests and `mix trinity.console` talk to.
+  Adapters are configured, not compiled in: `config :trinity, :gateways, adapters: [Module, …]`,
+  or by name from the `available:` list (`TRINITY_GATEWAYS=telegram`, slice 071). `Console` ships
+  here and is what the tests and `mix trinity.console` talk to; `Telegram` is the first platform.
+  `Trinity.Gateways.Supervisor` runs the router and the adapters in force, and nothing when there
+  are none.
   """
   use Boundary,
     deps: [Trinity, Trinity.Sessions],
-    exports: [Adapter, Cap, Console, Format, Identities, Identity, Router]
+    exports: [Adapter, Cap, Console, Format, Identities, Identity, Router, Supervisor, Telegram]
 
-  @doc "The adapter modules in force."
+  @doc """
+  The adapter modules in force: those named in `adapters:`, then those from `available:` whose
+  name (`Trinity.Gateways.Adapter.name/1`) is in `enabled:`, each once.
+  """
   @spec adapters() :: [module()]
-  def adapters, do: Application.get_env(:trinity, :gateways, []) |> Keyword.get(:adapters, [])
+  def adapters do
+    config = Application.get_env(:trinity, :gateways, [])
+    enabled = Keyword.get(config, :enabled, [])
+
+    named =
+      config
+      |> Keyword.get(:available, [])
+      |> Enum.filter(&(Trinity.Gateways.Adapter.name(&1) in enabled))
+
+    Enum.uniq(Keyword.get(config, :adapters, []) ++ named)
+  end
 end

@@ -18,6 +18,14 @@ defmodule SecretsScanTest do
     assert [{"generic long secret assignment", 2}] = Scan.findings(text)
   end
 
+  # Slice 071. A Telegram bot token is the bot's numeric id, a colon, and 35 characters that
+  # begin "AA". Composed, as above. The suite's own fake token is not this shape on purpose.
+  test "RED: a Telegram bot token is found; the suite's fake token is not one" do
+    token = "123456789:" <> "AA" <> String.duplicate("b", 33)
+    assert [{"Telegram bot token", 1}] = Scan.findings("TELEGRAM_BOT_TOKEN=" <> token)
+    assert Scan.findings("071000001:TEST_fake_token_for_the_suite_only") == []
+  end
+
   test "GREEN: ordinary source is clean" do
     assert Scan.findings("def hello, do: :world\n# AKIA is mentioned but not a key\n") == []
   end

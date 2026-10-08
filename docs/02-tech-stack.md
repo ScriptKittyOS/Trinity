@@ -21,7 +21,7 @@ Versions live in `VERSIONS.md`. This file explains *why* each choice was made an
 | Config validation | nimble_options | Behaviour opts validated with docs generated | none |
 | Desktop shell | ex_tauri (Tauri 2 + Burrito sidecar) | Modern webview, tray, notifications, updater, signing plumbing; small footprint | Windows unsupported by ex_tauri → elixir-desktop or plain Tauri sidecar (Slice 001 decides; ADR-0004) |
 | Packaging | Burrito | Single binary with ERTS | none |
-| Gateways | Telegex (Telegram), Nostrum (Discord) | Active, supervised | none |
+| Gateways | Telegram: the Bot API over Req, no library (Telegex and ex_gram measured at 071 and not used; VERSIONS.md says why). Nostrum (Discord) | Active, supervised | none |
 | Markdown streaming | phoenix_streamdown | LLM-optimised; freezes completed blocks | Verify in 013; fallback to earmark + chunk buffering |
 | Testing | ExUnit, Mox, LiveViewTest (lazy_html) | Standard | none |
 | Quality | credo, mix_audit, sobelow, ex_doc, Elixir type checker | Gate | none |

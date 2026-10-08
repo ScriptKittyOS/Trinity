@@ -40,9 +40,20 @@ defmodule TrinityWeb.GatewaysLive do
         name: Adapter.name(adapter),
         running?: is_pid(Process.whereis(adapter)),
         ceiling: Cap.ceiling(adapter),
-        capabilities: adapter.capabilities()
+        capabilities: adapter.capabilities(),
+        status: status(adapter)
       }
     end
+  end
+
+  # Slice 071: an adapter that reports more than whether it runs (`Adapter.status/0`, optional)
+  # says what it is doing: which account it is connected as, idle and why, or the last error.
+  defp status(adapter) do
+    if Process.whereis(adapter) && function_exported?(adapter, :status, 0) do
+      adapter.status()
+    end
+  catch
+    :exit, _ -> nil
   end
 
   @impl true
@@ -105,6 +116,17 @@ defmodule TrinityWeb.GatewaysLive do
               <span class="text-meta opacity-70">
                 {gettext("max")}
                 <span class="font-mono">{adapter.capabilities.max_length}</span>
+              </span>
+              <span
+                :if={adapter.status}
+                id={"adapter-#{adapter.name}-status"}
+                class={[
+                  "text-meta",
+                  adapter.status.state == :error && "text-error",
+                  adapter.status.state != :error && "opacity-70"
+                ]}
+              >
+                {adapter.status.detail}
               </span>
             </li>
           </ul>

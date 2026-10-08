@@ -241,3 +241,9 @@ import_config "#{config_env()}.exs"
 # Slice 070: a scheduled run can be delivered to a gateway conversation; `deliver_to`'s "kind"
 # names the implementation (slice 050's `Trinity.Scheduler.Delivery.for/1`).
 config :trinity, :deliveries, %{"gateway" => Trinity.Scheduler.Delivery.Gateway}
+
+# Slice 071: the gateways this build carries, by module. None runs unless it is named:
+# `config :trinity, :gateways, adapters: [...]` names modules, and `TRINITY_GATEWAYS`
+# (config/runtime.exs) names adapters from this list by their name ("telegram", "console"), so an
+# environment variable never mints an atom. A new platform is a module and a line here.
+config :trinity, :gateways, available: [Trinity.Gateways.Console, Trinity.Gateways.Telegram]

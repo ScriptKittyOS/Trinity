@@ -16,6 +16,9 @@ defmodule Trinity.LLM.Providers.ReqLLM do
   """
   @behaviour Trinity.LLM.Provider
 
+  # Sobelow reads `@sobelow_skip` from the source; the compiler would call it unused otherwise.
+  Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
+
   alias Trinity.Config
   alias Trinity.LLM.{Error, Request}
   alias Trinity.LLM.Providers.ReqLLM.Mapping
@@ -204,6 +207,24 @@ defmodule Trinity.LLM.Providers.ReqLLM do
   end
 
   defp message(%{role: "system", content: c}), do: ReqLLM.Context.system(c)
+  # Slice 071: a user message with images is a list of content parts, the text first. An image
+  # file that cannot be read any more (removed from the data directory) is said in words rather
+  # than failing the turn.
+  defp message(%{role: "user", content: c, images: [_ | _] = images}) do
+    {parts, missing} =
+      Enum.reduce(images, {[], 0}, fn %{path: path, media_type: type}, {parts, missing} ->
+        case read_image(path) do
+          {:ok, bytes} -> {parts ++ [ReqLLM.Message.ContentPart.image(bytes, type)], missing}
+          {:error, _} -> {parts, missing + 1}
+        end
+      end)
+
+    text =
+      if missing > 0, do: c <> "\n\n[#{missing} attached image(s) could not be read]", else: c
+
+    ReqLLM.Context.user([ReqLLM.Message.ContentPart.text(text) | parts])
+  end
+
   defp message(%{role: "user", content: c}), do: ReqLLM.Context.user(c)
 
   defp message(%{role: "tool", content: c} = m),
@@ -222,6 +243,12 @@ defmodule Trinity.LLM.Providers.ReqLLM do
         )
     end
   end
+
+  # sobelow_skip reason: Traversal.FileModule: the path is one the gateway stored itself, under the
+  # data directory and named by the image's SHA-256 digest (slice 071, `Telegram.Media`), read back
+  # from the session's own row; no request names it.
+  @sobelow_skip ["Traversal.FileModule"]
+  defp read_image(path), do: File.read(path)
 
   defp maybe_put(opts, _key, nil), do: opts
   defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)

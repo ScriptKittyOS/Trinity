@@ -132,7 +132,10 @@ enforces it.
   streaming back as the turn runs, and any approval the turn raises rendered into the same
   conversation. What a channel may approve is capped below what the desktop may: a `write` at
   most by default, so an `exec` or a `destructive` request is decided at the machine, and the
-  refusal is receipted. The console adapter ships (`mix trinity.console`); the platforms are next.
+  refusal is receipted. The console adapter ships (`mix trinity.console`), and so does Telegram:
+  a bot that answers in private chats and in groups where it is mentioned, streams its reply by
+  editing one message, offers approvals as buttons (within the same cap), and passes a photo to a
+  model that can see. Set `TELEGRAM_BOT_TOKEN` and `TRINITY_GATEWAYS=telegram` to turn it on.
 - **Delegates.** The assistant can hand a bounded piece of work to a child session with a
   `delegate` tool: its own context, its own history, and a result handed back as text. The
   parent's conversation never contains the child's messages, which is the point:
@@ -171,10 +174,9 @@ enforces it.
   curator that marks old memories stale and archives the untouched ones (never deleting)
   run on the same queues; `/oban` shows the jobs.
 
-Not there yet: the messaging platforms themselves (071 Telegram and 072 Discord, which need a bot
-token the project does not yet hold), the native desktop shell and signed releases (the rest of M6),
-store-and-forward receipts for disconnected operation (026, waiting on an answer from the external
-authority plane). The [Milestones](#milestones) section below sets out the order the remaining work
+Not there yet: the second messaging platform (072), the native desktop shell and signed releases
+(the rest of M6), store-and-forward receipts for disconnected operation (026, waiting on an answer
+from the external authority plane). The [Milestones](#milestones) section below sets out the order the remaining work
 is being built in.
 
 The interface is a local web page; the desktop shell exists as a packaging spike, not a product.

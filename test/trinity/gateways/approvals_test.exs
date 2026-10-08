@@ -158,6 +158,35 @@ defmodule Trinity.Gateways.ApprovalsTest do
     refute Cap.allows?(@adapter, nil)
   end
 
+  # Slice 071, finding F2. Approval ids are UUIDv7, whose first 48 bits are the time in
+  # milliseconds, so the eight-character short form a person is shown is the same for every request
+  # raised within the same 65 seconds. `/approve <short>` then decided whichever pending request
+  # came first, which need not be the one the person was looking at.
+  test "a short id two pending requests share is refused as ambiguous, and neither is decided" do
+    session_id = session_for_conversation()
+
+    {:ok, %Approval{id: first}} =
+      Permissions.request_approval(session_id, "write_note", %{"path" => "a.md"}, risk: :write)
+
+    {:ok, %Approval{id: second}} =
+      Permissions.request_approval(session_id, "write_note", %{"path" => "b.md"}, risk: :write)
+
+    short = String.slice(first, 0, 8)
+
+    assert String.starts_with?(second, short),
+           "the two ids no longer share a prefix: #{first} #{second}"
+
+    assert {:ok, :command} = Router.inbound(@adapter, @conv, @user, "/approve #{short}")
+    assert shown() =~ "matches 2 pending requests"
+    assert %Approval{status: "pending"} = Permissions.get_approval(first)
+    assert %Approval{status: "pending"} = Permissions.get_approval(second)
+
+    # The full id is never ambiguous, and is what a button carries.
+    assert {:ok, :command} = Router.inbound(@adapter, @conv, @user, "/approve #{second}")
+    assert %Approval{status: "allowed"} = Permissions.get_approval(second)
+    assert %Approval{status: "pending"} = Permissions.get_approval(first)
+  end
+
   test "a raised request in someone else's session is not rendered into this channel" do
     _mine = session_for_conversation()
 

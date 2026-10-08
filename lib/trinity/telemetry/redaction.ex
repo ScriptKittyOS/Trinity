@@ -54,6 +54,10 @@ defmodule Trinity.Telemetry.Redaction do
     {~r/(?i)\b(bearer|basic|token)\s+[A-Za-z0-9._~+\/=-]{12,}/, "\\1 [REDACTED]"},
     {~r/\b(?:sk|pk|rk|api|key)[-_][A-Za-z0-9._-]{16,}/i, "[REDACTED]"},
     {~r/\bey[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/, "[REDACTED-JWT]"},
+    # Slice 071: a Telegram bot token, `<numeric bot id>:<secret>`, which the Bot API carries in the
+    # URL path (`/bot<token>/<method>`) where no key name precedes it. Not anchored on `\b`, since
+    # in that path the token follows the letters "bot" with no boundary between them.
+    {~r/(?<![0-9])[0-9]{5,12}:[A-Za-z0-9_-]{30,}/, "[REDACTED-BOT-TOKEN]"},
     {~r/(?i)\b(password|passwd|secret|api[_-]?key|access[_-]?token|private[_-]?key)(\s*[:=]\s*)\S+/,
      "\\1\\2[REDACTED]"}
   ]

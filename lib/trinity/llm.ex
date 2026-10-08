@@ -22,7 +22,7 @@ defmodule Trinity.LLM do
   def stream(%Request{} = request, opts \\ [], emit) when is_function(emit, 1) do
     with {:ok, entry, module} <- resolve(request) do
       call(entry, "chat", opts, fn ->
-        module.stream(request, provider_opts(entry, opts), emit)
+        module.stream(fit(request, entry), provider_opts(entry, opts), emit)
       end)
     end
   end
@@ -49,7 +49,9 @@ defmodule Trinity.LLM do
   @spec generate(Request.t(), opts()) :: {:ok, Trinity.LLM.Provider.result()} | {:error, term()}
   def generate(%Request{} = request, opts \\ []) do
     with {:ok, entry, module} <- resolve(request) do
-      call(entry, "chat", opts, fn -> module.generate(request, provider_opts(entry, opts)) end)
+      call(entry, "chat", opts, fn ->
+        module.generate(fit(request, entry), provider_opts(entry, opts))
+      end)
     end
   end
 
@@ -59,7 +61,7 @@ defmodule Trinity.LLM do
     with {:ok, entry, module} <- resolve(request),
          {:ok, object, _usage} <-
            call(entry, "object", opts, fn ->
-             module.generate_object(request, schema, provider_opts(entry, opts))
+             module.generate_object(fit(request, entry), schema, provider_opts(entry, opts))
            end) do
       {:ok, object}
     end
@@ -89,6 +91,9 @@ defmodule Trinity.LLM do
   def capabilities(model_id) do
     with {:ok, entry} <- Registry.lookup(model_id), do: {:ok, entry.caps}
   end
+
+  # Slice 071: images reach a provider only for a model whose registry entry declares `:vision`.
+  defp fit(request, entry), do: Request.fit_images(request, :vision in Map.get(entry, :caps, []))
 
   defp resolve(%Request{model: model}) do
     with {:ok, entry} <- Registry.lookup(model),

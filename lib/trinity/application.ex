@@ -88,7 +88,11 @@ defmodule Trinity.Application do
           Trinity.Sessions.Supervisor,
           # Slice 050: Oban after the sessions its workers drive (a run is a turn in a session),
           # the engine chosen by the adapter (config.exs).
-          {Oban, Application.fetch_env!(:trinity, Oban)}
+          {Oban, Application.fetch_env!(:trinity, Oban)},
+          # Slice 071: the gateways in force (the router and each configured adapter), after the
+          # sessions they route to and the scheduler that delivers to them; no child when none is
+          # configured.
+          Trinity.Gateways.Supervisor
         ] ++
         Trinity.Smoke.probe(Trinity.Smoke.argv()) ++
         [

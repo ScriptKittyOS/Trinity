@@ -40,10 +40,21 @@ defmodule Trinity.Sessions.Session do
   @spec via(String.t()) :: {:via, Registry, {Trinity.Registry, String.t()}}
   def via(session_id), do: {:via, Registry, {Trinity.Registry, session_id}}
 
-  @doc "Persists the user's message, broadcasts it, and starts a turn. Busy sessions refuse."
-  @spec send_user_message(pid() | String.t(), String.t()) ::
+  @doc """
+  Persists the user's message, broadcasts it, and starts a turn. Busy sessions refuse. `images:`
+  (slice 071) are stored in the row's `parts` as `"images"`; see `Trinity.Sessions.send_user_message/3`.
+  """
+  @spec send_user_message(pid() | String.t(), String.t(), keyword()) ::
           {:ok, Store.message()} | {:error, term()}
-  def send_user_message(ref, content), do: :gen_statem.call(target(ref), {:user_message, content})
+  def send_user_message(ref, content, opts \\ []) do
+    parts =
+      case Keyword.get(opts, :images, []) do
+        [] -> %{}
+        images when is_list(images) -> %{"images" => images}
+      end
+
+    :gen_statem.call(target(ref), {:user_message, content, parts})
+  end
 
   @doc "Stops the turn in flight, persisting what arrived as interrupted."
   @spec cancel_turn(pid() | String.t()) :: :ok | {:error, :idle}
@@ -160,8 +171,8 @@ defmodule Trinity.Sessions.Session do
     {:keep_state_and_data, [{:reply, from, view}]}
   end
 
-  def handle_event({:call, from}, {:user_message, content}, :idle, %State{id: id} = data) do
-    case Trinity.Sessions.append_message(id, %{role: "user", content: content}) do
+  def handle_event({:call, from}, {:user_message, content, parts}, :idle, %State{id: id} = data) do
+    case Trinity.Sessions.append_message(id, %{role: "user", content: content, parts: parts}) do
       {:ok, message} ->
         Events.broadcast(id, {:user_message, message})
         data = %{data | turn: State.new_turn()}
@@ -180,7 +191,7 @@ defmodule Trinity.Sessions.Session do
     end
   end
 
-  def handle_event({:call, from}, {:user_message, _}, state, _data) do
+  def handle_event({:call, from}, {:user_message, _, _}, state, _data) do
     {:keep_state_and_data, [{:reply, from, {:error, {:busy, state}}}]}
   end
 

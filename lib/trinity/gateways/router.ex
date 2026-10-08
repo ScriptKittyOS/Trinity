@@ -30,13 +30,26 @@ defmodule Trinity.Gateways.Router do
   @flush_ms 700
   @default_rate [capacity: 20, per_minute: 20]
 
-  @typedoc "What an adapter hands in: who said what, where."
+  @typedoc "What an adapter hands in: who said what, where, and what came with it."
   @type inbound :: %{
           adapter: module(),
           conversation: Adapter.conversation(),
           external_user_id: String.t(),
           text: String.t(),
-          display_name: String.t() | nil
+          display_name: String.t() | nil,
+          attachments: [attachment()]
+        }
+
+  @typedoc """
+  Something sent with a message (slice 071): an image the adapter can fetch. The router calls
+  `fetch` only after the sender is admitted and inside the rate limit, and never for a command, so
+  nothing a stranger sends is downloaded (docs/07: nothing of an unknown sender's message is read
+  but the code it might be). A fetch answers the image part a session row stores.
+  """
+  @type attachment :: %{
+          required(:kind) => :image,
+          required(:fetch) => (-> {:ok, map()} | {:error, term()}),
+          optional(atom()) => term()
         }
 
   ## The API an adapter uses
@@ -47,8 +60,9 @@ defmodule Trinity.Gateways.Router do
 
   @doc """
   One inbound message. Answers once the message has been placed (the reply arrives on the channel
-  as the turn streams), or with why it was refused: `{:error, :pending}` when a pairing code was
-  shown instead, `{:error, :revoked}`, `{:error, :rate_limited}`.
+  as the turn streams), or with why it was refused: `{:error, :pending}` when a pairing prompt was
+  shown instead, `{:error, :revoked}`, `{:error, :rate_limited}`. Options: `:display_name`, and
+  `:attachments` (slice 071), fetched only once the message is admitted.
   """
   @spec inbound(module(), Adapter.conversation(), String.t(), String.t(), keyword()) ::
           {:ok, :placed | :command | :paired} | {:error, term()}
@@ -58,7 +72,8 @@ defmodule Trinity.Gateways.Router do
       conversation: conversation,
       external_user_id: external_user_id,
       text: text,
-      display_name: Keyword.get(opts, :display_name)
+      display_name: Keyword.get(opts, :display_name),
+      attachments: Keyword.get(opts, :attachments, [])
     }
 
     GenServer.call(__MODULE__, {:inbound, message}, 30_000)
@@ -162,10 +177,14 @@ defmodule Trinity.Gateways.Router do
     end
   end
 
+  # The prompt says where the code is and never what it is: the code is shown on `/gateways` and
+  # nowhere else, which is the whole of the pairing proof (docs/07). It said the code until slice
+  # 071 (finding F1), which on a public platform let anyone who found the bot pair by echoing it.
   defp prompt_for(identity) do
     """
-    Trinity does not know you yet. Open the desktop app, go to Settings → Gateways, and you will
-    see the code #{identity.code}. Send that code here to pair. It lasts #{div(Identities.code_ttl_s(), 60)} minutes.
+    Trinity does not know you yet. Open the desktop app and go to Gateways: a \
+    #{String.length(identity.code)} character code is waiting there for this account. Send that \
+    code here to pair. It lasts #{div(Identities.code_ttl_s(), 60)} minutes.
     """
     |> String.trim()
   end
@@ -197,8 +216,9 @@ defmodule Trinity.Gateways.Router do
 
   defp dispatch(message, state) do
     {session_id, state} = session_for(message, state)
+    {images, state} = fetch_attachments(message, state)
 
-    case Sessions.send_user_message(session_id, message.text) do
+    case Sessions.send_user_message(session_id, message.text, images: images) do
       {:ok, _} ->
         {:reply, {:ok, :placed}, state}
 
@@ -209,6 +229,36 @@ defmodule Trinity.Gateways.Router do
          say(message, "Trinity is busy with the previous message.", state)}
     end
   end
+
+  # The sender is admitted and inside the rate limit by the time this runs, which is the point:
+  # an attachment is read for someone who has been let in and for no one else. A fetch that fails
+  # or raises costs its image, not the message: the channel is told and the text still goes.
+  defp fetch_attachments(%{attachments: []}, state), do: {[], state}
+
+  defp fetch_attachments(message, state) do
+    Enum.reduce(message.attachments, {[], state}, fn attachment, {images, state} ->
+      case safe_fetch(attachment) do
+        {:ok, image} ->
+          {images ++ [image], state}
+
+        {:error, reason} ->
+          Logger.warning("gateway: attachment not fetched: #{inspect(reason)}")
+          {images, say(message, "That image could not be read (#{describe(reason)}).", state)}
+      end
+    end)
+  end
+
+  defp safe_fetch(%{fetch: fetch}) when is_function(fetch, 0) do
+    fetch.()
+  rescue
+    error -> {:error, error.__struct__}
+  end
+
+  defp safe_fetch(_attachment), do: {:error, :not_an_attachment}
+
+  defp describe({:too_large, bytes}), do: "it is larger than this channel accepts: #{bytes} bytes"
+  defp describe({:not_an_image, type}), do: "its bytes are not a #{type}"
+  defp describe(_reason), do: "the platform did not hand it over"
 
   ## Sessions and binding
 
@@ -378,14 +428,20 @@ defmodule Trinity.Gateways.Router do
 
       conv_key ->
         conv = Map.fetch!(state.conversations, conv_key)
-        {:message, text} = conv.adapter.render_approval(approval, conv.adapter.capabilities())
+        rendered = conv.adapter.render_approval(approval, conv.adapter.capabilities())
 
-        text =
-          if Cap.allows?(conv.adapter, approval.risk),
-            do: text,
-            else: text <> "\n\n" <> Cap.refusal(conv.adapter, approval.risk)
+        # Buttons (slice 071) are offered only for a tier this channel may answer; above it the
+        # request is said in words, with where to decide it, and nothing to press.
+        outbound =
+          case {Cap.allows?(conv.adapter, approval.risk), rendered} do
+            {true, rendered} ->
+              rendered
 
-        _ = conv.adapter.deliver(conv.conversation, {:message, text})
+            {false, rendered} ->
+              {:message, elem(rendered, 1) <> "\n\n" <> Cap.refusal(conv.adapter, approval.risk)}
+          end
+
+        _ = conv.adapter.deliver(conv.conversation, outbound)
         state
     end
   end

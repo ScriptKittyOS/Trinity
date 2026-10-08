@@ -54,8 +54,11 @@ defmodule Trinity.Gateways.RouterTest do
 
     [shown] = Console.text(@conv)
     {:ok, identity, _} = Identities.admit("console", @user)
-    assert shown =~ identity.code
     assert shown =~ "pair"
+    # Slice 071, finding F1: the code is shown on /gateways and nowhere else (docs/07). A prompt
+    # that carried it would let anyone who can write to the channel pair by echoing it back,
+    # which on a public messaging platform is anyone who finds the bot.
+    refute shown =~ identity.code
 
     # No session was created and the model was never called for someone not let in.
     assert Router.session_of(@adapter, @conv) == nil
