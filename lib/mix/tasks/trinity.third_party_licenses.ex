@@ -35,6 +35,16 @@ defmodule Mix.Tasks.Trinity.ThirdPartyLicenses do
   `--bom` exists so a test can hand this task a planted bill instead of writing over the real one.
   The first version of that test did write over it, which is the kind of thing that works until two
   tests run at once.
+
+  ## The one difference `--check` accepts
+
+  The bill lists the Erlang/OTP applications of the runtime that generates it, and the committed file
+  is generated on the OTP `.tool-versions` pins. Since ADR-0014 the FIPS leg runs the container
+  images' OTP (`ci/container.tool-versions`), a newer patch of the same major, so its bill carries
+  newer versions of some OTP applications and nothing else changes. `--check` accepts exactly that:
+  the runtime's OTP is the container's pin and not the desktop's, and the file matches the bill once
+  the versions of the bill's `erlang.otp` components are read from the file. Any other difference
+  still fails.
   """
 
   use Boundary, classify_to: Trinity
@@ -79,7 +89,7 @@ defmodule Mix.Tasks.Trinity.ThirdPartyLicenses do
     rendered = render(rows)
 
     cond do
-      "--check" in argv -> check(rendered)
+      "--check" in argv -> check(rendered, rows)
       "--write" in argv -> write(rendered)
       true -> Mix.shell().info(rendered)
     end
@@ -124,6 +134,7 @@ defmodule Mix.Tasks.Trinity.ThirdPartyLicenses do
       licence ->
         %{name: name, version: version(component), licence: licence, source: :bom, holder: nil}
     end
+    |> Map.put(:otp?, component["group"] == "erlang.otp")
   end
 
   # CycloneDX puts a resolvable identifier in `license.id` and anything else in `license.name`
@@ -167,7 +178,9 @@ defmodule Mix.Tasks.Trinity.ThirdPartyLicenses do
     """
   end
 
-  defp render(rows) do
+  @doc "The file `rows` render to: what `--write` writes and `--check` compares."
+  @spec render([map()]) :: String.t()
+  def render(rows) do
     declared = Enum.filter(rows, &(&1.source == :declared))
 
     """
@@ -248,21 +261,85 @@ defmodule Mix.Tasks.Trinity.ThirdPartyLicenses do
     end
   end
 
+  @doc """
+  `{:ok, names}` when `committed` differs from what `rows` render only in the versions of OTP
+  applications, and `pins` (`{runtime, desktop, container}` OTP versions) says the runtime is the
+  container's pin and not the desktop's; `names` are the applications whose version differs.
+  `:error` otherwise.
+  """
+  @spec otp_drift(String.t(), [map()], {String.t() | nil, String.t() | nil, String.t() | nil}) ::
+          {:ok, [String.t()]} | :error
+  def otp_drift(committed, rows, pins) do
+    versions =
+      for [_, name, version] <- Regex.scan(~r/^\| `([^`]+)` \| `([^`]*)` \|/m, committed),
+          into: %{},
+          do: {name, version}
+
+    as_committed = Enum.map(rows, &committed_version(&1, versions))
+    drifted = for r <- rows, r.otp?, versions[r.name] != r.version, do: r.name
+
+    if container_runtime?(pins) and Enum.all?(as_committed, & &1.version) and
+         render(as_committed) == committed,
+       do: {:ok, drifted},
+       else: :error
+  end
+
+  defp committed_version(%{otp?: true} = row, versions),
+    do: %{row | version: Map.get(versions, row.name)}
+
+  defp committed_version(row, _versions), do: row
+
+  defp container_runtime?({runtime, desktop, container}),
+    do: runtime != nil and runtime == container and runtime != desktop
+
+  # The running OTP (an OTP install carries `releases/<major>/OTP_VERSION`; the gate never runs in
+  # a release) and the two pins.
+  defp pins do
+    runtime =
+      case File.read(
+             Path.join([:code.root_dir(), "releases", System.otp_release(), "OTP_VERSION"])
+           ) do
+        {:ok, text} -> String.trim(text)
+        {:error, _} -> nil
+      end
+
+    {runtime, erlang_pin(".tool-versions"), erlang_pin("ci/container.tool-versions")}
+  end
+
+  defp erlang_pin(path) do
+    with {:ok, text} <- File.read(path),
+         [_, version] <- Regex.run(~r/^erlang\s+(\S+)\s*$/m, text) do
+      version
+    else
+      _ -> nil
+    end
+  end
+
   defp write(rendered) do
     File.write!(@artifact, rendered)
     Mix.shell().info("trinity.third_party_licenses: wrote #{@artifact}")
   end
 
-  defp check(rendered) do
+  defp check(rendered, rows) do
     case File.read(@artifact) do
       {:ok, ^rendered} ->
         Mix.shell().info("trinity.third_party_licenses: OK. #{@artifact} matches the bill")
 
-      {:ok, _other} ->
-        Mix.raise(
-          "#{@artifact} does not match the bill of materials. Run " <>
-            "`mix trinity.third_party_licenses --write` and commit the result."
-        )
+      {:ok, committed} ->
+        case otp_drift(committed, rows, pins()) do
+          {:ok, names} ->
+            Mix.shell().info(
+              "trinity.third_party_licenses: OK. #{@artifact} matches the bill apart from the " <>
+                "versions of #{length(names)} OTP application(s) (#{Enum.join(names, ", ")}): " <>
+                "this runtime is the container images' OTP, the file is the desktop pin's (ADR-0014)"
+            )
+
+          :error ->
+            Mix.raise(
+              "#{@artifact} does not match the bill of materials. Run " <>
+                "`mix trinity.third_party_licenses --write` and commit the result."
+            )
+        end
 
       {:error, :enoent} ->
         Mix.raise("#{@artifact} is missing. Run `mix trinity.third_party_licenses --write`.")

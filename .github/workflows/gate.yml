@@ -212,7 +212,8 @@ jobs:
             sleep 30
           done
           echo "::error::$ref was not published within 30 minutes. It is built by the" \
-               "fips-image workflow, which runs when ci/fips/Containerfile, .tool-versions or" \
+               "fips-image workflow, which runs when ci/fips/Containerfile, .tool-versions," \
+               "ci/container.tool-versions or" \
                "scripts/fips_image_tag.sh changes. Check that workflow's run for this commit."
           exit 1
 

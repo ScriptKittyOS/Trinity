@@ -12,12 +12,13 @@ defmodule Trinity.MCP.BoundaryTest do
   """
   use ExUnit.Case, async: true
 
-  # Slice 061 bumped the pin to 0.9.0 (the :server seam); the row and the lock moved together.
-  test "beam_mcp is in mix.lock at 0.9.0 and the VERSIONS row reads in mix.lock" do
+  # Slice 061 bumped the pin to 0.9.0 (the :server seam); 2026-10-08 to 0.10.1, the security
+  # patch `mix hex.audit` asked for. The row and the lock move together.
+  test "beam_mcp is in mix.lock at 0.10.1 and the VERSIONS row reads in mix.lock" do
     lock = Mix.Dep.Lock.read()
-    assert {:hex, :beam_mcp, "0.9.0", _, _, _, _, _} = lock[:beam_mcp]
-    assert File.read!("VERSIONS.md") =~ ~r/`beam_mcp` \| ~> 0\.9 \| ✅ in `mix\.lock`/
-    assert Trinity.MCP.core_version() == "0.9.0"
+    assert {:hex, :beam_mcp, "0.10.1", _, _, _, _, _} = lock[:beam_mcp]
+    assert File.read!("VERSIONS.md") =~ ~r/`beam_mcp` \| ~> 0\.10\.1 \| ✅ in `mix\.lock`/
+    assert Trinity.MCP.core_version() == "0.10.1"
   end
 
   test "the boundary compiler checks calls into beam_mcp everywhere, and Trinity.MCP is the boundary that lists it" do

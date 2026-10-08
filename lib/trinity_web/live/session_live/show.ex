@@ -107,7 +107,20 @@ defmodule TrinityWeb.SessionLive.Show do
     |> assign(
       last_user_message: done |> Enum.filter(&(&1.role == "user")) |> List.last() |> content()
     )
+    |> assign_banner_from(done)
     |> stream(:messages, done)
+  end
+
+  # Slice 100, AC7: a turn the quit path finalised as interrupted leaves no draft, so the session's
+  # rehydrate broadcasts nothing and the event below never arrives. The newest row says it instead.
+  defp assign_banner_from(socket, rows) do
+    case List.last(rows) do
+      %Message{role: "assistant", parts: %{"interrupted" => true}} ->
+        assign(socket, banner: :interrupted)
+
+      _ ->
+        socket
+    end
   end
 
   # Slice 023: the estimate of the next request, from the rows the page holds.

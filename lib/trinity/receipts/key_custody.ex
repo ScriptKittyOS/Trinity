@@ -11,8 +11,29 @@ defmodule Trinity.Receipts.KeyCustody do
   The key is a file, `receipts-<algorithm>.key` under the keys directory, mode 0600, made on
   first run; its registry row is appended to `registry.json` the same moment. **What a
   file-backed key establishes**: that the chain was not altered after the fact by anything
-  lacking read access to that file, and nothing more. Slice 100 moves it to the OS keychain
-  and the registry records the change as a new row.
+  lacking read access to that file, and nothing more.
+
+  ## The move to the keychain (slice 100, AC6)
+
+  When the OS keychain answers (`Trinity.Secrets.Keychain`, the Tauri shell's helper) and the key
+  in force is still file-backed, `boot!/1` **rotates** into the keychain rather than importing the
+  file's key (NOTES D3): a new key pair, its private half stored in the keychain and read back
+  before anything else changes; then two registry rows, the new key `active` with custody
+  `keychain` and the old key `retired` with `valid_until` (this moment) and `superseded_by`; then the
+  old key file is copied to `receipts-<alg>.retired-<key id prefix>.key` (kept, mode 0600: deleting
+  key material is the owner's call) and the key file is replaced by one naming the keychain entry
+  and holding no private bytes. Receipts signed under the old key keep verifying, because the
+  verifier refuses only `compromised` keys and, for a `retired` one, a receipt dated after its
+  `valid_until`. Nothing is re-keyed silently: the rotation is logged with both key ids, the boot
+  receipt names the custody, and a keychain that cannot store and return the key leaves the
+  file-backed key in force with the registry untouched. A boot interrupted between the registry
+  rows and the file swap finishes the swap on the next boot.
+
+  A keychain-held key needs the keychain at every signature, as the file-backed one needs its
+  file: with no helper (a `mix phx.server` with no shell, on a data directory the desktop app has
+  migrated) the signer is unavailable and every effect is denied, which is the documented
+  fail-open-on-boot, fail-closed-on-effect shape of slice 024. `TRINITY_KEYCHAIN_HELPER` pointed
+  at a built shell binary restores it (docs/packaging.md).
 
   `sign/1` reads the key file on every call and never caches the key, so a key removed
   mid-run is a signer that has become unavailable at the next receipt, not at the next
@@ -20,7 +41,10 @@ defmodule Trinity.Receipts.KeyCustody do
   chain writer; no runtime path changes it (ADR-0010's rule for the authority, applied here).
   """
 
+  require Logger
+
   alias Trinity.Receipts.{KeyRegistry, Signer}
+  alias Trinity.Secrets.Keychain
 
   Module.register_attribute(__MODULE__, :sobelow_skip, persist: true)
 
@@ -32,7 +56,8 @@ defmodule Trinity.Receipts.KeyCustody do
           key_id: String.t(),
           key_path: Path.t(),
           keys_dir: Path.t(),
-          impl: module()
+          impl: module(),
+          custody: String.t()
         }
 
   @doc "The keys directory in force: config `:trinity, :receipts, :keys_dir`, else the data directory's."
@@ -68,14 +93,16 @@ defmodule Trinity.Receipts.KeyCustody do
     with {:ok, dir} <- resolve_keys_dir(dir),
          {:ok, algorithm} <- select(),
          impl = Signer.impl(algorithm),
-         {:ok, key_id} <- ensure_key(dir, impl) do
+         {:ok, key_id} <- ensure_key(dir, impl),
+         {:ok, key_id} <- maybe_migrate(dir, impl, key_id) do
       selection = %{
         algorithm: algorithm,
         scheme: impl.scheme(),
         key_id: key_id,
         key_path: key_path(dir, algorithm),
         keys_dir: dir,
-        impl: impl
+        impl: impl,
+        custody: custody(key_path(dir, algorithm))
       }
 
       :persistent_term.put(@key, selection)
@@ -165,8 +192,9 @@ defmodule Trinity.Receipts.KeyCustody do
         with {:ok, %{"key_id" => key_id, "algorithm" => alg}} <- JSON.decode(bin),
              true <- alg == Atom.to_string(impl.algorithm()) || {:error, :key_file_algorithm},
              {:ok, rows} <- KeyRegistry.read(dir),
-             %{} <- KeyRegistry.lookup(rows, key_id) || {:error, {:key_not_in_registry, key_id}} do
-          {:ok, key_id}
+             %{} = row <-
+               KeyRegistry.lookup(rows, key_id) || {:error, {:key_not_in_registry, key_id}} do
+          in_force(row, dir, impl, bin, rows)
         end
 
       {:error, :enoent} ->
@@ -227,6 +255,167 @@ defmodule Trinity.Receipts.KeyCustody do
     end
   end
 
+  ## Slice 100: the move to the keychain
+
+  # The key file names a key the registry has since retired: an earlier boot stopped between the
+  # registry rows and the file swap. Any other status is the key in force.
+  defp in_force(%{"status" => "retired"}, dir, impl, bin, rows) do
+    resume_migration(dir, impl, bin, bin |> JSON.decode!() |> Map.fetch!("key_id"), rows)
+  end
+
+  defp in_force(row, _dir, _impl, _bin, _rows), do: {:ok, row["key_id"]}
+
+  defp maybe_migrate(dir, impl, key_id) do
+    path = key_path(dir, impl.algorithm())
+
+    cond do
+      Application.get_env(:trinity, :receipts, [])[:keychain_migration] == false -> {:ok, key_id}
+      custody(path) == "keychain" -> {:ok, key_id}
+      not Keychain.available?() -> {:ok, key_id}
+      true -> migrate(dir, impl, key_id)
+    end
+  end
+
+  # Every step before the registry rows can fail without consequence: the file-backed key stays
+  # in force and nothing on disk has changed. The rows are the commitment; after them, the swap
+  # is finished now or, if this boot dies, by `resume_migration/5` on the next.
+  # sobelow_skip reason: Traversal.FileModule: the paths are the keys directory plus constants.
+  @sobelow_skip ["Traversal.FileModule"]
+  defp migrate(dir, impl, old_id) do
+    path = key_path(dir, impl.algorithm())
+    {pub, priv} = impl.generate_key()
+    jwk = impl.jwk(pub)
+    {new_id, kid_scheme} = key_id_of(pub, jwk)
+    account = keychain_account(impl.algorithm(), new_id)
+    stored = Base.encode64(impl.encode_private(priv))
+
+    with {:ok, old_bin} <- File.read(path),
+         {:ok, rows} <- KeyRegistry.read(dir),
+         %{} = old_row <- KeyRegistry.lookup(rows, old_id) || {:error, :old_key_not_in_registry},
+         :ok <- Keychain.store(account, stored),
+         {:ok, ^stored} <- Keychain.fetch(account) do
+      now = DateTime.utc_now() |> DateTime.to_iso8601()
+
+      new_row =
+        row(impl, pub, jwk, new_id, kid_scheme, now)
+        |> Map.merge(%{"custody" => "keychain", "keychain_account" => account})
+
+      retired =
+        Map.merge(old_row, %{
+          "status" => "retired",
+          "valid_from" => now,
+          "valid_until" => now,
+          "superseded_by" => new_id
+        })
+
+      with {:ok, _} <- KeyRegistry.append(dir, new_row),
+           {:ok, _} <- KeyRegistry.append(dir, retired),
+           :ok <- finish_swap(dir, impl, old_bin, old_id, new_row) do
+        Logger.warning(
+          "receipts: the signing key moved to the OS keychain by rotation: #{old_id} retired " <>
+            "(valid_until #{now}), #{new_id} active. Receipts signed under #{old_id} still verify."
+        )
+
+        {:ok, new_id}
+      end
+    else
+      other ->
+        _ = Keychain.delete(account)
+
+        Logger.warning(
+          "receipts: the signing key stays file-backed (#{old_id}); the keychain could not " <>
+            "hold its replacement: #{inspect(other)}"
+        )
+
+        {:ok, old_id}
+    end
+  end
+
+  # The registry already names the keychain key active and the file's key retired: an earlier
+  # boot stopped between the rows and the swap. Finish it, or refuse if the registry says
+  # something this module did not write.
+  defp resume_migration(dir, impl, old_bin, old_id, rows) do
+    case KeyRegistry.active_for(rows, impl.algorithm()) do
+      %{"custody" => "keychain", "key_id" => new_id} = new_row ->
+        with :ok <- finish_swap(dir, impl, old_bin, old_id, new_row), do: {:ok, new_id}
+
+      _ ->
+        {:error, {:key_retired, old_id}}
+    end
+  end
+
+  # sobelow_skip reason: Traversal.FileModule: the paths are the keys directory plus constants
+  # and a prefix of a key id this module generated.
+  @sobelow_skip ["Traversal.FileModule"]
+  defp finish_swap(dir, impl, old_bin, old_id, new_row) do
+    alg = Atom.to_string(impl.algorithm())
+    path = key_path(dir, impl.algorithm())
+    retired_path = Path.join(dir, "receipts-#{alg}.retired-#{old_id |> String.slice(0, 12)}.key")
+
+    file =
+      JSON.encode!(%{
+        "algorithm" => alg,
+        "key_id" => new_row["key_id"],
+        "custody" => "keychain",
+        "keychain_account" => new_row["keychain_account"],
+        "public_b64" => new_row["public_key_b64"]
+      })
+
+    with :ok <- keep_retired(retired_path, old_bin),
+         :ok <- File.write(path <> ".tmp", file),
+         :ok <- File.chmod(path <> ".tmp", 0o600) do
+      File.rename(path <> ".tmp", path)
+    end
+  end
+
+  # sobelow_skip reason: Traversal.FileModule: as finish_swap/5.
+  @sobelow_skip ["Traversal.FileModule"]
+  defp keep_retired(retired_path, old_bin) do
+    if File.exists?(retired_path) do
+      :ok
+    else
+      with :ok <- File.write(retired_path, old_bin), do: File.chmod(retired_path, 0o600)
+    end
+  end
+
+  # The keychain entry's name: an environment-variable-shaped name, as `Trinity.Secrets` requires
+  # of every name, unique per key.
+  defp keychain_account(algorithm, key_id) do
+    digest = :crypto.hash(:sha256, key_id) |> Base.encode16() |> binary_part(0, 16)
+    "TRINITY_RECEIPTS_" <> String.upcase(Atom.to_string(algorithm)) <> "_" <> digest
+  end
+
+  # The custody the key file records: "keychain", "sealed", or "file" (a pre-025 file has none).
+  # sobelow_skip reason: Traversal.FileModule: `path` is key_path/2's.
+  @sobelow_skip ["Traversal.FileModule"]
+  defp custody(path) do
+    with {:ok, bin} <- File.read(path),
+         {:ok, %{} = file} <- JSON.decode(bin) do
+      Map.get(file, "custody", "file")
+    else
+      _ -> "file"
+    end
+  end
+
+  defp key_id_of(pub, nil),
+    do: {:crypto.hash(:sha256, pub) |> Base.url_encode64(padding: false), "sha256-raw"}
+
+  defp key_id_of(_pub, jwk), do: {Signer.thumbprint(jwk), "rfc7638"}
+
+  defp row(impl, pub, jwk, key_id, kid_scheme, now) do
+    %{
+      "key_id" => key_id,
+      "kid_scheme" => kid_scheme,
+      "algorithm" => Atom.to_string(impl.algorithm()),
+      "scheme" => impl.scheme(),
+      "jwk" => jwk,
+      "public_key_b64" => Base.encode64(pub),
+      "fingerprint" => :crypto.hash(:sha256, pub) |> Base.encode16(case: :lower),
+      "valid_from" => now,
+      "status" => "active"
+    }
+  end
+
   # Slice 025. The signer holds no key-opening logic of its own: it hands bytes to the seam and
   # takes bytes back. Swapping the custody adapter for a KMS changes `Trinity.Keys` and nothing
   # here, which is the whole reason the seam exists.
@@ -236,6 +425,24 @@ defmodule Trinity.Receipts.KeyCustody do
       {:error, _reason} -> {Base.encode64(encoded), "file"}
     end
   end
+
+  # Slice 100: a keychain-held key is fetched from the keychain at this call, as the file-backed
+  # one is read from its file at this call; neither is cached.
+  defp private_bytes(%{"custody" => "keychain", "keychain_account" => account}) do
+    with {:ok, b64} <- Keychain.fetch(account),
+         {:ok, encoded} <- Base.decode64(b64) do
+      {:ok, encoded}
+    else
+      :error -> {:error, :keychain_entry_undecodable}
+      {:error, reason} -> {:error, {:keychain, reason}}
+    end
+  end
+
+  defp private_bytes(%{"private_b64" => b64} = row) do
+    with {:ok, stored} <- Base.decode64(b64), do: open_private(stored, row)
+  end
+
+  defp private_bytes(_row), do: {:error, :key_file_mismatch}
 
   # A key file written before slice 025 carries no `custody` field and holds the private bytes
   # directly. It still opens: a slice that made every existing installation unbootable to gain a
@@ -248,9 +455,8 @@ defmodule Trinity.Receipts.KeyCustody do
   @sobelow_skip ["Traversal.FileModule"]
   defp read_private(path, impl, key_id) do
     with {:ok, bin} <- File.read(path),
-         {:ok, %{"private_b64" => b64, "key_id" => ^key_id} = row} <- JSON.decode(bin),
-         {:ok, stored} <- Base.decode64(b64),
-         {:ok, encoded} <- open_private(stored, row) do
+         {:ok, %{"key_id" => ^key_id} = row} <- JSON.decode(bin),
+         {:ok, encoded} <- private_bytes(row) do
       {:ok, impl.decode_private(encoded)}
     else
       {:error, :enoent} -> {:error, :signer_unavailable}

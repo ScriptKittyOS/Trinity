@@ -71,3 +71,25 @@ declared constraint resting on a refuted fact does not outrank a measurement.
 **Standing risk.** Windows tracks OTP releases immediately while the other three targets depend on a third-party
 CDN's build queue, so the newest packageable OTP is whatever that CDN last built, and it lags. Re-run the probe at
 every phase boundary, per `VERSIONS.md`'s re-verification procedure.
+
+## Third correction, appended 2026-10-08
+
+**Narrows the Decision above to the desktop, and moves its pin.** This ADR pinned "OTP" for the whole
+tree. From 2026-10-08 it governs only the desktop build and the gate (`.tool-versions`); the container
+images build the OTP `ci/container.tool-versions` names, from source, which does not depend on
+Burrito (ADR-0014, owner decision D2).
+
+**Re-probed 2026-10-08**, the same URLs as the second correction, for the three targets `mix.exs` now
+builds plus Linux aarch64:
+
+| OTP | macOS universal | Linux x86_64 | Linux aarch64 | Windows |
+|---|---|---|---|---|
+| 28.5.0.6 | **200** | **200** | **200** | **200** |
+| 28.5.0.7 | 404 | 404 | 404 | 200 |
+
+1. **The desktop pin moves to 28.5.0.6**, now the newest OTP present on every target, by this ADR's own
+   rule. The second correction's row for 28.5.0.6 (404 on three targets on 2026-09-06) was true that
+   day and is superseded by this measurement.
+2. **28.5.0.7 fixes CVE-2026-89422** (`ssl`, Critical), which this rule cannot reach yet. ADR-0014
+   records the window, the TLS 1.2 clamp that covers it, and the daily canary that moves this pin to
+   the container's when the three URLs answer 200.

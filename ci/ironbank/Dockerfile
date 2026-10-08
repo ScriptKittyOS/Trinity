@@ -37,13 +37,13 @@ RUN dnf -y install --setopt=install_weak_deps=False --nodocs \
 # The toolchain: OTP from source and Elixir.
 FROM build-packages AS toolchain
 
-COPY otp_src_28.5.0.5.tar.gz elixir-1.20.4-otp-28.zip hex-2.5.1-otp-28.ez rebar3-3.25.1-otp-28 /build/resources/
+COPY otp_src_28.5.0.7.tar.gz elixir-1.20.4-otp-28.zip hex-2.5.1-otp-28.ez rebar3-3.25.1-otp-28 /build/resources/
 
 # --enable-fips compiles the crypto NIF's FIPS support, and --with-ssl links UBI's OpenSSL
 # dynamically, which is where Red Hat's FIPS provider lives (docs/fips-leg.md). Applications with
 # no place in a server are left out of the build.
 WORKDIR /build/otp
-RUN tar -xzf /build/resources/otp_src_28.5.0.5.tar.gz --strip-components=1 \
+RUN tar -xzf /build/resources/otp_src_28.5.0.7.tar.gz --strip-components=1 \
     && ./configure --prefix=/usr/local --enable-fips --with-ssl=/usr \
          --without-javac --without-jinterface --without-wx --without-odbc \
          --without-debugger --without-observer --without-et --without-megaco \

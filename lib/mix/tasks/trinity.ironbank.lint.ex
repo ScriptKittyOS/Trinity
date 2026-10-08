@@ -29,8 +29,13 @@ defmodule Mix.Tasks.Trinity.Ironbank.Lint do
   * **AC6a.** The submission holds only the entries Iron Bank's repository-structure page
     names, the four it requires among them; no `conf/` (`config/` is the spelling, slice 130
     NOTES D-130-1); no `LABEL` in the Dockerfile; the manifest has the fields and labels Iron
-    Bank's schema requires; its version and its OTP and Elixir resources agree with `mix.exs`
-    and `.tool-versions`.
+    Bank's schema requires; its version agrees with `mix.exs`; its OTP resource is the OTP
+    `ci/container.tool-versions` declares and its Elixir resource the Elixir `.tool-versions`
+    pins, built for that OTP's major.
+  * **The two OTP pins (ADR-0014).** The container's OTP and the desktop's (`.tool-versions`)
+    share one major, because both run the same compiled tree and the same Elixir build, and the
+    container's is never the older: it is the pin that can move as soon as OTP publishes a
+    patch, while the desktop's waits for Burrito's ERTS builds.
   """
 
   use Boundary, classify_to: Trinity
@@ -39,6 +44,7 @@ defmodule Mix.Tasks.Trinity.Ironbank.Lint do
   @submission "ci/ironbank"
   @bases "ci/headless/bases.env"
   @holds "ci/headless/submission_holds.yaml"
+  @container_tools "ci/container.tool-versions"
 
   # Iron Bank's repository-structure page (docs-ironbank.dso.mil/hardening/repository-structure/,
   # read 2026-10-08), plus the `gpg` folder its Dockerfile requirements name for imported keys.
@@ -71,6 +77,7 @@ defmodule Mix.Tasks.Trinity.Ironbank.Lint do
           bases_env: String.t(),
           holds: map(),
           tool_versions: String.t(),
+          container_tool_versions: String.t(),
           version: String.t()
         }
 
@@ -84,7 +91,9 @@ defmodule Mix.Tasks.Trinity.Ironbank.Lint do
 
     case violations(tree, submission: Keyword.get(opts, :submission, false)) do
       [] ->
-        Mix.shell().info("trinity.ironbank.lint: OK (#{@submission}, #{@bases})")
+        Mix.shell().info(
+          "trinity.ironbank.lint: OK (#{@submission}, #{@bases}, #{@container_tools})"
+        )
 
       found ->
         Enum.each(found, &Mix.shell().error("FAIL #{&1}"))
@@ -107,6 +116,7 @@ defmodule Mix.Tasks.Trinity.Ironbank.Lint do
       bases_env: File.read!(Path.join(root, @bases)),
       holds: yaml!(Path.join(root, @holds)),
       tool_versions: File.read!(Path.join(root, ".tool-versions")),
+      container_tool_versions: File.read!(Path.join(root, @container_tools)),
       version: Mix.Project.config()[:version]
     }
   end
@@ -510,7 +520,7 @@ defmodule Mix.Tasks.Trinity.Ironbank.Lint do
       args_violations(m["args"]),
       label_violations(m["labels"], tree.version),
       maintainer_violations(m["maintainers"]),
-      toolchain_violations(m, tree.tool_versions)
+      toolchain_violations(m, tree.tool_versions, tree.container_tool_versions)
     ])
   end
 
@@ -591,19 +601,61 @@ defmodule Mix.Tasks.Trinity.Ironbank.Lint do
 
   defp maintainer_violations(_), do: ["AC6a: the manifest names no maintainer"]
 
-  defp toolchain_violations(manifest, tool_versions) do
+  # The container builds the OTP `ci/container.tool-versions` names and the Elixir `.tool-versions`
+  # names; the desktop runs the OTP `.tool-versions` names. Until 2026-10-08 one file named both
+  # OTPs, and this rule required the manifest's OTP to be the desktop's, which made a container
+  # fix wait for Burrito's CDN (ADR-0014).
+  defp toolchain_violations(manifest, tool_versions, container_tool_versions) do
     files = manifest |> Map.get("resources", []) |> Enum.map(& &1["filename"])
-    tools = env_pairs(String.replace(tool_versions, " ", "="))
-    otp = tools["erlang"]
-    elixir = tools["elixir"] |> to_string() |> String.replace(~r/-otp-\d+$/, "")
-    major = otp |> to_string() |> String.split(".") |> hd()
+    desktop = tool(tool_versions, "erlang")
+    otp = tool(container_tool_versions, "erlang")
+    elixir = tool_versions |> tool("elixir") |> String.replace(~r/-otp-\d+$/, "")
+    major = otp |> String.split(".") |> hd()
 
-    for {expected, what} <- [
-          {"otp_src_#{otp}.tar.gz", "OTP #{otp}"},
-          {"elixir-#{elixir}-otp-#{major}.zip", "Elixir #{elixir}"}
-        ],
-        expected not in files,
-        do: "AC6a: no resource #{expected}, the #{what} that .tool-versions names"
+    missing =
+      for {expected, what} <- [
+            {"otp_src_#{otp}.tar.gz", "OTP #{otp} that #{@container_tools}"},
+            {"elixir-#{elixir}-otp-#{major}.zip", "Elixir #{elixir} that .tool-versions"}
+          ],
+          expected not in files,
+          do: "AC6a: no resource #{expected}, the #{what} names"
+
+    missing ++ pin_violations(otp, desktop)
+  end
+
+  defp tool(text, name), do: text |> String.replace(" ", "=") |> env_pairs() |> Map.get(name, "")
+
+  defp pin_violations(container, desktop) do
+    with {:ok, c} <- otp_parts(container),
+         {:ok, d} <- otp_parts(desktop) do
+      cond do
+        hd(c) != hd(d) ->
+          [
+            "ADR-0014: the container's OTP #{container} (#{@container_tools}) and the desktop's " <>
+              "#{desktop} (.tool-versions) are different majors; one compiled tree runs on both"
+          ]
+
+        c < d ->
+          [
+            "ADR-0014: the container's OTP #{container} (#{@container_tools}) is older than the " <>
+              "desktop's #{desktop} (.tool-versions); the container pin is the one that leads"
+          ]
+
+        true ->
+          []
+      end
+    else
+      _ ->
+        ["ADR-0014: #{@container_tools} and .tool-versions must each pin erlang to a version"]
+    end
+  end
+
+  defp otp_parts(version) do
+    parts = String.split(version, ".")
+
+    if parts != [] and Enum.all?(parts, &(&1 =~ ~r/^\d+$/)),
+      do: {:ok, Enum.map(parts, &String.to_integer/1)},
+      else: :error
   end
 
   # Holds ---------------------------------------------------------------------------------------

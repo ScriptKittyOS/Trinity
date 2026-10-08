@@ -21,6 +21,9 @@ defmodule Trinity do
     exports:
       [
         Paths,
+        # Owner decision D2 (ADR-0014): a client that needs transport options of its own takes
+        # them from here so the TLS 1.2 clamp survives (slices 071 and 072's gateways).
+        TLS,
         # Slice 025: the skills staging and the archive export seal through it.
         Vault,
         # Slice 080: the delegate tool and the session view's subagent panel call it.
@@ -41,6 +44,16 @@ defmodule Trinity do
         Profile,
         UUID,
         Config,
+        # Slice 100: the keychain-first secrets, the non-secret desktop settings, the first-run
+        # check, and the desktop seam (a boundary of its own under this one, as `Gateways` is).
+        Secrets,
+        Secrets.Keychain,
+        Settings,
+        Setup,
+        Desktop,
+        Desktop.Noop,
+        Desktop.Tauri,
+        Desktop.Shell,
         Sessions,
         Sessions.Message,
         Sessions.SessionRow,

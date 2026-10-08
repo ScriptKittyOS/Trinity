@@ -310,3 +310,8 @@ config :trinity, :oban_web, true
 # counter-example found at 20,000 runs is reproducible with that seed at any width.
 config :stream_data,
   max_runs: String.to_integer(System.get_env("TRINITY_PROPERTY_RUNS") || "100")
+
+# Slice 100: the suite runs on no desktop shell, and its settings file lives under the project's
+# ignored tmp/, never in the data directory of the machine running the tests.
+config :trinity, :desktop, impl: Trinity.Desktop.Noop
+config :trinity, Trinity.Settings, path: Path.expand("../tmp/test_settings.json", __DIR__)

@@ -311,6 +311,14 @@ defmodule Trinity.Skills.Registry do
   # asserts it failed intermittently while the product was behaving exactly as designed. The
   # default is unchanged and is what ships; the suite sets a shorter one so that what it measures
   # is the watcher noticing rather than the runner's scheduler.
+  @doc """
+  The options the registry starts each `FileSystem` watcher with: `[]` for the platform's native
+  backend, or polling where there is none. Public since slice 100 so the packaged binary's smoke
+  path (`Trinity.Smoke.watcher_line/0`) measures the watcher the registry would actually use.
+  """
+  @spec watcher_options() :: keyword()
+  def watcher_options, do: backend()
+
   defp backend do
     poll = [backend: :fs_poll, interval: poll_interval_ms()]
 

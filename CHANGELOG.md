@@ -65,6 +65,47 @@ disposition. The scanner was chosen by measurement: of the two tried, only grype
 runtime inside a release. The image is not in Iron Bank and this is not a compliance determination;
 `docs/regulated/headless-image.md` says what it is, how to check it, and what is still open.
 
+The image builds Erlang/OTP 28.5.0.7, which fixes CVE-2026-89422 (OTP's TLS 1.3 client could skip
+the server's certificate) and the other OTP advisories the scan reported; the scan now finds none in
+the runtime. The desktop cannot have that version until Burrito publishes builds of it, so the
+container and the desktop now have separate OTP pins (ADR-0014). The desktop moves to 28.5.0.6, and
+while it runs an affected OTP every outbound TLS connection Trinity makes is held to TLS 1.2, the
+advisory's own workaround. A test reads every TLS client the release contains from its compiled code
+and checks what each one offers to a server on the wire, so a dependency that would open TLS 1.3
+fails the gate. A daily job opens the pull request that moves the desktop pin once the builds exist,
+and the clamp lifts itself when it does.
+
+### `slice/100`: Trinity as a desktop application
+
+The Tauri window now does what a desktop application is expected to do. A tray icon shows whether
+Trinity is idle or working and how many approvals are waiting, and offers New session, Pause
+gateways, Open data folder and Quit. An approval requested while the window is hidden or in the
+background becomes an operating system notification, and clicking it brings the window up on that
+approval. A global shortcut (Ctrl+Shift+Space by default, configurable) shows and hides the window;
+a second launch brings the first one forward instead of starting another; Trinity can start at
+login.
+
+Provider keys typed into Settings are stored in the operating system's keychain (the macOS Keychain,
+the Windows Credential Manager, the Secret Service on Linux) and nowhere else: not in the database,
+not in a settings file, not in a log. The shell binary itself is the keychain helper, so the key is
+reachable from the moment Trinity starts. A key in the keychain takes precedence over the same name
+in the environment, and with no keychain (a server, or `mix phx.server`) the environment works as
+before. The receipt signing key moves into the keychain the same way, by rotation: a new key is
+created there, the old one is marked retired with the moment it stopped being used, and receipts
+signed before the move still verify.
+
+Quitting during a reply keeps what had arrived, marked as interrupted, and the conversation shows
+that on the next launch. A machine with nothing configured now opens a short setup (a model and its
+key, the data folder, the first project folders) instead of a chat that cannot answer. The packaged
+binary's self-check reports three more things: full-text search, the file watcher, and the model
+cache.
+
+Verified by the test suite (the keychain through a stand-in helper, the shell's channel through a
+real socket, shutdown and startup through separate operating system processes) and on Linux by
+driving the real shell on an isolated display with a real keyring. The window, tray, notification,
+shortcut and second-launch behaviour on macOS and Windows have not been observed yet and are listed
+for manual verification.
+
 ## 2026-09-26
 
 ### `slice/128`: the checks that guard attribution now say what they check

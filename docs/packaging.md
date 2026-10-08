@@ -16,7 +16,7 @@ covers is the half a command can answer: a single binary that boots, serves and 
 
 | Tool | Version | Pinned in | Why exactly this |
 |---|---|---|---|
-| Erlang/OTP | 28.5.0.5 | `.tool-versions` | The newest OTP whose ERTS Burrito can fetch for all four targets. See `docs/adr/0005-otp-pin-driven-by-packaging.md`. |
+| Erlang/OTP | 28.5.0.6 | `.tool-versions` | The newest OTP whose ERTS Burrito can fetch for every target (`docs/adr/0005-otp-pin-driven-by-packaging.md`). It carries CVE-2026-89422, so every outbound TLS client is held to TLS 1.2 until a daily canary moves the pin to the container images' OTP, 28.5.0.7 (`docs/adr/0014-otp-pins-split.md`). |
 | Elixir | 1.20.4-otp-28 | `.tool-versions` | |
 | Zig | **exactly** 0.16.0 | `.tool-versions` | Burrito 1.6.0 compares for equality, not a range, and exits 1 on anything else. Installed with the asdf zig plugin. |
 | Rust | 1.92.0 | `rust-toolchain.toml` | Only for the Tauri shell. **Not** `.tool-versions`: asdf here has no rust plugin and ignores such a line silently, so it would be a pin that pins nothing. `rustup` honours this file. |
@@ -74,6 +74,49 @@ lost on macOS in run 35608084951. The run prints five lines: the port, the markd
 through the vector store in force on the binary's own database, rolled back (`TRINITY_SMOKE_VEC`,
 binding: exit 4), and the semantic tier's status (`TRINITY_SMOKE_SEMANTIC`, recorded). Slice
 032's PROOF.md AC7 has each bundle's answers.
+
+As built at slice 100, three more lines follow: `TRINITY_SMOKE_FTS5` (an in-memory SQLite, a
+virtual table, one `MATCH`; binding, exit 5), `TRINITY_SMOKE_WATCHER` (a watcher with the skills
+registry's own options on a fresh directory, one file written, the event awaited; `ok:<backend>`,
+or `fallback:fs_poll:<why>` when only polling delivered it, which is the registry's documented
+fallback; recorded), and `TRINITY_SMOKE_MODEL_CACHE` (the local embedder's cache directory resolves
+and is writable, created if absent and otherwise only looked at; binding, exit 6). `sqlite_vec`,
+which the slice's criterion also names, is not in the bundle: slice 032 measured it incompatible
+with the pinned `nx` and chose the Elixir scorer, which `TRINITY_SMOKE_VEC` already exercises.
+
+## The desktop shell (slice 100)
+
+`src-tauri/` is the Tauri shell. It starts the sidecar (the Burrito binary, or in development a
+script running `mix phx.server`) with these in its environment, beside `PORT` and
+`SECRET_KEY_BASE`:
+
+| Variable | What it is |
+|---|---|
+| `TRINITY_SHELL_TOKEN` | 32 random bytes per launch, hex. Its presence is how the BEAM knows a shell launched it (and selects `Trinity.Desktop.Tauri`); the shell presents it in a `hello` on the channel so Trinity believes this peer and no other (docs/07, the desktop shell's channel). |
+| `TRINITY_KEYCHAIN_HELPER` | The shell binary's own path. `Trinity.Secrets.Keychain` runs it as `trinity --keychain probe \| get \| set \| delete <NAME>`, the value hex on stdin or stdout. |
+
+The keychain mode returns before anything of the app exists, so it needs no display:
+
+```
+src-tauri/target/debug/trinity --keychain probe ; echo "exit=$?"     # 0 when the keychain answers
+```
+
+**A data directory the desktop app has used needs the helper.** The receipt signing key moves into
+the keychain the first time the keychain answers, so a later `mix phx.server` on the same data
+directory with no helper cannot sign, and every effect is denied (slice 024's fail-closed shape).
+Point `TRINITY_KEYCHAIN_HELPER` at a built shell binary, or use a separate data directory
+(`XDG_DATA_HOME` on Linux).
+
+The plugins it adds (`tauri-plugin-global-shortcut`, `-autostart`, `-dialog`, `-opener`) are each
+on the newest line whose release still accepts tauri 2.11; their next minors require tauri 2.12,
+and the shell's tauri is held at 2.11.5 by `~` requirements in `src-tauri/Cargo.toml` rather than
+moved in the same change. `keyring` 3.6.3 provides the keychain (on Linux through zbus with its own
+executor and pure-Rust crypto, so no system library is added; `libdbus-1` was already linked by
+`tao`).
+
+Linux launch-at-login writes `~/.config/autostart/Trinity.desktop` under `HOME`, whatever
+`XDG_CONFIG_HOME` says, and fails if `~/.config` does not exist (the `auto-launch` crate creates one
+directory, not the path); the failure comes back to Trinity as an `error` event and is logged.
 
 ## Measurements: linux x86_64 only
 
