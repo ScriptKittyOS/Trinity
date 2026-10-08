@@ -64,9 +64,9 @@ deployment, and it does not supply what the deployment has to.
 
 | Control | Trinity software | Customer | Host or AWS |
 |---|---|---|---|
-| TLS on connections Trinity makes | **Yes.** The runtime offers TLS 1.2 and 1.3 and nothing older, `test/supply_chain_test.exs` | No | No |
-| TLS on connections made to Trinity | **No.** The headless release serves plain HTTP on `TRINITY_BIND`: the loopback by default (`config/runtime.exs`), every interface in the image (`ci/ironbank/Dockerfile`) | **Yes.** Terminate TLS in front of it | **Yes** |
-| Authenticating access to the web pages | **No.** The bearer is required on `/mcp`; the web pages, among them the permissions page where approvals are answered, carry no authentication of their own (`lib/trinity_web/router.ex`, `docs/mcp-server.md`). The image binds every interface | **Yes.** An authenticating reverse proxy in front of the port, or a network that only the owner reaches | **Yes** |
+| TLS on connections Trinity makes | **Yes.** The runtime offers TLS 1.2 and 1.3 and nothing older, `test/supply_chain_test.exs`. That test checks the versions offered and nothing else: not peer verification, not the trust store | **Yes.** The trust store peers are verified against (in a DoD deployment, the DoD roots) | No |
+| TLS on connections made to Trinity | **No.** The headless release serves plain HTTP on `TRINITY_BIND`: the loopback by default (`config/runtime.exs`), every interface in the image (`ci/ironbank/Dockerfile`). `config/prod.exs` sets `force_ssl` with `rewrite_on: [:x_forwarded_proto]`, so a request carrying `x-forwarded-proto: https` is treated as HTTPS, and any client can send that header unless a proxy strips it | **Yes.** Terminate TLS in front of it, and strip inbound `x-forwarded-*` headers at that proxy | **Yes** |
+| Authenticating access to the web pages | **Partial.** MCP endpoints require a token from the external issuer (implemented). The web pages, among them the permissions page where approvals are answered, carry no authentication of their own (`lib/trinity_web/router.ex`, `docs/mcp-server.md`): a product gap, tracked as slice 136, which authenticates them against the same issuer. The image binds every interface | **Yes.** The OIDC issuer. Until slice 136 lands, an authenticating reverse proxy in front of the port, or a network only the owner reaches, as an interim compensating control with a POA&M entry, never the sole mitigation | **Yes** |
 
 ## Backups
 
