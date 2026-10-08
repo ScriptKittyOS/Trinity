@@ -319,6 +319,7 @@ do over the next year, and why the order is what it is.
 | `docs/adr/` | Architecture decision records. One is added whenever a decision changes |
 | `docs/10-assurance-case.md` | The structured argument that the security claims hold, with the evidence for each and the assumptions and limits named |
 | `docs/09-standards-register.md` | One row per control a regulated deployment may ask about, with its evidence path and status |
+| `docs/regulated/` | The pack for a regulated deployment: the authorization boundary, the responsibility matrix, how the headless image is built and checked, and how a holder verifies its signature, provenance and bills of materials offline (`image-verify.md`) |
 | `lib/`, `test/`, `config/` | The application |
 | `src-tauri/` | The native desktop shell |
 | `scripts/`, `credo_checks/` | The release check, the benchmark scripts and this project's own Credo checks |

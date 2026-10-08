@@ -32,6 +32,11 @@ docker run --rm -p 4000:4000 -v trinity-data:/data \
   -e TRINITY_MCP_SERVER_TOKEN=<token> trinity-headless:local
 ```
 
+The build labels the image with the manifest's OCI labels and `org.opencontainers.image.source`,
+and with `org.opencontainers.image.revision`, the commit, only when no tracked file differs from
+that commit; the labels go on the build command, because Iron Bank's lint refuses `LABEL` in the
+Dockerfile.
+
 The build reaches no network. Every input that is not a UBI package (the OTP and Elixir sources,
 Hex and rebar3, the asset tools, and today's precompiled native pieces) is a file in the build
 context, named in the manifest with its SHA-256 or SHA-512. dnf is the one exception, and reaches
@@ -66,6 +71,11 @@ daily, and on demand, and uploads the scan, the findings and the STIG results as
 | The image's user and layers | `mix trinity.image.inspect IMAGE` | the image runs as root or below UID 1000; a layer it adds carries a package manager, a build tool, a build-time library, shell history, documentation, a certificate, a SUID or SGID file, or a world-writable path; `/etc/passwd` changed mode; anything in the image holds a private key, a keystore or a distribution cookie |
 | Vulnerabilities | grype, then `mix trinity.image.findings --scan grype.json` | a High or Critical finding has no row in `ci/headless/justifications.yaml`, or a row justifies a finding the scan no longer reports |
 | STIG applicability | `scripts/stig_scan.sh IMAGE OUT`, then `mix trinity.image.stig --results OUT/stig-results.xml` | a rule of the DISA STIG profile has no disposition, or a disposition is kept for a rule that no longer needs one |
+
+When every check passes, on `main`, on a `v*` tag or on demand, the workflow's `publish` job
+pushes that same image by digest, signs it with the project's held key, attaches its build
+provenance, SBOM and AI-BOM, and verifies the result the way a consumer would.
+`image-verify.md` is that consumer's command sequence, and states the SLSA level claimed and why.
 
 ### Allowances, and why there are any
 

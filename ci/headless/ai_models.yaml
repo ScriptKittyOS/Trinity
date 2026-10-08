@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# The models the headless image carries, for its AI bill of materials (slice 131):
+#
+#   mix trinity.image.aibom --out ai-bom.cdx.json
+#
+# writes a CycloneDX 1.6 ML-BOM with one machine-learning-model component per entry, and the
+# publish job attests it to the image (docs/regulated/image-verify.md). An entry carries the
+# model's embedding space (slice 133's Trinity.Memory.Space manifest, field for field), the
+# weights file and its SHA-256, the licence, every training dataset with its licence or its
+# terms quoted, the risks, the legal review's status, and the delivery: `shipped` (in the image)
+# or `operator-accepted` (pulled by the operator, never shipped). The shape is the fixture's,
+# test/support/fixtures/supply_chain/models.yaml.
+#
+# Empty, because the image carries no model today. No weights are baked into any image before
+# legal review of their licence and training-data terms (the owner's decision D7, recorded in
+# slice 133), and test/mix/tasks/trinity_image_aibom_test.exs refuses a `shipped` entry here
+# whose legal review has not passed. The static embedder's entry is added here when slice 133
+# is merged and that review has passed. The local MiniLM model is downloaded only when an
+# operator asks for it, and is added as `operator-accepted` once its revision and weights digest
+# are pinned.
+models: []

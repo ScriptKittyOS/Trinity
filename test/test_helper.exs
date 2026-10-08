@@ -10,13 +10,20 @@
 # Slice 032: :local_model (the real embedder through the serving) runs where
 # TRINITY_LOCAL_MODEL_CACHE names a cache that already holds all-MiniLM-L6-v2 (no download,
 # no network: a missing model is a failure there, not a skip); excluded by tag elsewhere.
+# Slice 131: :image_signing (the image's signatures and attestations through the real cosign,
+# against a registry container on the loopback, and the documented verification sequence run end
+# to end) runs where TRINITY_COSIGN names the cosign program; excluded by tag elsewhere, and where
+# it is set, a missing cosign, docker or jq is a failure, never a skip.
 fips_leg? = System.get_env("TRINITY_FIPS_LEG") == "1"
 local_model? = System.get_env("TRINITY_LOCAL_MODEL_CACHE") not in [nil, ""]
+image_signing? = System.get_env("TRINITY_COSIGN") not in [nil, ""]
 
 ExUnit.start(
   exclude:
     [:live, :desktop, :eval] ++
-      if(fips_leg?, do: [], else: [:fips]) ++ if(local_model?, do: [], else: [:local_model])
+      if(fips_leg?, do: [], else: [:fips]) ++
+      if(local_model?, do: [], else: [:local_model]) ++
+      if(image_signing?, do: [], else: [:image_signing])
 )
 
 # Slice 024's boot receipt is written by a transient Task after the tree starts; once the

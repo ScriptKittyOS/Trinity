@@ -75,6 +75,13 @@ still hold.
 | Build provenance on release artifacts | GitHub attestation, verified in the workflow | slice 002 AC2 | `:unknown`; 002 landed 2026-09-23 (tag `slice/002`) and is approved, so the gate on this row is gone and the status is the owner's to set | owner |
 | Signed releases, Scorecard, SLSA level | slice 121 | none yet | `not claimed` | owner |
 | Cryptography bill of materials | none until the minimum elements are published | none | `not claimed` | owner |
+| Signed container image, verifiable with no network | the headless image's digest signed with the project's held key (cosign, no public log); the consumer's command sequence in `docs/regulated/image-verify.md`, which accepts the genuine image and exits non-zero on a tampered one | `test/image_supply_chain_test.exs` (runs the page's sequence, tagged `:image_signing`); slice 131 | the mechanism is a `tree property`, held by tests with keys made for the test. **No image has been published**: the publishing job waits on the project's key and on the image's checks passing, so no claim is made about a published image | owner |
+| Build provenance on the container image, at a stated SLSA level | SLSA provenance v1 naming the builder, the repository and the commit, attested to the digest with the held key; GitHub's platform provenance requested beside it | `ci/headless/slsa.yaml`, `mix trinity.image.slsa` (fails when the claim exceeds the workflow's mechanism); slice 131 | **SLSA Build L1** claimed for the images the publishing job produces, with the reason it is not L2 in the claim file; rises only with a verified run cited. None has been produced yet (row above) | owner |
+| SBOM and AI-BOM attestations on the container image | the tree's CycloneDX bill for the commit, and a CycloneDX ML-BOM of the models the image carries, each attested to the digest | `test/mix/tasks/trinity_image_aibom_test.exs`, `test/image_supply_chain_test.exs`; slice 131 | `tree property` for the mechanism; the image carries no model today, so its AI-BOM lists none | owner |
+
+Added 2026-10-08 (slice 131): the three rows above for the container image. The row "Signed releases,
+Scorecard, SLSA level" stays as written and now covers the desktop release (slice 121); the container image
+is the three rows above it.
 
 ## Architecture arguments a deployment may ask for
 

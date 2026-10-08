@@ -109,7 +109,12 @@ build() {
   [ -n "$tag" ] || die "build needs an image tag"
   if [ -z "$dir" ]; then
     dir=$(mktemp -d)
-    trap 'rm -rf "$dir"' EXIT
+    # Expanded now, not at exit: `dir` is local to this function and is gone by the time the
+    # EXIT trap runs, so a trap that read it then failed under `set -u` ("dir: unbound
+    # variable"), exited 1 after a successful build and left the context behind (slice 131
+    # NOTES, F-131-2).
+    # shellcheck disable=SC2064
+    trap "rm -rf '$dir'" EXIT
   fi
   stage "$dir"
 
@@ -119,7 +124,40 @@ build() {
     args+=(--build-arg "$line")
   done <ci/headless/bases.env
 
+  # Slice 131: the OCI labels Iron Bank would apply from the manifest, and the source, on the build
+  # command (their lint refuses LABEL in the Dockerfile). The revision names the commit only when
+  # no tracked file differs from it, because the context above is the tracked files as they are
+  # on disk; a modified tree's image names no commit, and no provenance can be written for it.
+  # `created` is the commit's time, not the build's, so two builds of a commit label alike.
+  while IFS= read -r line; do
+    args+=(--label "$line")
+  done < <(labels)
+  # Both are always set, because a label the build does not set is inherited from the base: UBI9
+  # micro carries Red Hat's own `revision` and `created` (F-131-1), which would otherwise name
+  # Red Hat's commit as this image's. A modified tree sets them empty.
+  if git diff --quiet HEAD --; then
+    args+=(--label "org.opencontainers.image.revision=$(git rev-parse HEAD)")
+    args+=(--label "org.opencontainers.image.created=$(git log -1 --format=%cI HEAD)")
+  else
+    echo "headless_image: tracked files differ from HEAD, so the image names no commit" >&2
+    args+=(--label "org.opencontainers.image.revision=" --label "org.opencontainers.image.created=")
+  fi
+
   docker build "${args[@]}" -t "$tag" -f "$dir/Dockerfile" "$dir"
+}
+
+# KEY=VALUE per label: the manifest's OCI labels, and the source repository (its URL label). The
+# manifest's mil.dso.ironbank.* labels are left to Iron Bank: on an image this project publishes
+# they would read as a claim that it came from Iron Bank, which it did not.
+labels() {
+  python3 -c '
+import yaml
+labels = yaml.safe_load(open("ci/ironbank/hardening_manifest.yaml")).get("labels", {})
+for key, value in labels.items():
+    if key.startswith("org.opencontainers.image."):
+        print(f"{key}={value}")
+print("org.opencontainers.image.source=" + labels["org.opencontainers.image.url"])
+'
 }
 
 case "${1:-}" in

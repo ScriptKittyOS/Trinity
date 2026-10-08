@@ -1,0 +1,114 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Test fixture for `mix trinity.image.aibom` (slice 131, AC7): the entries `ci/headless/ai_models.yaml`
+# would carry, shaped like slice 133's static model and slice 134's Tier 3 model. It is a fixture,
+# not a statement about any image: no image carries these weights (slice 133, decision D7).
+#
+# Values, and where they came from:
+# * The static model's space is `Trinity.Memory.Embedders.Static.space/0` on slice 133's branch
+#   (model, revision, the 256 int8 artifact's SHA-256, the upstream tokenizer's SHA-256).
+# * Its licence and its 13 training datasets are the model card's metadata on Hugging Face
+#   (`license: apache-2.0`, `datasets:`), read 2026-10-08.
+# * MS MARCO's terms are quoted from https://microsoft.github.io/msmarco/ as the 2026-10-07
+#   embeddings answer sheet records them; the other datasets' licences have not been read from a
+#   primary source, so they are `unrecorded` until the legal review records them.
+# * The Tier 3 model is slice 134's: Qwen3-Embedding-0.6B as its `Embedders.Ollama.space/0` builds
+#   the space (revision the service's /api/tags digest, weights the f16 GGUF's SHA-256), Apache 2.0
+#   on the model card, and training data the publisher does not list. Fields this fixture does not
+#   know are `unrecorded`.
+models:
+  - delivery: shipped
+    description: >-
+      Static embedding model, 256 dimensions, int8: the in-process Tier 1 embedder.
+    task: feature-extraction
+    architecture: static token embeddings, mean pooled
+    source: https://huggingface.co/sentence-transformers/static-retrieval-mrl-en-v1
+    space:
+      model_id: sentence-transformers/static-retrieval-mrl-en-v1
+      revision: f60985c706f192d45d218078e49e5a8b6f15283a
+      weights_digest: 5990c1104963d8e2402854c80b9a8f8e3a490085c037f25ced63642f4578c520
+      tokenizer_digest: d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66
+      dim: 256
+      pooling: mean
+      normalisation: l2
+      quantization: int8
+      query_prompt: ""
+      document_prompt: ""
+      max_input: {tokens: none, truncation: none}
+      runtime: {name: trinity-static, version: "1"}
+      locality: in_process
+      num_ctx: none
+    weights:
+      file: static-retrieval-mrl-en-v1-256-int8.tsw
+      sha256: 5990c1104963d8e2402854c80b9a8f8e3a490085c037f25ced63642f4578c520
+    licence: {id: Apache-2.0}
+    legal_review:
+      status: pending
+      record: licence and training-data terms, before any image carries the weights
+    risks:
+      - >-
+        Trained in part on MS MARCO, whose terms are for non-commercial research purposes only
+        and grant no licence; a commercial or government distribution of these weights depends on
+        the legal review.
+    datasets:
+      - name: sentence-transformers/msmarco-co-condenser-margin-mse-sym-mnrl-mean-v1
+        source: https://huggingface.co/datasets/sentence-transformers/msmarco-co-condenser-margin-mse-sym-mnrl-mean-v1
+        licence: &msmarco
+          name: MS MARCO terms
+          url: https://microsoft.github.io/msmarco/
+          text: >-
+            intended for non-commercial research purposes only ... made available free of charge
+            without extending any license or other intellectual property rights
+      - name: bclavie/msmarco-10m-triplets
+        source: https://huggingface.co/datasets/bclavie/msmarco-10m-triplets
+        licence: *msmarco
+      - {name: sentence-transformers/gooaq, licence: unrecorded}
+      - {name: sentence-transformers/squad, licence: unrecorded}
+      - {name: sentence-transformers/s2orc, licence: unrecorded}
+      - {name: sentence-transformers/all-nli, licence: unrecorded}
+      - {name: sentence-transformers/paq, licence: unrecorded}
+      - {name: sentence-transformers/trivia-qa, licence: unrecorded}
+      - {name: nthakur/swim-ir-monolingual, licence: unrecorded}
+      - {name: sentence-transformers/pubmedqa, licence: unrecorded}
+      - {name: sentence-transformers/miracl, licence: unrecorded}
+      - {name: sentence-transformers/mldr, licence: unrecorded}
+      - {name: sentence-transformers/mr-tydi, licence: unrecorded}
+
+  - delivery: operator-accepted
+    description: >-
+      Tier 3 embedder served by the operator's own Ollama; Trinity imports and verifies it, and
+      never ships its weights.
+    task: feature-extraction
+    source: https://huggingface.co/Qwen/Qwen3-Embedding-0.6B
+    space:
+      model_id: Qwen/Qwen3-Embedding-0.6B
+      revision: 4809f294c067b404132eff9d8c1da40885e5de6d5b9b1a3e5f35ba9f2d9dd5e4
+      weights_digest: 421a27e58d165478cc7acb984a688c2aa41404968b0203e7cd743ece44c54340
+      tokenizer_digest: unrecorded
+      dim: 1024
+      pooling: last
+      normalisation: l2
+      quantization: f32
+      query_prompt: unrecorded
+      document_prompt: ""
+      max_input: {tokens: unrecorded, truncation: refuse}
+      runtime: {name: ollama, version: 0.40.0}
+      locality: within_boundary
+      num_ctx: 2048
+    weights:
+      file: Qwen3-Embedding-0.6B-f16.gguf
+      sha256: 421a27e58d165478cc7acb984a688c2aa41404968b0203e7cd743ece44c54340
+    licence: {id: Apache-2.0}
+    legal_review:
+      status: operator
+      record: pulled and accepted by the operator
+    risks:
+      - Training data is synthetic and not disclosed by the publisher.
+    datasets:
+      - name: Qwen3 synthetic training pairs
+        licence:
+          name: undisclosed
+          text: >-
+            Not disclosed by the publisher: weakly supervised pairs synthesized by Qwen3, then
+            supervised fine-tuning and model merging (arXiv 2506.05176).
