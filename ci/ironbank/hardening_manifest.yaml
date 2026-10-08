@@ -1,0 +1,111 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Iron Bank's description of the Trinity headless image (slice 130). This directory is laid out
+# as the repo1 project root, file for file, so a submission is a copy of it plus the resources
+# below. The schema is Iron Bank's own, `schema/hardening_manifest.schema.json` in
+# ironbank-tools/ironbank-pipeline; `test/ironbank_submission_test.exs` holds the parts of it
+# this tree can check without their pipeline.
+#
+# What is not here yet, and why, is in `ci/headless/submission_holds.yaml`: the Trinity source
+# archive and the Hex dependency tree have no published URL yet, and the maintainer below has no
+# repo1 account. `mix trinity.ironbank.lint --submission` refuses while any hold remains.
+---
+apiVersion: v1
+
+# The repository name in registry1, without the `ironbank/` prefix, which the pipeline adds.
+name: "opensource/scriptkittyos/trinity-headless"
+
+# The most specific tag first. It is the `version` in mix.exs, which the lint test checks.
+tags:
+  - "0.1.0"
+  - "latest"
+
+# Build arguments. `BASE_REGISTRY` is the pipeline's and may not appear here. The runtime base is
+# ubi9-micro, which carries no package manager; the builder is ubi9, which carries dnf and the
+# compilers the build needs and none of which reach the final stage.
+args:
+  BASE_IMAGE: "redhat/ubi/ubi9-micro"
+  BASE_TAG: "9.8"
+  BUILDER_IMAGE: "redhat/ubi/ubi9"
+  BUILDER_TAG: "9.8"
+
+# Labels live here, never in the Dockerfile; their lint fails a Dockerfile line starting LABEL.
+labels:
+  org.opencontainers.image.title: "trinity-headless"
+  org.opencontainers.image.description: "Trinity, a customer-controlled AI agent, as a headless MCP server and web interface"
+  org.opencontainers.image.licenses: "Apache-2.0"
+  org.opencontainers.image.url: "https://github.com/ScriptKittyOS/Trinity"
+  org.opencontainers.image.vendor: "Sudo Apt Holdings LLC"
+  org.opencontainers.image.version: "0.1.0"
+  mil.dso.ironbank.image.keywords: "ai,agent,mcp,elixir,erlang"
+  mil.dso.ironbank.image.type: "opensource"
+  mil.dso.ironbank.product.name: "Trinity"
+
+# Everything the build needs that is not in a UBI repository. The pipeline downloads each one,
+# checks it against its digest, and places it in the build context under its filename; the
+# Dockerfile copies it from there and nothing in the build reaches the network.
+# `scripts/headless_image.sh` plays that part for the image this project publishes.
+resources:
+  # Erlang/OTP, built from source in the builder with --enable-fips against UBI's OpenSSL.
+  - url: "https://github.com/erlang/otp/releases/download/OTP-28.5.0.5/otp_src_28.5.0.5.tar.gz"
+    filename: "otp_src_28.5.0.5.tar.gz"
+    validation:
+      type: "sha256"
+      value: "5231ba18f31f8041c2d6514cc8842e46954d3b39a53f1617f03f2abe6fea59c7"
+  # Elixir, precompiled for OTP 28 (BEAM files only, no native code).
+  - url: "https://github.com/elixir-lang/elixir/releases/download/v1.20.4/elixir-otp-28.zip"
+    filename: "elixir-1.20.4-otp-28.zip"
+    validation:
+      type: "sha256"
+      value: "ea7ff98bc1ed76c663a5d034c863c6fd37e65c9c855b6bbf6ccb2034d806673c"
+  # Hex, Mix's package client. Needed to compile a tree whose dependencies come from Hex, even
+  # offline. The build for Elixir 1.20 on OTP 28; the digest is the SHA-512 builds.hex.pm
+  # publishes for it in installs/hex.csv.
+  - url: "https://builds.hex.pm/installs/1.20.0/hex-2.5.1-otp-28.ez"
+    filename: "hex-2.5.1-otp-28.ez"
+    validation:
+      type: "sha512"
+      value: "690f12f6933088bb32f1d7125485fb13426318c03cfeabcbd3cce55824cddf2a701104b09b7f4cd7092fe7f76d5b669e391a072428ec4526879b36f62820ae5d"
+  # rebar3, which compiles the Erlang dependencies; SHA-512 from installs/rebar.csv.
+  - url: "https://builds.hex.pm/installs/1.18.4/rebar3-3.25.1-otp-28"
+    filename: "rebar3-3.25.1-otp-28"
+    validation:
+      type: "sha512"
+      value: "992fd755b7926fae455e5e07d9d195f4d3e7f181609eed1b9cabfe548624df10d148cd4b59bda40bebb185d3d68f9a9fd68a70b294101c8ad9cf0fadcc683d24"
+  # The two asset tools at the versions config/config.exs names. Build only; neither reaches
+  # the final image.
+  - url: "https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-0.25.4.tgz"
+    filename: "esbuild-linux-x64-0.25.4.tgz"
+    validation:
+      type: "sha256"
+      value: "387f77dd2ed4f66ab2b02150943554c6131431a7df36a62191112ec21453f009"
+  - url: "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.0/tailwindcss-linux-x64"
+    filename: "tailwindcss-linux-x64-4.3.0"
+    validation:
+      type: "sha256"
+      value: "73f0e5459054e5cfaa8ab6f3b940f3fbe0f13cc7fd83bc24e7c655033c203400"
+  # Today's release composition carries the local embedder (exla, which links this archive, and
+  # tokenizers). Slice 133 removes both from the regulated image; these two rows go with them.
+  - url: "https://github.com/elixir-nx/xla/releases/download/v0.10.0/xla_extension-0.10.0-x86_64-linux-gnu-cpu.tar.gz"
+    filename: "xla_extension-0.10.0-x86_64-linux-gnu-cpu.tar.gz"
+    validation:
+      type: "sha256"
+      value: "d5a1f138af13795c48c245561dcb76e1007afe5237baad5c828a704de619fc1d"
+  - url: "https://github.com/elixir-nx/tokenizers/releases/download/v0.5.1/libex_tokenizers-v0.5.1-nif-2.15-x86_64-unknown-linux-gnu.so.tar.gz"
+    filename: "libex_tokenizers-v0.5.1-nif-2.15-x86_64-unknown-linux-gnu.so.tar.gz"
+    validation:
+      type: "sha256"
+      value: "d060813cb758b5ae7d1a4ce4ed94bb58e6255dc231ba315ec42a577efb44769f"
+  # The Markdown renderer's NIF, precompiled. Slice 133 moves it to a source build in Iron Bank's
+  # Rust builder image, at which point this row becomes that image and a vendored crate tree.
+  - url: "https://github.com/leandrocp/mdex_native/releases/download/v0.2.8/libmdex_native_nif-v0.2.8-nif-2.15-x86_64-unknown-linux-gnu.so.tar.gz"
+    filename: "libmdex_native_nif-v0.2.8-nif-2.15-x86_64-unknown-linux-gnu.so.tar.gz"
+    validation:
+      type: "sha256"
+      value: "963238414ea5a6bb4545986c09c825dffcd75e9327db9ab7306fb1aa6cbd4cec"
+
+maintainers:
+  - name: "Ayla Croft"
+    # A repo1 account does not exist yet. Held in ci/headless/submission_holds.yaml.
+    username: "PENDING-repo1-account"

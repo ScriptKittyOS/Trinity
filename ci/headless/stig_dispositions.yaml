@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Dispositions for the STIG rules OpenSCAP neither passes nor finds inapplicable on the headless
+# image (slice 130, AC5; docs/regulated/headless-image.md). `mix trinity.image.stig` gives every
+# `pass` the disposition met and every `notapplicable` the disposition not applicable, with the
+# rule's own applicability condition as the reason; everything else needs a row here, or the check
+# fails. A row for a rule that no longer needs one fails too.
+#
+# disposition: met (the image meets it, and the reason says how), not_applicable (with a reason a
+# reader can check), or deployment (the deployment that runs the image owns it, and the reason
+# says what it does).
+---
+dispositions:
+  - rules:
+      - "xccdf_org.ssgproject.content_rule_configure_crypto_policy"
+    disposition: "deployment"
+    reason: >-
+      The system-wide crypto policy (FIPS:STIG) goes with FIPS mode, which is a property of the host
+      kernel and of how the container is run (docs/fips-leg.md), so the deployment sets it. The
+      image's own TLS is OTP's ssl application, which crypto-policies has no back-end for; the
+      crypto NIF links the base's OpenSSL, whose FIPS provider the deployment's FIPS mode enables.
+
+  - rules:
+      - "xccdf_org.ssgproject.content_rule_network_configure_name_resolution"
+    disposition: "deployment"
+    reason: >-
+      A container's /etc/resolv.conf is written by the container runtime from the deployment's DNS
+      configuration (the kubelet, or the engine), not taken from the image, so the number of name
+      servers is the deployment's.
+
+  - rules:
+      - "xccdf_org.ssgproject.content_rule_security_patches_up_to_date"
+    disposition: "met"
+    reason: >-
+      The build runs dnf upgrade against the image's root filesystem, so every vendor package is the
+      newest build UBI's repositories carry when the image is built; OpenSCAP reports notchecked
+      because the guide ships no errata data to check against. Patches published after a build reach
+      the image when it is rebuilt. Components outside the vendor's packages are covered by the
+      image's vulnerability scan (mix trinity.image.findings), not by this rule.

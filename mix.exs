@@ -51,7 +51,7 @@ defmodule Trinity.MixProject do
       # Slice 061: the headless release. The same tree assembled as an ordinary OTP release
       # (no Burrito, no desktop shell), for a server that runs Trinity as an MCP server and
       # the web pages on a bind address it is told (`TRINITY_MODE=headless`, `TRINITY_BIND`,
-      # `PORT`; config/runtime.exs). `ci/headless/Containerfile` builds and runs it.
+      # `PORT`; config/runtime.exs). `ci/ironbank/Dockerfile` builds and runs it (slice 130).
       headless: [
         steps: [:assemble],
         include_executables_for: [:unix],

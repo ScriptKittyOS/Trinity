@@ -1,0 +1,145 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Slice 130: builds the hardened headless image from ci/ironbank/Dockerfile the way Iron Bank's
+# pipeline would (scripts/headless_image.sh stages every input from hardening_manifest.yaml and
+# checks its digest; the Dockerfile reaches no network), then checks the built image, never its
+# recipe (docs/regulated/headless-image.md):
+#
+#   the submission tree and the published build's base pins   mix trinity.ironbank.lint
+#   the image starts its runtime                              bin/headless eval, then start
+#   AC1 and AC6: user and layer contents                      mix trinity.image.inspect
+#   AC3 and AC4: vulnerability scan against justifications    grype, then mix trinity.image.findings
+#   AC5: STIG applicability statement                         scripts/stig_scan.sh, then mix trinity.image.stig
+#
+# Every check after the build runs and reports even when an earlier one fails, so one red check
+# does not hide the others; the job fails if any did. It runs when an input of the image or of the
+# checks changes, on demand, and daily, because new advisories appear against an image that has
+# not changed (Iron Bank rescans its images on a schedule for the same reason). Nothing is pushed:
+# publishing and signing the image is slice 131's.
+name: headless-image
+
+on:
+  push:
+    paths:
+      - ci/ironbank/**
+      - ci/headless/**
+      - scripts/headless_image.sh
+      - scripts/stig_scan.sh
+      - lib/mix/tasks/trinity.ironbank.lint.ex
+      - lib/mix/tasks/trinity.image.*.ex
+      - mix.exs
+      - mix.lock
+      - config/**
+      - .tool-versions
+      - .github/workflows/headless-image.yml
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    # Not measured on a runner yet: OTP from source took 40 s and the dependency compile, EXLA's C++
+    # included, about 155 s on a 32-core machine (slice 130 NOTES). The ceiling is generous until the
+    # first runs say otherwise.
+    timeout-minutes: 120
+    env:
+      IMAGE: trinity-headless:ci
+      # grype v0.119.0, pinned by digest: a scanner is code that reads the image and runs in CI, and
+      # a tag can be moved (slice 130 NOTES, D-130-6).
+      GRYPE: anchore/grype:v0.119.0@sha256:8c2c9234a345577a6d321a4753aa3ee1276d8975c8452d2344a56b57733ecad3
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        with:
+          version-file: .tool-versions
+          version-type: strict
+
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-image-${{ hashFiles('mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-image-
+
+      - name: Compile the checks
+        run: |
+          mix deps.get
+          mix compile
+
+      - name: The submission tree and the published build's base pins
+        run: mix trinity.ironbank.lint
+
+      - name: Build the image from staged, digest-checked resources
+        id: build
+        run: |
+          scripts/headless_image.sh build "$IMAGE"
+          docker image inspect "$IMAGE" --format 'id={{.Id}} size={{.Size}} user={{.Config.User}}'
+          echo "digest=$(docker image inspect "$IMAGE" --format '{{.Id}}')" >> "$GITHUB_OUTPUT"
+
+      # `bin/headless version` exits 0 without starting the VM (slice 130 NOTES, measurement 1), so
+      # this starts it: eval runs the runtime, and start must answer on its one port with a 401 for a
+      # request without the bearer.
+      - name: The image starts its runtime, read-only
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          docker run --rm --read-only --tmpfs /tmp "$IMAGE" /opt/trinity/bin/headless eval \
+            'IO.puts("otp=#{System.otp_release()} fips_provider=#{inspect(:crypto.info()[:fips_provider_available])} node=#{inspect(Node.self())}")'
+          cid=$(docker run -d --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \
+            -p 127.0.0.1:4000:4000 -e TRINITY_MCP_SERVER_TOKEN=ci-token "$IMAGE")
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:4000/ && break
+            sleep 1
+          done
+          status=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:4000/mcp \
+            -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"ping"}')
+          docker logs "$cid" | tail -20
+          docker rm -f "$cid" >/dev/null
+          echo "POST /mcp without a bearer: $status"
+          test "$status" = 401
+
+      - name: "AC1 and AC6: the image's user and its layers"
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: mix trinity.image.inspect "$IMAGE"
+
+      - name: "AC3: scan the image, with no network at scan time"
+        id: scan
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          mkdir -p out/grype-db out/tmp
+          docker save "$IMAGE" -o out/image.tar
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/out:/s" -e GRYPE_DB_CACHE_DIR=/s/grype-db "$GRYPE" db update
+          docker run --rm --network none --user "$(id -u):$(id -g)" -v "$PWD/out:/s" \
+            -e TMPDIR=/s/tmp -e GRYPE_DB_CACHE_DIR=/s/grype-db \
+            -e GRYPE_DB_AUTO_UPDATE=false -e GRYPE_CHECK_FOR_APP_UPDATE=false \
+            "$GRYPE" docker-archive:/s/image.tar -o json --file /s/grype.json
+          rm -f out/image.tar
+
+      - name: "AC3 and AC4: findings against ci/headless/justifications.yaml"
+        if: ${{ !cancelled() && steps.scan.outcome == 'success' }}
+        run: mix trinity.image.findings --scan out/grype.json --out out/findings.csv
+
+      - name: "AC5: the STIG applicability statement"
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          scripts/stig_scan.sh "$IMAGE" out/stig
+          mix trinity.image.stig --results out/stig/stig-results.xml --out out/stig/stig-applicability.md \
+            --image "$IMAGE" --digest "${{ steps.build.outputs.digest }}"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: ${{ !cancelled() }}
+        with:
+          name: headless-image-evidence
+          path: |
+            out/grype.json
+            out/findings.csv
+            out/stig/stig-results.xml
+            out/stig/stig-report.html
+            out/stig/stig-applicability.md
+          if-no-files-found: warn

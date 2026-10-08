@@ -112,6 +112,44 @@ defmodule Trinity.Versions do
          "registry.access.redhat.com/ubi9/ubi@sha256:9295c5c688f487fa5cf27a734fa55ecd57aeb7dc0904ba537da4f42dfa1d0acb"},
       note:
         "Added at Slice 003: the base of the FIPS build leg's image (docs/fips-leg.md), `registry.access.redhat.com/ubi9/ubi:latest` resolved by digest on 2026-09-20 (Red Hat Enterprise Linux release 9.8, `openssl-libs 3.5.8-1.el9_8`, `openssl-fips-provider-so 3.0.7-11.el9_8`). The image itself is OTP 28.5.0.5 built from source with `--enable-fips` against that OpenSSL, plus Elixir 1.20.4; the two archives are pinned by SHA-256 in the Containerfile and the image tag is `scripts/fips_image_tag.sh` over `.tool-versions` and the Containerfile. The FIPS provider the image runs is what the distribution ships and names; docs/fips-leg.md states what Trinity does and does not claim about it."
+    },
+    %{
+      name: "Headless image runtime base (UBI9 micro)",
+      pin: "**sha256:932aec77f5b86a5dba854a18b14a38725b296967e7dc9c7a1f4d7f0bf82e1ce5**",
+      lock: nil,
+      from:
+        {:file, "ci/headless/bases.env",
+         "BASE_TAG=9.8@sha256:932aec77f5b86a5dba854a18b14a38725b296967e7dc9c7a1f4d7f0bf82e1ce5"},
+      note:
+        "Added at Slice 130: the final stage of the hardened headless image as this project publishes it (`ci/ironbank/Dockerfile`, docs/regulated/headless-image.md), `registry.access.redhat.com/ubi9/ubi-micro` 9.8. The digest is the one Iron Bank's own ubi9-micro image declares as its source, so the published build and an Iron Bank build start from the same bytes. Iron Bank builds the same Dockerfile from its own registry with the tags in `ci/ironbank/hardening_manifest.yaml`."
+    },
+    %{
+      name: "Headless image builder base (UBI9)",
+      pin: "**sha256:c26665a762876d5de27d1ed50e029ab3bc80ef3a3e155824ee7ab43e70055b63**",
+      lock: nil,
+      from:
+        {:file, "ci/headless/bases.env",
+         "BUILDER_TAG=9.8@sha256:c26665a762876d5de27d1ed50e029ab3bc80ef3a3e155824ee7ab43e70055b63"},
+      note:
+        "Added at Slice 130: the builder stages of the hardened headless image (OTP from source, the release, the runtime root filesystem), `registry.access.redhat.com/ubi9` 9.8, the digest Iron Bank's own ubi9 image declares as its source. Nothing from these stages reaches the final image except the release and the root filesystem `dnf --installroot` assembles."
+    },
+    %{
+      name: "Image vulnerability scanner (grype)",
+      pin: "**v0.119.0**",
+      lock: nil,
+      from:
+        {:file, ".github/workflows/headless-image.yml",
+         "anchore/grype:v0.119.0@sha256:8c2c9234a345577a6d321a4753aa3ee1276d8975c8452d2344a56b57733ecad3"},
+      note:
+        "Added at Slice 130 and chosen by measurement over Trivy 0.74.0: grype identifies the Erlang/OTP runtime inside a release from `beam.smp` and matches its advisories, which Trivy does not see at all (slice 130 NOTES, D-130-6). Pinned by image digest in the workflow, and to a release at least two weeks old when chosen."
+    },
+    %{
+      name: "SCAP Security Guide",
+      pin: "**0.1.82**",
+      lock: nil,
+      from: {:file, "scripts/stig_scan.sh", "ssg_version=0.1.82"},
+      note:
+        "Added at Slice 130: the datastream (`ssg-rhel9-ds.xml`) and DISA STIG profile OpenSCAP evaluates the headless image against, the profile Iron Bank's pipeline uses for a UBI9 image. The release zip is checked against its published SHA-512, pinned beside the version in the script."
     }
   ]
 
