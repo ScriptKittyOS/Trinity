@@ -37,6 +37,7 @@ deployment, and it does not supply what the deployment has to.
 | Control | Trinity software | Customer | Host or AWS |
 |---|---|---|---|
 | Which chat gateways may carry conversation text | **Yes, under the regulated profile, at boot.** Every configured adapter must be named in `TRINITY_REGULATED_GATEWAYS` (`lib/trinity/profile.ex`) | **Yes.** Naming the channels, and authorizing each one | No |
+| Which hosts the agent's fetch tool may reach without asking | **Yes, under the regulated profile, at boot.** With a network default of `:allow` the node refuses to start unless `TRINITY_REGULATED_EGRESS` names the hosts, and `web_fetch` then asks for a host not on it (`lib/trinity/profile.ex`, slice 135). It governs the agent's fetch tool, not the process's own connections | **Yes.** Naming the hosts | No |
 | Who decides whether an effect may happen | **Yes, as a refusal.** Under the regulated profile the node will not boot on the local authority (`lib/trinity/profile.ex`); no other adapter ships in this tree (`authorization-boundary.md`) | **Yes.** The external authority adapter, and its assessment | No |
 
 ## Keys
