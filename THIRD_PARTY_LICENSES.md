@@ -4,7 +4,7 @@
      hand: the gate regenerates it and fails when this file and the bill disagree. -->
 # Third-party licences
 
-134 components, derived from `sbom.cdx.json`, the CycloneDX bill this project's
+137 components, derived from `sbom.cdx.json`, the CycloneDX bill this project's
 quality gate generates on every commit. This file and that bill are the same data rendered
 twice, so they cannot disagree.
 
@@ -97,6 +97,8 @@ it, and a reader should not infer from an entry here that the component is in a 
 | `oban` | `2.24.1` | Apache-2.0 | bom |
 | `oban_met` | `1.3.1` | Apache-2.0 | bom |
 | `oban_web` | `2.13.0` | Apache-2.0 | bom |
+| `oidcc` | `3.9.0` | Apache-2.0 | bom |
+| `oidcc_plug` | `0.5.1` | Apache-2.0 | bom |
 | `optimus` | `0.6.1` | MIT | bom |
 | `owl` | `0.13.1` | Apache-2.0 | bom |
 | `pgvector` | `0.4.1` | MIT | bom |
@@ -137,6 +139,7 @@ it, and a reader should not infer from an entry here that the component is in a 
 | `telemetry` | `1.4.2` | Apache-2.0 | bom |
 | `telemetry_metrics` | `1.2.0` | Apache-2.0 | bom |
 | `telemetry_poller` | `1.3.0` | Apache-2.0 | bom |
+| `telemetry_registry` | `0.3.2` | Apache-2.0 | bom |
 | `text_diff` | `0.1.0` | MIT | bom |
 | `texture` | `1.2.1` | Apache-2.0 | bom |
 | `thousand_island` | `1.5.0` | MIT | bom |

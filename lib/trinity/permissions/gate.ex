@@ -128,7 +128,8 @@ defmodule Trinity.Permissions.Gate do
     status =
       Keyword.get(opts, :status, if(decision == :deny, do: "denied", else: "allowed"))
 
-    with :ok <- side_effect(approval, decision, opts, now, by),
+    with :ok <- approval_receipt(approval, decision, Keyword.get(opts, :principal)),
+         :ok <- side_effect(approval, decision, opts, now, by),
          {:ok, decided} <-
            Store.update_approval(approval, %{
              status: status,
@@ -142,6 +143,49 @@ defmodule Trinity.Permissions.Gate do
       {{:ok, decided}, %{state | timers: Map.delete(state.timers, approval.id)}}
     else
       {:error, _} = error -> {error, state}
+    end
+  end
+
+  # Slice 136 AC9: a decision made by a person on the web pages is receipted on the access chain
+  # with who made it (`sub`, `iss`) and the role it needed, before the row changes, so a decision
+  # that cannot be receipted is not made. Decisions with no principal (an expiry, a gateway, the
+  # skills auto-approval) are recorded as before; the gateway's own receipts are slice 070's. On a
+  # loopback node with no login (`"mode" => "none"`) a receipt failure is logged and the decision
+  # stands, so the desktop is usable with its signer down; every other mode fails closed.
+  defp approval_receipt(_approval, _decision, nil), do: :ok
+
+  defp approval_receipt(approval, decision, %{} = principal) do
+    attrs = %{
+      kind: "decision",
+      subject: %{
+        "phase" => "approval",
+        "approval_id" => approval.id,
+        "session_id" => approval.session_id,
+        "tool" => approval.tool,
+        "risk" => approval.risk,
+        "principal" => principal
+      },
+      decision: %{
+        "outcome" => Atom.to_string(decision),
+        "basis" => "web_auth",
+        "role" => Map.get(principal, "role")
+      },
+      fingerprint: approval.fingerprint,
+      subject_ref: "approval:" <> approval.id
+    }
+
+    case Trinity.Receipts.append(Trinity.Receipts.access_scope(), attrs) do
+      {:ok, _} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.error(
+          "permissions gate: approval #{approval.id} not receipted: #{inspect(reason)}"
+        )
+
+        if Map.get(principal, "mode") == "none",
+          do: :ok,
+          else: {:error, {:approval_not_receipted, reason}}
     end
   end
 

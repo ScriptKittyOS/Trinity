@@ -192,6 +192,11 @@ defmodule Trinity.MixProject do
         {:oban_web, "~> 2.13"},
         # Slice 062: JWT validation and issuance (JWK, JWS, JWKS) over OTP's crypto.
         {:jose, "~> 1.11"},
+        # Slice 136: the web pages' OpenID Connect login (relying party, authorization code with
+        # PKCE). Floors are the 2026 security fixes: oidcc 3.9.0 (CVE-2026-75759) and oidcc_plug
+        # 0.5.1 (0.5.0 fixed CVE-2026-66883 and CVE-2026-66884; 0.5.0 itself is retired).
+        {:oidcc, "~> 3.9"},
+        {:oidcc_plug, "~> 0.5.1"},
         # Slice 013 (owner decision, 2026-09-20): the linux package builds mdex's NIF from
         # source for musl (MDEX_NATIVE_BUILD=1 and TRINITY_NIF_TARGET in config/config.exs),
         # because neither precompiled artifact loads in Burrito's musl ERTS (NOTES finding 13).

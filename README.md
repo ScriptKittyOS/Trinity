@@ -125,6 +125,13 @@ enforces it.
   protected server's `401` with "authorize" on the `/mcp` page and keeps the token it obtains.
   Trinity issues no production authority: the personal issuer refuses to start under an
   external authority adapter, by construction (`docs/07-security-model.md`).
+- **Asks who is at the page.** Every page answers only someone signed in with the role it needs
+  (`view`, `approve`, `administer`) through an OpenID Connect login at your identity provider,
+  or, on the desktop, a browser on the same machine: a request naming any other host is refused
+  before it is routed, and a websocket from another site's page is refused. A server bound
+  beyond the loopback will not start until it is told how the pages authenticate. Every approval
+  records who gave it, as a signed receipt with their subject, issuer and role
+  (`docs/07-security-model.md`, "Web pages").
 - **Reachable from elsewhere.** A gateway is a channel Trinity answers from: the adapter carries
   text, and everything else (the session, the gate, the receipts) is the same machinery the
   desktop uses. A sender Trinity does not know gets a pairing code shown on the `/gateways` page

@@ -24,7 +24,10 @@ defmodule Trinity.Effects.Boot do
       "key_custody" => key_custody_subject(),
       "otp_release" => List.to_string(:erlang.system_info(:otp_release)),
       "fips" => Atom.to_string(:crypto.info_fips()),
-      "node" => Atom.to_string(node())
+      "node" => Atom.to_string(node()),
+      # Slice 136: who the web pages answer on this run, and on what address, so a reader of the
+      # chain can tell a loopback node with no login from a LAN node with a shared token.
+      "web" => Trinity.WebAuth.in_force()
     }
 
     meta = %{

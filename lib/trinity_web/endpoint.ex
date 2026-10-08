@@ -6,16 +6,25 @@ defmodule TrinityWeb.Endpoint do
   # The session will be stored in the cookie and signed,
   # this means its contents can be read but not tampered with.
   # Set :encryption_salt if you would also like to encrypt it.
+  # Slice 136: encrypted as well as signed (the OpenID Connect login keeps its PKCE verifier and
+  # nonce here between the redirect and the callback), and `SameSite`/`Secure` chosen per request
+  # by `TrinityWeb.Plugs.Session`.
   @session_options [
     store: :cookie,
     key: "_trinity_key",
     signing_salt: "NacAdZLW",
+    encryption_salt: "q8N3vXwT",
     same_site: "Lax"
   ]
 
   socket "/live", Phoenix.LiveView.Socket,
     websocket: [connect_info: [session: @session_options]],
     longpoll: [connect_info: [session: @session_options]]
+
+  # Slice 136: a request whose Host is not this machine's own is refused before anything else
+  # sees it (DNS rebinding; Phoenix and Bandit have no such check). The websocket transports
+  # above are dispatched before any plug and are held by `check_origin` instead.
+  plug TrinityWeb.Plugs.HostAllowList
 
   # Serve at "/" the static files from "priv/static" directory.
   #
@@ -57,6 +66,8 @@ defmodule TrinityWeb.Endpoint do
 
   plug Plug.MethodOverride
   plug Plug.Head
-  plug Plug.Session, @session_options
+  plug TrinityWeb.Plugs.Session, @session_options
+  # Slice 136: no principal, no route (TrinityWeb.Auth).
+  plug TrinityWeb.Auth.Gate
   plug TrinityWeb.Router
 end

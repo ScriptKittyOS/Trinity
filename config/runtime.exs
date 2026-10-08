@@ -109,6 +109,42 @@ if config_env() != :test and auth_profile not in [nil, ""] do
     client_metadata_url: present.("TRINITY_MCP_AUTH_CLIENT_METADATA_URL")
 end
 
+# Slice 136: who the web pages answer (`Trinity.WebAuth`). `TRINITY_WEB_AUTH` is `none`, `oidc` or
+# `local_token`; unset, it is `none` on a loopback bind and a refusal to boot on any other.
+# `oidc` logs in at `TRINITY_WEB_AUTH_ISSUER` (default: the MCP authorization issuer, the one
+# `:regulated` already requires) as `TRINITY_WEB_AUTH_CLIENT_ID` with `TRINITY_WEB_AUTH_CLIENT_SECRET`
+# when the client is confidential; the callback is `TRINITY_WEB_AUTH_REDIRECT_URI`, else
+# `https://<PHX_HOST>/auth/callback`. `TRINITY_WEB_AUTH_ROLE_CLAIM` names the claim roles are read
+# from when it is not one of the four known shapes. `local_token` takes `TRINITY_WEB_AUTH_TOKEN`
+# (at least 22 characters). The suite sets `config :trinity, :web_auth` itself.
+if config_env() != :test do
+  present = fn name ->
+    case System.get_env(name) do
+      nil -> nil
+      "" -> nil
+      value -> value
+    end
+  end
+
+  int = fn name, default ->
+    case present.(name) do
+      nil -> default
+      value -> String.to_integer(value)
+    end
+  end
+
+  config :trinity, :web_auth,
+    mode: present.("TRINITY_WEB_AUTH"),
+    issuer: present.("TRINITY_WEB_AUTH_ISSUER") || present.("TRINITY_MCP_AUTH_ISSUER"),
+    client_id: present.("TRINITY_WEB_AUTH_CLIENT_ID"),
+    client_secret: present.("TRINITY_WEB_AUTH_CLIENT_SECRET"),
+    redirect_uri: present.("TRINITY_WEB_AUTH_REDIRECT_URI"),
+    role_claim: present.("TRINITY_WEB_AUTH_ROLE_CLAIM"),
+    token: present.("TRINITY_WEB_AUTH_TOKEN"),
+    idle_timeout_ms: int.("TRINITY_WEB_AUTH_IDLE_TIMEOUT_MS", 1_800_000),
+    absolute_timeout_ms: int.("TRINITY_WEB_AUTH_ABSOLUTE_TIMEOUT_MS", 43_200_000)
+end
+
 # Slice 013. `TRINITY_FAKE_PROVIDER=1 mix phx.server` runs the chat on the scripted provider:
 # the registry becomes the fake's two entries and a fresh stream answers with its markdown
 # demo, so the UI can be exercised and screenshotted with no key and no egress. Development
@@ -214,8 +250,8 @@ if config_env() == :prod do
   # default: a server on a LAN is the operator's decision, made by setting it) on `PORT`,
   # 4000 by default, since nobody reads an ephemeral port off a headless machine. The bearer
   # on /mcp (`TRINITY_MCP_SERVER_TOKEN`, or the generated token file) is required whatever
-  # the bind; the web pages carry no authentication yet, which is why the default stays on
-  # the loopback (docs/mcp-server.md).
+  # the bind. Slice 136: a bind other than the loopback needs `TRINITY_WEB_AUTH` set, or the
+  # node refuses to boot (`Trinity.WebAuth`).
   {bind_ip, bind_port} =
     if System.get_env("TRINITY_MODE") == "headless" do
       ip =
@@ -234,9 +270,12 @@ if config_env() == :prod do
       {{127, 0, 0, 1}, desktop_port}
     end
 
+  # Slice 136: the websocket origins are the loopback names and the configured host, an explicit
+  # list, in every profile (config/config.exs says why never `false` and never `:conn`).
   config :trinity, TrinityWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [ip: bind_ip, port: bind_port],
+    check_origin: Enum.uniq(["//localhost", "//127.0.0.1", "//[::1]", "//" <> host]),
     secret_key_base: secret_key_base
 
   # ## SSL Support

@@ -151,8 +151,9 @@ root loads as any other and is not scanned (a follow-up in the slice's NOTES).
   run's summary shows the denial. A rule the owner writes beforehand is what lets a scheduled task write.
 - **The curator deletes nothing.** Marking stale is a query receipt; archiving is an effect receipt written
   by the curator itself (as 041's promotion writes its own); both on the persona's memory scope.
-- **Oban's dashboard** at `/oban` is in the browser pipeline with no authentication, as every page is
-  until 062; it is mounted in development and where `config :trinity, :oban_web` says so.
+- **Oban's dashboard** at `/oban` is mounted in development and where `config :trinity, :oban_web`
+  says so. Since slice 136 it needs the `administer` role, in its pipeline and again on mount (see
+  "Web pages").
 
 ## MCP client (Slice 060, as built)
 
@@ -201,7 +202,8 @@ root loads as any other and is not scanned (a follow-up in the slice's NOTES).
   nothing. Since 062 that module is `Trinity.MCP.Auth.Local`, the `:local` profile behind the
   authorization boundary (next section), and the plug authorizes ahead of the transport; a refusal is
   `401` with a challenge rather than 061's `403`. Loopback is the default bind; a wider bind is the
-  operator's setting and belongs behind a proxy that authenticates the web pages too.
+  operator's setting, and since slice 136 it needs the web pages' own authentication configured
+  (see "Web pages").
 - **Approvals over the wire are the owner's, never the client's.** A held call answers `input_required`
   with a `requestState` sealed by `Trinity.MCP.Server.Envelope`: AES-256-GCM under
   `<keys dir>/mcp-state.key`, binding the approval id, the session, the call id, the tool, a digest of
@@ -278,6 +280,69 @@ regulated effect.
   performing no flow of its own (a census over its files). The client identifies itself by the configured
   `client_id` (pre-registered at the enterprise server), by a Client ID Metadata Document URL, or by
   registering once when the server offers it and `dcr: true`.
+
+## Web pages (Slice 136, as built)
+
+Every page and route answers only an authenticated principal with the right role, or, on a loopback
+node with no login, a request whose Host is the machine's own. NIST SP 800-53 IA-2, AC-3, AC-6 and
+AC-6(9) are the controls; finding F-132-1 (slice 132) is what opened it.
+
+- **Three modes** (`Trinity.WebAuth`, `TRINITY_WEB_AUTH`). `none` on a loopback bind (the desktop,
+  development, the suite): the principal is the machine's owner with every role. `oidc`: a login at
+  an external issuer (by default the one `:regulated` already requires for the MCP server).
+  `local_token`, outside `:regulated` only: one shared token of at least 128 bits. Unset is `none`
+  on the loopback and **a refusal to boot on any other bind, in every profile**; `none` set
+  explicitly on a wider bind outside `:regulated` boots with a warning and the boot receipt says so.
+- **Before routing.** `TrinityWeb.Plugs.HostAllowList` is first in the endpoint: a `Host` that is not
+  `localhost`, `127.0.0.1`, `::1` or the configured host is `403` before static files, the MCP server
+  or the router see it (DNS rebinding; Phoenix and Bandit check no Host). `TrinityWeb.Auth.Gate`
+  follows the session: no principal is a redirect to `/auth/login` for a page and `401` for anything
+  else, before routing, so a `POST` to a path with only a `GET` route says nothing about which paths
+  exist. The exemptions are the login itself and slice 062's protocol endpoints (`/.well-known/*`,
+  `POST /oauth/token`, `POST /oauth/register`), each named in the route census test.
+- **Roles** (`TrinityWeb.Auth.Principal`): `view` reads and converses; `approve` decides approvals;
+  `administer` changes what Trinity is or what leaves the machine (MCP servers, gateways, settings
+  and keys, personas, rules, tasks, the export, the dashboards, the OAuth owner pages). `approve` and
+  `administer` imply `view`; `administer` does not imply `approve`. Routes carry their role in the
+  router (`TrinityWeb.Auth.RequireRole`); every `live_session` mounts through `TrinityWeb.Auth`,
+  which checks the session again on every `handle_params` and every `handle_event`, the event's role
+  from `TrinityWeb.Auth.Policy` (an event it does not name needs `administer`; a census test fails on
+  an event nobody classified).
+- **Sessions are the server's.** The cookie (signed and encrypted) holds a random id; the principal,
+  login time and last-seen time live in `TrinityWeb.Auth.Sessions`. Revocation marks the row and
+  broadcasts `disconnect` to the session's sockets; idle (30 minutes) and absolute (12 hours)
+  timeouts are checked there; logout revokes. A restart ends every session.
+- **OpenID Connect** on `oidcc` 3.9 and `oidcc_plug` 0.5.1 (floors asserted by a test; both carry
+  2026 security fixes): authorization code with PKCE S256 only (a login is refused when the issuer
+  offers no S256, rather than falling back to `plain`), `state`, `nonce`, `iss` checked on the ID
+  token and on the response when the issuer advertises RFC 9207, a callback with no stored
+  authorization session refused before the code is redeemed. Roles come from the ID token's claims
+  only: Keycloak `realm_access.roles` and `resource_access.<client>.roles`, Entra `roles`, Okta
+  `groups`, generic `roles`, or one claim the operator names. A token with no Trinity role, or whose
+  role claim was moved out by Entra's group overage (`_claim_names`), is a refused login with a page
+  that says why, never a session with no roles.
+- **The shared token** is exchanged once for a session cookie that is `SameSite=Strict` (and
+  `Secure` over TLS); the comparison is over SHA-256 digests with `Plug.Crypto.secure_compare/2`;
+  one guess per address per window, `429` inside it; the parameter is `secret`, which the log
+  filter names. Every page carries the banner "Shared token, no per-user identity", and receipts
+  name the principal `local_token`, not a person.
+- **Who approved.** An approval decided on a page records the principal on its row (`decided_by`)
+  and on a signed receipt on the `access` chain with `sub`, `iss`, the mode and the role used,
+  written before the row changes. Privileged routes and events (everything needing more than
+  `view`) are receipted there too, used and refused. Outside `none`, an act that cannot be receipted
+  is refused; on the loopback with no login the failure is logged and the act stands, so the
+  desktop stays usable with its signer down.
+- **Websockets.** `check_origin` is an explicit list in every environment (the loopback names, and
+  the configured host in a release), never `false` and never `:conn`; `:regulated` refuses to boot
+  otherwise. Phoenix dispatches sockets ahead of every endpoint plug, so the origin list, not the
+  Host plug, is what refuses a foreign page there.
+- **`:regulated` refuses to boot** on a non-loopback bind with `none` or `local_token`, and with
+  `force_ssl`'s `rewrite_on: [:x_forwarded_proto]` while `TRINITY_TRUSTED_PROXY` is not `true`
+  (believing that header is only safe behind a proxy that strips and sets it).
+- **What is not here.** TLS termination and mTLS (the deployment's); a bare identity header from a
+  proxy (never trusted); a login on the desktop. A reverse proxy on the same host that forwards to a
+  loopback `none` node with the configured host passes the Host check, which is why a wider audience
+  belongs on `oidc` and why `:regulated` asks for it.
 
 ## Secrets
 

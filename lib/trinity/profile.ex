@@ -137,6 +137,64 @@ defmodule Trinity.Profile do
     do: {:error, {:regulated_requires_receipts, reason}}
 
   @doc """
+  Slice 136 AC4. Under `:regulated` a non-loopback bind needs real user authentication.
+
+  `bind` is the address the endpoint listens on and `mode` the web authentication mode in force
+  (`Trinity.WebAuth.resolve/2`). `:none` and `:local_token` on a bind other machines can reach are
+  refused: NIST SP 800-53 IA-2 asks for users to be uniquely identified, and neither a shared token
+  nor no login identifies anyone. On the loopback `:none` is allowed: the only principal is whoever
+  holds this host, and the Host allow-list holds the browser to that.
+  """
+  @spec check_web_auth(t(), :inet.ip_address(), atom()) :: :ok | {:error, term()}
+  def check_web_auth(:default, _bind, _mode), do: :ok
+
+  def check_web_auth(:regulated, bind, mode) when mode in [:none, :local_token] do
+    if Trinity.WebAuth.loopback?(bind),
+      do: :ok,
+      else:
+        {:error,
+         {:regulated_requires_user_authentication, mode, Trinity.WebAuth.format_ip(bind),
+          Trinity.WebAuth.env()}}
+  end
+
+  def check_web_auth(:regulated, _bind, _mode), do: :ok
+
+  @trusted_proxy_env "TRINITY_TRUSTED_PROXY"
+
+  @doc """
+  Slice 136 AC13. Under `:regulated`, believing `x-forwarded-proto` needs the operator to say a
+  proxy strips and sets it.
+
+  `rewrite_on` is the endpoint's `force_ssl` `:rewrite_on` list and `raw` is
+  `#{@trusted_proxy_env}`. `Plug.RewriteOn` is safe only behind a proxy that strips the header from
+  every incoming request; without one, any client can claim it arrived over HTTPS. Plug has no
+  source address check, so the operator's statement is the only thing that can be asked for.
+  """
+  @spec check_trusted_proxy(t(), [atom()] | nil, String.t() | nil) :: :ok | {:error, term()}
+  def check_trusted_proxy(:default, _rewrite_on, _raw), do: :ok
+
+  def check_trusted_proxy(:regulated, rewrite_on, raw) do
+    if is_list(rewrite_on) and :x_forwarded_proto in rewrite_on and raw not in ["1", "true"],
+      do: {:error, {:regulated_rewrite_on_without_trusted_proxy, @trusted_proxy_env}},
+      else: :ok
+  end
+
+  @doc "The name of the trusted proxy variable."
+  @spec trusted_proxy_env() :: String.t()
+  def trusted_proxy_env, do: @trusted_proxy_env
+
+  @doc """
+  Slice 136 AC6. Under `:regulated` the websocket origin check must be an explicit list.
+
+  `false` checks nothing and `:conn` compares the origin with the request's own Host, which a DNS
+  rebinding page controls, so neither is a check against a hostile page.
+  """
+  @spec check_origin(t(), term()) :: :ok | {:error, term()}
+  def check_origin(:default, _check_origin), do: :ok
+  def check_origin(:regulated, list) when is_list(list) and list != [], do: :ok
+  def check_origin(:regulated, other), do: {:error, {:regulated_requires_origin_list, other}}
+
+  @doc """
   Under `:regulated` every configured gateway adapter must be named on the allow-list.
 
   A gateway carries conversation text to somewhere that is not this host. The profile already

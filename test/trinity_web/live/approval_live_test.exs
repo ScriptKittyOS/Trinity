@@ -61,7 +61,9 @@ defmodule TrinityWeb.ApprovalLiveTest do
     assert html =~ "wrote 2 bytes"
     assert html =~ "written written"
 
-    assert %Approval{status: "allowed", decision: "once", decided_by: "liveview"} =
+    # Slice 136: the row names who decided. On the loopback with no login that is the machine's
+    # owner; under a login it is the principal's subject and issuer.
+    assert %Approval{status: "allowed", decision: "once", decided_by: "owner (loopback)"} =
              Permissions.get_approval(aid)
 
     refute has_element?(view, "#pending-approvals")

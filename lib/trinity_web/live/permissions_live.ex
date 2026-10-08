@@ -66,6 +66,9 @@ defmodule TrinityWeb.PermissionsLive do
     opts =
       if decision == "always", do: [pattern: Map.get(socket.assigns.patterns, id, "*")], else: []
 
+    # Slice 136: who decided, on the row and on the approval receipt.
+    opts = opts ++ TrinityWeb.Auth.decider_opts(socket)
+
     case Permissions.decide_request(id, String.to_existing_atom(decision), opts) do
       {:ok, _} ->
         {:noreply, load(socket)}
@@ -137,7 +140,12 @@ defmodule TrinityWeb.PermissionsLive do
   def handle_event("approval_answer", %{"approval_id" => id} = params, socket) do
     with %Approval{} = approval <- Permissions.get_approval(id),
          answer = answer_from_params(approval, params),
-         {:ok, _} <- Permissions.decide_request(id, :once, answer: answer) do
+         {:ok, _} <-
+           Permissions.decide_request(
+             id,
+             :once,
+             [answer: answer] ++ TrinityWeb.Auth.decider_opts(socket)
+           ) do
       {:noreply, load(socket)}
     else
       nil ->

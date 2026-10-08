@@ -1,0 +1,11 @@
+<%!-- SPDX-FileCopyrightText: Sudo Apt Holdings LLC --%>
+<%!-- SPDX-License-Identifier: Apache-2.0 --%>
+<Layouts.app flash={@flash}>
+  <:bar>
+    <span class="opacity-70">{@title}</span>
+  </:bar>
+  <div id="login-denied" class="mx-auto flex max-w-xl flex-col gap-4 px-4 py-8">
+    <h2 class="text-lg font-semibold">{@title}</h2>
+    <p class="text-ui opacity-80">{@reason}</p>
+  </div>
+</Layouts.app>

@@ -272,6 +272,9 @@ defmodule TrinityWeb.SessionLive.Show do
         do: [pattern: Map.get(socket.assigns.patterns, id) || suggested(socket, id)],
         else: []
 
+    # Slice 136: who decided, on the row and on the approval receipt.
+    opts = opts ++ TrinityWeb.Auth.decider_opts(socket)
+
     case Permissions.decide_request(id, String.to_existing_atom(decision), opts) do
       {:ok, _} ->
         {:noreply, socket}
@@ -290,7 +293,12 @@ defmodule TrinityWeb.SessionLive.Show do
   def handle_event("approval_answer", %{"approval_id" => id} = params, socket) do
     with %Approval{} = approval <- Permissions.get_approval(id),
          answer = answer_from_params(approval, params),
-         {:ok, _} <- Permissions.decide_request(id, :once, answer: answer) do
+         {:ok, _} <-
+           Permissions.decide_request(
+             id,
+             :once,
+             [answer: answer] ++ TrinityWeb.Auth.decider_opts(socket)
+           ) do
       {:noreply, socket}
     else
       nil ->

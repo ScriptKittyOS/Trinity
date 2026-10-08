@@ -7,10 +7,13 @@
 # the libc it was built against. No desktop shell, no Burrito: `mix release headless`.
 #
 #   docker build -f ci/headless/Containerfile -t trinity-headless:local .
-#   docker run --rm -p 4000:4000 -e TRINITY_MCP_SERVER_TOKEN=... trinity-headless:local
+#   docker run --rm -p 4000:4000 -e TRINITY_MCP_SERVER_TOKEN=... -e TRINITY_WEB_AUTH=oidc \
+#     -e TRINITY_WEB_AUTH_ISSUER=... -e TRINITY_WEB_AUTH_CLIENT_ID=... trinity-headless:local
 #
 # The container binds 0.0.0.0 inside its own network namespace (TRINITY_BIND) so the published
-# port reaches it; the bearer is required on /mcp whatever the bind. The data directory is
+# port reaches it; the bearer is required on /mcp whatever the bind. Slice 136: 0.0.0.0 is not the
+# loopback, so the node refuses to boot until TRINITY_WEB_AUTH says how the web pages
+# authenticate (docs/mcp-server.md). The data directory is
 # /data/trinity (XDG_DATA_HOME=/data, a volume): the databases, the receipt keys, the
 # envelope key, the generated token.
 FROM hexpm/elixir:1.20.4-erlang-28.5.0.5-debian-bookworm-20260824-slim AS build

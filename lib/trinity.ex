@@ -39,6 +39,8 @@ defmodule Trinity do
         # starts anything. Pure, so the refusals are unit testable and so this boundary does not
         # grow a dependency on Authority or Receipts to ask a question about a value.
         Profile,
+        # Slice 136: the web authentication mode, its rules and the mode in force.
+        WebAuth,
         UUID,
         Config,
         # Slice 100: the keychain-first secrets, the non-secret desktop settings, the first-run

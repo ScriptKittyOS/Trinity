@@ -23,7 +23,6 @@ config :trinity, TrinityWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
   http: [ip: {127, 0, 0, 1}],
-  check_origin: false,
   code_reloader: true,
   debug_errors: true,
   secret_key_base: "pEceiX84jrYwBFOP3ahGMX2Fwkza/3kU0AHhXBIi2JNnbu7muM20VzLmWLCddSwi",

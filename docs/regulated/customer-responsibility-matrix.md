@@ -18,6 +18,11 @@ should not plan as though it does.
 | Choosing the profile | **Yes**, three exist: `:local`, `:production`, `:personal` at `config/runtime.exs:92-98` | **Yes.** `TRINITY_MCP_AUTH_PROFILE` is yours to set | No |
 | Mapping a subject to an authorization decision | Scopes only, `lib/trinity/mcp/auth/scopes.ex` | **Yes.** Entitlement policy is yours | No |
 | Token revocation and session lifetime | Introspection when enabled, `config/runtime.exs:105` | **Yes** | No |
+| Authenticating a person on the web pages (IA-2) | **Yes**, since slice 136: an OpenID Connect login, `lib/trinity_web/auth/oidc.ex`; `:regulated` refuses to boot on a non-loopback bind without it, `lib/trinity/profile.ex` (`check_web_auth/3`) | **Yes.** Provide the issuer, register the client (`TRINITY_WEB_AUTH_*`), and grant the roles `view`, `approve`, `administer` in a claim the ID token carries | No |
+| Enforcing a role on each page and action (AC-3, AC-6) | **Yes.** `lib/trinity_web/auth/require_role.ex`, `lib/trinity_web/auth/policy.ex` | **Yes.** Who holds which role is your entitlement policy | No |
+| Logging the use of privileged functions (AC-6(9)) | **Yes.** Every approval and every privileged route or event is a signed receipt on the `access` chain with `sub`, `iss` and the role used, `lib/trinity_web/auth.ex` | **Yes.** Retain and review the chain | No |
+| Refusing a request whose Host is not this deployment's | **Yes.** `lib/trinity_web/plugs/host_allow_list.ex`; set `PHX_HOST` | **Yes.** Set the host your users reach | No |
+| Believing `x-forwarded-proto` | Only when `TRINITY_TRUSTED_PROXY=true`; `:regulated` refuses to boot otherwise | **Yes.** Your proxy must strip and set the header | **Yes** |
 
 ## Model
 

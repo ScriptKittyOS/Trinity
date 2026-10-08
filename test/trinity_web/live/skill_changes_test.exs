@@ -78,10 +78,16 @@ defmodule TrinityWeb.SkillChangesTest do
     applied = Staging.get(clean.id)
 
     assert applied.status == "applied" and applied.comment == "looks fine" and
-             applied.decided_by == "ui"
+             applied.decided_by == "owner (loopback)"
 
     assert has_element?(view, "#skill-proposed-skill span[title=account]", "user")
-    assert has_element?(view, "#recent-changes li", "applied create proposed-skill v1 by ui")
+
+    assert has_element?(
+             view,
+             "#recent-changes li",
+             "applied create proposed-skill v1 by owner (loopback)"
+           )
+
     assert Skills.get("proposed-skill").version == 1
   end
 

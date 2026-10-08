@@ -14,6 +14,19 @@ defmodule TrinityWeb.Router do
     plug :put_secure_browser_headers
   end
 
+  # Slice 136: every page needs a principal with `view` (TrinityWeb.Auth.Gate in the endpoint has
+  # already refused a request with none). Every route that pipes through :browser pipes through
+  # this too, except the login pages, which are the only HTML served without a principal; the
+  # route census (test/trinity_web/auth/route_census_test.exs) holds that.
+  pipeline :viewer do
+    plug TrinityWeb.Auth.RequireRole, :view
+  end
+
+  # Slice 136: the privileged routes. Each use and each refusal is receipted with the principal.
+  pipeline :administer do
+    plug TrinityWeb.Auth.RequireRole, :administer
+  end
+
   pipeline :api do
     plug :accepts, ["json"]
   end
@@ -35,11 +48,25 @@ defmodule TrinityWeb.Router do
     post "/oauth/register", OAuthController, :register
   end
 
-  # Slice 013: the chat. One local user, so no scope is fetched; the session id is the URL.
-  scope "/", TrinityWeb do
+  # Slice 136: the login (OIDC or the shared token), its callback, the logout.
+  scope "/auth", TrinityWeb do
     pipe_through :browser
 
-    live_session :chat do
+    get "/login", AuthController, :login
+    get "/callback", AuthController, :callback
+    post "/token", AuthController, :token
+    post "/logout", AuthController, :logout
+    get "/forbidden", AuthController, :forbidden
+  end
+
+  # Slice 013: the chat. The session id is the URL.
+  # Slice 136: every live route mounts through `TrinityWeb.Auth.on_mount/4`, which checks the
+  # principal on mount, on every patch and on every event (TrinityWeb.Auth.Policy names the role
+  # each event needs).
+  scope "/", TrinityWeb do
+    pipe_through [:browser, :viewer]
+
+    live_session :chat, on_mount: [{TrinityWeb.Auth, :view}] do
       live "/", SessionLive.Index, :index
       live "/s/:id", SessionLive.Show, :show
       # Slice 021: the approvals audit and the rules.
@@ -52,7 +79,6 @@ defmodule TrinityWeb.Router do
       live "/settings", SettingsLive, :index
       # Slice 100: the first-run path, reusing the settings components.
       live "/setup", SetupLive, :index
-      get "/settings/export.tar.gz", ExportController, :download
       # Slice 030: personas and the always-on memory.
       live "/personas", PersonasLive, :index
       live "/personas/:id", PersonasLive, :edit
@@ -69,6 +95,14 @@ defmodule TrinityWeb.Router do
       live "/s/:id/receipts", ReceiptsLive, :session
       live "/receipts/boot", ReceiptsLive, :boot
     end
+  end
+
+  # Slice 136: the privileged routes, `administer` and receipted.
+  scope "/", TrinityWeb do
+    pipe_through [:browser, :viewer, :administer]
+
+    # Slice 034: the export as a download; `keys=1` carries the private keys.
+    get "/settings/export.tar.gz", ExportController, :download
 
     # Slice 062: the owner's pages of the authorization flows (a session and CSRF: the consent
     # is a form the owner submits; the callback lands in the browser).
@@ -83,32 +117,32 @@ defmodule TrinityWeb.Router do
   # end
 
   # Slice 050: Oban's dashboard, in development and wherever `config :trinity, :oban_web` is
-  # set (the pages carry no authentication yet; the same rule as every other page).
+  # set. Slice 136: `administer`, by the pipeline and again on mount.
   if Application.compile_env(:trinity, :dev_routes) ||
        Application.compile_env(:trinity, :oban_web, false) do
     import Oban.Web.Router
 
     scope "/" do
-      pipe_through :browser
-      oban_dashboard("/oban", csp_nonce_assign_key: :csp_nonce)
+      pipe_through [:browser, :viewer, :administer]
+
+      oban_dashboard("/oban",
+        csp_nonce_assign_key: :csp_nonce,
+        on_mount: [{TrinityWeb.Auth, :administer}]
+      )
     end
   end
 
-  # Enable LiveDashboard in development
+  # Enable LiveDashboard in development. Slice 136: `administer`, by the pipeline and on mount.
   if Application.compile_env(:trinity, :dev_routes) do
-    # If you want to use the LiveDashboard in production, you should put
-    # it behind authentication and allow only admins to access it.
-    # If your application does not have an admins-only section yet,
-    # you can use Plug.BasicAuth to set up some basic authentication
-    # as long as you are also using SSL (which you should anyway).
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
-      pipe_through :browser
+      pipe_through [:browser, :viewer, :administer]
 
       live_dashboard "/dashboard",
         metrics: TrinityWeb.Telemetry,
         csp_nonce_assign_key: :csp_nonce,
+        on_mount: [{TrinityWeb.Auth, :administer}],
         # Slice 090: which session processes are alive and what state each machine is in.
         additional_pages: [trinity_sessions: TrinityWeb.Dashboard.SessionsPage]
     end

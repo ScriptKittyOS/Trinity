@@ -54,7 +54,12 @@ defmodule TrinityWeb.SkillsLive do
 
   def handle_event("approve_change", %{"change_id" => id} = params, socket) do
     with %{} = change <- Staging.get(id),
-         {:ok, _} <- Manager.approve(change, by: "ui", comment: blank_to_nil(params["comment"])) do
+         {:ok, _} <-
+           Manager.approve(
+             change,
+             Keyword.merge([by: "ui"], TrinityWeb.Auth.decider_opts(socket)) ++
+               [comment: blank_to_nil(params["comment"])]
+           ) do
       {:noreply,
        socket
        |> assign(showing: nil)
@@ -72,7 +77,12 @@ defmodule TrinityWeb.SkillsLive do
 
   def handle_event("reject_change", %{"id" => id} = params, socket) do
     with %{} = change <- Staging.get(id),
-         {:ok, _} <- Manager.reject(change, by: "ui", comment: blank_to_nil(params["comment"])) do
+         {:ok, _} <-
+           Manager.reject(
+             change,
+             Keyword.merge([by: "ui"], TrinityWeb.Auth.decider_opts(socket)) ++
+               [comment: blank_to_nil(params["comment"])]
+           ) do
       {:noreply,
        socket |> assign(showing: nil) |> load() |> put_flash(:info, gettext("Rejected."))}
     else
