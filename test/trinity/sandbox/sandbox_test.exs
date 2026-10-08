@@ -123,8 +123,16 @@ defmodule Trinity.SandboxTest do
     test "what survives is named rather than discovered: os.time and os.clock still work" do
       # Not a hole, and not an accident either. These reach no resource, but they are
       # non-deterministic, which matters when a script's output can reach a receipt.
-      assert {:ok, [_], _} = Sandbox.run("return os.time()")
-      assert {:ok, [_], _} = Sandbox.run("return os.clock()")
+      #
+      # SCR-378: the limit is named here, generously, and that is not a weakening. What this test
+      # asserts is that the two functions are **available**; the default wall clock it used to
+      # inherit was incidental to that, and on a loaded runner a trivial call exceeded it and the
+      # test failed for a reason it was not about. The limit's own binding is proven on its own, by
+      # "an infinite loop is killed on wall clock and the caller is told which limit bound", which
+      # passes its own `max_time_ms: 200` and asserts the refusal by value. A budget asserted in two
+      # places is a budget that gets loosened in the wrong one.
+      assert {:ok, [_], _} = Sandbox.run("return os.time()", max_time_ms: 30_000)
+      assert {:ok, [_], _} = Sandbox.run("return os.clock()", max_time_ms: 30_000)
     end
   end
 end
