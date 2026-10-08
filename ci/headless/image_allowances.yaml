@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Findings of `mix trinity.image.inspect` that the headless image carries on purpose (slice 130,
+# AC6; NOTES D-130-10). Only four kinds can be allowed: certificate, documentation, build_library
+# and private_key. A package manager, a build tool, shell history, a SUID or SGID bit, a
+# world-writable path, a distribution cookie, /etc/passwd's mode and the image's user cannot.
+#
+# `path` is a file, or a directory prefix ending in `/`. A private_key allowance names one file
+# and the SHA-256 of each PEM block in it (header to footer inclusive), so another key, or a
+# changed one, fails again. An allowance that allows nothing in the image fails as stale: when a
+# reason stops being true, the row has to go.
+---
+allowances:
+  # The operating system's trust store. openssl-libs requires ca-certificates, so the store and
+  # its READMEs arrive with the libraries the release links. Public CA certificates, which the
+  # runtime verifies model providers' TLS servers against; Iron Bank's own ubi9-micro carries the
+  # same store "for default certificates". A deployment adds its own anchors under
+  # /etc/pki/ca-trust/source/anchors.
+  - path: "/etc/pki/ca-trust/"
+    kinds: ["certificate", "documentation"]
+    reason: "the OS trust store, installed by ca-certificates, a dependency of openssl-libs"
+  - path: "/usr/share/pki/"
+    kinds: ["certificate", "documentation"]
+    reason: "the OS trust store's sources, installed by ca-certificates"
+
+  # castore's bundle of public CA certificates, a dependency of tokenizers. Slice 133 removes
+  # tokenizers from the regulated image; if castore goes with it, this row goes too.
+  - path: "/opt/trinity/lib/castore-1.0.21/priv/cacerts.pem"
+    kinds: ["certificate"]
+    reason: "public CA certificates bundled by castore, a dependency of tokenizers (release composition, slice 133)"
+
+  # jose's fixed RSA test key pair: deps/jose/src/jose_server.erl, rsa_private_key/0, which its
+  # capability probe signs with. The private half is published in jose's source; it is the same
+  # in every copy of jose and protects nothing. Iron Bank's rule names test material, so this is
+  # for the owner's AC7 review to see, not to hide.
+  - path: "/opt/trinity/lib/jose-1.11.12/ebin/jose_server.beam"
+    kinds: ["private_key"]
+    sha256: ["01bd092767f5183944bb4f93406659a6db0e9c3f89b664004eb8a07da83012bb"]
+    reason: "jose's published RSA test key pair, used by its capability probe (jose_server.erl rsa_private_key/0)"
+
+  # Build-time libraries the release carries as applications because a dependency does not mark
+  # them runtime: false. Release composition is slice 133's; these rows go when it removes them.
+  - path: "/opt/trinity/lib/rustler-0.38.0/"
+    kinds: ["build_library", "documentation"]
+    reason: "rustler, a NIF build library, carried as a release application (release composition, slice 133)"
+  - path: "/opt/trinity/lib/igniter-0.8.4"
+    kinds: ["build_library"]
+    reason: "igniter, a code generator, carried as a release application (release composition, slice 133)"
+  - path: "/opt/trinity/lib/burrito-1.6.0"
+    kinds: ["build_library"]
+    reason: "burrito, the desktop packager, carried as a release application (release composition, slice 133)"
+  - path: "/opt/trinity/lib/ex_tauri-0.2.0"
+    kinds: ["build_library"]
+    reason: "ex_tauri, the desktop shell's build library, carried as a release application (release composition, slice 133)"

@@ -16,7 +16,7 @@ covers is the half a command can answer: a single binary that boots, serves and 
 
 | Tool | Version | Pinned in | Why exactly this |
 |---|---|---|---|
-| Erlang/OTP | 28.5.0.5 | `.tool-versions` | The newest OTP whose ERTS Burrito can fetch for all four targets. See `docs/adr/0005-otp-pin-driven-by-packaging.md`. |
+| Erlang/OTP | 28.5.0.6 | `.tool-versions` | The newest OTP whose ERTS Burrito can fetch for every target (`docs/adr/0005-otp-pin-driven-by-packaging.md`). It carries CVE-2026-89422, so every outbound TLS client is held to TLS 1.2 until a daily canary moves the pin to the container images' OTP, 28.5.0.7 (`docs/adr/0014-otp-pins-split.md`). |
 | Elixir | 1.20.4-otp-28 | `.tool-versions` | |
 | Zig | **exactly** 0.16.0 | `.tool-versions` | Burrito 1.6.0 compares for equality, not a range, and exits 1 on anything else. Installed with the asdf zig plugin. |
 | Rust | 1.92.0 | `rust-toolchain.toml` | Only for the Tauri shell. **Not** `.tool-versions`: asdf here has no rust plugin and ignores such a line silently, so it would be a pin that pins nothing. `rustup` honours this file. |

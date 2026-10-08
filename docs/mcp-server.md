@@ -152,11 +152,13 @@ and serves the web pages and `/mcp`. The bearer is required on `/mcp` whatever t
 pages carry no authentication yet, which is why the default bind is the loopback and why a LAN bind
 belongs behind a reverse proxy that authenticates.
 
-A container: `ci/headless/Containerfile` builds the release on the Elixir image whose toolchain is
-the tree's and runs it on a slim Debian, the data directory on the `/data` volume:
+A container: `ci/ironbank/Dockerfile` builds the release on UBI9, with OTP from source, and runs it
+on UBI9 micro as UID 10001, the data directory on the `/data` volume. Slice 130 replaced the slice
+061 image (`ci/headless/Containerfile`, Debian) with it; `docs/regulated/headless-image.md` says how
+it is built and what is checked about it.
 
 ```
-docker build -f ci/headless/Containerfile -t trinity-headless:local .
+scripts/headless_image.sh build trinity-headless:local
 docker run --rm -p 4000:4000 -v trinity-data:/data \
   -e TRINITY_MCP_SERVER_TOKEN=<token> trinity-headless:local
 ```

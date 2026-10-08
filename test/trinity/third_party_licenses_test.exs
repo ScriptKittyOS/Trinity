@@ -98,4 +98,53 @@ defmodule ThirdPartyLicensesTest do
              "a row's licence came from nowhere nameable: #{row}"
     end
   end
+
+  describe "otp_drift/3, the one difference --check accepts (ADR-0014)" do
+    defp otp_component(name, version) do
+      hex_component(name, "Apache-2.0")
+      |> Map.merge(%{"version" => version, "group" => "erlang.otp"})
+    end
+
+    setup do
+      desktop = [otp_component("ssl", "11.6.0.5"), hex_component("jason", "Apache-2.0")]
+      container = [otp_component("ssl", "11.6.0.6"), hex_component("jason", "Apache-2.0")]
+      %{desktop: desktop, container: container}
+    end
+
+    test "OTP application versions alone may differ, on the container's OTP", c do
+      text = render(c.desktop)
+      rows = Task.rows(bom(c.container))
+      assert {:ok, ["ssl"]} = Task.otp_drift(text, rows, {"28.5.0.7", "28.5.0.6", "28.5.0.7"})
+    end
+
+    test "the same drift on the desktop's OTP fails: the file is stale there", c do
+      text = render(c.desktop)
+      rows = Task.rows(bom(c.container))
+      assert :error = Task.otp_drift(text, rows, {"28.5.0.6", "28.5.0.6", "28.5.0.7"})
+      assert :error = Task.otp_drift(text, rows, {nil, "28.5.0.6", "28.5.0.7"})
+    end
+
+    test "a difference in anything but an OTP application's version fails, on any OTP", c do
+      text = render(c.desktop)
+
+      changed = [
+        otp_component("ssl", "11.6.0.6"),
+        Map.put(hex_component("jason", "Apache-2.0"), "version", "9.9.9")
+      ]
+
+      assert :error =
+               Task.otp_drift(text, Task.rows(bom(changed)), {"28.5.0.7", "28.5.0.6", "28.5.0.7"})
+
+      relicensed = [otp_component("ssl", "11.6.0.6"), hex_component("jason", "MIT")]
+
+      assert :error =
+               Task.otp_drift(
+                 text,
+                 Task.rows(bom(relicensed)),
+                 {"28.5.0.7", "28.5.0.6", "28.5.0.7"}
+               )
+    end
+
+    defp render(components), do: components |> bom() |> Task.rows() |> Task.render()
+  end
 end

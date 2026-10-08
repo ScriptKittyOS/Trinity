@@ -50,6 +50,35 @@ file in both directories against every tool that takes a path; and the boot refu
 migration in separate operating system processes. The bind-mount case in the hardened container is
 listed for manual verification.
 
+### `slice/130`: the headless image, hardened, and checked as built
+
+The headless container is what a government program would actually run, and it was built to run
+rather than to be assessed: Debian, a package manager and `curl` in the final image, and an Erlang
+distribution listener on every interface whose cookie was baked into the image for anyone who
+pulled it. It is now built on UBI9 micro from one recipe, `ci/ironbank/Dockerfile`, which is laid
+out as an Iron Bank submission and reaches no network: every input arrives as a file with its
+digest. The image this project publishes is the same file built with its bases pinned by digest.
+
+What is claimed about the image is checked against the built image, never against its recipe. It
+runs as UID 10001 with a read-only root filesystem and distribution off. Its layers carry no
+package manager, compiler, shell history, documentation, SUID file or key material beyond what is
+allowed by name with a reason. A vulnerability scan fails on any High or Critical finding without a
+justification, and on a justification for something no longer found. Its STIG applicability
+statement is generated from OpenSCAP's evaluation of it, with every rule of the profile given a
+disposition. The scanner was chosen by measurement: of the two tried, only grype sees the Erlang
+runtime inside a release. The image is not in Iron Bank and this is not a compliance determination;
+`docs/regulated/headless-image.md` says what it is, how to check it, and what is still open.
+
+The image builds Erlang/OTP 28.5.0.7, which fixes CVE-2026-89422 (OTP's TLS 1.3 client could skip
+the server's certificate) and the other OTP advisories the scan reported; the scan now finds none in
+the runtime. The desktop cannot have that version until Burrito publishes builds of it, so the
+container and the desktop now have separate OTP pins (ADR-0014). The desktop moves to 28.5.0.6, and
+while it runs an affected OTP every outbound TLS connection Trinity makes is held to TLS 1.2, the
+advisory's own workaround. A test reads every TLS client the release contains from its compiled code
+and checks what each one offers to a server on the wire, so a dependency that would open TLS 1.3
+fails the gate. A daily job opens the pull request that moves the desktop pin once the builds exist,
+and the clamp lifts itself when it does.
+
 ### `slice/100`: Trinity as a desktop application
 
 The Tauri window now does what a desktop application is expected to do. A tray icon shows whether

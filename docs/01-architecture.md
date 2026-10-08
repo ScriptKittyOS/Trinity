@@ -13,6 +13,9 @@ Two top-level namespaces: `Trinity` (core, no web deps) and `TrinityWeb` (Phoeni
 
 ```
 Trinity.Application
+├── Trinity.TLS.Finch                             # the Finch instance Req's defaults name while the
+│                                                 # runtime's ssl carries CVE-2026-89422; first, so it
+│                                                 # runs before anything can make a request (ADR-0014)
 ├── Trinity.Repo                                  # Ecto (SQLite primary). Slice 010
 ├── {Phoenix.PubSub, name: Trinity.PubSub}        # all fan-out. Slice 010
 ├── Trinity.Telemetry                             # metrics + cost ledger. Slice 090

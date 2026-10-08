@@ -106,9 +106,16 @@ defmodule Trinity.Authority.SelectionTest do
     # /mcp, and the client's pool keeps the connection alive past its test (found on run
     # 35676874669, one ordering of the postgres job). The census asks about connections this
     # application opened, and the endpoint opened none of those.
+    #
+    # ADR-0014 (2026-10-08): Req's requests now go through `Trinity.TLS.Finch`, a Finch instance
+    # under this application's supervisor, where until then they went through `Req.Finch`, under
+    # Req's. Its pools keep a connection alive past the test that made it (another suite's request
+    # to its own loopback server), and that connection used to fall outside this census by its
+    # application alone. It is the shared HTTP client, not an authority adapter, so it stays outside.
     trinity_peers =
-      Enum.filter(peers, fn {_, _, %{app: app, initial_call: call}} ->
-        app == {:ok, :trinity} and not match?({Bandit.DelegatingHandler, _, _}, call)
+      Enum.filter(peers, fn {_, _, %{app: app, initial_call: call} = who} ->
+        app == {:ok, :trinity} and not match?({Bandit.DelegatingHandler, _, _}, call) and
+          Trinity.TLS.Finch.Supervisor not in (who.ancestors || [])
       end)
 
     for {port, peer, %{initial_call: call} = who} <- trinity_peers do

@@ -51,7 +51,7 @@ defmodule Trinity.MixProject do
       # Slice 061: the headless release. The same tree assembled as an ordinary OTP release
       # (no Burrito, no desktop shell), for a server that runs Trinity as an MCP server and
       # the web pages on a bind address it is told (`TRINITY_MODE=headless`, `TRINITY_BIND`,
-      # `PORT`; config/runtime.exs). `ci/headless/Containerfile` builds and runs it.
+      # `PORT`; config/runtime.exs). `ci/ironbank/Dockerfile` builds and runs it (slice 130).
       headless: [
         steps: [:assemble],
         include_executables_for: [:unix],
@@ -185,7 +185,7 @@ defmodule Trinity.MixProject do
         {:file_system, "~> 1.1"},
         # Slice 059: the MCP server core (ADR-0007 decision 5), reached only through the
         # Trinity.MCP boundary; the slice measures its gap, 060 and 061 build on it.
-        {:beam_mcp, "~> 0.9"},
+        {:beam_mcp, "~> 0.10.1"},
         # Slice 050: durable scheduled work. Oban's Lite engine on SQLite, the Basic engine on
         # Postgres; Oban Web is the dashboard, Apache-2.0 on hex since its 2.12 line.
         {:oban, "~> 2.24"},

@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: Sudo Apt Holdings LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# What stands between ci/ironbank/ and an Iron Bank submission (slice 130). Each entry is a hold:
+# it names its owner, the date it was opened and a lift condition someone outside the project can
+# check. `mix trinity.ironbank.lint` accepts a resource the Dockerfile copies only if the manifest
+# declares it or a hold below names it, and `mix trinity.ironbank.lint --submission` refuses while
+# this file holds anything. The owner's submission review (slice 130, AC7) runs that mode.
+---
+resources:
+  # Produced locally by `scripts/headless_image.sh stage` from the tracked files of the checkout
+  # it runs in, until a source archive is published.
+  - filename: "trinity-src.tar.gz"
+    owner: "Ayla Croft"
+    opened: "2026-10-08"
+    lift: >-
+      A source archive of the commit being submitted is published at a stable URL and declared in
+      ci/ironbank/hardening_manifest.yaml with its SHA-256, and this entry is removed.
+  # Produced locally by `mix deps.get --only prod` and a deterministic tar, until the Hex tree is
+  # declared. Iron Bank has no Hex proxy, so the tree must arrive as checksummed resources.
+  - filename: "trinity-hex-deps.tar.gz"
+    owner: "Ayla Croft"
+    opened: "2026-10-08"
+    lift: >-
+      Slice 133 has settled the regulated release's composition and the Hex tree it needs is
+      declared in ci/ironbank/hardening_manifest.yaml as checksummed resources, one per package or
+      one archive, and this entry is removed.
+
+fields:
+  - path: "maintainers[0].username"
+    owner: "Ayla Croft"
+    opened: "2026-10-08"
+    lift: >-
+      A repo1 account exists for the maintainer, its username replaces PENDING-repo1-account, and
+      a maintainer with cht_member true is named, and this entry is removed.
