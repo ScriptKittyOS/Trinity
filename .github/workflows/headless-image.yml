@@ -32,6 +32,7 @@ on:
       - mix.lock
       - config/**
       - .tool-versions
+      - ci/container.tool-versions
       - .github/workflows/headless-image.yml
   schedule:
     - cron: "17 6 * * *"

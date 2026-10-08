@@ -13,8 +13,12 @@
 #
 # What a justification here must be: facts someone else can check, with the command or file that
 # shows them. "Not exploitable" with no evidence is not one. A finding that has a fix available is
-# fixed, not justified: the OTP findings fixed in 28.5.0.7 have no rows, on purpose (slice 130
-# NOTES, D-130-9).
+# fixed, not justified: the OTP findings fixed in 28.5.0.7 never had rows, and moving the container
+# images to 28.5.0.7 fixed them (ADR-0014).
+#
+# The ERTS facts below were re-read in OTP 28.5.0.7's source on 2026-10-08, when the image moved to
+# it: `erts/emulator/pcre/pcre2.h` gives PCRE2_MAJOR 10, PCRE2_MINOR 47; the directory's 39 files
+# include no pcre2_jit_*.c and no pcre2_dfa_match.c (`tar -tzf otp_src_28.5.0.7.tar.gz`).
 ---
 justifications:
   # pcre2: inherited from ubi9-micro 9.8, whose own scan reports the same three CVEs on the same
@@ -29,7 +33,7 @@ justifications:
       no fix. The flaw is in pcre2_jit_match. In this image libpcre2-8 is linked only by the base's
       libselinux and libpcre2-posix (readelf -d over every executable and shared object); the
       Erlang runtime does not link it, and the PCRE2 copy ERTS compiles in (erts/emulator/pcre,
-      10.47) contains no JIT source (no pcre2_jit_*.c in OTP 28.5.0.5's tree).
+      10.47) contains no JIT source (no pcre2_jit_*.c in OTP 28.5.0.7's tree).
   - finding: "CVE-2026-86145"
     package: "pcre2-syntax-10.40-6.el9"
     packagePath: null
@@ -67,7 +71,7 @@ justifications:
       Inherited from the ubi9-micro 9.8 base image, which reports the same finding; Red Hat lists
       no fix. The flaw is in pcre2_dfa_match. libpcre2-8 is linked only by the base's libselinux
       and libpcre2-posix; the Erlang runtime does not link it, and ERTS's own PCRE2 10.47 copy has
-      no pcre2_dfa_match.c (erts/emulator/pcre in OTP 28.5.0.5).
+      no pcre2_dfa_match.c (erts/emulator/pcre in OTP 28.5.0.7).
   - finding: "CVE-2026-103111"
     package: "pcre2-syntax-10.40-6.el9"
     packagePath: null

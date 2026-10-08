@@ -34,9 +34,15 @@ defmodule Trinity.Application do
     # without reading anything.
     verify_regulated_configuration!()
 
+    # ADR-0014: say once whether this runtime holds its TLS clients to TLS 1.2.
+    Trinity.TLS.log_decision()
+
     children =
       desktop_children() ++
         [
+          # ADR-0014: the Finch instance Req's default options name while the runtime carries
+          # CVE-2026-89422. First, so it is running before anything can make a request.
+          Trinity.TLS.finch_child_spec(),
           TrinityWeb.Telemetry,
           # Slice 090: the Activity page's bounded buffer. Early, so it is listening before
           # anything it would want to have recorded has happened.

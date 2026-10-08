@@ -12,12 +12,12 @@ the image. It is not a STIG compliance determination for any host, and it is not
 
 | | |
 |---|---|
-| Image | trinity-headless:hardened (scripts/headless_image.sh build, 2026-10-08) |
-| Image ID | sha256:13a03661dc98472b9cbc27c653ef01f87b21ebf30aa6691334a011b88d6b8bba |
+| Image | trinity-headless:otp7 (scripts/headless_image.sh build, 2026-10-08) |
+| Image ID | sha256:1d2dcfe0fc9a62eb6b29e84ec65cd98fa4983aef771ca7a1b5616b536e298f58 |
 | Profile | `xccdf_org.ssgproject.content_profile_stig` |
 | SCAP Security Guide | 0.1.82 (`ssg-rhel9-ds.xml`) |
 | Scanner | OpenSCAP 1.3.14 |
-| Evaluated | 2026-10-08T06:49:27+00:00 |
+| Evaluated | 2026-10-08T13:42:22+00:00 |
 | Deriving commands | `scripts/stig_scan.sh IMAGE OUT`, then `mix trinity.image.stig --results OUT/stig-results.xml --out PATH --image IMAGE --digest IMAGE_ID` |
 
 477 rules selected. OpenSCAP: 2 fail, 410 notapplicable, 1 notchecked, 64 pass. Dispositions: 65 met,

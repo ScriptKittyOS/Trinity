@@ -44,8 +44,9 @@ network, playing the part of Iron Bank's prebuild step; it is not part of the su
   `openssl-libs`, which brings the CA trust store with it as `ca-certificates`), installed with
   `dnf --installroot` so the image's rpm database stays true to what is on disk. No package
   manager, compiler or shell history.
-* **Erlang/OTP 28**, built from source with FIPS support against that OpenSSL
-  (`docs/fips-leg.md`).
+* **Erlang/OTP 28**, the version `ci/container.tool-versions` names (28.5.0.7), built from source
+  with FIPS support against that OpenSSL (`docs/fips-leg.md`). The container's OTP is pinned apart
+  from the desktop's, which waits for Burrito's builds; `docs/adr/0014-otp-pins-split.md` says why.
 * **The Trinity release**, under `/opt/trinity`, owned by root and not writable at run time.
 
 It runs as UID 10001. The only path it writes is `/data` (the data directory, a volume) and `/tmp`;
@@ -121,8 +122,12 @@ of it against repo1's intake requirements, are the maintainer's.
 
 ## Known gaps, stated
 
-* **The OTP runtime has open advisories** fixed in OTP 28.5.0.7, including a Critical one in `ssl`.
-  They are not justified, so the vulnerability check fails on the image until the toolchain moves.
+* **The OTP runtime's advisories are fixed, not justified.** The image builds OTP 28.5.0.7, and
+  grype, which catalogs `erlang 28.5.0.7` from the runtime in the image, reports no advisory against
+  it. Measured on 2026-10-08 with one vulnerability database (built 2026-10-08T06:33:47Z) against both
+  images: the previous build, on 28.5.0.5, had 14 High or Critical findings in the runtime, among
+  them CVE-2026-89422 in `ssl`; this one has none. The desktop build runs an older OTP for now
+  (`docs/adr/0014-otp-pins-split.md`); this image does not depend on it.
 * **The release still carries the local embedder** (`exla` and the XLA library, `tokenizers`) and
   some build-time libraries. Removing them from the regulated image is a change to what the release
   contains, made separately; it removes resources from the manifest and rows from the allowances,
