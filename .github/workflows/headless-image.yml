@@ -114,7 +114,10 @@ jobs:
         run: |
           mkdir -p out/grype-db out/tmp
           docker save "$IMAGE" -o out/image.tar
-          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/out:/s" -e GRYPE_DB_CACHE_DIR=/s/grype-db "$GRYPE" db update
+          # TMPDIR on both runs: as a non-root user grype cannot write the image's /tmp, and the
+          # update failed on its listing file without it (run 37764956008).
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/out:/s" \
+            -e TMPDIR=/s/tmp -e GRYPE_DB_CACHE_DIR=/s/grype-db "$GRYPE" db update
           docker run --rm --network none --user "$(id -u):$(id -g)" -v "$PWD/out:/s" \
             -e TMPDIR=/s/tmp -e GRYPE_DB_CACHE_DIR=/s/grype-db \
             -e GRYPE_DB_AUTO_UPDATE=false -e GRYPE_CHECK_FOR_APP_UPDATE=false \
