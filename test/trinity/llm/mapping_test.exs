@@ -161,6 +161,52 @@ defmodule Trinity.LLM.Providers.ReqLLM.MappingTest do
     assert tool.role == :tool
   end
 
+  # Slice 071: a user message that came with images reaches req_llm as content parts, the text
+  # first, each image read from the file the gateway stored; a file that is gone is said in words.
+  test "a user message's images reach req_llm's context as image parts after the text" do
+    path = Path.join(System.tmp_dir!(), "mapping-image-#{System.unique_integer([:positive])}.jpg")
+    File.write!(path, <<0xFF, 0xD8, 0xFF, 0xE0, "pixels">>)
+    on_exit(fn -> File.rm(path) end)
+    gone = path <> ".missing"
+
+    {:ok, request} =
+      Trinity.LLM.Request.new(%{
+        messages: [
+          %{
+            role: "user",
+            content: "what is this?",
+            images: [
+              %{path: path, media_type: "image/jpeg"},
+              %{path: gone, media_type: "image/png"}
+            ]
+          }
+        ]
+      })
+
+    %ReqLLM.Context{messages: [user]} = Trinity.LLM.Providers.ReqLLM.context(request)
+
+    assert [%{type: :text, text: text}, %{type: :image, data: data, media_type: "image/jpeg"}] =
+             user.content
+
+    assert text =~ "what is this?"
+    assert text =~ "1 attached image(s) could not be read"
+    assert data == File.read!(path)
+  end
+
+  test "images on anything but a user message, or not a path and a media type, are refused" do
+    assert {:error, {:invalid_request, {:images, _}}} =
+             Trinity.LLM.Request.new(%{
+               messages: [
+                 %{role: "assistant", content: "x", images: [%{path: "a", media_type: "b"}]}
+               ]
+             })
+
+    assert {:error, {:invalid_request, {:images, _}}} =
+             Trinity.LLM.Request.new(%{
+               messages: [%{role: "user", content: "x", images: ["a.jpg"]}]
+             })
+  end
+
   describe "classify/1" do
     test "an API error with a status classifies by status" do
       assert %Error{transient?: true, status: 429} =

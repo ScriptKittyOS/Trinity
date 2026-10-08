@@ -7,6 +7,14 @@ import Config
 # are US dollars per million tokens and are the source of every recorded cost. Free-tier
 # models carry 0.0. The default model is the OpenRouter one the owner picked; the NVIDIA
 # endpoint is reached as an OpenAI-compatible base_url. Test config replaces all of this.
+# Slice 071: the default OpenRouter model takes images. llm_db's snapshot (the dependency in
+# mix.lock) lists `openrouter` / `inclusionai/ling-3.0-flash-vl:free` with input modalities
+# ["text", "image", "video"]. `:vision` is declared for that id only: a TRINITY_LIVE_MODEL naming
+# another model gets no vision until someone checks that one and says so here.
+ling_default = "inclusionai/ling-3.0-flash-vl:free"
+ling_model = System.get_env("TRINITY_LIVE_MODEL", ling_default)
+ling_vision = if ling_model == ling_default, do: [:vision], else: []
+
 config :trinity, :llm,
   default_model: "openrouter:ling",
   providers: %{req_llm: Trinity.LLM.Providers.ReqLLM},
@@ -15,11 +23,9 @@ config :trinity, :llm,
     %{
       id: "openrouter:ling",
       provider: :req_llm,
-      model:
-        "openrouter:" <>
-          System.get_env("TRINITY_LIVE_MODEL", "inclusionai/ling-3.0-flash-vl:free"),
+      model: "openrouter:" <> ling_model,
       api_key_env: "OPENROUTER_API_KEY",
-      caps: [:stream, :tools, :json],
+      caps: [:stream, :tools, :json] ++ ling_vision,
       price: %{input: 0.0, output: 0.0}
     },
     %{

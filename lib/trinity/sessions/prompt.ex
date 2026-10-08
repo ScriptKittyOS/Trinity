@@ -237,6 +237,20 @@ defmodule Trinity.Sessions.Prompt do
     end
   end
 
+  # Slice 071: a user row that came with images carries them to the request as paths and media
+  # types; whether the model sees them is the LLM layer's call, from the model's capabilities.
+  defp message(%Message{role: "user", parts: %{"images" => [_ | _] = images}, content: content}) do
+    %{
+      role: "user",
+      content: content,
+      images:
+        for(
+          %{"path" => path, "media_type" => type} <- images,
+          do: %{path: path, media_type: type}
+        )
+    }
+  end
+
   defp message(%Message{role: role, content: content}), do: %{role: role, content: content}
 
   defp tool_content(%Message{parts: parts, content: content}) do

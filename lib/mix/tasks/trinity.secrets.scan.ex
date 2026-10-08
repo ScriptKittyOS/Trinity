@@ -16,6 +16,8 @@ defmodule Mix.Tasks.Trinity.Secrets.Scan do
     {"GitHub token", ~r/\bghp_[A-Za-z0-9]{36}\b/},
     {"Slack token", ~r/\bxox[baprs]-[A-Za-z0-9-]{10,}\b/},
     {"private key block", ~r/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/},
+    # Slice 071: `<bot id>:AA<33 more>`, the shape BotFather issues.
+    {"Telegram bot token", ~r/\b[0-9]{8,10}:AA[A-Za-z0-9_-]{33}\b/},
     {"generic long secret assignment",
      ~r/(?i)\b(?:api[_-]?key|secret[_-]?key|access[_-]?token)\b\s*[:=]\s*["'][A-Za-z0-9\/+_-]{24,}["']/}
   ]

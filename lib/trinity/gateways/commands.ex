@@ -98,11 +98,15 @@ defmodule Trinity.Gateways.Commands do
 
   defp decide(command, argument, message) do
     case find_pending(argument) do
-      nil ->
+      [] ->
         "No pending approval starts with #{argument}."
 
-      approval ->
+      [approval] ->
         answer(command, approval, message)
+
+      several ->
+        "#{argument} matches #{length(several)} pending requests, so neither is decided. " <>
+          "Use the buttons, or more of the id."
     end
   end
 
@@ -133,8 +137,11 @@ defmodule Trinity.Gateways.Commands do
   defp decider(message),
     do: "gateway:" <> Adapter.name(message.adapter) <> ":" <> message.external_user_id
 
+  # Every pending request the prefix names, so an ambiguous one is refused rather than resolved to
+  # whichever came first (slice 071, finding F2: ids are UUIDv7, time-ordered, and two requests
+  # raised within the same 65 seconds share their first eight characters).
   defp find_pending(argument) do
-    Enum.find(Permissions.pending(:all), &String.starts_with?(&1.id, argument))
+    Enum.filter(Permissions.pending(:all), &String.starts_with?(&1.id, argument))
   end
 
   # `/new` forgets the binding; the next message creates a session as a first message does.

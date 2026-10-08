@@ -373,6 +373,52 @@ click can send the window only to a path of this app, never to a URL.
   hole shaped exactly like the thing the cap exists for. `Trinity.Gateways.Cap` applies the ceiling to every
   adapter, `Console` included, and an unknown tier is refused rather than waved through.
 
+- **Corrected at 071: the pairing prompt no longer carries the code.** Until slice 071 the prompt an
+  unknown sender received named the code it asked them to send back, so the "shown on `/gateways`
+  and nowhere else" above was not true of the code: anyone who could write to a channel could pair
+  by echoing the prompt. On the console that channel is the machine's own terminal; on a messaging
+  platform it is anyone who finds the bot. The prompt now says where the code is and never what it
+  is, and 070's test asserts the opposite of what it asserted before.
+- **Corrected at 071: an ambiguous approval id is refused.** Approval ids are UUIDv7, so the
+  eight-character short form a channel shows is the same for every request raised within the same
+  65 seconds, and `/approve <short>` decided whichever pending request came first. A prefix that
+  names more than one pending request is now refused and neither is decided; buttons carry the full
+  id.
+
+### Telegram (Slice 071, as built)
+
+- **The token** is `TELEGRAM_BOT_TOKEN`, read through `Trinity.Config.secret/1` at each Bot API call
+  and held in no process's state. The Bot API puts it in the URL path, so nothing the adapter returns
+  or logs is built from a URL or an exception's message: errors carry Telegram's own code and
+  description or the transport's reason atom. The log filter (`Trinity.Telemetry.Redaction`) masks
+  the token's shape as a last line, and the secret scanner refuses one in the tree.
+- **Inbound is the router's, as for every adapter.** Private chats are read; in a group, only a
+  message that mentions the bot, replies to it, or is a command addressed to it. Bots and channels
+  are ignored. Each sender is an identity of their own and pairs for themselves.
+- **Images are fetched only for an admitted sender.** The adapter hands the router a function that
+  downloads the image; the router calls it after the pairing check and the rate limit, and never for
+  a command, so a stranger's photo is not downloaded. An image is refused above a size limit (10 MB by
+  default) and when its first bytes are not the format it claims; a stored image is named by its
+  SHA-256 digest under the data directory, and the user row records its path, media type, digest
+  and origin. It reaches the model as an image only when the model's registry entry declares
+  `:vision`; otherwise the model is told an image was attached and is not sent it.
+- **Approval buttons are text.** A button carries `/approve <id>` or `/deny <id>` with the request's
+  full id, and a press is routed as that text from the person who pressed it: identity, rate limit,
+  channel cap and gate all apply as they do to a typed command, so a forged press can say nothing its
+  sender could not type. A request above the channel's ceiling is rendered with no buttons, only where
+  to decide it. Callback data that is not one of the two commands is acknowledged and ignored.
+- **Updates are processed at most once.** The `getUpdates` offset is written to the data directory
+  before an update is routed, so a restarted poller never processes one twice; the cost is that a
+  crash between the write and the routing loses that one message.
+- **What crosses to Telegram.** The conversation's text in both directions (the person's messages,
+  Trinity's answers, command answers), approval requests (tool name, risk tier and a summary of the
+  arguments, each value cut to 40 characters), the pairing prompt (which carries no code), and scheduled
+  run summaries addressed to a chat. Images go one way only, from Telegram to this machine. Nothing is
+  hashed on the way out: Telegram is the channel, and a person reads it there. This is why a
+  regulated node refuses the adapter unless `TRINITY_REGULATED_GATEWAYS` names it.
+- **Not built:** webhook mode (an inbound HTTPS route whose only credential is a header, worth a
+  review of its own), sending images, voice notes and stickers.
+
 ## Effects and receipts (Slice 024, as built)
 
 The runner in force is `Trinity.Effects.Runner`. For every validated call it asks the gate once and writes a

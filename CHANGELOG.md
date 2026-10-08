@@ -22,6 +22,30 @@ evidence for each increment is retained by the maintainers and summarised here.
   tree, engineering rules consolidated into `docs/03-conventions.md`, and this changelog added as
   the public record of delivered work.
 
+### `slice/071`: Trinity answers on Telegram
+
+A Telegram bot is now a channel Trinity can be reached from, alongside the console. It answers in
+private chats and in groups where it is mentioned or replied to, streams its answer by editing one
+message no more than once a second, converts the model's markdown to Telegram's strict MarkdownV2
+so a half-written answer never fails to send, offers approvals as Approve and Deny buttons within the
+channel's existing cap, and passes a photo to a model that declares it can see images. A restarted
+bot does not process the same message twice: where it is up to is written to disk before a message
+is handled. It is off until named (`TRINITY_GATEWAYS=telegram`) and given a token
+(`TELEGRAM_BOT_TOKEN`); the application now starts the gateways it is configured with.
+
+No Telegram library is used. Both candidates were measured: one cannot be pinned under this
+project's version rule, and the other keeps its polling position in memory and cannot be pointed at a
+test server. The Bot API is a handful of JSON calls over the HTTP client the project already uses.
+
+Two defects in the gateway core were found and fixed on the way. The pairing prompt told an unknown
+sender the very code it asked them to prove they could read on the desktop, which on a public
+platform would let anyone pair; it now says only where the code is. And the short approval id a
+channel shows was shared by every request raised in the same minute, so typing it decided whichever
+came first; an ambiguous id is now refused, and buttons carry the full id.
+
+The live checks (a real bot, a real phone, a vision model, a scheduled delivery) are listed for the
+maintainer to run; everything else runs in the suite against a fake Bot API with no network.
+
 ## 2026-10-08
 
 ### `slice/100`: Trinity as a desktop application

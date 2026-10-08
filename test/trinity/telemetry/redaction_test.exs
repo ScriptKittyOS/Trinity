@@ -36,6 +36,22 @@ defmodule Trinity.Telemetry.RedactionTest do
       refute Redaction.redact("token=#{jwt}") =~ "dBjftJeZ4CVPmB92K27uhbUJU1p1r_wW1g"
     end
 
+    # Slice 071: the Bot API puts the token in the URL path, `/bot<id>:<secret>/<method>`, where no
+    # prefix or key name announces it. The shape is the bot's numeric id, a colon, and the secret.
+    test "a Telegram bot token, alone or inside a Bot API URL" do
+      token = "071000001:TEST_fake_token_for_the_suite_only"
+
+      for line <- [
+            "token #{token}",
+            "POST https://api.telegram.org/bot#{token}/getUpdates failed",
+            "GET /file/bot#{token}/photos/a.jpg"
+          ] do
+        out = Redaction.redact(line)
+        refute out =~ "TEST_fake_token_for_the_suite_only", "not masked: #{line} -> #{out}"
+        assert out =~ "[REDACTED"
+      end
+    end
+
     test "a named secret in a key/value position" do
       for line <- [
             "password: hunter2-and-then-some",

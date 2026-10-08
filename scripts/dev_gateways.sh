@@ -31,8 +31,9 @@ end
 Logger.configure(level: :warning)
 
 alias Trinity.Gateways.{Console, Identities, Router}
-{:ok, _} = Console.start_link([])
-{:ok, _} = Router.start_link([])
+# Slice 071: the application starts the configured gateways itself (Trinity.Gateways.Supervisor),
+# so the router and the console are already running here.
+true = is_pid(Process.whereis(Console)) and is_pid(Process.whereis(Router))
 
 # The fake provider answers, so the transcript is a real turn without a key.
 Trinity.LLM.Providers.Fake.scripts([

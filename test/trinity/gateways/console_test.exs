@@ -17,7 +17,9 @@ defmodule Trinity.Gateways.ConsoleTest do
   end
 
   test "it implements every callback the behaviour declares" do
-    callbacks = Adapter.behaviour_info(:callbacks) |> Enum.sort()
+    # Optional callbacks (slice 071's `status/0`) are the adapter's to offer, not to owe.
+    optional = Adapter.behaviour_info(:optional_callbacks)
+    callbacks = (Adapter.behaviour_info(:callbacks) -- optional) |> Enum.sort()
     exported = Console.__info__(:functions)
 
     for {name, arity} <- callbacks do

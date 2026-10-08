@@ -34,11 +34,24 @@ defmodule Trinity.Gateways.Adapter do
   @typedoc """
   What the router asks an adapter to do. `{:edit, ref, text}` carries the reference the adapter
   returned when it sent the message being replaced; an adapter without `edits` never receives one.
+  `{:message, text, buttons}` (slice 071) is a message with buttons, each a label and the command
+  text a press sends back; only an adapter whose `render_approval/2` returned one receives it.
   """
   @type outbound ::
           {:message, String.t()}
+          | {:message, String.t(), [button()]}
           | {:edit, reference_id(), String.t()}
           | {:typing, boolean()}
+
+  @typedoc """
+  A button: what it says, and the text a press sends back through the router as if typed
+  (slice 071). A press is routed like any other inbound text, so a button can do nothing its
+  presser could not have typed.
+  """
+  @type button :: {label :: String.t(), command :: String.t()}
+
+  @typedoc "What `/gateways` shows beside an adapter that reports more than whether it runs."
+  @type status :: %{state: atom(), detail: String.t()}
 
   @typedoc "Whatever the adapter uses to name a message it sent, opaque to the router."
   @type reference_id :: term()
@@ -78,4 +91,12 @@ defmodule Trinity.Gateways.Adapter do
   channel without buttons still has to be able to answer.
   """
   @callback render_approval(Approval.t(), capabilities()) :: outbound()
+
+  @doc """
+  What the adapter is doing, for `/gateways` (slice 071): connected as whom, idle and why, or the
+  last error. Optional; an adapter without it is shown as running or not.
+  """
+  @callback status() :: status()
+
+  @optional_callbacks status: 0
 end

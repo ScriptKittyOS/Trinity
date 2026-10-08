@@ -109,6 +109,21 @@ if config_env() != :test and auth_profile not in [nil, ""] do
     client_metadata_url: present.("TRINITY_MCP_AUTH_CLIENT_METADATA_URL")
 end
 
+# Slice 071: which gateways run. `TRINITY_GATEWAYS=telegram` (comma separated) names adapters from
+# `config :trinity, :gateways, available:` by name; `Trinity.Gateways.adapters/0` matches them, so
+# a name that is not available matches nothing and mints no atom. Unset, no gateway runs. The
+# suite configures its own and never reads this.
+if config_env() != :test do
+  case System.get_env("TRINITY_GATEWAYS") do
+    names when names in [nil, ""] ->
+      :ok
+
+    names ->
+      config :trinity, :gateways,
+        enabled: names |> String.split(",", trim: true) |> Enum.map(&String.trim/1)
+  end
+end
+
 # Slice 013. `TRINITY_FAKE_PROVIDER=1 mix phx.server` runs the chat on the scripted provider:
 # the registry becomes the fake's two entries and a fresh stream answers with its markdown
 # demo, so the UI can be exercised and screenshotted with no key and no egress. Development

@@ -212,10 +212,19 @@ defmodule Trinity.Sessions do
     end
   end
 
-  @doc "Persists the user's message and starts a turn; refuses while a turn is in flight."
-  @spec send_user_message(session_id(), String.t()) :: {:ok, Message.t()} | {:error, term()}
-  def send_user_message(session_id, content) do
-    with {:ok, pid} <- ensure_started(session_id), do: Session.send_user_message(pid, content)
+  @doc """
+  Persists the user's message and starts a turn; refuses while a turn is in flight.
+
+  `images:` (slice 071) is a list of image parts that came with the message, each a map with
+  `"path"`, `"media_type"`, `"digest"`, `"bytes"` and `"origin"`. They are stored in the row's
+  `parts` and reach the model as images when its registry entry declares `:vision`, and as a
+  sentence saying an image was attached when it does not (`Trinity.LLM.Request.fit_images/2`).
+  """
+  @spec send_user_message(session_id(), String.t(), keyword()) ::
+          {:ok, Message.t()} | {:error, term()}
+  def send_user_message(session_id, content, opts \\ []) do
+    with {:ok, pid} <- ensure_started(session_id),
+         do: Session.send_user_message(pid, content, opts)
   end
 
   @doc "Stops the turn in flight, persisting what arrived as interrupted."
