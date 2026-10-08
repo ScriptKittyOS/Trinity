@@ -35,7 +35,7 @@ not a status word doing work the facts do not support.
 
 ### Measured, and it does resolve part of the question
 
-**`ex_tauri` 0.2.0 runs on the pinned toolchain.** ADR-0005 pins OTP 28.5.0.5 and `ex_tauri`
+**`ex_tauri` 0.2.0 runs on the pinned toolchain.** ADR-0005 pins OTP 28.5.0.5 (the desktop moved to 28.5.0.6 on 2026-10-08, ADR-0014) and `ex_tauri`
 declares `otp_release: "~> 27.0"`, which read like a refusal. It is not one. That key is
 declarative metadata — Mix enforces `:elixir` as a version requirement and has no built-in
 `:otp_release` enforcement — and the behaviour lives in a runtime check on
