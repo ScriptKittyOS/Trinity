@@ -31,6 +31,7 @@ defmodule Trinity.Profile do
 
   @env "TRINITY_PROFILE"
   @endpoints_env "TRINITY_REGULATED_LLM_ENDPOINTS"
+  @gateways_env "TRINITY_REGULATED_GATEWAYS"
 
   @doc """
   The profile in force: `#{@env}`, else `config :trinity, :profile`, else `:default`.
@@ -61,6 +62,14 @@ defmodule Trinity.Profile do
   @doc "The name of the endpoint allow-list variable, so an error message and a test agree on it."
   @spec endpoints_env() :: String.t()
   def endpoints_env, do: @endpoints_env
+
+  @doc "The raw value of `#{@gateways_env}`, unparsed."
+  @spec raw_gateways() :: String.t() | nil
+  def raw_gateways, do: System.get_env(@gateways_env)
+
+  @doc "The name of the gateway allow-list variable."
+  @spec gateways_env() :: String.t()
+  def gateways_env, do: @gateways_env
 
   @doc """
   AC1. Under `:regulated` the MCP authorization profile must be `:production`.
@@ -126,6 +135,71 @@ defmodule Trinity.Profile do
 
   def check_receipts(:regulated, {:error, reason}),
     do: {:error, {:regulated_requires_receipts, reason}}
+
+  @doc """
+  Under `:regulated` every configured gateway adapter must be named on the allow-list.
+
+  A gateway carries conversation text to somewhere that is not this host. The profile already
+  refuses a model endpoint that is not named, and a chat channel is the same kind of egress with
+  the same contents, so it is held to the same rule rather than to a weaker one.
+
+  **This is not a ban on gateways.** An authorizable channel exists: Mattermost runs at IL4, IL5
+  and IL6, holds a Certificate to Field under Platform One's continuous ATO, authenticates with CAC
+  through SAML, and offers the interactive dialogs an approval round-trip needs. Refusing every
+  gateway would forbid what the deployment target itself runs. What the profile refuses is an
+  **unnamed** one, which is how a consumer cloud gets in by accident.
+
+  `adapters` is `config :trinity, :gateways`'s `:adapters` list, and `raw` is `#{@gateways_env}`, a
+  comma separated list of module names with or without the `Elixir.` prefix.
+
+  **No gateway configured needs no allow-list.** A regulated node that reaches nothing does not
+  have to name what it may reach; requiring the variable there would make every operator set one
+  they do not use, which is how a variable becomes a formality.
+  """
+  @spec check_gateways(t(), String.t() | nil, [module()]) :: :ok | {:error, term()}
+  def check_gateways(:default, _raw, _adapters), do: :ok
+  def check_gateways(:regulated, _raw, []), do: :ok
+
+  def check_gateways(:regulated, raw, _adapters) when raw in [nil, ""],
+    do: {:error, {:regulated_gateways_unset, @gateways_env}}
+
+  def check_gateways(:regulated, raw, adapters) do
+    case allowed_gateways(raw) do
+      [] ->
+        {:error, {:regulated_gateways_unset, @gateways_env}}
+
+      allowed ->
+        Enum.reduce_while(adapters, :ok, &first_unlisted(&1, &2, allowed))
+    end
+  end
+
+  defp first_unlisted(adapter, :ok, allowed) do
+    if module_name(adapter) in allowed,
+      do: {:cont, :ok},
+      else: {:halt, {:error, {:regulated_gateway_not_allowed, adapter}}}
+  end
+
+  @doc """
+  Parses the gateway allow-list into module names, normalised so that `Foo.Bar` and `Elixir.Foo.Bar`
+  are the same entry. Nothing is resolved to an atom: a name that matches no loaded module simply
+  matches no configured adapter.
+  """
+  @spec allowed_gateways(String.t() | nil) :: [String.t()]
+  def allowed_gateways(nil), do: []
+
+  def allowed_gateways(raw) when is_binary(raw) do
+    raw
+    |> String.split(",", trim: true)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.map(&strip_elixir_prefix/1)
+  end
+
+  defp module_name(module) when is_atom(module),
+    do: module |> Atom.to_string() |> strip_elixir_prefix()
+
+  defp strip_elixir_prefix("Elixir." <> rest), do: rest
+  defp strip_elixir_prefix(name), do: name
 
   @doc """
   AC3. Under `:regulated` every configured model must name an endpoint on the allow-list.
