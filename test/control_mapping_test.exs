@@ -312,6 +312,21 @@ defmodule Trinity.ControlMappingTest do
       assert CM.uncited(refusals, CM.cited_checks(rows()).funs, "regulated refusal") == []
     end
 
+    # Slice 137: the boot refusals every profile makes on the runtime, and the ML-DSA-87
+    # known-answer check a regulated receipts signer refuses on, are enumerated from the modules
+    # rather than listed, so a new check that no row cites fails here.
+    test "every runtime refusal and the ML-DSA-87 known-answer check" do
+      checks =
+        for {fun, arity} <- Trinity.Toolchain.__info__(:functions),
+            String.starts_with?(Atom.to_string(fun), "check_"),
+            do: "Trinity.Toolchain.#{fun}/#{arity}"
+
+      checks = checks ++ ["Trinity.Crypto.Preflight.mldsa87/1"]
+
+      assert length(checks) >= 3
+      assert CM.uncited(checks, CM.cited_checks(rows()).funs, "runtime refusal") == []
+    end
+
     test "every census in the tree" do
       {out, 0} = System.cmd("git", ["ls-files", "test/*census*_test.exs"])
       censuses = String.split(out, "\n", trim: true)

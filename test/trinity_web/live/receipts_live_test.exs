@@ -71,6 +71,9 @@ defmodule TrinityWeb.ReceiptsLiveTest do
     assert html =~ boot.subject["signer"]["key_id"]
     assert html =~ boot.meta["core_policy_hash"]
     assert html =~ boot.receipt_hash
+    # Slice 137 AC8: the runtime and the ML-DSA-87 check are on the page.
+    assert html =~ boot.subject["erts"]
+    assert html =~ boot.subject["mldsa87_preflight"]
     html = view |> element("#verify") |> render_click()
     assert html =~ "verified: "
     assert html =~ "exit 0"

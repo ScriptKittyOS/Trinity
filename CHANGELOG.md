@@ -22,6 +22,31 @@ evidence for each increment is retained by the maintainers and summarised here.
   tree, engineering rules consolidated into `docs/03-conventions.md`, and this changelog added as
   the public record of delivered work.
 
+### `slice/137`: Trinity refuses a runtime it should not trust
+
+A node now refuses to start, before anything else runs, on an Erlang runtime that still carries
+CVE-2026-55737 (heap corruption when a malformed external term is decoded) or on Elixir older than
+1.20.x. The floor is the release that fixed it on each Erlang/OTP line (27.3.4.15, 28.5.0.4,
+29.0.4), whose rows of Erlang/OTP's own version table are checked in verbatim: the runtime and every
+loaded Erlang/OTP application, ssl and crypto among them, are compared with that release's
+versions. Every pinned build is above it; a release copied onto an older runtime is what it stops.
+
+Whether ML-DSA-87 can be used is now answered by doing it at boot, against published answers (a
+NIST key-generation case and three Wycheproof verification cases) and then with a fresh key,
+rather than by asking whether the runtime lists the algorithm.
+Erlang/OTP lists no ML-DSA type in FIPS mode whatever the cryptographic provider can do, so the
+listing would have told a FIPS node with a capable provider that it could not sign. A regulated
+node configured to sign receipts with ML-DSA-87 that fails the check refuses to boot and says
+which step failed; a default node keeps running with effects denied, as it does for any signer
+fault. The boot receipt records the runtime's erts and Elixir versions and the check's answer.
+ML-DSA-87 receipt keys made by Erlang/OTP 28.5.0.8, which returns the private key in a different
+shape from earlier releases, no longer stop the node from starting.
+
+Verified by the test suite: a real boot on Erlang/OTP 28.5.0.3, the release before the fix,
+refusing in its own operating system process; the floor at every boundary and a property over
+generated versions; every step of the ML-DSA-87 check failing by name; and, on the FIPS image with
+the mode off, the planted failures against the real cryptographic library.
+
 ## 2026-10-08
 
 ### `slice/136`: the web pages ask who is there

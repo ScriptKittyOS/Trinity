@@ -138,7 +138,8 @@ defmodule Trinity.Receipts.KeyCustody do
   @doc """
   The algorithm the rules select on this runtime: the configured one when it is available,
   else P-384 in FIPS mode, else Ed25519; `{:error, :no_approved_signer}` when the selected
-  implementation reports itself unavailable.
+  implementation reports itself unavailable, and for ML-DSA-87 the known-answer check's own
+  `{:mldsa87_preflight_failed, step, reason}` (slice 137).
   """
   @spec select() :: {:ok, Signer.algorithm()} | {:error, term()}
   def select do
@@ -151,9 +152,21 @@ defmodule Trinity.Receipts.KeyCustody do
         true -> :ed25519
       end
 
-    if Signer.impl(algorithm).available?(),
-      do: {:ok, algorithm},
-      else: {:error, {:no_approved_signer, algorithm, :crypto.info_fips()}}
+    cond do
+      # Slice 137: for ML-DSA-87 the reason names the known-answer step that failed, so a refused
+      # regulated boot says which operation the runtime could not do.
+      algorithm == :mldsa87 ->
+        case Trinity.Crypto.Preflight.mldsa87() do
+          :ok -> {:ok, algorithm}
+          {:error, reason} -> {:error, reason}
+        end
+
+      Signer.impl(algorithm).available?() ->
+        {:ok, algorithm}
+
+      true ->
+        {:error, {:no_approved_signer, algorithm, :crypto.info_fips()}}
+    end
   end
 
   @doc "Signs the PAE bytes with the selected key, read from its file at this call."

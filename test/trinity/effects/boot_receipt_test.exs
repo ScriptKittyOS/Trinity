@@ -35,6 +35,30 @@ defmodule Trinity.Effects.BootReceiptTest do
     assert n >= 1
   end
 
+  # Slice 137 AC8: the runtime the floor was checked against, and the ML-DSA-87 known-answer
+  # check's answer at this boot, are in the signed subject, and the chain still verifies.
+  test "the boot receipt records erts, Elixir and the ML-DSA-87 check, signed" do
+    r = Receipts.boot_receipt()
+    %{erts: erts, elixir: elixir} = Trinity.Toolchain.current()
+
+    want =
+      case Trinity.Crypto.Preflight.mldsa87() do
+        :ok -> "ok"
+        {:error, {:mldsa87_preflight_failed, step, _}} -> "failed:#{step}"
+      end
+
+    body = JSON.decode!(r.signed_payload)
+
+    for {key, value} <- [{"erts", erts}, {"elixir", elixir}, {"mldsa87_preflight", want}] do
+      assert r.subject[key] == value, key
+      assert body["subject"][key] == value, "#{key} is not in the signed body"
+    end
+
+    {:ok, export} = Receipts.export("boot")
+    assert {:ok, %{receipts: n}} = Receipts.Verifier.verify(export)
+    assert n >= 1
+  end
+
   test "the list covers the modules that decide" do
     for m <- [
           Trinity.Permissions.Policy.Layered,
