@@ -366,18 +366,6 @@ jobs:
             exit 1
           fi
 
-      # Slice 137, AC5 and AC7: ML-DSA-87 with the mode off. This image links OpenSSL 3.5, the only
-      # runtime in CI that signs ML-DSA-87 (the gate runners link 3.0; in the mode, Red Hat's
-      # provider refuses it), so the ML-DSA-87 path runs here end to end: the planted-step cases,
-      # a regulated node that boots with ML-DSA-87 receipts and whose boot receipt verifies, and the
-      # signer's key shapes. TRINITY_REQUIRE_MLDSA87_RUNTIME makes test_helper raise if the runtime
-      # cannot sign, rather than excluding the cases it came to run.
-      - name: ML-DSA-87 end to end (FIPS mode off)
-        env:
-          ERL_AFLAGS: "-eval application:load(crypto)"
-          TRINITY_REQUIRE_MLDSA87_RUNTIME: "1"
-        run: mix test test/trinity/crypto/preflight_test.exs test/trinity/toolchain_node_test.exs test/trinity/receipts/signer_test.exs
-
       - run: mix gate
 
       # AC2 and AC3 by test name with this run's id in the log, and AC5's coverage line for
@@ -387,3 +375,23 @@ jobs:
         run: |
           mix test --trace test/fips
           mix test --cover | grep -E 'Result:|\| *Total'
+
+      # Slice 137, AC5 and AC7: ML-DSA-87 with the mode off. This image links OpenSSL 3.5, the only
+      # runtime in CI that signs ML-DSA-87 (the gate runners link 3.0; in the mode, Red Hat's
+      # provider refuses it), so the ML-DSA-87 path runs here end to end: the planted-step cases,
+      # a regulated node that boots with ML-DSA-87 receipts and whose boot receipt verifies, and the
+      # signer's key shapes. TRINITY_REQUIRE_MLDSA87_RUNTIME makes test_helper raise if the runtime
+      # cannot sign, rather than excluding the cases it came to run.
+      #
+      # It runs last, from a fresh suite state. The suite keeps its receipt keys in tmp/test_keys
+      # and its receipts in trinity_test_receipts.db across runs, so a run with the mode off leaves
+      # Ed25519 and ML-DSA-87 keys and rows that the mode refuses to verify. Run before `mix gate`,
+      # it turned five of the gate's tests red on PR #132 (`:notsup`, "Unsupported algorithm in
+      # FIPS mode"; three receipt keys in one export). Nothing in the mode runs after this step.
+      - name: ML-DSA-87 end to end (FIPS mode off)
+        env:
+          ERL_AFLAGS: "-eval application:load(crypto)"
+          TRINITY_REQUIRE_MLDSA87_RUNTIME: "1"
+        run: |
+          rm -rf tmp trinity_test.db* trinity_test_receipts.db*
+          mix test test/trinity/crypto/preflight_test.exs test/trinity/toolchain_node_test.exs test/trinity/receipts/signer_test.exs
