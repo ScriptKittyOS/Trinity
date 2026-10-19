@@ -35,6 +35,19 @@ jobs:
         with:
           version-file: .tool-versions
           version-type: strict
+          install-hex: false
+
+      # Hex is pinned to the archive the image pins (ci/ironbank/hardening_manifest.yaml), by the
+      # SHA-512 builds.hex.pm publishes for it in installs/hex.csv. setup-beam's own install takes
+      # the newest Hex, and the bill of materials names the running Hex, so a Hex release turned
+      # `trinity.third_party_licenses --check` red on every branch (2.5.3, 2026-10-14) while
+      # nothing in the tree had changed.
+      - name: Hex 2.5.1, pinned as the image pins it
+        run: |
+          curl -fsSL -o /tmp/hex-2.5.1-otp-28.ez https://builds.hex.pm/installs/1.20.0/hex-2.5.1-otp-28.ez
+          echo "690f12f6933088bb32f1d7125485fb13426318c03cfeabcbd3cce55824cddf2a701104b09b7f4cd7092fe7f76d5b669e391a072428ec4526879b36f62820ae5d  /tmp/hex-2.5.1-otp-28.ez" | sha512sum -c -
+          mix archive.install /tmp/hex-2.5.1-otp-28.ez --force
+          mix hex.info | head -1
 
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
@@ -138,6 +151,19 @@ jobs:
         with:
           version-file: .tool-versions
           version-type: strict
+          install-hex: false
+
+      # Hex is pinned to the archive the image pins (ci/ironbank/hardening_manifest.yaml), by the
+      # SHA-512 builds.hex.pm publishes for it in installs/hex.csv. setup-beam's own install takes
+      # the newest Hex, and the bill of materials names the running Hex, so a Hex release turned
+      # `trinity.third_party_licenses --check` red on every branch (2.5.3, 2026-10-14) while
+      # nothing in the tree had changed.
+      - name: Hex 2.5.1, pinned as the image pins it
+        run: |
+          curl -fsSL -o /tmp/hex-2.5.1-otp-28.ez https://builds.hex.pm/installs/1.20.0/hex-2.5.1-otp-28.ez
+          echo "690f12f6933088bb32f1d7125485fb13426318c03cfeabcbd3cce55824cddf2a701104b09b7f4cd7092fe7f76d5b669e391a072428ec4526879b36f62820ae5d  /tmp/hex-2.5.1-otp-28.ez" | sha512sum -c -
+          mix archive.install /tmp/hex-2.5.1-otp-28.ez --force
+          mix hex.info | head -1
 
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:

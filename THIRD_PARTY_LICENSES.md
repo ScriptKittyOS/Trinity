@@ -22,7 +22,7 @@ it, and a reader should not infer from an entry here that the component is in a 
 | `abnf_parsec` | `2.1.0` | MIT | bom |
 | `asn1` | `5.4.3` | Apache-2.0 | bom |
 | `axon` | `0.8.1` | Apache-2.0 | bom |
-| `bandit` | `1.12.5` | MIT | bom |
+| `bandit` | `1.13.1` | MIT | bom |
 | `beam_mcp` | `0.10.1` | Apache-2.0 | bom |
 | `boundary` | `0.10.4` | MIT | bom |
 | `bumblebee` | `0.7.1` | Apache-2.0 | bom |
@@ -36,7 +36,7 @@ it, and a reader should not infer from an entry here that the component is in a 
 | `crypto` | `5.8.3.3` | Apache-2.0 | bom |
 | `daisyui` | `22ecff57f2c3` | MIT | declared |
 | `db_connection` | `2.10.2` | Apache-2.0 | bom |
-| `decimal` | `3.1.1` | Apache-2.0 | bom |
+| `decimal` | `3.2.0` | Apache-2.0 | bom |
 | `dns_cluster` | `0.2.0` | MIT | bom |
 | `dotenvy` | `1.2.1` | Apache-2.0 | bom |
 | `earmark_parser` | `1.4.46` | Apache-2.0 | bom |
@@ -62,7 +62,7 @@ it, and a reader should not infer from an entry here that the component is in a 
 | `glob_ex` | `0.1.12` | MIT | bom |
 | `heroicons` | `0435d4ca364a` | MIT | declared |
 | `hex` | `2.5.1` | Apache-2.0 | bom |
-| `hex_core` | `0.19.0` | Apache-2.0 | bom |
+| `hex_core` | `0.20.1` | Apache-2.0 | bom |
 | `hpax` | `1.1.0` | Apache-2.0 | bom |
 | `idna` | `7.1.0` | MIT | bom |
 | `igniter` | `0.8.4` | MIT | bom |
@@ -114,7 +114,7 @@ it, and a reader should not infer from an entry here that the component is in a 
 | `plug_crypto` | `2.2.0` | Apache-2.0 | bom |
 | `polaris` | `0.1.0` | Apache-2.0 | bom |
 | `postgrex` | `0.22.4` | Apache-2.0 | bom |
-| `protobuf` | `0.17.0` | MIT | bom |
+| `protobuf` | `0.17.1` | MIT | bom |
 | `public_key` | `1.20.3.4` | Apache-2.0 | bom |
 | `purl` | `0.5.0` | Apache-2.0 | bom |
 | `req` | `0.7.4` | Apache-2.0 | bom |
@@ -125,7 +125,7 @@ it, and a reader should not infer from an entry here that the component is in a 
 | `rustler_precompiled` | `0.9.0` | Apache-2.0 | bom |
 | `safetensors` | `0.1.3` | Apache-2.0 | bom |
 | `sasl` | `4.3.2` | Apache-2.0 | bom |
-| `sbom` | `0.11.0` | BSD-3-Clause AND CC0-1.0 AND MIT AND Apache-2.0 | bom |
+| `sbom` | `0.12.0` | BSD-3-Clause AND CC0-1.0 AND MIT AND Apache-2.0 | bom |
 | `server_sent_events` | `1.1.0` | MIT | bom |
 | `sobelow` | `0.15.0` | Apache-2.0 | bom |
 | `sourceror` | `1.12.3` | Apache-2.0 | bom |
@@ -142,7 +142,7 @@ it, and a reader should not infer from an entry here that the component is in a 
 | `telemetry_registry` | `0.3.2` | Apache-2.0 | bom |
 | `text_diff` | `0.1.0` | MIT | bom |
 | `texture` | `1.2.1` | Apache-2.0 | bom |
-| `thousand_island` | `1.5.0` | MIT | bom |
+| `thousand_island` | `1.6.0` | MIT | bom |
 | `tokenizers` | `0.5.1` | Apache-2.0 | bom |
 | `toml` | `0.7.0` | Apache-2.0 | bom |
 | `typed_struct` | `0.3.0` | MIT | bom |

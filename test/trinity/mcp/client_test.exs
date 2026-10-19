@@ -78,6 +78,14 @@ defmodule Trinity.MCP.ClientTest do
   end
 
   test "AC6: the server dies: the tools are unregistered; it is restarted with backoff; the tools are registered again" do
+    # The client is :down only for the backoff before its reconnect, and `await/3` polls every
+    # 50 ms. With the suite's 50 ms backoff (config/test.exs) the window was one poll wide, so a
+    # quick reconnect passed through :down and :connecting unseen and every later poll read
+    # :ready: the postgres job failed this way on 2026-10-19, and a 1 ms backoff reproduces it
+    # three times in three. A 1 s backoff holds :down for twenty polls; what is asserted is the same.
+    prev = Application.get_env(:trinity, :mcp_client, [])
+    Application.put_env(:trinity, :mcp_client, Keyword.put(prev, :backoff_ms, 1_000))
+    on_exit(fn -> Application.put_env(:trinity, :mcp_client, prev) end)
     start!("r", :modern)
     %{transport_os_pid: os_pid} = await("r", :ready)
     assert {:ok, _} = Tools.lookup("mcp:r:echo")
