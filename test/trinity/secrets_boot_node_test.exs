@@ -172,7 +172,14 @@ defmodule Trinity.SecretsBootNodeTest do
       %{key_id: kid, key_path: path} = Trinity.Receipts.KeyCustody.selected()
       IO.puts("NEW_KEY " <> kid)
       IO.puts("NEW_PATH " <> path)
-      boot = Trinity.Receipts.boot_receipt()
+      # The boot receipt is written by `Trinity.Effects.Boot`, a transient task the application
+      # starts, so `ensure_all_started/1` can return before it is written. Polled for, as
+      # `TrinityWeb.Auth.BootRefusalNodeTest` does; reading it at once failed a gate run on 2026-10-19
+      # (`BadMapError ... nil` after NEW_PATH).
+      boot =
+        Enum.find_value(1..50, fn _ ->
+          Trinity.Receipts.boot_receipt() || (Process.sleep(100) && nil)
+        end)
       IO.puts("MOVE " <> JSON.encode!(JSON.decode!(boot.signed_payload)["subject"]["secrets_migration"]))
       {:ok, export} = Trinity.Receipts.export("boot")
       IO.puts("COUNT " <> Integer.to_string(length(export["receipts"])))
