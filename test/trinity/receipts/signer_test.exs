@@ -44,8 +44,29 @@ defmodule Trinity.Receipts.SignerTest do
       assert :error = Signer.impl_for_scheme("receipt_v1_ed25519")
     end
 
+    # Slice 137, F-137-1: this compared with `:mldsa87 in :crypto.supports(:public_keys)`, the
+    # listing that never holds in FIPS mode. The answer is now asked of the operation itself, and
+    # compared here with an oracle that does the operation independently of the signer.
     test "ML-DSA-87 reports itself unavailable or available from the runtime, never from the build" do
-      assert Signer.MLDSA87.available?() == :mldsa87 in :crypto.supports(:public_keys)
+      assert Signer.MLDSA87.available?() == Trinity.TestSupport.MLDSA87Oracle.signs?()
+    end
+
+    # Slice 137, F-137-2: OTP 28.5.0.8 on OpenSSL 3.5.9 returns the private key from
+    # `generate_key(:mldsa87, [])` as a bare 4,896-byte expanded key, where the runtime slice 024
+    # measured returned `{:seed | :expandedkey, binary}`; `encode_private/1` matched only the
+    # tagged form, so the receipts supervisor crashed at boot on the newer runtime. Both shapes
+    # are taken; the key file keeps its tag either way.
+    test "a bare private key, as OTP 28.5.0.8 returns it, is stored tagged by its size" do
+      expanded = :binary.copy(<<7>>, 4896)
+      seed = :binary.copy(<<9>>, 32)
+
+      assert Signer.MLDSA87.encode_private(expanded) == "expandedkey:" <> expanded
+      assert Signer.MLDSA87.encode_private(seed) == "seed:" <> seed
+
+      assert Signer.MLDSA87.decode_private(Signer.MLDSA87.encode_private(expanded)) ==
+               {:expandedkey, expanded}
+
+      assert Signer.MLDSA87.encode_private({:seed, seed}) == "seed:" <> seed
     end
 
     test "the RFC 7638 thumbprint: lexicographic members, no whitespace, SHA-256, base64url" do
@@ -63,13 +84,20 @@ defmodule Trinity.Receipts.SignerTest do
       assert {:ok, ^expected} = KeyCustody.select()
     end
 
-    test "a configured ML-DSA-87 is refused where the runtime lacks it, naming the algorithm" do
+    # Slice 137: the refusal names the known-answer step that failed. This asserted
+    # `{:no_approved_signer, :mldsa87, _}` until then, a reason that said the algorithm was
+    # missing without saying which operation the runtime could not do.
+    test "a configured ML-DSA-87 is refused where the runtime lacks it, naming the step" do
       Application.put_env(:trinity, :receipts, algorithm: :mldsa87, keys_dir: nil)
       on_exit(fn -> Application.put_env(:trinity, :receipts, keys_dir: test_keys_dir()) end)
 
       case Signer.MLDSA87.available?() do
-        false -> assert {:error, {:no_approved_signer, :mldsa87, _}} = KeyCustody.select()
-        true -> assert {:ok, :mldsa87} = KeyCustody.select()
+        false ->
+          assert {:error, {:mldsa87_preflight_failed, step, _}} = KeyCustody.select()
+          assert step in Trinity.Crypto.Preflight.steps()
+
+        true ->
+          assert {:ok, :mldsa87} = KeyCustody.select()
       end
     end
   end
