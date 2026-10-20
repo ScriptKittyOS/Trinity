@@ -14,11 +14,13 @@
 # What a justification here must be: facts someone else can check, with the command or file that
 # shows them. "Not exploitable" with no evidence is not one. A finding that has a fix available is
 # fixed, not justified: the OTP findings fixed in 28.5.0.7 never had rows, and moving the container
-# images to 28.5.0.7 fixed them (ADR-0014).
+# images to 28.5.0.7 fixed them (ADR-0014). The images moved to 28.5.0.8 on 2026-10-20 (slice 141).
 #
 # The ERTS facts below were re-read in OTP 28.5.0.7's source on 2026-10-08, when the image moved to
 # it: `erts/emulator/pcre/pcre2.h` gives PCRE2_MAJOR 10, PCRE2_MINOR 47; the directory's 39 files
-# include no pcre2_jit_*.c and no pcre2_dfa_match.c (`tar -tzf otp_src_28.5.0.7.tar.gz`).
+# include no pcre2_jit_*.c and no pcre2_dfa_match.c (`tar -tzf otp_src_28.5.0.7.tar.gz`). On
+# 2026-10-20 `erts/emulator/pcre/` in otp_src_28.5.0.8.tar.gz was compared with 28.5.0.7's
+# (`diff -r` over both extracted directories): the same files, byte for byte, so the facts hold.
 ---
 justifications:
   # Retired 2026-10-19, from the scan of run 39257269071 (grype database built 2026-10-19T06:39Z):

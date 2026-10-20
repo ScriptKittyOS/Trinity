@@ -9,8 +9,8 @@ defmodule Trinity.TLS do
   checking the server's certificate when the ServerHello carries a `pre_shared_key` the client
   never offered, so anyone on the path can impersonate a model provider or an MCP server. Its
   workaround is `{versions, ['tlsv1.2']}`, and it says no configuration keeps TLS 1.3 and
-  mitigates the issue. The fix is in OTP 28.5.0.7. The container images build that from
-  source; the desktop runs the ERTS Burrito downloads, which did not exist for 28.5.0.7 on Linux
+  mitigates the issue. The fix is in OTP 28.5.0.7. The container images build OTP from source
+  (28.5.0.8 since slice 141); the desktop runs the ERTS Burrito downloads, which did not exist for 28.5.0.7 on Linux
   or macOS when this was written, so the desktop runs 28.5.0.6 with this clamp.
 
   ## The decision is the running runtime's
@@ -19,7 +19,7 @@ defmodule Trinity.TLS do
   and the one fact every runtime carries: an assembled release has no `OTP_VERSION` file
   (slice 130 NOTES, D-130-11). On OTP 28 the fix is `ssl` 11.6.0.6 (`otp_versions.table`,
   OTP-28.5.0.7). On a major this module has no fixed version for, it clamps. So the container on
-  28.5.0.7 keeps TLS 1.3, the desktop on 28.5.0.6 clamps, and the clamp lifts itself when the
+  28.5.0.8 keeps TLS 1.3, the desktop on 28.5.0.6 clamps, and the clamp lifts itself when the
   desktop's pin moves.
 
   ## Three layers, because one is not enough

@@ -10,8 +10,8 @@
 # ci/container.tool-versions, the container images' OTP, and Elixir from .tool-versions (ADR-0014:
 # the container's OTP can lead the desktop's). The two archives are checked against digests pinned
 # here; a new OTP or Elixir pin is a new digest in this file, read from the release page.
-# OTP 28.5.0.7's digest was read from the release's SHA256.txt and the release API's asset digest,
-# and matched a download, on 2026-10-08.
+# OTP 28.5.0.8's digest was read from the release's SHA256.txt and the release API's asset digest,
+# and matched a download, on 2026-10-20 (slice 141; 28.5.0.7 on 2026-10-08).
 #
 # Base pinned by digest, not tag: registry.access.redhat.com/ubi9/ubi:latest resolved on
 # 2026-09-20 (Red Hat Enterprise Linux release 9.8, openssl-libs 3.5.8-1.el9_8, FIPS provider
@@ -20,7 +20,7 @@ FROM registry.access.redhat.com/ubi9/ubi@sha256:9295c5c688f487fa5cf27a734fa55ecd
 
 ARG OTP_VERSION
 ARG ELIXIR_VERSION
-ARG OTP_SHA256=ddf17db6d3e9b7a7cfac0d72238ddc8ea040fedc5e3dfad82fc90675319d6c93
+ARG OTP_SHA256=8a696e15bcbe5d57197b1f4c03c92d415f9fd9af70f9222a05911c8a5463cba6
 ARG ELIXIR_SHA256=ea7ff98bc1ed76c663a5d034c863c6fd37e65c9c855b6bbf6ccb2034d806673c
 
 # The toolchain OTP's configure needs, plus what the gate's steps call from the shell: git

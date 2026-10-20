@@ -15,11 +15,15 @@
 # :mldsa87_runtime (planted faults in the ML-DSA-87 known-answer check, which can only be seen
 # where the runtime signs) runs where the oracle says it does. That is derived, not declared, so
 # the decision is printed: a leg that loses ML-DSA-87 says so in its own log.
+# Slice 141: :below_headless_floor_otp (a headless boot on OTP 28.5.0.7, below the headless
+# release's floor) runs where TRINITY_BELOW_HEADLESS_FLOOR_OTP names that runtime's bin directory;
+# excluded by tag elsewhere.
 # Slice 138: :n6_corpus (10^6 generated N6 bodies and their mutants) is opt-in, run with
 # `mix test --only n6_corpus`; it is a measurement, too long for every run.
 fips_leg? = System.get_env("TRINITY_FIPS_LEG") == "1"
 local_model? = System.get_env("TRINITY_LOCAL_MODEL_CACHE") not in [nil, ""]
 below_floor_otp? = System.get_env("TRINITY_BELOW_FLOOR_OTP") not in [nil, ""]
+below_headless_floor_otp? = System.get_env("TRINITY_BELOW_HEADLESS_FLOOR_OTP") not in [nil, ""]
 mldsa87_runtime? = Trinity.TestSupport.MLDSA87Oracle.signs?()
 
 # A step that exists to run the :mldsa87_runtime tests sets this, so a runtime that lost ML-DSA-87
@@ -41,6 +45,7 @@ ExUnit.start(
       if(fips_leg?, do: [], else: [:fips]) ++
       if(local_model?, do: [], else: [:local_model]) ++
       if(below_floor_otp?, do: [], else: [:below_floor_otp]) ++
+      if(below_headless_floor_otp?, do: [], else: [:below_headless_floor_otp]) ++
       if(mldsa87_runtime?, do: [], else: [:mldsa87_runtime])
 )
 

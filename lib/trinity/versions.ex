@@ -65,11 +65,11 @@ defmodule Trinity.Versions do
     },
     %{
       name: "Erlang/OTP (container images)",
-      pin: "**28.5.0.7**",
+      pin: "**28.5.0.8**",
       lock: nil,
-      from: {:file, "ci/container.tool-versions", "erlang 28.5.0.7"},
+      from: {:file, "ci/container.tool-versions", "erlang 28.5.0.8"},
       note:
-        "Added 2026-10-08 (owner decision D2, ADR-0014): the OTP the hardened headless image (`ci/ironbank/`) and the FIPS leg's image (`ci/fips/Containerfile`) build from source, so it does not wait for Burrito. 28.5.0.7 (released 2026-09-22) fixes CVE-2026-89422 (ssl, Critical) and CVE-2026-65634 (asn1, High). The source archive's SHA-256, `ddf17db6d3e9b7a7cfac0d72238ddc8ea040fedc5e3dfad82fc90675319d6c93`, was read from the release's SHA256.txt and its asset digest and matched a download. `mix trinity.ironbank.lint` holds the manifest to this file, and this pin to the desktop's major and to no older than it."
+        "Added 2026-10-08 (owner decision D2, ADR-0014): the OTP the hardened headless image (`ci/ironbank/`) and the FIPS leg's image (`ci/fips/Containerfile`) build from source, so it does not wait for Burrito. Moved from 28.5.0.7 to 28.5.0.8 on 2026-10-20 (slice 141), the headless release's floor (`Trinity.Toolchain`): 28.5.0.8 (released 2026-10-14) fixes CVE-2026-94200 and CVE-2026-105236 (ssl), CVE-2026-42789 (public_key) and CVE-2026-48856 (inets). The source archive's SHA-256, `8a696e15bcbe5d57197b1f4c03c92d415f9fd9af70f9222a05911c8a5463cba6`, was read from the release's SHA256.txt and its asset digest and matched a download. `mix trinity.ironbank.lint` holds the manifest to this file, and this pin to the desktop's major and to no older than it."
     },
     %{
       name: "Elixir",

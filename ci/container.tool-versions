@@ -7,4 +7,4 @@
 # comes from Burrito's ERTS builds and a container's does not (ADR-0014).
 # `mix trinity.ironbank.lint` holds the manifest's OTP resource to this line, the two pins to one
 # OTP major, and this pin to no older than the desktop's.
-erlang 28.5.0.7
+erlang 28.5.0.8

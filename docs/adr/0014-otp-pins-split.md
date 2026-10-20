@@ -123,3 +123,39 @@ pull request per version.
   connections by application, and Req's pooled connections now belong to Trinity's supervisor; it
   leaves `Trinity.TLS.Finch` out, as it left `Req.Finch` out before. The desktop pin moving to the
   container's ends the first of these.
+
+## Amendment, 2026-10-20 (slice 141): the headless release has a floor of its own
+
+Status: proposed; the owner accepts or rejects it.
+
+The Decision above keeps two pins and held every node to one floor, CVE-2026-55737's (slice 137:
+OTP 27.3.4.15, 28.5.0.4 or 29.0.4). This amendment adds a second floor and ties it to the release,
+not to the pin.
+
+- **The headless release refuses to boot below OTP 28.5.0.8, and on any line but OTP 28**
+  (`Trinity.Toolchain.floor(:headless)`, the OTP-28.5.0.8 row of `otp_versions.table`). A node is
+  held to it when its release name is `headless` or it runs with `TRINITY_MODE=headless`. The
+  desktop release keeps CVE-2026-55737's floor.
+- **The container pin moves to 28.5.0.8 with it**, so the image the headless release is built in
+  meets its floor. The lint's rules are unchanged: one major for both pins, and the container's
+  never older than the desktop's.
+- **The desktop pin still moves only by the canary** (ADR-0005). The canary probes for the
+  container's pin, so it now waits for Burrito's 28.5.0.8 on all three targets.
+
+**Why the release and not the pin.** The floor belongs to the node that serves the network. A
+headless node started from source on the desktop pin is still that node, so it is refused there too
+and needs 28.5.0.8 installed; a desktop node on the container's OTP is held only to the desktop
+floor.
+
+**Consequences.**
+
+- Until the canary flips, the desktop runs 28.5.0.6 and carries the four CVEs 28.5.0.8 fixes.
+  CVE-2026-94200 needs a TLS 1.3 client with `session_tickets => auto`; nothing in the tree or its
+  dependencies sets that option, and the clamp holds every client to TLS 1.2. CVE-2026-105236 is a
+  TLS server's, and the desktop serves plain HTTP on loopback. CVE-2026-42789 (a v1 or v2
+  certificate accepted as a CA during path validation) reaches every TLS client and is not
+  mitigated. CVE-2026-48856 reaches an `httpc` request whose URL carries `user:password@`; the
+  tree's `httpc` callers (model downloads, an OIDC issuer's configuration, JSON Schema resolution)
+  take their URLs from configuration, so it is reached only where an operator configures one.
+- Both floors are checked when the application starts. `bin/headless eval` runs code in the release
+  without starting it, so it is held to neither.
