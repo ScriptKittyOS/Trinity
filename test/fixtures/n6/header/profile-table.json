@@ -1,0 +1,1 @@
+{"note":"Trinity's test profile table for the header vectors (the draft leaves its CDDL Open, VB4).","provisional":true,"typ":[{"carrier":"single","scitt":false,"signers":"single","typ":"application/vnd.example.test.v1+cose"},{"carrier":"single","scitt":true,"signers":"single","typ":"application/vnd.example.scitt-test.v1+cose"}]}

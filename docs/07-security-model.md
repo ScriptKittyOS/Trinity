@@ -546,6 +546,39 @@ fail-open. Where it signs today: a runtime linked to OpenSSL 3.5 or later with t
 mode, on the image's current FIPS provider, it does not; a provider validated with ML-DSA-87
 (CMVP #5523) is what would change that.
 
+## Signed statements in one byte form (Slice 138, as built)
+
+The rule: every statement Trinity constructs and signs is deterministic CBOR inside COSE_Sign1,
+and bytes someone else produced are hashed exactly as received, never parsed and re-encoded first.
+Two encoders that agree on a value's meaning but not its bytes produce two signatures for one
+statement, and a verifier that re-encodes before checking verifies its own bytes, not the
+signer's. `Trinity.N6` is the layer that rule needs; nothing signs through it yet, and receipts keep
+their slice 024 format until a later slice moves them.
+
+- **The codec refuses rather than repairs.** `Trinity.N6.CBOR.decode/1` accepts a byte string only
+  if it is exactly the deterministic encoding of a value in the subset: shortest heads, definite
+  lengths, unsigned-integer map keys in bytewise order with no duplicate, no float, tag or other
+  simple value, NFC text, within the four limits. It names the first defect and returns nothing
+  from an input that fails. A forged length larger than the input is refused before anything is
+  read.
+- **The header is closed.** The protected header carries exactly `alg` -50 (ML-DSA-87), `kid` and
+  `typ`, plus CWT claims for a SCITT-renderable `typ`; content type, `crit`, the hash-envelope
+  labels and every other label are refused, and the unprotected header must be empty, so no
+  unsigned field can change what a statement claims.
+- **The key id is the key.** `kid` is the RFC 9679 SHA-384 thumbprint over the public key and
+  `alg`, and the verifier recomputes it from the key it holds, so a key cannot be presented under
+  another algorithm or another key's name.
+- **Cannot judge is not a pass.** A runtime that cannot run ML-DSA-87 (FIPS mode on a provider
+  that refuses it, or OpenSSL 3.0) makes `verify/2` answer exit 5, no trust, with
+  `alg_unavailable`, never a crash and never a pass; an unknown `kid` is exit 5 too.
+
+`test/trinity/n6/census_test.exs` holds every hashing and signing call in `lib/` with a class.
+Four sites re-encode data from elsewhere before hashing it, which the rule forbids, and are
+declared there rather than changed here: the tool-definition drift digest, the approval
+fingerprint, the MCP server's retry binding, and an effect receipt's digest of non-binary tool
+output. Each needs the exact bytes it hashes, which the layer that receives them does not keep
+today.
+
 ## The effect population, published (Slice 027, as built)
 
 The set of things that can cause an effect is small, derived from the tree, and published as

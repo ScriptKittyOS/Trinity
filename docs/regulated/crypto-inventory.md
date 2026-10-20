@@ -27,6 +27,10 @@ to that provider, on that host, not to this software. **Anything not established
 | Device identifier | `lib/trinity/receipts/clock.ex` | `:crypto.strong_rand_bytes/1` | Not applicable | Random, names nothing about the host |
 | JWK thumbprint | `lib/trinity/receipts/signer.ex` | `:crypto.hash(:sha256, …)` | Not applicable | RFC 7638 |
 | Canonical JSON | `lib/trinity/receipts/envelope.ex:15` | `Jcs.encode/1` | Not applicable | RFC 8785, not a cryptographic primitive |
+| N6 statement signing (slice 138) | `lib/trinity/n6/cose.ex` | `:crypto.sign(:mldsa87, :none, …)` and `:crypto.verify/5`, FIPS 204, pure, empty context | **UNKNOWN** | Over RFC 9052's ToBeSigned. Not used by any statement yet. Where the runtime refuses ML-DSA-87 (FIPS mode on Red Hat's provider; OpenSSL 3.0) verification answers no trust, never a crash |
+| N6 key id | `lib/trinity/n6/cose.ex` | `:crypto.hash(:sha384, …)` | Not applicable | RFC 9679 thumbprint over RFC 9964's AKP members |
+| N6 foreign-bytes digest | `lib/trinity/n6/digest.ex` | `:crypto.hash(:sha384, …)` | **UNKNOWN** | Over bytes exactly as received, never re-encoded |
+| Deterministic CBOR | `lib/trinity/n6/cbor.ex` | pure Elixir | Not applicable | RFC 8949 section 4.2.1, not a cryptographic primitive |
 
 ## Why every certificate says UNKNOWN
 
