@@ -101,6 +101,12 @@ defmodule TrinityWeb.ReceiptsLive do
             <dd>{@boot.subject["fips"]}</dd>
             <dt class="opacity-70">{gettext("otp")}</dt>
             <dd>{@boot.subject["otp_release"]}</dd>
+            <dt class="opacity-70">{gettext("erts")}</dt>
+            <dd>{@boot.subject["erts"]}</dd>
+            <dt class="opacity-70">{gettext("elixir")}</dt>
+            <dd>{@boot.subject["elixir"]}</dd>
+            <dt class="opacity-70">{gettext("ML-DSA-87 check")}</dt>
+            <dd>{@boot.subject["mldsa87_preflight"]}</dd>
             <dt class="opacity-70">{gettext("core policy hash")}</dt>
             <dd class="break-all">{@boot.meta["core_policy_hash"]}</dd>
             <dt class="opacity-70">{gettext("receipt hash")}</dt>

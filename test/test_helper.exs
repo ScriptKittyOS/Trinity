@@ -10,13 +10,36 @@
 # Slice 032: :local_model (the real embedder through the serving) runs where
 # TRINITY_LOCAL_MODEL_CACHE names a cache that already holds all-MiniLM-L6-v2 (no download,
 # no network: a missing model is a failure there, not a skip); excluded by tag elsewhere.
+# Slice 137: :below_floor_otp (a real boot on an Erlang runtime below the CVE-2026-55737 floor)
+# runs where TRINITY_BELOW_FLOOR_OTP names that runtime's bin directory; excluded by tag elsewhere.
+# :mldsa87_runtime (planted faults in the ML-DSA-87 known-answer check, which can only be seen
+# where the runtime signs) runs where the oracle says it does. That is derived, not declared, so
+# the decision is printed: a leg that loses ML-DSA-87 says so in its own log.
 fips_leg? = System.get_env("TRINITY_FIPS_LEG") == "1"
 local_model? = System.get_env("TRINITY_LOCAL_MODEL_CACHE") not in [nil, ""]
+below_floor_otp? = System.get_env("TRINITY_BELOW_FLOOR_OTP") not in [nil, ""]
+mldsa87_runtime? = Trinity.TestSupport.MLDSA87Oracle.signs?()
+
+# A step that exists to run the :mldsa87_runtime tests sets this, so a runtime that lost ML-DSA-87
+# fails the step rather than excluding the tests it came to run.
+if System.get_env("TRINITY_REQUIRE_MLDSA87_RUNTIME") == "1" and not mldsa87_runtime? do
+  raise "TRINITY_REQUIRE_MLDSA87_RUNTIME=1, but ML-DSA-87 does not sign on this runtime " <>
+          "(fips #{:crypto.info_fips()})"
+end
+
+IO.puts(
+  "test_helper: ML-DSA-87 #{if mldsa87_runtime?, do: "signs", else: "does not sign"} on this " <>
+    "runtime (fips #{:crypto.info_fips()}); :mldsa87_runtime " <>
+    if(mldsa87_runtime?, do: "included", else: "excluded")
+)
 
 ExUnit.start(
   exclude:
     [:live, :desktop, :eval] ++
-      if(fips_leg?, do: [], else: [:fips]) ++ if(local_model?, do: [], else: [:local_model])
+      if(fips_leg?, do: [], else: [:fips]) ++
+      if(local_model?, do: [], else: [:local_model]) ++
+      if(below_floor_otp?, do: [], else: [:below_floor_otp]) ++
+      if(mldsa87_runtime?, do: [], else: [:mldsa87_runtime])
 )
 
 # Slice 024's boot receipt is written by a transient Task after the tree starts; once the

@@ -15,6 +15,13 @@ defmodule Trinity.Effects.Boot do
 
   def start_link(_), do: Task.start_link(__MODULE__, :run, [])
 
+  defp preflight_subject do
+    case Trinity.Crypto.Preflight.mldsa87() do
+      :ok -> "ok"
+      {:error, {:mldsa87_preflight_failed, step, _reason}} -> "failed:#{step}"
+    end
+  end
+
   @doc "Writes the boot receipt and records its hash; returns it."
   @spec run() :: {:ok, Trinity.Receipts.Receipt.t()} | {:error, term()}
   def run do
@@ -23,6 +30,11 @@ defmodule Trinity.Effects.Boot do
       "signer" => signer_subject(),
       "key_custody" => key_custody_subject(),
       "otp_release" => List.to_string(:erlang.system_info(:otp_release)),
+      # Slice 137: the runtime the floor was checked against, and whether ML-DSA-87 can be done
+      # here, as the known-answer check found it at this boot.
+      "erts" => Trinity.Toolchain.current().erts,
+      "elixir" => Trinity.Toolchain.current().elixir,
+      "mldsa87_preflight" => preflight_subject(),
       "fips" => Atom.to_string(:crypto.info_fips()),
       "node" => Atom.to_string(node()),
       # Slice 136: who the web pages answer on this run, and on what address, so a reader of the

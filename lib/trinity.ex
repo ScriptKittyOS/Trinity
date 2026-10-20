@@ -42,6 +42,11 @@ defmodule Trinity do
         # starts anything. Pure, so the refusals are unit testable and so this boundary does not
         # grow a dependency on Authority or Receipts to ask a question about a value.
         Profile,
+        # Slice 137: the runtime floor the application refuses to boot below, and the ML-DSA-87
+        # known-answer check the receipts signer and the boot receipt ask. Pure questions about
+        # the runtime, asked before anything starts.
+        Toolchain,
+        Crypto.Preflight,
         # Slice 136: the web authentication mode, its rules and the mode in force.
         WebAuth,
         UUID,

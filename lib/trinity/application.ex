@@ -31,6 +31,11 @@ defmodule Trinity.Application do
     # project's rules about key material, and the filter is the last line for exactly that case.
     install_log_redaction()
 
+    # Slice 137, in every profile, before every other refusal and every child: a runtime below
+    # the CVE-2026-55737 floor, or an Elixir below 1.20, is not one this node trusts to decode
+    # anything. The floor is erts per OTP line (`Trinity.Toolchain.floor/0`).
+    verify_toolchain!()
+
     # Slice 135, in every profile: a filesystem root that is, contains or sits inside the data
     # directory or the secrets directory refuses the boot, before any child (and before the
     # regulated refusals, so the reason printed is this one when both apply).
@@ -182,6 +187,15 @@ defmodule Trinity.Application do
     end
 
     :ok
+  end
+
+  # Slice 137. The decision is `Trinity.Toolchain.check/0`'s, pure; the reason is raised in the
+  # shape `verify_web_auth!/0` uses, so a refused child prints it whole.
+  defp verify_toolchain! do
+    case Trinity.Toolchain.check() do
+      :ok -> :ok
+      {:error, reason} -> raise "Trinity refuses to boot: #{inspect(reason)}"
+    end
   end
 
   # Slice 136 AC4, AC6 and AC13. The decisions are `Trinity.WebAuth`'s and `Trinity.Profile`'s,

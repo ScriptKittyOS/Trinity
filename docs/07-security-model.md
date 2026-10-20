@@ -522,6 +522,30 @@ where the runtime carries it; the boot receipt names the choice and the authorit
 hash in unsigned metadata (the R21 default). `bin/verify_receipt.exs` verifies an export with `elixir` alone,
 from an empty directory, with the exit vocabulary 0, 1, 2, 5, 6.
 
+## The runtime floor, and ML-DSA-87 by doing it (Slice 137, as built)
+
+Before anything else starts, and in every profile, `Trinity.Application` refuses a runtime below
+the fix for CVE-2026-55737 ("heap corruption when an invalidly encoded tuple with an arity of 2^31
+or larger is decoded from Erlang's External Term Format"). The defect is in erts, so erts is what
+is compared: `Trinity.Toolchain.floor/0` holds the fixed erts per OTP line, read from
+`otp_versions.table`. An assembled release has no `OTP_VERSION` file, and `:erlang.system_info(:version)`
+answers in every runtime. The same releases fix CVEs in ssl, public_key, crypto, ssh and stdlib,
+so erts is not enough: `priv/otp_floor.table` holds the three fixing releases' rows of
+`otp_versions.table` verbatim, with their source commit and SHA-256, and every loaded application
+the row names must be at or above its version there. Elixir outside 1.20.x is refused the same way.
+
+`crypto:supports/0` cannot say whether ML-DSA-87 is usable in FIPS mode: OTP's
+`build_pkey_type_list/3` omits every ML-DSA and SLH-DSA type whenever the mode is on, whatever the
+loaded provider can do. `Trinity.Crypto.Preflight.mldsa87/1` asks the provider by doing the
+operation: NIST's ACVP keyGen case (the published secret key must yield the published public key),
+Wycheproof's valid, bit-flipped and malformed-hints verify cases, then a fresh key. The ML-DSA-87
+receipts signer reports itself available exactly when that passes.
+Under `:regulated`, a node configured for ML-DSA-87 receipts that fails it refuses to boot with
+`{:mldsa87_preflight_failed, step, reason}`; under `:default` the receipts supervisor stays
+fail-open. Where it signs today: a runtime linked to OpenSSL 3.5 or later with the mode off. In the
+mode, on the image's current FIPS provider, it does not; a provider validated with ML-DSA-87
+(CMVP #5523) is what would change that.
+
 ## The effect population, published (Slice 027, as built)
 
 The set of things that can cause an effect is small, derived from the tree, and published as

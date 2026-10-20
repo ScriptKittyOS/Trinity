@@ -101,6 +101,21 @@ jobs:
 
       - run: mix gate
 
+      # Slice 137, AC2: a real boot on an Erlang runtime below the CVE-2026-55737 floor refuses.
+      # OTP 28.5.0.3 (erts 16.4.0.3) is the release just before the fix, prebuilt by Hex for this
+      # runner's OS and pinned by the sha256 builds.hex.pm publishes in builds.txt. The tree is the
+      # one `mix gate` just compiled on the pinned OTP; only the runtime is older. `--only` with a
+      # tag that selects nothing makes `mix test` exit non-zero, so this cannot pass by running
+      # no test.
+      - name: A boot on OTP 28.5.0.3, below the floor, refuses
+        run: |
+          curl -fsSL -o /tmp/otp-28.5.0.3.tar.gz https://builds.hex.pm/builds/otp/ubuntu-24.04/OTP-28.5.0.3.tar.gz
+          echo "d4116a141da5081b849bd057a30679b48f229fb41dbe88da171739883a4797fb  /tmp/otp-28.5.0.3.tar.gz" | sha256sum -c -
+          mkdir -p /tmp/otp-28.5.0.3
+          tar -xzf /tmp/otp-28.5.0.3.tar.gz -C /tmp/otp-28.5.0.3 --strip-components=1
+          (cd /tmp/otp-28.5.0.3 && ./Install -minimal "$PWD" > /dev/null)
+          TRINITY_BELOW_FLOOR_OTP=/tmp/otp-28.5.0.3/bin mix test --only below_floor_otp test/trinity/toolchain_node_test.exs
+
       # Slice 120 AC1. `reuse lint` is a Python tool and this is the only leg that installs one,
       # deliberately: `mix gate` has to stay runnable inside the FIPS container and on a developer's
       # machine without a Python environment, so the REUSE check is a step here rather than a row in
@@ -360,3 +375,23 @@ jobs:
         run: |
           mix test --trace test/fips
           mix test --cover | grep -E 'Result:|\| *Total'
+
+      # Slice 137, AC5 and AC7: ML-DSA-87 with the mode off. This image links OpenSSL 3.5, the only
+      # runtime in CI that signs ML-DSA-87 (the gate runners link 3.0; in the mode, Red Hat's
+      # provider refuses it), so the ML-DSA-87 path runs here end to end: the planted-step cases,
+      # a regulated node that boots with ML-DSA-87 receipts and whose boot receipt verifies, and the
+      # signer's key shapes. TRINITY_REQUIRE_MLDSA87_RUNTIME makes test_helper raise if the runtime
+      # cannot sign, rather than excluding the cases it came to run.
+      #
+      # It runs last, from a fresh suite state. The suite keeps its receipt keys in tmp/test_keys
+      # and its receipts in trinity_test_receipts.db across runs, so a run with the mode off leaves
+      # Ed25519 and ML-DSA-87 keys and rows that the mode refuses to verify. Run before `mix gate`,
+      # it turned five of the gate's tests red on PR #132 (`:notsup`, "Unsupported algorithm in
+      # FIPS mode"; three receipt keys in one export). Nothing in the mode runs after this step.
+      - name: ML-DSA-87 end to end (FIPS mode off)
+        env:
+          ERL_AFLAGS: "-eval application:load(crypto)"
+          TRINITY_REQUIRE_MLDSA87_RUNTIME: "1"
+        run: |
+          rm -rf tmp trinity_test.db* trinity_test_receipts.db*
+          mix test test/trinity/crypto/preflight_test.exs test/trinity/toolchain_node_test.exs test/trinity/receipts/signer_test.exs

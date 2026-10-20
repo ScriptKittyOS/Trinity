@@ -67,3 +67,20 @@ path = ["test/support/fixtures/nist/**"]
 precedence = "override"
 SPDX-FileCopyrightText = "National Institute of Standards and Technology"
 SPDX-License-Identifier = "CC0-1.0"
+
+# Slice 137. **Not ours.** The ML-DSA-87 known-answer vectors the boot preflight checks against.
+# `priv/kat/acvp/` is one case from NIST's ACVP-Server (`usnistgov/ACVP-Server`), a work of the US
+# Government, annotated CC0-1.0 as the NIST catalogues above are. `priv/kat/wycheproof/` is three
+# cases from C2SP's Wycheproof, Apache-2.0. Each file names its source commit and the SHA-256 of the
+# file it was cut from. The `**/*.json` line above would otherwise assign them to this project.
+[[annotations]]
+path = ["priv/kat/acvp/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "National Institute of Standards and Technology"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = ["priv/kat/wycheproof/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "Google LLC and the C2SP Wycheproof contributors"
+SPDX-License-Identifier = "Apache-2.0"
