@@ -321,7 +321,13 @@ defmodule Trinity.ControlMappingTest do
             String.starts_with?(Atom.to_string(fun), "check_"),
             do: "Trinity.Toolchain.#{fun}/#{arity}"
 
-      checks = checks ++ ["Trinity.Crypto.Preflight.mldsa87/1"]
+      checks =
+        checks ++
+          [
+            "Trinity.Crypto.Preflight.verifier/1",
+            "Trinity.Crypto.Preflight.signer/1",
+            "Trinity.Crypto.BootCheck.decide/3"
+          ]
 
       assert length(checks) >= 3
       assert CM.uncited(checks, CM.cited_checks(rows()).funs, "runtime refusal") == []

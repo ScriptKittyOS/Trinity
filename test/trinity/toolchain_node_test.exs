@@ -378,25 +378,25 @@ defmodule Trinity.ToolchainNodeTest do
       )
     end
 
-    # Only where the runtime signs ML-DSA-87: elsewhere the check fails at :keygen before a fault
+    # Only where the runtime signs ML-DSA-87: elsewhere the check fails at :verifier before a fault
     # planted later can be observed. `test/test_helper.exs` derives the tag from the oracle.
     @tag :mldsa87_runtime
     test "a failing preflight refuses the boot, naming the step" do
       # The seam plants a failure at one step. A tree without the preflight ignores the key and
       # boots, which is this test's red.
-      {out, status} = regulated_mldsa87("mldsa87-preflight-fails", :verify)
+      {out, status} = regulated_mldsa87("mldsa87-preflight-fails", :sign_kat)
       line = refusal_line(out)
 
       assert status == 3,
              """
              a regulated node configured to sign receipts with ML-DSA-87 booted although the \
-             known-answer check failed at :verify.
+             known-answer check failed at :sign_kat.
 
              #{String.slice(out, -3000, 3000)}
              """
 
       assert line =~ "mldsa87_preflight_failed", line
-      assert line =~ ":verify", line
+      assert line =~ ":sign_kat", line
     end
 
     # With no fault planted the answer is the runtime's own, and the expectation comes from an
@@ -432,7 +432,7 @@ defmodule Trinity.ToolchainNodeTest do
 
       script =
         @mldsa87_receipts <>
-          "Application.put_env(:trinity, :mldsa87_preflight_fault, :sign)\n" <> @report
+          "Application.put_env(:trinity, :mldsa87_preflight_fault, :sign_kat)\n" <> @report
 
       {out, status} = boot([{"XDG_DATA_HOME", root}, {"TRINITY_BOOT_TAG", tag}], script)
       assert status == 0, String.slice(out, -3000, 3000)

@@ -38,6 +38,12 @@ defmodule Trinity.Application do
     # the OTP 28 line only, and every node asks its decoder directly as well.
     verify_toolchain!()
 
+    # Slice 143, in every profile, right after the floor: the ML-DSA-87 verifier check. A case
+    # answered wrongly refuses everywhere; on the `nss` receipts profile so does a runtime that
+    # cannot run the check, and a FIPS provider that is not the validated module by its build
+    # string (`Trinity.Crypto.BootCheck`).
+    verify_crypto!()
+
     # Slice 135, in every profile: a filesystem root that is, contains or sits inside the data
     # directory or the secrets directory refuses the boot, before any child (and before the
     # regulated refusals, so the reason printed is this one when both apply).
@@ -195,6 +201,14 @@ defmodule Trinity.Application do
   # shape `verify_web_auth!/0` uses, so a refused child prints it whole.
   defp verify_toolchain! do
     case Trinity.Toolchain.check() do
+      :ok -> :ok
+      {:error, reason} -> raise "Trinity refuses to boot: #{inspect(reason)}"
+    end
+  end
+
+  # Slice 143. The decision is `Trinity.Crypto.BootCheck.decide/3`'s, pure; raised as the floor is.
+  defp verify_crypto! do
+    case Trinity.Crypto.BootCheck.run(Trinity.Receipts.KeyCustody.profile()) do
       :ok -> :ok
       {:error, reason} -> raise "Trinity refuses to boot: #{inspect(reason)}"
     end

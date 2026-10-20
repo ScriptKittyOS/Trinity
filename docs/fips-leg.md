@@ -103,6 +103,12 @@ OpenSSL was a 3.0 line; as of 9.8 it is not.
    own clients (Req, req_llm, the web tools); a FIPS deployment that fetches from such hosts hits this at run time.
 3. **The provider's version string is not the page's.** See the section above; owner: the deployment's assessor,
    named in `docs/09-standards-register.md`.
+4. **The leg can show an `nss` node refuse, never one boot (slice 143).** On `nss` a node refuses to boot unless its
+   FIPS provider reports the build string CMVP #5523's security policy names. The image's provider is Red Hat's and
+   reports another, and it refuses ML-DSA-87 in the mode, so the `fips` job shows the refusal naming the build string;
+   the boot that passes needs #5523's provider and is shown only by `Trinity.Crypto.BootCheck`'s pure tests. Lift
+   condition: the provider the headless release is fielded with, in a CI image. The provider's name, which the policy also names, cannot be checked at
+   all: OTP's `crypto:info/0` does not expose it.
 
 ## Reds on the leg, by test name
 

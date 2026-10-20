@@ -194,9 +194,10 @@ defmodule Trinity.Receipts.KeyCustody do
   defp available(algorithm) do
     cond do
       # Slice 137: for ML-DSA-87 the reason names the known-answer step that failed, so a refused
-      # regulated boot says which operation the runtime could not do.
+      # regulated boot says which operation the runtime could not do. Slice 143: the signer check,
+      # which signs with a published key and generates none.
       algorithm == :mldsa87 ->
-        case Trinity.Crypto.Preflight.mldsa87() do
+        case Trinity.Crypto.Preflight.signer() do
           :ok -> {:ok, algorithm}
           {:error, reason} -> {:error, reason}
         end

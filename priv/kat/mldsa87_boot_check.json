@@ -1,0 +1,105 @@
+{
+  "slice": "143",
+  "note": "The ML-DSA-87 verifier check's cases, in the order they run, each with the one answer it must give (the PM's Decision of 2026-10-20 19:35Z, item 2). `from` is a file under priv/kat/ that carries its source URL and the source file's SHA-256; `entry` names the case inside a Wycheproof file. `flip` derives a case from the pinned valid vector by flipping bit 0 of the first byte of the message or of the signature. `expect` is true, false or raises; `measured` is what each runtime answered on 2026-10-20 (elixir over :crypto.verify/5, mode off).",
+  "cases": [
+    {
+      "id": "acvp_siggen_tc63",
+      "from": "acvp/mldsa87_siggen.json",
+      "expect": true,
+      "describes": "ACVP sigGen, tgId 5, tcId 63: ML-DSA-87, external interface, pure, deterministic, empty context",
+      "measured": {
+        "OTP 28.5.0.8, OpenSSL 3.5.9": "true",
+        "OTP 28.5.0.6, OpenSSL 3.0.13": "raises {:badarg, \"Bad digest type\"}: ML-DSA-87 unavailable"
+      }
+    },
+    {
+      "id": "wycheproof_1",
+      "from": "wycheproof/mldsa87_verify.json",
+      "expect": true,
+      "describes": "Wycheproof tcId 1, ValidSignature",
+      "measured": {
+        "OTP 28.5.0.8, OpenSSL 3.5.9": "true",
+        "OTP 28.5.0.6, OpenSSL 3.0.13": "raises {:badarg, \"Bad digest type\"}: ML-DSA-87 unavailable"
+      },
+      "entry": "valid"
+    },
+    {
+      "id": "acvp_sigver_tc64",
+      "from": "acvp/mldsa87_sigver.json",
+      "expect": false,
+      "describes": "ACVP sigVer, tgId 5, tcId 64: testPassed false, modified signature (commitment)",
+      "measured": {
+        "OTP 28.5.0.8, OpenSSL 3.5.9": "false",
+        "OTP 28.5.0.6, OpenSSL 3.0.13": "raises {:badarg, \"Bad digest type\"}: ML-DSA-87 unavailable"
+      }
+    },
+    {
+      "id": "wycheproof_8",
+      "from": "wycheproof/mldsa87_verify.json",
+      "expect": false,
+      "describes": "Wycheproof tcId 8, ModifiedSignature",
+      "measured": {
+        "OTP 28.5.0.8, OpenSSL 3.5.9": "false",
+        "OTP 28.5.0.6, OpenSSL 3.0.13": "raises {:badarg, \"Bad digest type\"}: ML-DSA-87 unavailable"
+      },
+      "entry": "invalid"
+    },
+    {
+      "id": "wycheproof_18",
+      "from": "wycheproof/mldsa87_verify.json",
+      "expect": false,
+      "describes": "Wycheproof tcId 18, InvalidHintsEncoding",
+      "measured": {
+        "OTP 28.5.0.8, OpenSSL 3.5.9": "false",
+        "OTP 28.5.0.6, OpenSSL 3.0.13": "raises {:badarg, \"Bad digest type\"}: ML-DSA-87 unavailable"
+      },
+      "entry": "invalid_hints"
+    },
+    {
+      "id": "wycheproof_77",
+      "from": "wycheproof/mldsa87_verify.json",
+      "expect": false,
+      "describes": "Wycheproof tcId 77, InfinityNormViolation",
+      "measured": {
+        "OTP 28.5.0.8, OpenSSL 3.5.9": "false",
+        "OTP 28.5.0.6, OpenSSL 3.0.13": "raises {:badarg, \"Bad digest type\"}: ML-DSA-87 unavailable"
+      },
+      "entry": "infinity_norm"
+    },
+    {
+      "id": "wycheproof_6",
+      "from": "wycheproof/mldsa87_verify.json",
+      "expect": false,
+      "describes": "Wycheproof tcId 6, IncorrectSignatureLength (4,626 bytes)",
+      "measured": {
+        "OTP 28.5.0.8, OpenSSL 3.5.9": "false",
+        "OTP 28.5.0.6, OpenSSL 3.0.13": "raises {:badarg, \"Bad digest type\"}: ML-DSA-87 unavailable"
+      },
+      "entry": "wrong_length"
+    },
+    {
+      "id": "wycheproof_1_message_flip",
+      "from": "wycheproof/mldsa87_verify.json",
+      "expect": false,
+      "describes": "Wycheproof tcId 1 with bit 0 of the message's first byte flipped",
+      "measured": {
+        "OTP 28.5.0.8, OpenSSL 3.5.9": "false",
+        "OTP 28.5.0.6, OpenSSL 3.0.13": "raises {:badarg, \"Bad digest type\"}: ML-DSA-87 unavailable"
+      },
+      "entry": "valid",
+      "flip": "message"
+    },
+    {
+      "id": "wycheproof_1_signature_flip",
+      "from": "wycheproof/mldsa87_verify.json",
+      "expect": false,
+      "describes": "Wycheproof tcId 1 with bit 0 of the signature's first byte flipped",
+      "measured": {
+        "OTP 28.5.0.8, OpenSSL 3.5.9": "false",
+        "OTP 28.5.0.6, OpenSSL 3.0.13": "raises {:badarg, \"Bad digest type\"}: ML-DSA-87 unavailable"
+      },
+      "entry": "valid",
+      "flip": "signature"
+    }
+  ]
+}

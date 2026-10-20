@@ -417,4 +417,4 @@ jobs:
           TRINITY_REQUIRE_MLDSA87_RUNTIME: "1"
         run: |
           rm -rf tmp trinity_test.db* trinity_test_receipts.db*
-          mix test test/trinity/crypto/preflight_test.exs test/trinity/toolchain_node_test.exs test/trinity/receipts/signer_test.exs test/trinity/n6/cose_signing_test.exs test/trinity/n6/cose_test.exs test/trinity/receipts/foreign_algorithm_test.exs test/trinity/receipts/v4_test.exs test/trinity/n6/esp384_test.exs
+          mix test test/trinity/crypto/preflight_test.exs test/trinity/toolchain_node_test.exs test/trinity/receipts/signer_test.exs test/trinity/n6/cose_signing_test.exs test/trinity/n6/cose_test.exs test/trinity/receipts/foreign_algorithm_test.exs test/trinity/receipts/v4_test.exs test/trinity/n6/esp384_test.exs test/trinity/crypto/boot_check_test.exs test/trinity/crypto/boot_check_node_test.exs

@@ -41,15 +41,13 @@ defmodule Trinity.Effects.BootReceiptTest do
     r = Receipts.boot_receipt()
     %{erts: erts, elixir: elixir} = Trinity.Toolchain.current()
 
-    want =
-      case Trinity.Crypto.Preflight.mldsa87() do
-        :ok -> "ok"
-        {:error, {:mldsa87_preflight_failed, step, _}} -> "failed:#{step}"
-      end
+    # Slice 143: the verifier check's answer, expected from the independent oracle, not from the
+    # code under test: a runtime that signs ML-DSA-87 verifies the published cases rightly.
+    want = if Trinity.TestSupport.MLDSA87Oracle.signs?(), do: "ok", else: "unavailable"
 
     body = Trinity.TestSupport.ReceiptBody.of(r)
 
-    for {key, value} <- [{"erts", erts}, {"elixir", elixir}, {"mldsa87_preflight", want}] do
+    for {key, value} <- [{"erts", erts}, {"elixir", elixir}, {"mldsa87_verifier", want}] do
       assert r.subject[key] == value, key
       assert body["subject"][key] == value, "#{key} is not in the signed body"
     end

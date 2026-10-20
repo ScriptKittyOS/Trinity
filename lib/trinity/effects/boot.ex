@@ -15,10 +15,15 @@ defmodule Trinity.Effects.Boot do
 
   def start_link(_), do: Task.start_link(__MODULE__, :run, [])
 
-  defp preflight_subject do
-    case Trinity.Crypto.Preflight.mldsa87() do
-      :ok -> "ok"
-      {:error, {:mldsa87_preflight_failed, step, _reason}} -> "failed:#{step}"
+  # Slice 143: the verifier check's answer at this boot, which `Trinity.Application` ran before any
+  # child; and, where receipts sign with ML-DSA-87, the signer check, which selection ran and passed
+  # (a failed one leaves no signer and so no boot receipt).
+  defp mldsa87_subject(subject) do
+    subject = Map.put(subject, "mldsa87_verifier", Trinity.Crypto.BootCheck.verifier_answer())
+
+    case Trinity.Receipts.KeyCustody.selected() do
+      %{algorithm: :mldsa87} -> Map.put(subject, "mldsa87_signer", "ok")
+      _ -> subject
     end
   end
 
@@ -30,11 +35,10 @@ defmodule Trinity.Effects.Boot do
       "signer" => signer_subject(),
       "key_custody" => key_custody_subject(),
       "otp_release" => List.to_string(:erlang.system_info(:otp_release)),
-      # Slice 137: the runtime the floor was checked against, and whether ML-DSA-87 can be done
-      # here, as the known-answer check found it at this boot.
+      # Slice 137: the runtime the floor was checked against. Whether ML-DSA-87 is done right here
+      # is added below (slice 143).
       "erts" => Trinity.Toolchain.current().erts,
       "elixir" => Trinity.Toolchain.current().elixir,
-      "mldsa87_preflight" => preflight_subject(),
       "fips" => Atom.to_string(:crypto.info_fips()),
       "node" => Atom.to_string(node()),
       # Slice 136: who the web pages answer on this run, and on what address, so a reader of the
@@ -49,6 +53,7 @@ defmodule Trinity.Effects.Boot do
         nil -> subject
         report -> Map.put(subject, "secrets_migration", report)
       end
+      |> mldsa87_subject()
 
     meta = %{
       "core_policy_hash" => Trinity.CorePolicy.hash(),
