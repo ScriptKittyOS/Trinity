@@ -522,6 +522,9 @@ where the runtime carries it; the boot receipt names the choice and the authorit
 hash in unsigned metadata (the R21 default). `bin/verify_receipt.exs` verifies an export with `elixir` alone,
 from an empty directory, with the exit vocabulary 0, 1, 2, 5, 6.
 
+That is the envelope of `v2` and `v3` rows. Since slice 140 new rows are N6 statements in COSE_Sign1, and the
+key's N6 thumbprint replaces `key_id` inside the signed bytes; see the slice 140 section below.
+
 ## The runtime floor, and ML-DSA-87 by doing it (Slice 137, as built)
 
 Before anything else starts, and in every profile, `Trinity.Application` refuses a runtime below
@@ -628,6 +631,40 @@ Trinity signs uses the layer.
   rehydrating over such a checkpoint crashed. They now answer exit 5, trust not established, naming
   the row and the algorithm. `:crypto` raises the same way for a registered key it cannot use, so
   the verifier asks whether the runtime does the algorithm at all before saying which it was.
+
+### Receipts are N6 statements (Slice 140, as built)
+
+The publisher answered Trinity's four remaining questions on 2026-10-20, and Trinity's receipts now
+sign through the layer. New rows and checkpoints are written under `receipt_v4_<family>`
+(`Trinity.Receipts.V4`); rows already signed under `v2` and `v3` are never rewritten and still verify.
+
+- **The kind is the `typ`, the algorithm is the key's.** Each kind has one `typ` and one schema
+  number, the body's key 0, in Trinity's provisional block 0x83; a body under another kind's `typ`
+  is refused (`typ_schema_mismatch`). The `typ` no longer names an algorithm, as slice 139 had it:
+  the key's registration does, and a header naming another algorithm than the key's is refused
+  (`alg_not_permitted`). Every signed body names its issuer (key 1), or it is refused
+  (`issuer_missing`).
+- **FIPS mode signs with ESP384.** ECDSA on P-384 with SHA-384 (-51, RFC 9864) is admitted on the
+  `commercial` profile for a node in FIPS mode, where the provider refuses Ed25519 and ML-DSA-87.
+  The signature is the 96-byte `r || s` of RFC 9053 section 2.1 and nothing else
+  (`signature_encoding`); `s` and `n - s` both verify, so no verifier splits from another on
+  low-s. The key must be an uncompressed P-384 point on the curve (`key_invalid`), and its `kid` is
+  the RFC 9679 thumbprint over exactly 107 bytes, each coordinate padded to 48. It is never admitted
+  at the `nss` entry point; `config :trinity, :receipts, profile: :nss` with any signer but
+  ML-DSA-87 is refused at selection, which a regulated boot turns into a refusal to start.
+- **What is signed, and what is referenced.** The body signs what a verifier judges: the chain
+  position, the scope, the predecessor, the time, the clock. `subject` and `decision` are referenced
+  by SHA-384 over their RFC 8785 bytes, which are stored beside the row and hashed as stored, never
+  re-encoded from a decoded map. Both are maps Trinity builds; no receipt carries a tool call's
+  arguments or its result, which enter as the approval fingerprint and a digest. A missing or altered
+  attachment is a finding beside the verdict, never a change to it, because the signature does not
+  cover those bytes.
+- **One link, signed or not.** A row's link is its `statement_id`, SHA-384 over its kind's `typ`
+  and its body, so a query row has the same identity before and after a checkpoint covers it. The
+  first v4 row of an older chain links to SHA-384 over its v3 predecessor's signed bytes.
+- **The stranger's verifier reads it too.** `bin/verify_receipt.exs` loads the N6 sources and
+  `Trinity.Receipts.V4` from Trinity's `lib/` (`--n6` names it) and runs the same rules as the
+  in-app verifier, which a test holds it to; a chain with no v4 row still needs nothing but OTP.
 
 ## The effect population, published (Slice 027, as built)
 

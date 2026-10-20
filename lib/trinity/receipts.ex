@@ -12,8 +12,10 @@ defmodule Trinity.Receipts do
   count of live sessions plus one.
   """
   use Boundary,
-    deps: [Trinity],
+    # Slice 140: receipts v4 are N6 statements; `Trinity.N6` is a dependency of the root boundary.
+    deps: [Trinity, Trinity.N6],
     exports: [
+      V4,
       Receipt,
       Checkpoint,
       KeyCustody,
@@ -155,6 +157,8 @@ defmodule Trinity.Receipts do
          "format" => "trinity-receipts-export/1",
          "chain_scope" => scope,
          "exported_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
+         # Slice 140: the issuer every v4 body names, which the verifier holds each one to.
+         "issuer" => "trinity:" <> Trinity.Receipts.Clock.node_id(),
          "receipts" => scope |> list() |> Enum.map(&Receipt.to_export/1),
          "checkpoints" => scope |> checkpoints() |> Enum.map(&Checkpoint.to_export/1),
          "registry" => registry

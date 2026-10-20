@@ -89,8 +89,9 @@ enforces it.
   model's window.
 - **Acts.** Filesystem, web and shell tools behind a permission gate with fingerprint-bound
   approvals; every effect passes one membrane and leaves a signed, hash-chained receipt you can
-  verify offline (`mix trinity.receipts.verify`). A FIPS build leg in CI proves the receipt scheme
-  under OpenSSL's FIPS provider. No tool can read or write Trinity's own keys or databases, by any
+  verify offline (`mix trinity.receipts.verify`). Since slice 140 a receipt is deterministic CBOR in
+  COSE_Sign1, signed with ML-DSA-87, Ed25519 or, in FIPS mode, ECDSA P-384, and older receipts still
+  verify. A FIPS build leg in CI proves the receipt scheme under OpenSSL's FIPS provider. No tool can read or write Trinity's own keys or databases, by any
   path: the secrets live in their own directory outside the data directory, a filesystem root that
   overlaps either refuses the boot, and every path is checked for links, hard links, `/proc` and
   protected inodes before the file is opened and again on the open file (slice 135).
@@ -379,8 +380,9 @@ two: a *Signed Statement* is issued by whoever made the statement, and a *Receip
 Transparency Service and must carry proof of inclusion in a verifiable log. Trinity runs no
 transparency service, so in that vocabulary Trinity issues Signed Statements and never Receipts. The
 house name is not changing, because "receipt" is the right word for what it is to the person who owns
-the machine, but nobody should infer SCITT conformance from it. The field by field mapping, including
-the three fields that have no equivalent, is in
+the machine, but nobody should infer SCITT conformance from it. Since slice 140 its envelope is
+COSE_Sign1, the one SCITT uses, still without the CWT issuer and subject claims a SCITT statement
+carries. The field by field mapping, including the fields that have no equivalent, is in
 [`docs/receipt-scheme-mapping.md`](docs/receipt-scheme-mapping.md).
 
 ## Connecting Trinity to the platform

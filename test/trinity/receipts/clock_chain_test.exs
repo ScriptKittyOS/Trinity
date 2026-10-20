@@ -12,8 +12,10 @@ defmodule Trinity.Receipts.ClockChainTest do
   """
   use Trinity.DataCase, async: false
 
+  alias Trinity.N6.CBOR
   alias Trinity.Receipts
   alias Trinity.Receipts.{Clock, Envelope, KeyCustody, Receipt, Signer, Verifier}
+  alias Trinity.TestSupport.ReceiptBody
 
   setup do
     scope = "test:" <> Trinity.UUID.generate()
@@ -41,9 +43,8 @@ defmodule Trinity.Receipts.ClockChainTest do
     end
   end
 
-  defp clock_of(%Receipt{signed_payload: payload}) do
-    {:ok, body} = JSON.decode(payload)
-    {:ok, clock} = Clock.from_map(body["clock"])
+  defp clock_of(%Receipt{} = row) do
+    {:ok, clock} = Clock.from_map(ReceiptBody.of(row)["clock"])
     clock
   end
 
@@ -52,7 +53,7 @@ defmodule Trinity.Receipts.ClockChainTest do
       for n <- 1..5, do: {:ok, _} = Receipts.append(scope, decision(n))
 
       for row <- Receipts.list(scope) do
-        {:ok, body} = JSON.decode(row.signed_payload)
+        body = ReceiptBody.of(row)
 
         assert {:ok, %Clock{}} = Clock.from_map(body["clock"]),
                "row #{row.seq} carries no clock: #{inspect(body["clock"])}"
@@ -94,7 +95,9 @@ defmodule Trinity.Receipts.ClockChainTest do
   end
 
   describe "the clock is signed, not decoration" do
-    test "editing the clock in a stored payload breaks verification", %{scope: scope} do
+    # Since slice 140 the clock is key 19 of the row's N6 body, which its `statement_id` and its
+    # signature cover.
+    test "editing the clock in a stored body breaks verification", %{scope: scope} do
       for n <- 1..3, do: {:ok, _} = Receipts.append(scope, decision(n))
       :ok = Receipts.stop_writer(scope)
       {:ok, export} = Receipts.export(scope)
@@ -104,11 +107,10 @@ defmodule Trinity.Receipts.ClockChainTest do
       tampered =
         update_in(export["receipts"], fn rows ->
           Enum.map(rows, fn r ->
-            {:ok, body} = JSON.decode(r["signed_payload"])
-
-            if body["seq"] == 2 do
-              moved = %{body | "clock" => %{body["clock"] | "wall" => 0}}
-              %{r | "signed_payload" => Jcs.encode(moved)}
+            if r["seq"] == 2 do
+              {:ok, body} = r["body_b64"] |> Base.decode64!() |> CBOR.decode()
+              moved = put_in(body, [19, 1], 0)
+              %{r | "body_b64" => Base.encode64(CBOR.encode!(moved))}
             else
               r
             end
@@ -150,7 +152,7 @@ defmodule Trinity.Receipts.ClockChainTest do
              "a receipt was refused and nothing recorded it. A refusal that leaves no record is " <>
                "indistinguishable from the call never having been made."
 
-      {:ok, body} = JSON.decode(refusal.signed_payload)
+      body = ReceiptBody.of(refusal)
       assert get_in(body, ["decision", "outcome"]) == "refused"
       assert get_in(body, ["decision", "basis"]) == "clock"
       assert get_in(body, ["subject", "offered_clock", "wall"]) == behind.wall
@@ -165,8 +167,7 @@ defmodule Trinity.Receipts.ClockChainTest do
       {:error, _} = Receipts.append(scope, Map.put(decision(99), :clock, behind))
 
       refute Enum.any?(Receipts.list(scope), fn r ->
-               {:ok, body} = JSON.decode(r.signed_payload)
-               body["fingerprint"] == "ab99"
+               ReceiptBody.of(r)["fingerprint"] == "ab99"
              end),
              "the refused receipt was written anyway"
 
@@ -200,11 +201,15 @@ defmodule Trinity.Receipts.ClockChainTest do
       end
     end
 
-    test "v2 is readable and carries no clock; v3 carries one" do
+    test "v2 is readable and carries no clock; v3 and v4 carry one; only v4 is N6" do
       refute Signer.clocked?("receipt_v2_ed25519")
       assert Signer.clocked?("receipt_v3_ed25519")
-      assert "receipt_v2_ed25519" in Signer.accepted_schemes()
-      assert "receipt_v3_ed25519" in Signer.accepted_schemes()
+      assert Signer.clocked?("receipt_v4_ed25519")
+      refute Signer.n6?("receipt_v3_ed25519")
+      assert Signer.n6?("receipt_v4_ed25519")
+
+      for v <- ["v2", "v3", "v4"],
+          do: assert("receipt_#{v}_ed25519" in Signer.accepted_schemes())
     end
 
     test "no signer family contains an underscore, which is what makes parsing the scheme safe" do

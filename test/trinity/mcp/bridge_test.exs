@@ -113,7 +113,7 @@ defmodule Trinity.MCP.BridgeTest do
     assert [receipt] = Receipts.list(scope)
     assert receipt.kind == "decision"
     assert receipt.subject == %{"server" => "c", "tool" => "mcp:c:echo", "phase" => "load"}
-    payload = Jason.decode!(receipt.signed_payload)
+    payload = Trinity.TestSupport.ReceiptBody.of(receipt)
     assert payload["decision"]["outcome"] == "deny"
     assert payload["decision"]["reason"] =~ "catalog_is_compile_time"
   end

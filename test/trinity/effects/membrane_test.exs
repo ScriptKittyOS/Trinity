@@ -66,7 +66,7 @@ defmodule Trinity.Effects.MembraneTest do
     assert admit.seq < done.seq
     assert admit.signature != nil and done.signature != nil
     assert admit.subject_ref == "effect:#{ctx.session_id}:c2"
-    body = JSON.decode!(done.signed_payload)
+    body = Trinity.TestSupport.ReceiptBody.of(done)
     assert body["decision"]["ok"] == true
 
     assert body["fingerprint"] ==
@@ -89,7 +89,7 @@ defmodule Trinity.Effects.MembraneTest do
 
     assert [{"decision", "c9", nil}] = kinds(scope)
     [row] = Receipts.list(scope)
-    assert JSON.decode!(row.signed_payload)["decision"]["outcome"] == "deny"
+    assert Trinity.TestSupport.ReceiptBody.of(row)["decision"]["outcome"] == "deny"
   end
 
   test "AC4: arguments mutated after the decision are denied at execution with a receipt (M2 re-verify)",
@@ -116,7 +116,7 @@ defmodule Trinity.Effects.MembraneTest do
     assert derived == Permissions.fingerprint(ctx.session_id, "write_note", staged.args, nil)
     assert [{"effect", "c4", "denied"}] = kinds(scope)
     [row] = Receipts.list(scope)
-    assert JSON.decode!(row.signed_payload)["decision"]["reason"] =~ "fingerprint_mismatch"
+    assert Trinity.TestSupport.ReceiptBody.of(row)["decision"]["reason"] =~ "fingerprint_mismatch"
 
     # The same staged effect with the arguments the decision bound runs.
     assert {:ok, %{content: "wrote 2 bytes" <> _}} =
@@ -290,7 +290,7 @@ defmodule Trinity.Effects.MembraneTest do
       assert [{"effect", "r1", "denied"}] = kinds(scope)
       [row] = Receipts.list(scope)
 
-      assert JSON.decode!(row.signed_payload)["decision"]["reason"] =~
+      assert Trinity.TestSupport.ReceiptBody.of(row)["decision"]["reason"] =~
                "fingerprint_mismatch_after_stage"
     end
 

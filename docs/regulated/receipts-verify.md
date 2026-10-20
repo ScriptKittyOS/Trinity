@@ -16,6 +16,15 @@ The second is the one that matters for an assessment. A verifier that has to sta
 Trinity's records is asking you to trust the thing under examination. `bin/verify_receipt.exs` reads
 an exported file and needs nothing from this application.
 
+For rows written since slice 140 (`receipt_v4_*`, N6 statements) the script loads, from source, the
+N6 files and `Trinity.Receipts.V4` from Trinity's `lib/` directory: beside the script in a checkout,
+or named with `--n6 <lib directory>` when the script is copied elsewhere. Those files depend on
+nothing but each other and OTP, and they are the same code the in-app verifier runs, which
+`test/trinity/receipts/standalone_verifier_test.exs` holds the two to. A chain with no v4 row needs
+none of it. Without the sources a v4 chain is exit 2, a usage error, never a verdict:
+
+    elixir verify_receipt.exs receipts.json --n6 /path/to/trinity/lib
+
 ## The task, quoted
 
 From `lib/mix/tasks/trinity.receipts.verify.ex`:
@@ -89,10 +98,18 @@ timestamp.
 
 ## Scheme versions an assessor will meet
 
-Rows exist under two scheme versions and both verify. `receipt_v2_*` carries ten signed fields;
-`receipt_v3_*` carries eleven, the extra one being the clock. A chain that spans the change verifies
-row by row under each row's own scheme. The mapping to published constructs, including the three
+Rows exist under three scheme versions and all verify. `receipt_v2_*` carries ten signed fields;
+`receipt_v3_*` carries eleven, the extra one being the clock; `receipt_v4_*` (slice 140) is an N6
+statement in COSE_Sign1, whose algorithm, key and kind are header parameters and whose `subject` and
+`decision` are referenced by digest over bytes stored beside the row. A chain that spans a change
+verifies row by row under each row's own scheme. The mapping to published constructs, including the
 fields that have no equivalent, is `docs/receipt-scheme-mapping.md`.
+
+**Findings about v4 attachments.** The bytes a v4 row's `subject` and `decision` references name are
+not covered by its signature. If they are missing or do not match, both verifiers print a `finding:`
+line after the verdict and the exit does not change: the signed statement is as valid as it was, and
+what the finding says is that the readable copy of its content is absent or not the one that was
+signed.
 
 That document also states, in terms, that Trinity issues SCITT **Signed Statements** and never SCITT
 **Receipts**, because it runs no Transparency Service. No conformance to RFC 9943 is claimed.

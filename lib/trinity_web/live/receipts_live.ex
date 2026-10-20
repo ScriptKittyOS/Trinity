@@ -160,10 +160,12 @@ defmodule TrinityWeb.ReceiptsLive do
                   <div class="truncate" title={Jason.encode!(r.subject)}>{subject(r)}</div>
                 </td>
                 <td class="py-2 pr-3 font-mono text-meta">
-                  <div class="truncate" title={r.signed_payload}>{decision(r)}</div>
+                  <div class="truncate" title={r.decision_bytes || r.signed_payload}>
+                    {decision(r)}
+                  </div>
                 </td>
                 <td class="py-2 pr-3 text-meta">
-                  {if r.signature, do: gettext("signed"), else: gettext("checkpointed")}
+                  {if r.signature || r.carrier, do: gettext("signed"), else: gettext("checkpointed")}
                 </td>
                 <td class="py-2 font-mono text-meta" title={r.receipt_hash}>
                   {String.slice(r.receipt_hash, 0, 16)}
@@ -248,6 +250,15 @@ defmodule TrinityWeb.ReceiptsLive do
     [s["tool"], s["call_id"] && "call " <> s["call_id"], s["phase"], s["authority"]]
     |> Enum.reject(&is_nil/1)
     |> Enum.join(" · ")
+  end
+
+  # Slice 140: a v4 row's decision is the stored bytes its ForeignRef names, shown as they are; a
+  # display, never a verdict, which the verifier gives.
+  defp decision(%{body: body, decision_bytes: bytes}) when is_binary(body) do
+    case bytes && JSON.decode(bytes) do
+      {:ok, d} when is_map(d) -> d |> Enum.map_join(" ", fn {k, v} -> "#{k}=#{value(v)}" end)
+      _ -> ""
+    end
   end
 
   defp decision(%{signed_payload: p}) do

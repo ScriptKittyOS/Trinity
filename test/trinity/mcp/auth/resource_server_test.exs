@@ -122,7 +122,7 @@ defmodule Trinity.MCP.Auth.ResourceServerTest do
     reasons =
       for r <- decisions(scope),
           r.subject["phase"] == "auth",
-          do: Jason.decode!(r.signed_payload)["decision"]["reason"]
+          do: Trinity.TestSupport.ReceiptBody.of(r)["decision"]["reason"]
 
     assert "no_bearer" in reasons
     assert Enum.any?(reasons, &String.starts_with?(&1, "wrong_audience"))
@@ -175,7 +175,7 @@ defmodule Trinity.MCP.Auth.ResourceServerTest do
 
     assert iss == as.issuer
 
-    assert Jason.decode!(deny.signed_payload)["decision"] == %{
+    assert Trinity.TestSupport.ReceiptBody.of(deny)["decision"] == %{
              "outcome" => "deny",
              "basis" => "scope",
              "reason" => "needs trinity:tools:artifact"

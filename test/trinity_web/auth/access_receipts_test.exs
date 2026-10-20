@@ -36,7 +36,7 @@ defmodule TrinityWeb.Auth.AccessReceiptsTest do
   defp as(roles, sub), do: build_conn() |> log_in_web(roles, sub: sub, iss: @iss) |> elem(0)
 
   defp bodies(scope) do
-    for r <- Receipts.list(scope), do: {r, JSON.decode!(r.signed_payload)}
+    for r <- Receipts.list(scope), do: {r, Trinity.TestSupport.ReceiptBody.of(r)}
   end
 
   test "an approval decided on the page names its decider, on the row and on the signed receipt",

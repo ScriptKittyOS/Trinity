@@ -54,6 +54,8 @@ defmodule Trinity.Receipts.KeyCustody do
           algorithm: Signer.algorithm(),
           scheme: String.t(),
           key_id: String.t(),
+          public: binary(),
+          n6_alg: -50 | -19 | -51,
           key_path: Path.t(),
           keys_dir: Path.t(),
           impl: module(),
@@ -94,11 +96,14 @@ defmodule Trinity.Receipts.KeyCustody do
          {:ok, algorithm} <- select(),
          impl = Signer.impl(algorithm),
          {:ok, key_id} <- ensure_key(dir, impl),
-         {:ok, key_id} <- maybe_migrate(dir, impl, key_id) do
+         {:ok, key_id} <- maybe_migrate(dir, impl, key_id),
+         {:ok, public} <- registered_public(dir, key_id) do
       selection = %{
         algorithm: algorithm,
         scheme: impl.scheme(),
         key_id: key_id,
+        public: public,
+        n6_alg: Trinity.Receipts.V4.n6_alg(Atom.to_string(algorithm)),
         key_path: key_path(dir, algorithm),
         keys_dir: dir,
         impl: impl,
@@ -111,6 +116,31 @@ defmodule Trinity.Receipts.KeyCustody do
       {:error, reason} ->
         :persistent_term.put(@key, {:unavailable, reason})
         {:error, reason}
+    end
+  end
+
+  # Slice 140: a v4 header names the key by its N6 thumbprint, recomputed from the registered public
+  # key, so the selection carries it.
+  defp registered_public(dir, key_id) do
+    with {:ok, rows} <- KeyRegistry.read(dir),
+         %{} = row <- KeyRegistry.lookup(rows, key_id) || {:error, {:key_not_in_registry, key_id}},
+         {:ok, pub} <- KeyRegistry.public_key(row) do
+      {:ok, pub}
+    else
+      :error -> {:error, {:key_without_public, key_id}}
+      other -> other
+    end
+  end
+
+  @doc """
+  The N6 entry point receipts are written and verified under (slice 140): `config :trinity,
+  :receipts, profile:`, `:commercial` (the default) or `:nss`.
+  """
+  @spec profile() :: :commercial | :nss
+  def profile do
+    case Application.get_env(:trinity, :receipts, [])[:profile] do
+      :nss -> :nss
+      _ -> :commercial
     end
   end
 
@@ -152,6 +182,16 @@ defmodule Trinity.Receipts.KeyCustody do
         true -> :ed25519
       end
 
+    # Slice 140: the `nss` profile admits ML-DSA-87 (-50) and nothing else (N6 r3, C1, and the
+    # publisher's Decision of 2026-10-20: -19 and -51 are `commercial` only). Refused here, naming
+    # both, so no receipt is ever written that an `nss` verifier would refuse; a regulated boot then
+    # refuses, and a default one denies every effect.
+    if profile() == :nss and algorithm != :mldsa87,
+      do: {:error, {:receipts_profile_algorithm, :nss, algorithm}},
+      else: available(algorithm)
+  end
+
+  defp available(algorithm) do
     cond do
       # Slice 137: for ML-DSA-87 the reason names the known-answer step that failed, so a refused
       # regulated boot says which operation the runtime could not do.
@@ -169,7 +209,10 @@ defmodule Trinity.Receipts.KeyCustody do
     end
   end
 
-  @doc "Signs the PAE bytes with the selected key, read from its file at this call."
+  @doc """
+  Signs bytes with the selected key, read from its file at this call: a v4 statement's ToBeSigned
+  since slice 140, the PAE before it.
+  """
   @spec sign(binary()) :: {:ok, binary()} | {:error, :signer_unavailable | term()}
   def sign(bytes) when is_binary(bytes) do
     case selected() do

@@ -266,7 +266,7 @@ defmodule Trinity.MCP.ServerTest do
       scope
       |> Receipts.list()
       |> Enum.filter(&(&1.kind == "decision"))
-      |> Enum.map(&Jason.decode!(&1.signed_payload)["decision"]["outcome"])
+      |> Enum.map(&Trinity.TestSupport.ReceiptBody.of(&1)["decision"]["outcome"])
 
     assert "deny" in denied
   end

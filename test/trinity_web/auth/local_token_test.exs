@@ -112,7 +112,7 @@ defmodule TrinityWeb.Auth.LocalTokenTest do
     assert conn |> recycle() |> get("/settings/export.tar.gz") |> Map.fetch!(:status) == 200
 
     [receipt] = Trinity.Receipts.list(scope)
-    principal = JSON.decode!(receipt.signed_payload)["subject"]["principal"]
+    principal = Trinity.TestSupport.ReceiptBody.of(receipt)["subject"]["principal"]
     assert %{"sub" => "local_token", "iss" => "local_token", "mode" => "local_token"} = principal
   end
 

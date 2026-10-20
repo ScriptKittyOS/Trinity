@@ -196,7 +196,7 @@ defmodule Trinity.Receipts.QueueTest do
 
         assert refusal, "the machine refused an effect and recorded nothing"
 
-        {:ok, body} = JSON.decode(refusal.signed_payload)
+        body = Trinity.TestSupport.ReceiptBody.of(refusal)
         assert get_in(body, ["decision", "outcome"]) == "refused"
         assert get_in(body, ["decision", "basis"]) == "queue"
         assert get_in(body, ["subject", "queue_bound"]) == 2
@@ -215,7 +215,7 @@ defmodule Trinity.Receipts.QueueTest do
         {:error, _} = Receipts.append(scope, decision(3))
 
         refute Enum.any?(Receipts.list(scope), fn r ->
-                 {:ok, body} = JSON.decode(r.signed_payload)
+                 body = Trinity.TestSupport.ReceiptBody.of(r)
                  body["fingerprint"] == "ab3"
                end),
                "an effect was refused and written anyway"

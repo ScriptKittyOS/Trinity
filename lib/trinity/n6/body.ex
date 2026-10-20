@@ -25,7 +25,9 @@ defmodule Trinity.N6.Body do
 
   Checks run in this order, each answering the first failure: not a map (`body_not_map`); key 0
   missing (`schema_version_missing`), not an unsigned integer (`key_not_uint`), reserved
-  (`schema_reserved`), unknown with this kind (`unknown_schema`); then keys in ascending order,
+  (`schema_reserved`), in the shared test block 0x80 outside a declared test mode
+  (`test_schema_outside_test_mode`, slice 140), unknown with this kind (`unknown_schema`), the order
+  of the publisher's correction of 2026-10-20 17:27Z; then keys in ascending order,
   undeclared (`unknown_key`); then required keys (`required_key_missing`); then each value in key
   order (`wrong_type`, `set_not_canonical`, or a digest's own code). `body_not_map`,
   `required_key_missing` and `wrong_type` are this tree's codes where the profile has none yet.
@@ -60,13 +62,13 @@ defmodule Trinity.N6.Body do
 
   @doc """
   Decodes bytes as a body of `kind` under one of `schemas`: the strict decode of
-  `Trinity.N6.CBOR`, then `check/3`.
+  `Trinity.N6.CBOR`, then `check/4`. `opts`: `test_mode: true` admits the shared test block.
   """
-  @spec decode(binary(), String.t(), [schema()]) ::
+  @spec decode(binary(), String.t(), [schema()], keyword()) ::
           {:ok, map(), schema()} | {:error, Profile.code(), non_neg_integer() | nil}
-  def decode(bytes, kind, schemas) when is_binary(bytes) do
+  def decode(bytes, kind, schemas, opts \\ []) when is_binary(bytes) do
     with {:ok, value} <- CBOR.decode(bytes),
-         {:ok, schema} <- check(value, kind, schemas) do
+         {:ok, schema} <- check(value, kind, schemas, opts) do
       {:ok, value, schema}
     else
       {:error, code, offset} -> {:error, code, offset}
@@ -78,9 +80,10 @@ defmodule Trinity.N6.Body do
   Encodes a body after checking it, so a body this tree builds is one it would accept. The
   decode limits apply too: a body that could not be read back is not built.
   """
-  @spec encode(map(), String.t(), [schema()]) :: {:ok, binary()} | {:error, Profile.code()}
-  def encode(value, kind, schemas) do
-    with {:ok, _schema} <- check(value, kind, schemas),
+  @spec encode(map(), String.t(), [schema()], keyword()) ::
+          {:ok, binary()} | {:error, Profile.code()}
+  def encode(value, kind, schemas, opts \\ []) do
+    with {:ok, _schema} <- check(value, kind, schemas, opts),
          {:ok, bytes} <- CBOR.encode(value),
          {:ok, _} <- CBOR.decode(bytes) do
       {:ok, bytes}
@@ -90,12 +93,19 @@ defmodule Trinity.N6.Body do
     end
   end
 
-  @doc "Checks a decoded value against the body rules and the schema its key 0 names."
-  @spec check(CBOR.value(), String.t(), [schema()]) :: {:ok, schema()} | {:error, Profile.code()}
-  def check(value, _kind, _schemas) when not is_map(value), do: {:error, :body_not_map}
+  @doc """
+  Checks a decoded value against the body rules and the schema its key 0 names. `opts`:
+  `test_mode: true` admits the shared test block (0x80), which every other verifier refuses.
+  """
+  @spec check(CBOR.value(), String.t(), [schema()], keyword()) ::
+          {:ok, schema()} | {:error, Profile.code()}
+  def check(value, kind, schemas, opts \\ [])
 
-  def check(value, kind, schemas) do
+  def check(value, _kind, _schemas, _opts) when not is_map(value), do: {:error, :body_not_map}
+
+  def check(value, kind, schemas, opts) do
     with {:ok, version} <- version(value),
+         :ok <- test_mode(version, Keyword.get(opts, :test_mode, false)),
          {:ok, schema} <- schema(kind, version, schemas),
          :ok <- fields(Map.delete(value, 0), schema.fields) do
       {:ok, schema}
@@ -114,6 +124,12 @@ defmodule Trinity.N6.Body do
   defp version(%{0 => v}) when is_integer(v) and v >= 0, do: {:ok, v}
   defp version(%{0 => _}), do: {:error, :key_not_uint}
   defp version(_), do: {:error, :schema_version_missing}
+
+  defp test_mode(version, false) do
+    if Profile.test_schema?(version), do: {:error, :test_schema_outside_test_mode}, else: :ok
+  end
+
+  defp test_mode(_version, true), do: :ok
 
   defp schema(kind, version, schemas) do
     case Enum.find(schemas, &(&1.kind == kind and &1.version == version)) do

@@ -17,7 +17,8 @@ defmodule Trinity do
   # stays extractable. It is listed here because this boundary's code calls into it; the arrow
   # points one way and the compiler holds it that way.
   use Boundary,
-    deps: [Trinity.Keys],
+    # Slice 140: receipts v4 are N6 statements (`Trinity.Receipts.V4`).
+    deps: [Trinity.Keys, Trinity.N6],
     exports:
       [
         Paths,

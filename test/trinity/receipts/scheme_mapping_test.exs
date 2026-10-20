@@ -9,11 +9,14 @@ defmodule Trinity.Receipts.SchemeMappingTest do
   code, and that agreement decays silently: the next slice to add a signed field leaves the document
   describing a payload that no longer exists, and nothing anywhere fails. So the document's own
   mapping table is the population here, checked against the payload in both directions.
+
+  Slice 140: new rows are v4, N6 statements with integer keys (`Trinity.Receipts.V4`). The v3 table
+  is now checked against a v3 row as the writer signed it before slice 140 (slice 139's fixture), and
+  the document's v4 table against the v4 schema, both ways.
   """
   use Trinity.DataCase, async: false
 
-  alias Trinity.Receipts
-  alias Trinity.Receipts.Receipt
+  alias Trinity.Receipts.{Receipt, V4}
 
   @doc_path Path.expand("../../../docs/receipt-scheme-mapping.md", __DIR__)
   @external_resource @doc_path
@@ -27,19 +30,43 @@ defmodule Trinity.Receipts.SchemeMappingTest do
   @slice_026_added ~w(clock)
   @current_keys @slice_024_keys ++ @slice_026_added
 
+  # A v3 row as the writer signed it: slice 139's checked-in Ed25519 chain, its first signed row.
   defp payload_keys do
-    scope = "test:" <> Trinity.UUID.generate()
-    on_exit(fn -> Receipts.stop_writer(scope) end)
+    %{"receipts" => rows} =
+      "test/fixtures/receipts/ed25519_signed.json" |> File.read!() |> JSON.decode!()
 
-    {:ok, row} =
-      Receipts.append(scope, %{
-        kind: "decision",
-        subject: %{"n" => 1},
-        decision: %{"outcome" => "allow"},
-        fingerprint: "ab01"
-      })
+    row =
+      Enum.find(
+        rows,
+        &(&1["kind"] == "decision" and String.starts_with?(&1["scheme"], "receipt_v3_"))
+      )
 
-    row.signed_payload |> JSON.decode!() |> Map.keys() |> Enum.sort()
+    row["signed_payload"] |> JSON.decode!() |> Map.keys() |> Enum.sort()
+  end
+
+  # The v4 table: rows that start with a key number, then the field's name in backticks.
+  defp documented_v4 do
+    Regex.scan(~r/^\| (\d+) \| `(\w+)` \|/m, doc())
+    |> Enum.map(fn [_, key, name] -> {String.to_integer(key), name} end)
+    |> Enum.sort()
+  end
+
+  test "slice 140: the v4 table names exactly the v4 row body's keys, with their names" do
+    [schema | _] = Enum.filter(V4.schemas(), &(&1.kind == "trinity.receipt.decision"))
+
+    fields =
+      [
+        {0, "schema"}
+        | Enum.map(schema.fields, fn {k, {name, _, _}} -> {k, Atom.to_string(name)} end)
+      ]
+      |> Enum.sort()
+
+    assert documented_v4() == fields, """
+    the document's v4 table and Trinity.Receipts.V4's row body disagree.
+
+    In the body, missing a row in the table: #{inspect(fields -- documented_v4())}
+    In the table, absent from the body:      #{inspect(documented_v4() -- fields)}
+    """
   end
 
   defp doc, do: File.read!(@doc_path)

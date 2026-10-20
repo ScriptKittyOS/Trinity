@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Sudo Apt Holdings LLC
 # SPDX-License-Identifier: Apache-2.0
 #
-# Writes Trinity's provisional N6 vectors (slice 138) into the directory given, in the layout of the
+# Writes Trinity's provisional N6 vectors (slices 138 to 140) into the directory given, in the layout of the
 # N6 profile v0 draft r3, section 10:
 #
 #     elixir scripts/n6_vectors.exs test/fixtures/n6
@@ -19,10 +19,18 @@ defmodule N6Vectors do
   @typ "application/vnd.example.test.v1+cose"
   @typ_scitt "application/vnd.example.scitt-test.v1+cose"
   @typ_other "application/vnd.example.other.v1+cose"
-  # Slice 139: a `typ` bound to Ed25519 (-19) on the `commercial` profile, and one whose entry needs
-  # two signers, which a single-signer carrier must refuse.
+  # Slice 139: the `typ` its Ed25519 (-19) samples use on the `commercial` profile, and one whose entry
+  # needs two signers, which a single-signer carrier must refuse. Since slice 140 a `typ` names no
+  # algorithm (the publisher's Decision of 2026-10-20, point 3): the key's registration does. The
+  # names are only names.
   @typ_ed "application/vnd.example.test-ed25519.v1+cose"
   @typ_twin "application/vnd.example.twin-test.v1+cose"
+  # Slice 140: the `typ` the ESP384 (-51) samples use.
+  @typ_esp "application/vnd.example.test-esp384.v1+cose"
+
+  # Slice 140: every full-payload single-signer body carries key 1, `issuer` (the publisher's Decision
+  # of 2026-10-20, point 3), here under the RFC 6761 `.invalid` name.
+  @issuer "trinity:test.invalid"
 
   # RFC 8032 section 7.1, test 1: a published Ed25519 key, so no key of this tree's is published.
   @ed_pub "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
@@ -30,11 +38,32 @@ defmodule N6Vectors do
   # Ed25519 over the sample's ToBeSigned (below) under that key's secret
   # (9d61b19d...1cae7f60, RFC 8032 section 7.1). Ed25519 is deterministic, so this is the only valid
   # signature, and it is a literal so the generator runs where the runtime refuses Ed25519 (FIPS
-  # mode). The suite checks it signs and verifies wherever the runtime has Ed25519.
+  # mode). The suite checks it signs and verifies wherever the runtime has Ed25519. `@ed_sig` is
+  # slice 139's, over the body {0: 1, 16: "slice 139"}, which has no `issuer`; since slice 140 that
+  # sample is `issuer_missing`. `@ed_sig_issuer` is over the same body with key 1, `@ed_sig_schema_2`
+  # over it with key 0 = 2.
   @ed_sig "44f793ebf76a054b798344893478ce4d19985eb9b8e813e6a99fa2920cc45f955c8fa32ce1307b6673c5418419cb81b0e35c7018966622bcf179ecd623740703"
+  @ed_sig_issuer "ff0ca9413ae325a29a74f71ff62f8cc8d3197d2aa715ac1e43aa74c112c0d51b5325be34e6c097d5e120f9646fdaf7f0c40739e3750a5b49275f2d04bcc07d00"
+  @ed_sig_schema_2 "23b8e030b47818e0d28cad5805c155bed332b4fcb9169001acc38f3868278fb5ad4600d75f1ff50f2f693668860ef507ce1ee81c7a8fe9ae46eb83d083649904"
 
-  # The single-signer carrier's schema number: a placeholder, 0xFFFF0003, until the profile's next
-  # draft assigns one (Trinity.N6.Profile.schemas/0).
+  # Slice 140, ESP384: RFC 6979 appendix A.2.6's published P-384 key (private
+  # 6b9d3dad...60d2edf5), its uncompressed public point, and one signature it made, as the 96-byte
+  # r || s, over the ESP384 sample's ToBeSigned. ECDSA here is randomised, so this is one valid
+  # signature of many, fixed as a literal; `n - s` is the other the samples use. The same signature as
+  # :crypto's DER (103 bytes) is the `signature_encoding` sample.
+  @ec_pub "04ec3a4e415b4e19a4568618029f427fa5da9a8bc4ae92e02e06aae5286b300c64def8f0ea9055866064a254515480bc138015d9b72d7d57244ea8ef9ac0c621896708a59367f9dfb9f54ca84b3f1c9db1288b231c3ae0d4fe7344fd2533264720"
+  @esp_sig "bed4807824fa21510c61d976ae13784810bbeb7dffd42d4ac341417bb832abed12514db5fdf349d981fea339633e97e1740e49429ab74ee078734ba75bcb3eee60de1507f3754b764cb820f3eae1102b7369d2d1bf0ecd6d39bac148aec3bb6b"
+  @esp_der "3065023100bed4807824fa21510c61d976ae13784810bbeb7dffd42d4ac341417bb832abed12514db5fdf349d981fea339633e97e10230740e49429ab74ee078734ba75bcb3eee60de1507f3754b764cb820f3eae1102b7369d2d1bf0ecd6d39bac148aec3bb6b"
+  # A P-384 public key whose x begins with a zero byte, generated for the thumbprint vector only (no
+  # private key is kept): a thumbprint that dropped the leading zero would give another kid.
+  @ec_pub_leading_zero "0400edc54551ef7c1c37c526427a30628bb4495fdd9721418fe5bc36358e0e3c67dabd04b38ffc8b355fd6f0af9f04c51f07fce50fca9d02d204ecba8bf37aee11fb29954efdd36a3ea368754a860ade1cf280b879084a3bbff3a15529f975f8d3"
+  # RFC 6979 appendix A.2.5's P-256 public key: registered as ESP384, a key on the wrong curve.
+  @p256_pub "0460fed4ba255a9d31c961eb74c6356d68c049b8923b61fa6ce669622e60f29fb67903fe1008b8bc99a41ae9e95628bc64f2f1b20c2d7e9f5177a3c294d4462299"
+  # The P-384 group order, for `n - s`.
+  @p384_n 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFC7634D81F4372DDF581A0DB248B0A77AECEC196ACCC52973
+
+  # The single-signer carrier's schema number, 0xFFFF0003: a placeholder at slice 139, assigned by
+  # the publisher's Decision of 2026-10-20 (point 2).
   @single_schema "1a ff ff 00 03"
 
   # FIPS 180-2, Appendix D.1: SHA-384("abc").
@@ -51,10 +80,14 @@ defmodule N6Vectors do
     kid = :crypto.hash(:sha384, thumb_input)
 
     # RFC 9679 section 4.1 over the OKP members of RFC 9053 section 7.1: {1: 1, -1: 6, -2: x}, keys in
-    # bytewise order 0x01, 0x20, 0x21, a 32-byte string's head being 58 20. No `alg`, which is why the
-    # profile table binds a `typ` to its one algorithm.
+    # bytewise order 0x01, 0x20, 0x21, a 32-byte string's head being 58 20. No `alg`: the key's
+    # registration names it.
     ed_pub = h(@ed_pub)
     ed_kid = :crypto.hash(:sha384, h("a3 01 01 20 06 21 58 20") <> ed_pub)
+
+    # RFC 9679 over the EC2 members of RFC 9053 section 7.1: {1: 2, -1: 2, -2: x, -3: y}, keys in
+    # bytewise order 0x01, 0x20, 0x21, 0x22, each coordinate exactly 48 bytes (58 30): 107 bytes.
+    ec_kid = ec2_kid(h(@ec_pub))
 
     File.rm_rf!(root)
 
@@ -64,7 +97,7 @@ defmodule N6Vectors do
     for {defect, id, hex, code} <- body_negative(), do: negative(root, "body", defect, id, h(hex), code, "hand")
     write(root, "body/schema.json", json(test_schema()))
 
-    header = header_vectors(kid, ed_kid)
+    header = header_vectors(kid, ed_kid, ec_kid)
     for {id, bytes} <- header.positive, do: write(root, "header/positive/#{id}.cbor", bytes)
     for {defect, id, bytes, code} <- header.negative, do: negative(root, "header", defect, id, bytes, code, "hand")
     write(root, "header/profile-table.json", json(profile_table()))
@@ -73,9 +106,19 @@ defmodule N6Vectors do
     write(root, "thumbprint/acvp_mldsa87_tg3_tc51.kid", kid)
     write(root, "thumbprint/rfc8032_test1_ed25519.pub", ed_pub)
     write(root, "thumbprint/rfc8032_test1_ed25519.kid", ed_kid)
+    write(root, "thumbprint/rfc6979_a26_p384.pub", h(@ec_pub))
+    write(root, "thumbprint/rfc6979_a26_p384.kid", ec_kid)
+    write(root, "thumbprint/p384_x_leading_zero.pub", h(@ec_pub_leading_zero))
+    write(root, "thumbprint/p384_x_leading_zero.kid", ec2_kid(h(@ec_pub_leading_zero)))
 
-    for {id, bytes, exit, code, entry} <- sign1_samples(kid, ed_kid),
-        do: sample(root, id, bytes, exit, code, entry)
+    # Keys a sample's context registers on purpose wrongly: the RFC 6979 key compressed, and a P-256
+    # point (RFC 6979 appendix A.2.5's public key), each registered as ESP384.
+    <<4, ec_x::binary-size(48), ec_y::binary-size(48)>> = h(@ec_pub)
+    write(root, "thumbprint/rfc6979_a26_p384_compressed.pub", <<2 + rem(:binary.last(ec_y), 2)>> <> ec_x)
+    write(root, "thumbprint/rfc6979_a25_p256.pub", h(@p256_pub))
+
+    for {id, bytes, exit, code, entry, keys} <- sign1_samples(kid, ed_kid, ec_kid),
+        do: sample(root, id, bytes, exit, code, entry, keys)
 
     abc = "abc"
     digest = :crypto.hash(:sha384, abc)
@@ -89,8 +132,8 @@ defmodule N6Vectors do
     for {defect, id, bytes, code} <- digest_negative(),
         do: negative(root, "digest", defect, id, bytes, code, "hand")
 
-    write(root, "VERSION", "n6/v0 draft r3 and the publisher's answers of 2026-10-19 PROVISIONAL (Trinity candidate set)\n")
-    write(root, "README.md", readme(header.negative, sign1_samples(kid, ed_kid)))
+    write(root, "VERSION", "n6/v0 draft r3 and the publisher's answers of 2026-10-19 and 2026-10-20 PROVISIONAL (Trinity candidate set)\n")
+    write(root, "README.md", readme(header.negative, sign1_samples(kid, ed_kid, ec_kid)))
     write_sums(root)
   end
 
@@ -120,15 +163,18 @@ defmodule N6Vectors do
     * Expected encodings are hex literals in the generator, copied from RFC 8949 Appendix A or built
       by hand from CBOR heads, never output of the encoder under test.
     * `body/schema.json` and `header/profile-table.json` are Trinity's test schema and test `typ`
-      table (the draft leaves both Open, VB6 and VB4). Each `typ` names its one `alg`, its carrier
-      and its signers, as the publisher's answers of 2026-10-19 bind them. `thumbprint/` uses NIST
-      ACVP's published ML-DSA-87 keyGen case (tgId 3, tcId 51) and RFC 8032's Ed25519 test 1 key; no
-      key of this project's is published.
+      table (the draft leaves both Open, VB6 and VB4). Each `typ` names its carrier, its signers and,
+      where the table says, the schema number its body's key 0 must be; no `typ` names an algorithm,
+      which the key's registration does (the publisher's Decision of 2026-10-20). `thumbprint/` uses
+      NIST ACVP's published ML-DSA-87 keyGen case (tgId 3, tcId 51), RFC 8032's Ed25519 test 1 key,
+      RFC 6979's P-384 key (A.2.6) and a P-384 public key whose `x` begins with a zero byte; no key
+      of this project's is published.
     * `cose/sign1/`: single-signer carriers, `{0: SINGLE_SCHEMA, 1: payload, 2: N6_Sign1}`, each with
       its `.expect` and a `.ctx.json` naming the entry point, the `typ` table and the keys (the draft
-      leaves `ctx.json` Open, VB5). `SINGLE_SCHEMA` is 0xFFFF0003, a placeholder until the profile
-      assigns one. The signed sample is Ed25519, which is deterministic; ML-DSA signatures are hedged,
-      so no ML-DSA-87 sample is included and the suite signs and verifies one where the runtime can.
+      leaves `ctx.json` Open, VB5). `SINGLE_SCHEMA` is 0xFFFF0003, as the publisher assigned it. The
+      signed samples are Ed25519, which is deterministic, and ESP384 with one fixed signature and its
+      `n - s`; ML-DSA signatures are hedged, so no ML-DSA-87 sample is included and the suite signs
+      and verifies one where the runtime can.
     * Not included: the limit vectors at 64 KiB and 1 MiB (the suite builds them).
 
     ## Encoding defects
@@ -159,7 +205,7 @@ defmodule N6Vectors do
 
     | Sample | Entry point | Exit | Expected code |
     | -- | -- | -- | -- |
-    #{Enum.map_join(samples, "\n", fn {id, _, exit, code, entry} -> "| `#{id}` | `#{entry}` | #{exit} | `#{code}` |" end)}
+    #{Enum.map_join(samples, "\n", fn {id, _, exit, code, entry, _keys} -> "| `#{id}` | `#{entry}` | #{exit} | `#{code}` |" end)}
     """
   end
 
@@ -353,7 +399,12 @@ defmodule N6Vectors do
       {"negative_schema_version", "minus_1", "a2 00 20 10 61 78", "key_not_uint"},
       {"carrier_schema_key0", "envelope_schema", "a2 00 1a ff ff 00 01 10 61 78", "schema_reserved"},
       {"carrier_schema_key0", "top_of_range", "a2 00 1a ff ff ff ff 10 61 78", "schema_reserved"},
+      # Slice 140, the publisher's order of 2026-10-20 17:27Z: a number in the shared test block is
+      # refused as such outside test mode, before `unknown_schema` could answer for it.
+      {"test_schema_outside_test_mode", "block_0x80", "a2 00 1a 80 00 01 01 10 61 78", "test_schema_outside_test_mode"},
       {"unknown_schema", "version_2", "a2 00 02 10 61 78", "unknown_schema"},
+      {"unknown_schema", "reserved_block_0x90", "a2 00 1a 90 00 00 00 10 61 78", "unknown_schema"},
+      {"unknown_schema", "trinity_block_unissued", "a2 00 1a 83 00 ff 01 10 61 78", "unknown_schema"},
       {"unknown_key", "key_19", "a3 00 01 10 61 78 13 00", "unknown_key"},
       {"required_key_missing", "no_name", "a1 00 01", "required_key_missing"},
       {"wrong_type", "name_as_uint", "a2 00 01 10 01", "wrong_type"},
@@ -371,15 +422,16 @@ defmodule N6Vectors do
       "provisional" => true,
       "note" => "Trinity's test profile table for the header vectors (the draft leaves its CDDL Open, VB4).",
       "typ" => [
-        %{"typ" => @typ, "alg" => -50, "carrier" => "single", "signers" => "single", "scitt" => false},
-        %{"typ" => @typ_scitt, "alg" => -50, "carrier" => "single", "signers" => "single", "scitt" => true},
-        %{"typ" => @typ_ed, "alg" => -19, "carrier" => "single", "signers" => "single", "scitt" => false},
-        %{"typ" => @typ_twin, "alg" => -50, "carrier" => "envelope", "signers" => "pair", "scitt" => false}
+        %{"typ" => @typ, "carrier" => "single", "signers" => "single", "scitt" => false},
+        %{"typ" => @typ_scitt, "carrier" => "single", "signers" => "single", "scitt" => true},
+        %{"typ" => @typ_ed, "carrier" => "single", "signers" => "single", "scitt" => false, "schema" => 1},
+        %{"typ" => @typ_esp, "carrier" => "single", "signers" => "single", "scitt" => false, "schema" => 1},
+        %{"typ" => @typ_twin, "carrier" => "envelope", "signers" => "pair", "scitt" => false}
       ]
     }
   end
 
-  defp header_vectors(kid, ed_kid) do
+  defp header_vectors(kid, ed_kid, ec_kid) do
     alg = h("01 38 31")
     kid_pair = h("04 58 30") <> kid
     typ = h("10 78 24") <> @typ
@@ -388,17 +440,26 @@ defmodule N6Vectors do
     typ_ed = h("10 78 2c") <> @typ_ed
     typ_scitt = h("10 78 2a") <> @typ_scitt
     typ_other = h("10 78 25") <> @typ_other
+    esp_alg = h("01 38 32")
+    ec_kid_pair = h("04 58 30") <> ec_kid
+    typ_esp = h("10 78 2b") <> @typ_esp
     cwt = h("0f a2 01 63") <> "iss" <> h("02 63") <> "sub"
 
     %{
       positive: [
         {"alg_kid_typ", h("a3") <> alg <> kid_pair <> typ},
         {"alg_kid_cwt_typ_scitt", h("a4") <> alg <> kid_pair <> cwt <> typ_scitt},
-        {"ed25519_alg_kid_typ", h("a3") <> ed_alg <> ed_kid_pair <> typ_ed}
+        {"ed25519_alg_kid_typ", h("a3") <> ed_alg <> ed_kid_pair <> typ_ed},
+        # Slice 140: since a `typ` names no algorithm, these decode at `commercial` (slice 139 had them
+        # as `alg_not_bound_to_typ`); the key's registration decides, in the cose samples.
+        {"ed25519_alg_under_any_typ", h("a3") <> ed_alg <> ed_kid_pair <> typ},
+        {"esp384_alg_kid_typ", h("a3") <> esp_alg <> ec_kid_pair <> typ_esp}
       ],
       negative: [
         {"alg_not_mldsa87", "mldsa65", h("a3 01 38 30") <> kid_pair <> typ, "alg_not_permitted"},
         {"alg_not_mldsa87", "eddsa", h("a3 01 27") <> kid_pair <> typ, "alg_not_permitted"},
+        # Slice 140: ES384 (-35), the polymorphic identifier RFC 9864 deprecates, is not ESP384.
+        {"alg_not_mldsa87", "es384", h("a3 01 38 22") <> ec_kid_pair <> typ_esp, "alg_not_permitted"},
         {"content_type", "label_3", h("a4") <> alg <> h("03 61 78") <> kid_pair <> typ, "content_type_forbidden"},
         {"crit", "label_2", h("a4") <> alg <> h("02 81 01") <> kid_pair <> typ, "header_label_forbidden"},
         {"label_0", "label_0", h("a4 00 00") <> alg <> kid_pair <> typ, "header_label_forbidden"},
@@ -414,65 +475,103 @@ defmodule N6Vectors do
         {"kid_wrong_size", "kid_32", h("a3") <> alg <> h("04 58 20") <> binary_part(kid, 0, 32) <> typ, "kid_not_thumbprint"},
         {"header_noncanonical", "typ_before_kid", h("a3") <> alg <> typ <> kid_pair, "header_noncanonical"},
         {"header_noncanonical", "nonminimal_label", h("a3 18 01 38 31") <> kid_pair <> typ, "header_noncanonical"},
-        {"header_noncanonical", "trailing_byte", h("a3") <> alg <> kid_pair <> typ <> h("00"), "header_noncanonical"},
-        # Slice 139: the header's `alg` must be the one its `typ` is bound to.
-        {"alg_not_bound_to_typ", "ed25519_under_mldsa87_typ", h("a3") <> ed_alg <> ed_kid_pair <> typ, "alg_not_permitted"},
-        {"alg_not_bound_to_typ", "mldsa87_under_ed25519_typ", h("a3") <> alg <> kid_pair <> typ_ed, "alg_not_permitted"}
+        {"header_noncanonical", "trailing_byte", h("a3") <> alg <> kid_pair <> typ <> h("00"), "header_noncanonical"}
       ]
     }
   end
 
-  ## Single-signer carriers (slice 139)
+  ## Single-signer carriers (slices 139 and 140)
 
-  # {id, carrier bytes, exit, verdict code, entry point}. The payload is the N6 body
-  # {0: 1, 16: "slice 139"}; the Ed25519 sample is signed over
-  # ["Signature1", protected, h'', payload], RFC 9052 section 4.4.
-  defp sign1_samples(kid, ed_kid) do
-    payload = h("a2 00 01 10 69") <> "slice 139"
-    payload_field = h("01 4e") <> payload
+  # {id, carrier bytes, exit, verdict code, entry point, keys}. `keys` is what the sample's context
+  # registers: nil for the three published keys, each under its own algorithm. Every signature is over
+  # ["Signature1", protected, h'', payload], RFC 9052 section 4.4. The Ed25519 payload is the N6 body
+  # {0: 1, 1: "trinity:test.invalid", 16: "slice 139"}, the ESP384 payload the same with "slice 140".
+  defp sign1_samples(kid, ed_kid, ec_kid) do
+    payload = body(h("01"), "slice 139")
+    payload_field = h("01 58 24") <> payload
     protected = h("a3 01 32 04 58 30") <> ed_kid <> h("10 78 2c") <> @typ_ed
-    sig = h(@ed_sig)
+    sig = h(@ed_sig_issuer)
     sign1 = h("84 58 65") <> protected <> h("a0 f6 58 40") <> sig
     good = h("a3 00") <> h(@single_schema) <> payload_field <> h("02") <> sign1
+    carrier = fn payload_field, sign1 -> h("a3 00") <> h(@single_schema) <> payload_field <> h("02") <> sign1 end
+    ed_sign1 = fn sig -> h("84 58 65") <> protected <> h("a0 f6 58 40") <> sig end
 
     flipped = binary_part(sig, 0, 63) <> <<:binary.last(sig) |> Bitwise.bxor(1)>>
     twin_protected = h("a3") <> h("01 38 31") <> h("04 58 30") <> kid <> h("10 78 29") <> @typ_twin
     twin_sign1 = h("84 58 63") <> twin_protected <> h("a0 f6 59 12 13") <> :binary.copy(<<0>>, 4627)
 
+    # Slice 139's body, without `issuer`, under its own literal signature; and the body with key 0 = 2.
+    no_issuer = h("01 4e a2 00 01 10 69") <> "slice 139"
+    schema_2 = h("01 58 24") <> body(h("02"), "slice 139")
+
+    esp_payload_field = h("01 58 24") <> body(h("01"), "slice 140")
+    esp_protected = h("a3 01 38 32 04 58 30") <> ec_kid <> h("10 78 2b") <> @typ_esp
+    esp = fn sig_field -> carrier.(esp_payload_field, h("84 58 65") <> esp_protected <> h("a0 f6") <> sig_field) end
+    esp_sig = h(@esp_sig)
+    <<r::binary-size(48), s::unsigned-size(384)>> = esp_sig
+    n_minus_s = r <> <<@p384_n - s::unsigned-size(384)>>
+    ec_kid_hex = Base.encode16(ec_kid, case: :lower)
+    ed_kid_hex = Base.encode16(ed_kid, case: :lower)
+
     [
-      {"ed25519_single", good, 0, "claim", "commercial"},
-      {"ed25519_single_at_nss", good, 1, "alg_not_permitted", "nss"},
-      {"ed25519_signature_flipped",
-       h("a3 00") <> h(@single_schema) <> payload_field <> h("02 84 58 65") <> protected <> h("a0 f6 58 40") <> flipped,
-       1, "signature_invalid", "commercial"},
-      {"carrier_key0_envelope", h("a3 00 1a ff ff 00 01") <> payload_field <> h("02") <> sign1, 1, "carrier_malformed", "commercial"},
-      {"carrier_extra_key", h("a4 00") <> h(@single_schema) <> payload_field <> h("02") <> sign1 <> h("03 00"), 1, "carrier_malformed", "commercial"},
-      {"carrier_no_sign1", h("a2 00") <> h(@single_schema) <> payload_field, 1, "carrier_malformed", "commercial"},
-      {"carrier_payload_text", h("a3 00") <> h(@single_schema) <> h("01 69") <> "slice 139" <> h("02") <> sign1, 1, "carrier_malformed", "commercial"},
-      {"carrier_not_map", h("83") <> h(@single_schema) <> h("4e") <> payload <> sign1, 1, "carrier_malformed", "commercial"},
-      {"carrier_keys_out_of_order", h("a3 00") <> h(@single_schema) <> h("02") <> sign1 <> payload_field, 1, "noncanonical", "commercial"},
+      {"ed25519_single", good, 0, "claim", "commercial", nil},
+      {"ed25519_single_at_nss", good, 1, "alg_not_permitted", "nss", nil},
+      {"ed25519_signature_flipped", carrier.(payload_field, ed_sign1.(flipped)), 1, "signature_invalid", "commercial", nil},
+      {"ed25519_no_issuer", carrier.(no_issuer, ed_sign1.(h(@ed_sig))), 1, "issuer_missing", "commercial", nil},
+      {"ed25519_typ_schema_mismatch", carrier.(schema_2, ed_sign1.(h(@ed_sig_schema_2))), 1, "typ_schema_mismatch", "commercial", nil},
+      {"ed25519_key_registered_as_mldsa87", good, 1, "alg_not_permitted", "commercial",
+       [%{"alg" => -50, "public" => "thumbprint/rfc8032_test1_ed25519.pub", "kid" => ed_kid_hex}]},
+      {"carrier_key0_envelope", h("a3 00 1a ff ff 00 01") <> payload_field <> h("02") <> sign1, 1, "carrier_malformed", "commercial", nil},
+      {"carrier_extra_key", h("a4 00") <> h(@single_schema) <> payload_field <> h("02") <> sign1 <> h("03 00"), 1, "carrier_malformed", "commercial", nil},
+      {"carrier_no_sign1", h("a2 00") <> h(@single_schema) <> payload_field, 1, "carrier_malformed", "commercial", nil},
+      {"carrier_payload_text", h("a3 00") <> h(@single_schema) <> h("01 69") <> "slice 139" <> h("02") <> sign1, 1, "carrier_malformed", "commercial", nil},
+      {"carrier_not_map", h("83") <> h(@single_schema) <> h("58 24") <> payload <> sign1, 1, "carrier_malformed", "commercial", nil},
+      {"carrier_keys_out_of_order", h("a3 00") <> h(@single_schema) <> h("02") <> sign1 <> payload_field, 1, "noncanonical", "commercial", nil},
       {"sign1_attached",
-       h("a3 00") <> h(@single_schema) <> payload_field <> h("02 84 58 65") <> protected <> h("a0 4e") <> payload <> h("58 40") <> sig,
-       1, "carrier_malformed", "commercial"},
-      {"sign1_tagged", h("a3 00") <> h(@single_schema) <> payload_field <> h("02 d2") <> sign1, 1, "tag_forbidden", "commercial"},
+       carrier.(payload_field, h("84 58 65") <> protected <> h("a0 58 24") <> payload <> h("58 40") <> sig),
+       1, "carrier_malformed", "commercial", nil},
+      {"sign1_tagged", carrier.(payload_field, h("d2") <> sign1), 1, "tag_forbidden", "commercial", nil},
       {"sign1_unprotected_kid",
-       h("a3 00") <> h(@single_schema) <> payload_field <> h("02 84 58 65") <> protected <> h("a1 04 41 00 f6 58 40") <> sig,
-       1, "header_not_protected", "commercial"},
-      {"pair_typ_in_single_carrier", h("a3 00") <> h(@single_schema) <> payload_field <> h("02") <> twin_sign1, 1, "wrong_carrier_for_typ", "commercial"}
+       carrier.(payload_field, h("84 58 65") <> protected <> h("a1 04 41 00 f6 58 40") <> sig),
+       1, "header_not_protected", "commercial", nil},
+      {"pair_typ_in_single_carrier", carrier.(payload_field, twin_sign1), 1, "wrong_carrier_for_typ", "commercial", nil},
+      # Slice 140: ESP384 (-51), the publisher's Decision of 2026-10-20, point 1.
+      {"esp384_single", esp.(h("58 60") <> esp_sig), 0, "claim", "commercial", nil},
+      {"esp384_n_minus_s", esp.(h("58 60") <> n_minus_s), 0, "claim", "commercial", nil},
+      {"esp384_at_nss", esp.(h("58 60") <> esp_sig), 1, "alg_not_permitted", "nss", nil},
+      {"esp384_signature_der", esp.(h("58 67") <> h(@esp_der)), 1, "signature_encoding", "commercial", nil},
+      {"esp384_signature_95_bytes", esp.(h("58 5f") <> binary_part(esp_sig, 0, 95)), 1, "signature_encoding", "commercial", nil},
+      {"esp384_signature_97_bytes", esp.(h("58 61") <> esp_sig <> h("00")), 1, "signature_encoding", "commercial", nil},
+      {"esp384_signature_flipped", esp.(h("58 60") <> binary_part(esp_sig, 0, 95) <> <<:binary.last(esp_sig) |> Bitwise.bxor(1)>>), 1, "signature_invalid", "commercial", nil},
+      {"esp384_key_compressed", esp.(h("58 60") <> esp_sig), 1, "key_invalid", "commercial",
+       [%{"alg" => -51, "public" => "thumbprint/rfc6979_a26_p384_compressed.pub", "kid" => ec_kid_hex}]},
+      {"esp384_key_p256", esp.(h("58 60") <> esp_sig), 1, "key_invalid", "commercial",
+       [%{"alg" => -51, "public" => "thumbprint/rfc6979_a25_p256.pub", "kid" => ec_kid_hex}]},
+      {"esp384_key_registered_as_ed25519", esp.(h("58 60") <> esp_sig), 1, "alg_not_permitted", "commercial",
+       [%{"alg" => -19, "public" => "thumbprint/rfc6979_a26_p384.pub", "kid" => ec_kid_hex}]}
     ]
   end
 
-  defp sample(root, id, bytes, exit, code, entry) do
+  # {0: key0, 1: "trinity:test.invalid", 16: text}, 36 bytes for a 9-byte text.
+  defp body(key0, text), do: h("a3 00") <> key0 <> h("01 74") <> @issuer <> h("10 69") <> text
+
+  defp ec2_kid(<<4, x::binary-size(48), y::binary-size(48)>>),
+    do: :crypto.hash(:sha384, h("a4 01 02 20 02 21 58 30") <> x <> h("22 58 30") <> y)
+
+  @default_keys [
+    %{"alg" => -19, "public" => "thumbprint/rfc8032_test1_ed25519.pub"},
+    %{"alg" => -50, "public" => "thumbprint/acvp_mldsa87_tg3_tc51.pub"},
+    %{"alg" => -51, "public" => "thumbprint/rfc6979_a26_p384.pub"}
+  ]
+
+  defp sample(root, id, bytes, exit, code, entry, keys) do
     write(root, "cose/sign1/#{id}.bin", bytes)
     write(root, "cose/sign1/#{id}.expect", json(%{"exit" => exit, "verdict_code" => code, "source" => "hand"}))
 
     ctx = %{
       "entry_point" => entry,
       "typ_table" => "header/profile-table.json",
-      "keys" => [
-        %{"alg" => -19, "public" => "thumbprint/rfc8032_test1_ed25519.pub"},
-        %{"alg" => -50, "public" => "thumbprint/acvp_mldsa87_tg3_tc51.pub"}
-      ]
+      "keys" => keys || @default_keys
     }
 
     write(root, "cose/sign1/#{id}.ctx.json", json(ctx))

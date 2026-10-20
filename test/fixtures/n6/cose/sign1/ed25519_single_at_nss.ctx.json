@@ -1,1 +1,1 @@
-{"entry_point":"nss","keys":[{"alg":-19,"public":"thumbprint/rfc8032_test1_ed25519.pub"},{"alg":-50,"public":"thumbprint/acvp_mldsa87_tg3_tc51.pub"}],"typ_table":"header/profile-table.json"}
+{"entry_point":"nss","keys":[{"alg":-19,"public":"thumbprint/rfc8032_test1_ed25519.pub"},{"alg":-50,"public":"thumbprint/acvp_mldsa87_tg3_tc51.pub"},{"alg":-51,"public":"thumbprint/rfc6979_a26_p384.pub"}],"typ_table":"header/profile-table.json"}
