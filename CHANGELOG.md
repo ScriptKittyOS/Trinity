@@ -47,6 +47,25 @@ refusing in its own operating system process; the floor at every boundary and a 
 generated versions; every step of the ML-DSA-87 check failing by name; and, on the FIPS image with
 the mode off, the planted failures against the real cryptographic library.
 
+### `slice/138`: deterministic CBOR and COSE_Sign1 with ML-DSA-87
+
+Trinity can now build and check signed statements in the N6 profile: deterministic CBOR (RFC 8949
+section 4.2.1, narrowed to integers, byte and text strings, arrays, integer-keyed maps and three
+simple values) inside COSE_Sign1, signed with ML-DSA-87 (RFC 9964). The decoder refuses any byte
+string that is not exactly the deterministic encoding of such a value and names the first defect;
+a statement's key id is the RFC 9679 thumbprint of its public key; a verifier that cannot run
+ML-DSA-87 says it cannot judge rather than failing or passing. Bytes received from elsewhere are
+referenced by their SHA-384 digest, never re-encoded first. The profile is provisional (v0, draft
+r3), so this is groundwork: nothing Trinity signed before changes, and no statement it signs uses
+the new format yet. The project's vectors for it, written from RFC 8949's own examples and from
+CBOR heads by hand, are checked in with a `sha384sum` manifest.
+
+Verified by the test suite: every vector, encoded and decoded, at the top level and nested; a
+property over generated values; each limit at its value and one past it; the header rules one by
+one; signing and verifying with NIST's published ML-DSA-87 test key on the FIPS image with the mode
+off; a decoder planted to accept one defect class failing that class and no other; and an opt-in
+run of 1,000,000 generated statements whose 13,000,000 mutants were all refused.
+
 ## 2026-10-08
 
 ### `slice/136`: the web pages ask who is there

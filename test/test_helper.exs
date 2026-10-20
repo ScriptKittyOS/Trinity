@@ -15,6 +15,8 @@
 # :mldsa87_runtime (planted faults in the ML-DSA-87 known-answer check, which can only be seen
 # where the runtime signs) runs where the oracle says it does. That is derived, not declared, so
 # the decision is printed: a leg that loses ML-DSA-87 says so in its own log.
+# Slice 138: :n6_corpus (10^6 generated N6 bodies and their mutants) is opt-in, run with
+# `mix test --only n6_corpus`; it is a measurement, too long for every run.
 fips_leg? = System.get_env("TRINITY_FIPS_LEG") == "1"
 local_model? = System.get_env("TRINITY_LOCAL_MODEL_CACHE") not in [nil, ""]
 below_floor_otp? = System.get_env("TRINITY_BELOW_FLOOR_OTP") not in [nil, ""]
@@ -35,7 +37,7 @@ IO.puts(
 
 ExUnit.start(
   exclude:
-    [:live, :desktop, :eval] ++
+    [:live, :desktop, :eval, :n6_corpus] ++
       if(fips_leg?, do: [], else: [:fips]) ++
       if(local_model?, do: [], else: [:local_model]) ++
       if(below_floor_otp?, do: [], else: [:below_floor_otp]) ++

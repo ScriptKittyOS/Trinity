@@ -84,3 +84,19 @@ path = ["priv/kat/wycheproof/**"]
 precedence = "override"
 SPDX-FileCopyrightText = "Google LLC and the C2SP Wycheproof contributors"
 SPDX-License-Identifier = "Apache-2.0"
+
+# Slice 138. The N6 vectors `scripts/n6_vectors.exs` writes: CBOR, diagnostic notation and expected
+# outcomes, none of which can carry a comment. The RFC 8949 Appendix A encodings among them are
+# credited in each vector's description. The thumbprint vector's public key is NIST's, the ACVP
+# case under `priv/kat/acvp/` above, and is annotated as that file is.
+[[annotations]]
+path = ["test/fixtures/n6/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Sudo Apt Holdings LLC"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = ["test/fixtures/n6/thumbprint/*.pub"]
+precedence = "override"
+SPDX-FileCopyrightText = "National Institute of Standards and Technology"
+SPDX-License-Identifier = "CC0-1.0"

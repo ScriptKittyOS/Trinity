@@ -1,0 +1,1 @@
+{"fields":[{"key":16,"name":"name","required":true,"type":"tstr"},{"key":17,"name":"count","required":false,"type":"uint"},{"key":18,"name":"members","required":false,"type":"set of uint"}],"kind":"trinity.test","note":"Trinity's test schema for the body vectors. The draft leaves test schemas Open (VB6); this one is Trinity's.","provisional":true,"schema_version":1}
