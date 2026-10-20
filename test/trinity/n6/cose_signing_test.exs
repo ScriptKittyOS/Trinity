@@ -8,11 +8,13 @@ defmodule Trinity.N6.COSESigningTest do
 
   The key is NIST ACVP's published keyGen case (slice 137 pins it), so no key of this tree's is
   published: its 32-byte seed and its expanded secret key are two forms of one key.
+
+  Slice 139, AC4: an ML-DSA-87 Sign1 in the single-signer carrier verifies, at both entry points.
   """
 
   use ExUnit.Case, async: true
 
-  alias Trinity.N6.COSE
+  alias Trinity.N6.{Carrier, COSE}
   alias Trinity.TestSupport.N6Vectors
 
   @moduletag :mldsa87_runtime
@@ -23,7 +25,7 @@ defmodule Trinity.N6.COSESigningTest do
   setup_all do
     key = N6Vectors.acvp_key()
     kid = COSE.thumbprint(key.public)
-    keys = fn k -> if k == kid, do: {:ok, key.public}, else: :error end
+    keys = fn k -> if k == kid, do: {:ok, %{alg: -50, public: key.public}}, else: :error end
     %{key: key, opts: [keys: keys, typ: N6Vectors.typ_table()]}
   end
 
@@ -98,5 +100,21 @@ defmodule Trinity.N6.COSESigningTest do
     <<pre::binary-size(7), b, post::binary>> = parts.protected
     flipped = %{parts | protected: <<pre::binary, Bitwise.bxor(b, 1), post::binary>>}
     assert COSE.verify(flipped, opts) == {:error, 5, :policy_stale_or_unknown_key}
+  end
+
+  test "slice 139: in the single-signer carrier, it verifies at nss and at commercial", %{
+    key: key,
+    opts: opts
+  } do
+    {:ok, parts} =
+      COSE.sign("a statement", @typ, %{alg: -50, public: key.public, private: {:seed, key.seed}})
+
+    carrier = Carrier.encode(parts)
+    assert Carrier.decode(carrier) == {:ok, parts}
+
+    for entry <- [:nss, :commercial] do
+      assert {:ok, %{exit: 0, verdict_code: :claim}} =
+               Carrier.verify(carrier, Keyword.put(opts, :entry, entry))
+    end
   end
 end

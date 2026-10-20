@@ -87,8 +87,9 @@ SPDX-License-Identifier = "Apache-2.0"
 
 # Slice 138. The N6 vectors `scripts/n6_vectors.exs` writes: CBOR, diagnostic notation and expected
 # outcomes, none of which can carry a comment. The RFC 8949 Appendix A encodings among them are
-# credited in each vector's description. The thumbprint vector's public key is NIST's, the ACVP
-# case under `priv/kat/acvp/` above, and is annotated as that file is.
+# credited in each vector's description. The ML-DSA-87 thumbprint vector's public key is NIST's, the
+# ACVP case under `priv/kat/acvp/` above, and is annotated as that file is. Slice 139's Ed25519 key
+# is RFC 8032 section 7.1's test 1, credited in the set's README as the RFC 8949 examples are.
 [[annotations]]
 path = ["test/fixtures/n6/**"]
 precedence = "aggregate"
@@ -96,7 +97,16 @@ SPDX-FileCopyrightText = "Sudo Apt Holdings LLC"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = ["test/fixtures/n6/thumbprint/*.pub"]
+path = ["test/fixtures/n6/thumbprint/acvp_mldsa87_tg3_tc51.pub"]
 precedence = "override"
 SPDX-FileCopyrightText = "National Institute of Standards and Technology"
 SPDX-License-Identifier = "CC0-1.0"
+
+# Slice 139. Exported receipt chains signed under published test keys (RFC 8032 section 7.1's test 1,
+# and the NIST ACVP ML-DSA-87 case above), written by `scripts/receipt_foreign_chains.exs`. JSON
+# cannot carry a comment.
+[[annotations]]
+path = ["test/fixtures/receipts/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Sudo Apt Holdings LLC"
+SPDX-License-Identifier = "Apache-2.0"

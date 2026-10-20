@@ -387,6 +387,8 @@ jobs:
       # provider refuses it), so the ML-DSA-87 path runs here end to end: the planted-step cases,
       # a regulated node that boots with ML-DSA-87 receipts and whose boot receipt verifies, and the
       # signer's key shapes. Slice 138 adds N6's COSE_Sign1 signing and verification with ML-DSA-87.
+      # Slice 139 adds the receipt chains signed under ML-DSA-87, which verify here and nowhere else
+      # in CI (in the mode, and on the gate runners, they are the no-trust branch).
       # TRINITY_REQUIRE_MLDSA87_RUNTIME makes test_helper raise if the runtime
       # cannot sign, rather than excluding the cases it came to run.
       #
@@ -401,4 +403,4 @@ jobs:
           TRINITY_REQUIRE_MLDSA87_RUNTIME: "1"
         run: |
           rm -rf tmp trinity_test.db* trinity_test_receipts.db*
-          mix test test/trinity/crypto/preflight_test.exs test/trinity/toolchain_node_test.exs test/trinity/receipts/signer_test.exs test/trinity/n6/cose_signing_test.exs test/trinity/n6/cose_test.exs
+          mix test test/trinity/crypto/preflight_test.exs test/trinity/toolchain_node_test.exs test/trinity/receipts/signer_test.exs test/trinity/n6/cose_signing_test.exs test/trinity/n6/cose_test.exs test/trinity/receipts/foreign_algorithm_test.exs

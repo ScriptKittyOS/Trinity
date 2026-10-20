@@ -563,14 +563,25 @@ defmodule Trinity.Receipts.ChainWriter do
              {:error, {:checkpoint_tail_not_in_chain, cp.last_seq}},
          {:ok, impl} <-
            Signer.impl_for_scheme(cp.scheme) |> ok_or({:error, {:unknown_scheme, cp.scheme}}),
-         {:ok, pub} <- public_key(cp.key_id),
-         true <-
-           impl.verify(
-             Envelope.pae(Envelope.checkpoint_type(cp.scheme), cp.signed_payload),
-             cp.signature,
-             pub
-           ) || {:error, {:checkpoint_signature_invalid, cp.last_seq}} do
-      :ok
+         {:ok, pub} <- public_key(cp.key_id) do
+      bytes = Envelope.pae(Envelope.checkpoint_type(cp.scheme), cp.signed_payload)
+
+      case Signer.check(impl, bytes, cp.signature, pub) do
+        :ok ->
+          :ok
+
+        :invalid ->
+          {:error, {:checkpoint_signature_invalid, cp.last_seq}}
+
+        # Slice 139: a checkpoint this runtime cannot judge (one signed before the node entered FIPS
+        # mode, say) stops the writer with the reason. Before 139 it was an exception out of
+        # `:crypto.verify`, which stopped the writer just the same but said nothing about why.
+        :alg_unavailable ->
+          {:error, {:checkpoint_alg_unavailable, cp.last_seq, Atom.to_string(impl.algorithm())}}
+
+        :key_unusable ->
+          {:error, {:checkpoint_key_unusable, cp.last_seq, cp.key_id}}
+      end
     end
   end
 

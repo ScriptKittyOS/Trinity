@@ -579,6 +579,31 @@ fingerprint, the MCP server's retry binding, and an effect receipt's digest of n
 output. Each needs the exact bytes it hashes, which the layer that receives them does not keep
 today.
 
+### One signer, and a classical algorithm where the profile allows one (Slice 139, as built)
+
+The profile's publisher answered Trinity's questions on draft r3 on 2026-10-19, ahead of the draft
+that will carry the answers. Slice 139 builds the two that a single signer needs; still nothing
+Trinity signs uses the layer.
+
+- **One statement travels in one carrier.** `Trinity.N6.Carrier` holds a statement and its one
+  signature as `{0: SINGLE_SCHEMA, 1: payload, 2: Sign1}`, the Sign1 untagged with its payload
+  detached, the shape the twin envelope gives each of its two. Anything else is refused. A `typ`
+  whose profile entry needs two signers is refused in a single-signer carrier before its signature
+  is looked at: each half of a twin is a valid single signature, so accepting one would accept half
+  a statement as the whole. `SINGLE_SCHEMA` is a placeholder until the profile assigns the number.
+- **Ed25519, only where the profile admits it, only for the `typ` bound to it.** On the
+  `commercial` profile a header may carry `alg` -19 (Ed25519, RFC 9864); at the `nss` entry point,
+  the default, only -50. An Ed25519 key's thumbprint (RFC 9679's OKP members) does not include the
+  algorithm, so the binding comes from two other places: the profile table binds each `typ` to its
+  one algorithm, and a verifier takes each key with the algorithm it was registered under, which
+  must be the header's.
+- **A receipt chain the runtime cannot judge gets an answer.** Before this slice, verifying a chain
+  signed under an algorithm the runtime refuses (Ed25519 on a FIPS node, ML-DSA-87 on OpenSSL 3.0)
+  raised out of `:crypto`, so the verify task, the receipts page, a chain merge and a writer
+  rehydrating over such a checkpoint crashed. They now answer exit 5, trust not established, naming
+  the row and the algorithm. `:crypto` raises the same way for a registered key it cannot use, so
+  the verifier asks whether the runtime does the algorithm at all before saying which it was.
+
 ## The effect population, published (Slice 027, as built)
 
 The set of things that can cause an effect is small, derived from the tree, and published as

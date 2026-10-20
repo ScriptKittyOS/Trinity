@@ -19,6 +19,23 @@ defmodule N6Vectors do
   @typ "application/vnd.example.test.v1+cose"
   @typ_scitt "application/vnd.example.scitt-test.v1+cose"
   @typ_other "application/vnd.example.other.v1+cose"
+  # Slice 139: a `typ` bound to Ed25519 (-19) on the `commercial` profile, and one whose entry needs
+  # two signers, which a single-signer carrier must refuse.
+  @typ_ed "application/vnd.example.test-ed25519.v1+cose"
+  @typ_twin "application/vnd.example.twin-test.v1+cose"
+
+  # RFC 8032 section 7.1, test 1: a published Ed25519 key, so no key of this tree's is published.
+  @ed_pub "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+
+  # Ed25519 over the sample's ToBeSigned (below) under that key's secret
+  # (9d61b19d...1cae7f60, RFC 8032 section 7.1). Ed25519 is deterministic, so this is the only valid
+  # signature, and it is a literal so the generator runs where the runtime refuses Ed25519 (FIPS
+  # mode). The suite checks it signs and verifies wherever the runtime has Ed25519.
+  @ed_sig "44f793ebf76a054b798344893478ce4d19985eb9b8e813e6a99fa2920cc45f955c8fa32ce1307b6673c5418419cb81b0e35c7018966622bcf179ecd623740703"
+
+  # The single-signer carrier's schema number: a placeholder, 0xFFFF0003, until the profile's next
+  # draft assigns one (Trinity.N6.Profile.schemas/0).
+  @single_schema "1a ff ff 00 03"
 
   # FIPS 180-2, Appendix D.1: SHA-384("abc").
   @sha384_abc "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7"
@@ -33,6 +50,12 @@ defmodule N6Vectors do
     thumb_input = h("a3 01 07 03 38 31 20 59 0a 20") <> pub
     kid = :crypto.hash(:sha384, thumb_input)
 
+    # RFC 9679 section 4.1 over the OKP members of RFC 9053 section 7.1: {1: 1, -1: 6, -2: x}, keys in
+    # bytewise order 0x01, 0x20, 0x21, a 32-byte string's head being 58 20. No `alg`, which is why the
+    # profile table binds a `typ` to its one algorithm.
+    ed_pub = h(@ed_pub)
+    ed_kid = :crypto.hash(:sha384, h("a3 01 01 20 06 21 58 20") <> ed_pub)
+
     File.rm_rf!(root)
 
     for {id, hex, desc, source} <- encoding_positive(), do: positive(root, "encoding", id, h(hex), desc, source)
@@ -41,13 +64,18 @@ defmodule N6Vectors do
     for {defect, id, hex, code} <- body_negative(), do: negative(root, "body", defect, id, h(hex), code, "hand")
     write(root, "body/schema.json", json(test_schema()))
 
-    header = header_vectors(kid)
+    header = header_vectors(kid, ed_kid)
     for {id, bytes} <- header.positive, do: write(root, "header/positive/#{id}.cbor", bytes)
     for {defect, id, bytes, code} <- header.negative, do: negative(root, "header", defect, id, bytes, code, "hand")
     write(root, "header/profile-table.json", json(profile_table()))
 
     write(root, "thumbprint/acvp_mldsa87_tg3_tc51.pub", pub)
     write(root, "thumbprint/acvp_mldsa87_tg3_tc51.kid", kid)
+    write(root, "thumbprint/rfc8032_test1_ed25519.pub", ed_pub)
+    write(root, "thumbprint/rfc8032_test1_ed25519.kid", ed_kid)
+
+    for {id, bytes, exit, code, entry} <- sign1_samples(kid, ed_kid),
+        do: sample(root, id, bytes, exit, code, entry)
 
     abc = "abc"
     digest = :crypto.hash(:sha384, abc)
@@ -61,13 +89,13 @@ defmodule N6Vectors do
     for {defect, id, bytes, code} <- digest_negative(),
         do: negative(root, "digest", defect, id, bytes, code, "hand")
 
-    write(root, "VERSION", "n6/v0 draft r3 PROVISIONAL (Trinity candidate set)\n")
-    write(root, "README.md", readme(header.negative))
+    write(root, "VERSION", "n6/v0 draft r3 and the publisher's answers of 2026-10-19 PROVISIONAL (Trinity candidate set)\n")
+    write(root, "README.md", readme(header.negative, sign1_samples(kid, ed_kid)))
     write_sums(root)
   end
 
   # The README lists every negative directory with its expected code, derived from the lists above.
-  defp readme(header_negative) do
+  defp readme(header_negative, samples) do
     rows = fn vectors ->
       vectors
       |> Enum.map(fn v -> {elem(v, 0), code_of(v)} end)
@@ -92,11 +120,16 @@ defmodule N6Vectors do
     * Expected encodings are hex literals in the generator, copied from RFC 8949 Appendix A or built
       by hand from CBOR heads, never output of the encoder under test.
     * `body/schema.json` and `header/profile-table.json` are Trinity's test schema and test `typ`
-      table (the draft leaves both Open, VB6 and VB4). `thumbprint/` uses NIST ACVP's published
-      ML-DSA-87 keyGen case (tgId 3, tcId 51); no key of this project's is published.
-    * Not included: the limit vectors at 64 KiB and 1 MiB (the suite builds them), and COSE_Sign1
-      samples (ML-DSA signatures are hedged, so a sample is one valid signature among many; the
-      suite signs and verifies where the runtime can).
+      table (the draft leaves both Open, VB6 and VB4). Each `typ` names its one `alg`, its carrier
+      and its signers, as the publisher's answers of 2026-10-19 bind them. `thumbprint/` uses NIST
+      ACVP's published ML-DSA-87 keyGen case (tgId 3, tcId 51) and RFC 8032's Ed25519 test 1 key; no
+      key of this project's is published.
+    * `cose/sign1/`: single-signer carriers, `{0: SINGLE_SCHEMA, 1: payload, 2: N6_Sign1}`, each with
+      its `.expect` and a `.ctx.json` naming the entry point, the `typ` table and the keys (the draft
+      leaves `ctx.json` Open, VB5). `SINGLE_SCHEMA` is 0xFFFF0003, a placeholder until the profile
+      assigns one. The signed sample is Ed25519, which is deterministic; ML-DSA signatures are hedged,
+      so no ML-DSA-87 sample is included and the suite signs and verifies one where the runtime can.
+    * Not included: the limit vectors at 64 KiB and 1 MiB (the suite builds them).
 
     ## Encoding defects
 
@@ -121,6 +154,12 @@ defmodule N6Vectors do
     | Directory | Expected code |
     | -- | -- |
     #{rows.(digest_negative())}
+
+    ## Single-signer carriers (`cose/sign1/`)
+
+    | Sample | Entry point | Exit | Expected code |
+    | -- | -- | -- | -- |
+    #{Enum.map_join(samples, "\n", fn {id, _, exit, code, entry} -> "| `#{id}` | `#{entry}` | #{exit} | `#{code}` |" end)}
     """
   end
 
@@ -332,16 +371,21 @@ defmodule N6Vectors do
       "provisional" => true,
       "note" => "Trinity's test profile table for the header vectors (the draft leaves its CDDL Open, VB4).",
       "typ" => [
-        %{"typ" => @typ, "carrier" => "single", "signers" => "single", "scitt" => false},
-        %{"typ" => @typ_scitt, "carrier" => "single", "signers" => "single", "scitt" => true}
+        %{"typ" => @typ, "alg" => -50, "carrier" => "single", "signers" => "single", "scitt" => false},
+        %{"typ" => @typ_scitt, "alg" => -50, "carrier" => "single", "signers" => "single", "scitt" => true},
+        %{"typ" => @typ_ed, "alg" => -19, "carrier" => "single", "signers" => "single", "scitt" => false},
+        %{"typ" => @typ_twin, "alg" => -50, "carrier" => "envelope", "signers" => "pair", "scitt" => false}
       ]
     }
   end
 
-  defp header_vectors(kid) do
+  defp header_vectors(kid, ed_kid) do
     alg = h("01 38 31")
     kid_pair = h("04 58 30") <> kid
     typ = h("10 78 24") <> @typ
+    ed_alg = h("01 32")
+    ed_kid_pair = h("04 58 30") <> ed_kid
+    typ_ed = h("10 78 2c") <> @typ_ed
     typ_scitt = h("10 78 2a") <> @typ_scitt
     typ_other = h("10 78 25") <> @typ_other
     cwt = h("0f a2 01 63") <> "iss" <> h("02 63") <> "sub"
@@ -349,7 +393,8 @@ defmodule N6Vectors do
     %{
       positive: [
         {"alg_kid_typ", h("a3") <> alg <> kid_pair <> typ},
-        {"alg_kid_cwt_typ_scitt", h("a4") <> alg <> kid_pair <> cwt <> typ_scitt}
+        {"alg_kid_cwt_typ_scitt", h("a4") <> alg <> kid_pair <> cwt <> typ_scitt},
+        {"ed25519_alg_kid_typ", h("a3") <> ed_alg <> ed_kid_pair <> typ_ed}
       ],
       negative: [
         {"alg_not_mldsa87", "mldsa65", h("a3 01 38 30") <> kid_pair <> typ, "alg_not_permitted"},
@@ -369,9 +414,68 @@ defmodule N6Vectors do
         {"kid_wrong_size", "kid_32", h("a3") <> alg <> h("04 58 20") <> binary_part(kid, 0, 32) <> typ, "kid_not_thumbprint"},
         {"header_noncanonical", "typ_before_kid", h("a3") <> alg <> typ <> kid_pair, "header_noncanonical"},
         {"header_noncanonical", "nonminimal_label", h("a3 18 01 38 31") <> kid_pair <> typ, "header_noncanonical"},
-        {"header_noncanonical", "trailing_byte", h("a3") <> alg <> kid_pair <> typ <> h("00"), "header_noncanonical"}
+        {"header_noncanonical", "trailing_byte", h("a3") <> alg <> kid_pair <> typ <> h("00"), "header_noncanonical"},
+        # Slice 139: the header's `alg` must be the one its `typ` is bound to.
+        {"alg_not_bound_to_typ", "ed25519_under_mldsa87_typ", h("a3") <> ed_alg <> ed_kid_pair <> typ, "alg_not_permitted"},
+        {"alg_not_bound_to_typ", "mldsa87_under_ed25519_typ", h("a3") <> alg <> kid_pair <> typ_ed, "alg_not_permitted"}
       ]
     }
+  end
+
+  ## Single-signer carriers (slice 139)
+
+  # {id, carrier bytes, exit, verdict code, entry point}. The payload is the N6 body
+  # {0: 1, 16: "slice 139"}; the Ed25519 sample is signed over
+  # ["Signature1", protected, h'', payload], RFC 9052 section 4.4.
+  defp sign1_samples(kid, ed_kid) do
+    payload = h("a2 00 01 10 69") <> "slice 139"
+    payload_field = h("01 4e") <> payload
+    protected = h("a3 01 32 04 58 30") <> ed_kid <> h("10 78 2c") <> @typ_ed
+    sig = h(@ed_sig)
+    sign1 = h("84 58 65") <> protected <> h("a0 f6 58 40") <> sig
+    good = h("a3 00") <> h(@single_schema) <> payload_field <> h("02") <> sign1
+
+    flipped = binary_part(sig, 0, 63) <> <<:binary.last(sig) |> Bitwise.bxor(1)>>
+    twin_protected = h("a3") <> h("01 38 31") <> h("04 58 30") <> kid <> h("10 78 29") <> @typ_twin
+    twin_sign1 = h("84 58 63") <> twin_protected <> h("a0 f6 59 12 13") <> :binary.copy(<<0>>, 4627)
+
+    [
+      {"ed25519_single", good, 0, "claim", "commercial"},
+      {"ed25519_single_at_nss", good, 1, "alg_not_permitted", "nss"},
+      {"ed25519_signature_flipped",
+       h("a3 00") <> h(@single_schema) <> payload_field <> h("02 84 58 65") <> protected <> h("a0 f6 58 40") <> flipped,
+       1, "signature_invalid", "commercial"},
+      {"carrier_key0_envelope", h("a3 00 1a ff ff 00 01") <> payload_field <> h("02") <> sign1, 1, "carrier_malformed", "commercial"},
+      {"carrier_extra_key", h("a4 00") <> h(@single_schema) <> payload_field <> h("02") <> sign1 <> h("03 00"), 1, "carrier_malformed", "commercial"},
+      {"carrier_no_sign1", h("a2 00") <> h(@single_schema) <> payload_field, 1, "carrier_malformed", "commercial"},
+      {"carrier_payload_text", h("a3 00") <> h(@single_schema) <> h("01 69") <> "slice 139" <> h("02") <> sign1, 1, "carrier_malformed", "commercial"},
+      {"carrier_not_map", h("83") <> h(@single_schema) <> h("4e") <> payload <> sign1, 1, "carrier_malformed", "commercial"},
+      {"carrier_keys_out_of_order", h("a3 00") <> h(@single_schema) <> h("02") <> sign1 <> payload_field, 1, "noncanonical", "commercial"},
+      {"sign1_attached",
+       h("a3 00") <> h(@single_schema) <> payload_field <> h("02 84 58 65") <> protected <> h("a0 4e") <> payload <> h("58 40") <> sig,
+       1, "carrier_malformed", "commercial"},
+      {"sign1_tagged", h("a3 00") <> h(@single_schema) <> payload_field <> h("02 d2") <> sign1, 1, "tag_forbidden", "commercial"},
+      {"sign1_unprotected_kid",
+       h("a3 00") <> h(@single_schema) <> payload_field <> h("02 84 58 65") <> protected <> h("a1 04 41 00 f6 58 40") <> sig,
+       1, "header_not_protected", "commercial"},
+      {"pair_typ_in_single_carrier", h("a3 00") <> h(@single_schema) <> payload_field <> h("02") <> twin_sign1, 1, "wrong_carrier_for_typ", "commercial"}
+    ]
+  end
+
+  defp sample(root, id, bytes, exit, code, entry) do
+    write(root, "cose/sign1/#{id}.bin", bytes)
+    write(root, "cose/sign1/#{id}.expect", json(%{"exit" => exit, "verdict_code" => code, "source" => "hand"}))
+
+    ctx = %{
+      "entry_point" => entry,
+      "typ_table" => "header/profile-table.json",
+      "keys" => [
+        %{"alg" => -19, "public" => "thumbprint/rfc8032_test1_ed25519.pub"},
+        %{"alg" => -50, "public" => "thumbprint/acvp_mldsa87_tg3_tc51.pub"}
+      ]
+    }
+
+    write(root, "cose/sign1/#{id}.ctx.json", json(ctx))
   end
 
   ## Digest

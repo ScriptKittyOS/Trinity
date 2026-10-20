@@ -5,19 +5,39 @@ defmodule Trinity.N6.COSETest do
   Slice 138, AC6 and AC7, and the parts of AC8 that need no signature: the key thumbprint, the
   header rules, the unprotected header, ToBeSigned, and what `verify/2` answers when it cannot
   judge. None of it needs a runtime that signs ML-DSA-87, so it runs on every leg.
+
+  Slice 139, AC1 to AC3: the OKP thumbprint, the header rules for Ed25519 and the entry points, and
+  Ed25519 signing, which is deterministic and needs no special runtime but is refused in FIPS mode,
+  so each leg takes the branch its runtime allows and the module says which.
   """
 
   use ExUnit.Case, async: true
 
   alias Trinity.N6.{CBOR, COSE, Profile}
-  alias Trinity.TestSupport.{MLDSA87Oracle, N6Vectors}
+  alias Trinity.TestSupport.{Ed25519Oracle, MLDSA87Oracle, N6Vectors}
 
   @typ "application/vnd.example.test.v1+cose"
+  @typ_ed "application/vnd.example.test-ed25519.v1+cose"
 
   setup_all do
     key = N6Vectors.acvp_key()
-    %{key: key, kid: COSE.thumbprint(key.public), table: N6Vectors.typ_table()}
+    ed = N6Vectors.rfc8032_key()
+
+    IO.puts(
+      "cose_test: Ed25519 #{if Ed25519Oracle.verifies?(), do: "verifies", else: "is refused"} " <>
+        "on this runtime (fips #{:crypto.info_fips()})"
+    )
+
+    %{
+      key: key,
+      kid: COSE.thumbprint(key.public),
+      ed: ed,
+      ed_kid: COSE.thumbprint(-19, ed.public),
+      table: N6Vectors.typ_table()
+    }
   end
+
+  defp mldsa(key), do: fn _ -> {:ok, %{alg: -50, public: key.public}} end
 
   describe "AC6: the thumbprint" do
     test "kid for ACVP's published key is SHA-384 over exactly the RFC 9679 input", %{key: key} do
@@ -33,29 +53,68 @@ defmodule Trinity.N6.COSETest do
       # N6 cannot build it (key -1 is outside its keys), which is why the prefix is fixed by hand.
       assert CBOR.encode(%{1 => 7, 3 => -50}) == {:ok, <<0xA2, 0x01, 0x07, 0x03, 0x38, 0x31>>}
     end
+
+    test "slice 139, AC1: the OKP kid for RFC 8032's test key is SHA-384 over exactly its input",
+         %{
+           ed: ed
+         } do
+      pub = File.read!(Path.join(N6Vectors.root(), "thumbprint/rfc8032_test1_ed25519.pub"))
+      kid = File.read!(Path.join(N6Vectors.root(), "thumbprint/rfc8032_test1_ed25519.kid"))
+      assert pub == ed.public
+
+      # {1: 1, -1: 6, -2: x}: kty OKP, crv Ed25519 (RFC 9053 section 7.1), keys 0x01, 0x20, 0x21.
+      input = <<0xA3, 0x01, 0x01, 0x20, 0x06, 0x21, 0x58, 0x20>> <> pub
+      assert COSE.thumbprint(-19, pub) == kid
+      assert :crypto.hash(:sha384, input) == kid
+    end
   end
 
   describe "AC7: the header rules" do
-    test "every positive header decodes, and the builder makes exactly the plain one", %{
+    test "every positive header decodes at commercial, and the builder makes exactly each", %{
       kid: kid,
+      ed_kid: ed_kid,
       table: table
     } do
-      for path <- Path.wildcard(Path.join(N6Vectors.root(), "header/positive/*.cbor")) do
-        assert {:ok, %{kid: ^kid}} = COSE.decode_protected(File.read!(path), table), path
+      positives = Path.wildcard(Path.join(N6Vectors.root(), "header/positive/*.cbor"))
+      assert length(positives) == 3
+
+      for path <- positives do
+        assert {:ok, %{kid: k}} = COSE.decode_protected(File.read!(path), table, :commercial),
+               path
+
+        assert k in [kid, ed_kid]
       end
 
       plain = File.read!(Path.join(N6Vectors.root(), "header/positive/alg_kid_typ.cbor"))
       assert COSE.protected_header(kid, @typ) == plain
+
+      ed = File.read!(Path.join(N6Vectors.root(), "header/positive/ed25519_alg_kid_typ.cbor"))
+      assert COSE.protected_header(ed_kid, @typ_ed, nil, -19) == ed
     end
 
-    test "every negative header is refused with its code", %{table: table} do
+    test "every negative header is refused with its code, at either entry point", %{table: table} do
       vectors = N6Vectors.negative("header")
-      assert length(vectors) >= 17
+      assert length(vectors) >= 19
 
-      for {defect, id, bytes, code} <- vectors do
-        assert COSE.decode_protected(bytes, table) == {:error, code}, "#{defect}/#{id}"
+      for {defect, id, bytes, code} <- vectors, entry <- [:nss, :commercial] do
+        assert COSE.decode_protected(bytes, table, entry) == {:error, code},
+               "#{defect}/#{id} at #{entry}"
+
         assert Profile.exit_of(code) == 1
       end
+    end
+
+    test "slice 139, AC2: -19 decodes at commercial and is refused at nss, the default", %{
+      ed_kid: ed_kid,
+      table: table
+    } do
+      ed = COSE.protected_header(ed_kid, @typ_ed, nil, -19)
+
+      assert {:ok, %{alg: -19, kid: ^ed_kid, entry: %{alg: -19}}} =
+               COSE.decode_protected(ed, table, :commercial)
+
+      assert COSE.decode_protected(ed, table, :nss) == {:error, :alg_not_permitted}
+      assert COSE.decode_protected(ed, table) == {:error, :alg_not_permitted}
     end
 
     test "the unprotected header must be empty", %{kid: kid} do
@@ -130,7 +189,7 @@ defmodule Trinity.N6.COSETest do
         signature: :binary.copy(<<0>>, 4627)
       }
 
-      assert COSE.verify(parts, keys: fn _ -> {:ok, key.public} end, typ: table) ==
+      assert COSE.verify(parts, keys: mldsa(key), typ: table) ==
                {:error, 1, :kid_not_thumbprint}
     end
 
@@ -141,7 +200,7 @@ defmodule Trinity.N6.COSETest do
     } do
       parts = %{protected: COSE.protected_header(kid, @typ), payload: "x", signature: <<0>>}
 
-      assert COSE.verify(parts, keys: fn _ -> {:ok, key.public} end, typ: table) ==
+      assert COSE.verify(parts, keys: mldsa(key), typ: table) ==
                {:error, 1, :carrier_malformed}
     end
 
@@ -153,7 +212,7 @@ defmodule Trinity.N6.COSETest do
         signature: :binary.copy(<<0>>, 4627)
       }
 
-      answer = COSE.verify(parts, keys: fn _ -> {:ok, key.public} end, typ: table)
+      answer = COSE.verify(parts, keys: mldsa(key), typ: table)
 
       if MLDSA87Oracle.signs?() do
         assert answer == {:error, 1, :signature_invalid}
@@ -164,5 +223,89 @@ defmodule Trinity.N6.COSETest do
                  {:error, :alg_unavailable}
       end
     end
+  end
+
+  describe "slice 139, AC3: Ed25519" do
+    test "a key registered under another algorithm than the header's is kid_not_thumbprint", %{
+      key: key,
+      ed: ed,
+      ed_kid: ed_kid,
+      kid: kid,
+      table: table
+    } do
+      # An ML-DSA-87 key under a -19 header, and an Ed25519 key under a -50 header.
+      ed_parts = %{
+        protected: COSE.protected_header(ed_kid, @typ_ed, nil, -19),
+        payload: "x",
+        signature: :binary.copy(<<0>>, 64)
+      }
+
+      assert COSE.verify(ed_parts, keys: mldsa(key), typ: table, entry: :commercial) ==
+               {:error, 1, :kid_not_thumbprint}
+
+      ml_parts = %{
+        protected: COSE.protected_header(kid, @typ),
+        payload: "x",
+        signature: :binary.copy(<<0>>, 4627)
+      }
+
+      ed_key = fn _ -> {:ok, %{alg: -19, public: ed.public}} end
+
+      assert COSE.verify(ml_parts, keys: ed_key, typ: table, entry: :commercial) ==
+               {:error, 1, :kid_not_thumbprint}
+    end
+
+    # Found by planting (PROOF, P5): with the sizes of -50 and -19 keys different, the size check
+    # refuses a key of the other algorithm on its own, so the registration's algorithm is only
+    # observable where the registration is wrong about its own key.
+    test "a registration that names another algorithm is refused, even for bytes that would verify",
+         %{ed: ed, ed_kid: ed_kid, table: table} do
+      sample = File.read!(Path.join(N6Vectors.root(), "cose/sign1/ed25519_single.bin"))
+      {:ok, parts} = Trinity.N6.Carrier.decode(sample)
+
+      # The Ed25519 test key, registered as if it were an ML-DSA-87 key.
+      wrong = fn k -> if k == ed_kid, do: {:ok, %{alg: -50, public: ed.public}}, else: :error end
+
+      assert COSE.verify(parts, keys: wrong, typ: table, entry: :commercial) ==
+               {:error, 1, :kid_not_thumbprint}
+    end
+
+    test "signs the sample's literal signature and verifies; one flipped byte is invalid; " <>
+           "where FIPS mode refuses Ed25519, both answer alg_unavailable",
+         %{ed: ed, ed_kid: ed_kid, table: table} do
+      sample = File.read!(Path.join(N6Vectors.root(), "cose/sign1/ed25519_single.bin"))
+      literal = binary_part(sample, byte_size(sample) - 64, 64)
+      payload = <<0xA2, 0x00, 0x01, 0x10, 0x69>> <> "slice 139"
+      keys = fn k -> if k == ed_kid, do: {:ok, %{alg: -19, public: ed.public}}, else: :error end
+      opts = [keys: keys, typ: table, entry: :commercial]
+
+      if Ed25519Oracle.verifies?() do
+        assert {:ok, parts} = COSE.sign(payload, @typ_ed, ed)
+        assert parts.signature == literal
+        assert {:ok, %{exit: 0, verdict_code: :claim, typ: @typ_ed}} = COSE.verify(parts, opts)
+
+        # The last protected byte is inside `typ`; a byte inside `kid` would be an unknown key (5).
+        for field <- [:protected, :payload, :signature],
+            at <- [0, byte_size(Map.fetch!(parts, field)) - 1] do
+          flipped = Map.update!(parts, field, &flip(&1, at))
+          assert {:error, 1, _code} = COSE.verify(flipped, opts), "#{field} byte #{at}"
+        end
+      else
+        assert COSE.sign(payload, @typ_ed, ed) == {:error, :alg_unavailable}
+
+        parts = %{
+          protected: COSE.protected_header(ed_kid, @typ_ed, nil, -19),
+          payload: payload,
+          signature: literal
+        }
+
+        assert COSE.verify(parts, opts) == {:error, 5, :alg_unavailable}
+      end
+    end
+  end
+
+  defp flip(bin, at) do
+    <<a::binary-size(^at), b, rest::binary>> = bin
+    a <> <<Bitwise.bxor(b, 1)>> <> rest
   end
 end

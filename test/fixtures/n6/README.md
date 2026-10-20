@@ -14,11 +14,16 @@ profile's own vectors. These are candidate input, not the published set.
 * Expected encodings are hex literals in the generator, copied from RFC 8949 Appendix A or built
   by hand from CBOR heads, never output of the encoder under test.
 * `body/schema.json` and `header/profile-table.json` are Trinity's test schema and test `typ`
-  table (the draft leaves both Open, VB6 and VB4). `thumbprint/` uses NIST ACVP's published
-  ML-DSA-87 keyGen case (tgId 3, tcId 51); no key of this project's is published.
-* Not included: the limit vectors at 64 KiB and 1 MiB (the suite builds them), and COSE_Sign1
-  samples (ML-DSA signatures are hedged, so a sample is one valid signature among many; the
-  suite signs and verifies where the runtime can).
+  table (the draft leaves both Open, VB6 and VB4). Each `typ` names its one `alg`, its carrier
+  and its signers, as the publisher's answers of 2026-10-19 bind them. `thumbprint/` uses NIST
+  ACVP's published ML-DSA-87 keyGen case (tgId 3, tcId 51) and RFC 8032's Ed25519 test 1 key; no
+  key of this project's is published.
+* `cose/sign1/`: single-signer carriers, `{0: SINGLE_SCHEMA, 1: payload, 2: N6_Sign1}`, each with
+  its `.expect` and a `.ctx.json` naming the entry point, the `typ` table and the keys (the draft
+  leaves `ctx.json` Open, VB5). `SINGLE_SCHEMA` is 0xFFFF0003, a placeholder until the profile
+  assigns one. The signed sample is Ed25519, which is deterministic; ML-DSA signatures are hedged,
+  so no ML-DSA-87 sample is included and the suite signs and verifies one where the runtime can.
+* Not included: the limit vectors at 64 KiB and 1 MiB (the suite builds them).
 
 ## Encoding defects
 
@@ -88,6 +93,7 @@ profile's own vectors. These are candidate input, not the published set.
 | `cwt_without_scitt_typ` | `header_label_forbidden` |
 | `kid_wrong_size` | `kid_not_thumbprint` |
 | `header_noncanonical` | `header_noncanonical` |
+| `alg_not_bound_to_typ` | `alg_not_permitted` |
 
 ## Digest defects
 
@@ -96,3 +102,21 @@ profile's own vectors. These are candidate input, not the published set.
 | `digest_alg_not_permitted` | `digest_alg_not_permitted` |
 | `digest_length_mismatch` | `digest_length_mismatch` |
 | `digest_not_array` | `digest_malformed` |
+
+## Single-signer carriers (`cose/sign1/`)
+
+| Sample | Entry point | Exit | Expected code |
+| -- | -- | -- | -- |
+| `ed25519_single` | `commercial` | 0 | `claim` |
+| `ed25519_single_at_nss` | `nss` | 1 | `alg_not_permitted` |
+| `ed25519_signature_flipped` | `commercial` | 1 | `signature_invalid` |
+| `carrier_key0_envelope` | `commercial` | 1 | `carrier_malformed` |
+| `carrier_extra_key` | `commercial` | 1 | `carrier_malformed` |
+| `carrier_no_sign1` | `commercial` | 1 | `carrier_malformed` |
+| `carrier_payload_text` | `commercial` | 1 | `carrier_malformed` |
+| `carrier_not_map` | `commercial` | 1 | `carrier_malformed` |
+| `carrier_keys_out_of_order` | `commercial` | 1 | `noncanonical` |
+| `sign1_attached` | `commercial` | 1 | `carrier_malformed` |
+| `sign1_tagged` | `commercial` | 1 | `tag_forbidden` |
+| `sign1_unprotected_kid` | `commercial` | 1 | `header_not_protected` |
+| `pair_typ_in_single_carrier` | `commercial` | 1 | `wrong_carrier_for_typ` |
