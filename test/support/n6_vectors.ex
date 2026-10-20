@@ -31,7 +31,9 @@ defmodule Trinity.TestSupport.N6Vectors do
       id = Path.basename(expect_path, ".expect")
       bytes = File.read!(Path.rootname(expect_path) <> ".cbor")
       %{"exit" => 1, "verdict_code" => code} = expect_path |> File.read!() |> JSON.decode!()
-      {defect, id, bytes, String.to_existing_atom(code)}
+      # `to_atom`, as in `samples/0`: under seed 789020 the body test asked for `:key_not_uint`
+      # before any module defining it was loaded (postgres job, PR #135).
+      {defect, id, bytes, String.to_atom(code)}
     end
   end
 
