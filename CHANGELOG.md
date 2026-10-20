@@ -98,7 +98,9 @@ can be installed without them, so the check compares every loaded application wi
 of erlang/otp's `otp_versions.table`, checked in verbatim. The desktop keeps the slice 137 floor, because its runtime is the one Burrito can
 fetch; ADR-0014 carries a proposed amendment that says so. Every node now also asks its decoder
 directly whether it refuses the oversize tuple CVE-2026-55737 is about, instead of trusting the
-version alone. The container images build OTP 28.5.0.8.
+version alone. The container images build OTP 28.5.0.8, and the FIPS leg's image now installs the
+Hex and rebar3 the hardened image pins rather than the newest, which changed under it when it was
+rebuilt.
 
 Verified by the test suite: the floor at each boundary for both releases; a real headless boot on
 the suite's own runtime, refused on 28.5.0.6 and booting on 28.5.0.8, with the expectation read from

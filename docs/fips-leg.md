@@ -12,7 +12,7 @@ name the command that produced them.
 
 | Piece | Where | What it does |
 |---|---|---|
-| `ci/fips/Containerfile` | the image | UBI9 by digest; OTP (the version `ci/container.tool-versions` names, 28.5.0.8; ADR-0014) from the release tarball with `--enable-fips --with-ssl=/usr`; Elixir 1.20.4 from the release zip; both archives checked against SHA-256 digests pinned in the file; git, python3 with PyYAML, gcc and procps for the gate's own steps |
+| `ci/fips/Containerfile` | the image | UBI9 by digest; OTP (the version `ci/container.tool-versions` names, 28.5.0.8; ADR-0014) from the release tarball with `--enable-fips --with-ssl=/usr`; Elixir 1.20.4 from the release zip; both archives checked against SHA-256 digests pinned in the file; Hex 2.5.1 and rebar3 3.25.1 from the archives `ci/ironbank/hardening_manifest.yaml` declares, checked against its SHA-512s (`test/ci_pins_test.exs`), never the newest at build time; git, python3 with PyYAML, gcc and procps for the gate's own steps |
 | `.github/workflows/fips-image.yml` | builds the image | On a change to `.tool-versions` (Elixir), `ci/container.tool-versions` (OTP), the Containerfile or the tag script, and on demand; pushes to `ghcr.io/scriptkittyos/trinity-fips` under the tag below; a tag already published is not rebuilt |
 | `scripts/fips_image_tag.sh` | both workflows | The tag: sixteen hex digits of SHA-256 over `.tool-versions`, `ci/container.tool-versions` and the Containerfile, so the builder and the puller cannot disagree |
 | `.github/workflows/gate.yml`, jobs `fips-tag` and `fips` | the leg | Pulls the image, fetches and compiles dependencies with the mode off, asserts the mode, checks the mode-off listing, then runs `plan_check`, the DCO check and `mix gate`, all in the mode |

@@ -60,11 +60,27 @@ RUN set -eu; \
 
 # Hex and rebar in a path that does not depend on HOME: a GitHub container job sets HOME to
 # /github/home, and an install under /root would be invisible there.
+#
+# Both pinned, as ci/ironbank/hardening_manifest.yaml pins them, by the SHA-512 builds.hex.pm
+# publishes (installs/hex.csv, installs/rebar.csv). This line was `mix local.hex --force && mix
+# local.rebar --force`, which installs the newest of each when the image is built: the image built
+# on 2026-10-08 got Hex 2.5.1, the one rebuilt for OTP 28.5.0.8 on 2026-10-20 got 2.5.3, and the
+# bill of materials names the running Hex, so the gate's THIRD_PARTY_LICENSES.md check failed on
+# the new image (slice 141). test/ci_pins_test.exs holds these lines to the manifest.
 ENV PATH=/usr/local/elixir/bin:/usr/local/bin:$PATH \
     LANG=C.UTF-8 \
     MIX_HOME=/opt/mix \
     HEX_HOME=/opt/hex
-RUN mix local.hex --force && mix local.rebar --force
+ARG HEX_SHA512=690f12f6933088bb32f1d7125485fb13426318c03cfeabcbd3cce55824cddf2a701104b09b7f4cd7092fe7f76d5b669e391a072428ec4526879b36f62820ae5d
+ARG REBAR3_SHA512=992fd755b7926fae455e5e07d9d195f4d3e7f181609eed1b9cabfe548624df10d148cd4b59bda40bebb185d3d68f9a9fd68a70b294101c8ad9cf0fadcc683d24
+RUN set -eu; \
+    curl -fsSLo /tmp/hex-2.5.1-otp-28.ez https://builds.hex.pm/installs/1.20.0/hex-2.5.1-otp-28.ez; \
+    echo "${HEX_SHA512}  /tmp/hex-2.5.1-otp-28.ez" | sha512sum -c -; \
+    curl -fsSLo /tmp/rebar3-3.25.1-otp-28 https://builds.hex.pm/installs/1.18.4/rebar3-3.25.1-otp-28; \
+    echo "${REBAR3_SHA512}  /tmp/rebar3-3.25.1-otp-28" | sha512sum -c -; \
+    mix archive.install /tmp/hex-2.5.1-otp-28.ez --force; \
+    mix local.rebar rebar3 /tmp/rebar3-3.25.1-otp-28 --force; \
+    rm -f /tmp/hex-2.5.1-otp-28.ez /tmp/rebar3-3.25.1-otp-28
 
 # The image proves its own build: the crypto NIF reports the FIPS provider available, and
 # entering FIPS mode is possible. Which mode a container runs in is the leg's decision, made
