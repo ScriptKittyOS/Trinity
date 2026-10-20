@@ -371,10 +371,16 @@ jobs:
       # AC2 and AC3 by test name with this run's id in the log, and AC5's coverage line for
       # this leg. The gate above already ran the suite; this repeats the four FIPS tests with
       # their names printed, then the whole suite once more under the coverage tool.
+      #
+      # Unpiped since the fix after slice 138. It read `mix test --cover | grep -E 'Result:|Total'`,
+      # and the runner's default `bash -e {0}` has no pipefail, so the step exited with grep's status:
+      # on job 118381934625 the suite here was 1388/1389 and the step passed, with the failing test's
+      # name filtered out. The coverage threshold is 0 (mix.exs), so the suite alone decides the
+      # exit, and the summary's Total line is in the output. test/workflows_test.exs holds the rule.
       - name: The FIPS tests by name, and this leg's coverage
         run: |
           mix test --trace test/fips
-          mix test --cover | grep -E 'Result:|\| *Total'
+          mix test --cover
 
       # Slice 137, AC5 and AC7: ML-DSA-87 with the mode off. This image links OpenSSL 3.5, the only
       # runtime in CI that signs ML-DSA-87 (the gate runners link 3.0; in the mode, Red Hat's
