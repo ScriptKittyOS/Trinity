@@ -1,5 +1,5 @@
 # ADR-0014: Two OTP pins, the container's and the desktop's, and a TLS 1.2 clamp between them
-Status: accepted · Date: 2026-10-08
+Status: accepted · Date: 2026-10-08 · amendment of 2026-10-20 (slice 141) accepted the same day
 
 ## Context
 
@@ -126,7 +126,7 @@ pull request per version.
 
 ## Amendment, 2026-10-20 (slice 141): the headless release has a floor of its own
 
-Status: proposed; the owner accepts or rejects it.
+Status: accepted by the owner, 2026-10-20.
 
 The Decision above keeps two pins and held every node to one floor, CVE-2026-55737's (slice 137:
 OTP 27.3.4.15, 28.5.0.4 or 29.0.4). This amendment adds a second floor and ties it to the release,
