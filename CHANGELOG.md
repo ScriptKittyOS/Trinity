@@ -89,6 +89,25 @@ algorithm, Ed25519 admitted at `nss`, any `typ` admitted in the carrier, a refus
 apart from a bad key by the error alone, a key's registered algorithm ignored) each turned their
 own tests red.
 
+### `slice/141`: the headless release asks for OTP 28.5.0.8
+
+The headless release, the one deployed as a server, now refuses to boot below OTP 28.5.0.8 and on
+any OTP line but 28. 28.5.0.8 fixes CVE-2026-94200 and CVE-2026-105236 in ssl, CVE-2026-42789 in
+public_key and CVE-2026-48856 in inets. Those fixes are in the applications, and 28.5.0.8's erts
+can be installed without them, so the check compares every loaded application with 28.5.0.8's row
+of erlang/otp's `otp_versions.table`, checked in verbatim. The desktop keeps the slice 137 floor, because its runtime is the one Burrito can
+fetch; ADR-0014 carries a proposed amendment that says so. Every node now also asks its decoder
+directly whether it refuses the oversize tuple CVE-2026-55737 is about, instead of trusting the
+version alone. The container images build OTP 28.5.0.8, and the FIPS leg's image now installs the
+Hex and rebar3 the hardened image pins rather than the newest, which changed under it when it was
+rebuilt.
+
+Verified by the test suite: the floor at each boundary for both releases; a real headless boot on
+the suite's own runtime, refused on 28.5.0.6 and booting on 28.5.0.8, with the expectation read from
+the runtime's `OTP_VERSION` file; a real boot on OTP 28.5.0.7, refused as headless and booting
+as desktop; a runtime with 28.5.0.8's erts and an older ssl refused, naming ssl; and the decoder probe catching the defect on OTP 28.1.1 and
+28.5.0.3.
+
 ## 2026-10-08
 
 ### `slice/136`: the web pages ask who is there

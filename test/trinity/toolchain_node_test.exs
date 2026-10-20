@@ -18,6 +18,18 @@ defmodule Trinity.ToolchainNodeTest do
   The child is the same compiled tree run on the older runtime, which is what a release copied
   onto an older ERTS would be. Measured before this file was written: code compiled on OTP
   28.5.0.6 loads and runs on erts 16.1.1 (OTP 28.1.1), Elixir 1.20.4 and `crypto` included.
+
+  ## The headless release's floor (slice 141)
+
+  The headless release is held to OTP 28.5.0.8 on the OTP 28 line only. Two cases show it:
+
+  * one untagged, on this suite's own runtime, whose expectation comes from that runtime's
+    `OTP_VERSION` file, read here and not by `Trinity.Toolchain`. The gate's 28.5.0.6 refuses a
+    headless node; the FIPS image's 28.5.0.8 boots one. Each run prints which it was;
+  * one tagged `:below_headless_floor_otp`, where `TRINITY_BELOW_HEADLESS_FLOOR_OTP` names the `bin`
+    of OTP 28.5.0.7, the release before the floor. The refusal names erts and every application
+    below the row, and the same runtime boots a desktop node, so the two floors are told apart on
+    one runtime.
   """
   use ExUnit.Case, async: false
 
@@ -120,6 +132,25 @@ defmodule Trinity.ToolchainNodeTest do
     |> Enum.find("", &String.starts_with?(&1, "BOOT_REFUSED"))
   end
 
+  # The refusal line with the quotes of the reason unescaped: the reason is printed inside the
+  # inspected RuntimeError message, so its strings arrive as \"...\".
+  defp refusal(out), do: out |> refusal_line() |> String.replace(~S(\"), ~S("))
+
+  # The OTP release of the VM running this suite, from the `OTP_VERSION` file a full installation
+  # carries. An assembled release has none (slice 130, D-130-11), which is why `Trinity.Toolchain`
+  # reads application versions instead; that makes this an oracle independent of the code under
+  # test, not a copy of it.
+  defp this_otp do
+    major = List.to_string(:erlang.system_info(:otp_release))
+
+    [:code.root_dir(), "releases", major, "OTP_VERSION"]
+    |> Path.join()
+    |> File.read!()
+    |> String.trim()
+  end
+
+  defp version_list(v), do: v |> String.split(".") |> Enum.map(&String.to_integer/1)
+
   # The erts version and OTP major of the runtime in `bin`, asked of that runtime itself.
   defp runtime_of(bin) do
     {out, 0} =
@@ -176,6 +207,122 @@ defmodule Trinity.ToolchainNodeTest do
       assert line =~ "otp_below_floor", line
       assert line =~ erts, line
       assert line =~ floor[major], line
+    end
+
+    # Slice 141. The version comparison refuses first at boot, so the probe's own answer on a
+    # runtime that carries the defect is asked for directly.
+    test "slice 141: the decoder probe finds the defect itself on that runtime" do
+      bin = System.fetch_env!("TRINITY_BELOW_FLOOR_OTP")
+
+      {out, 0} =
+        System.cmd(
+          "mix",
+          [
+            "run",
+            "--no-start",
+            "-e",
+            ~s|IO.puts("DECODER " <> inspect(Trinity.Toolchain.check_decoder()))|
+          ],
+          env: [{"MIX_ENV", "test"}, {"PATH", bin <> ":" <> System.get_env("PATH")}],
+          stderr_to_stdout: true
+        )
+
+      line = out |> String.split("\n") |> Enum.find("", &String.starts_with?(&1, "DECODER"))
+      assert line == "DECODER {:error, {:decoder_accepts_oversize_tuple, 16777216}}", out
+    end
+  end
+
+  describe "slice 141: the decoder is asked at boot" do
+    # No runtime reports a fixed version over an unfixed decoder, so the seam plants one. A tree
+    # whose boot skipped the probe ignores the seam and boots, which is this test's red.
+    test "a node whose decoder accepts the oversize tuple refuses, naming it" do
+      {root, tag} = case_setup("decoder-planted")
+
+      {out, status} =
+        boot(
+          [{"XDG_DATA_HOME", root}, {"TRINITY_BOOT_TAG", tag}],
+          "Application.put_env(:trinity, :decoder_probe_fault, true)\n" <> @report
+        )
+
+      assert status == 3,
+             "a node with a planted decoder booted:\n" <> String.slice(out, -3000, 3000)
+
+      assert refusal(out) =~ "{:decoder_accepts_oversize_tuple, 16777216}", refusal(out)
+    end
+  end
+
+  describe "slice 141: the headless release refuses below OTP 28.5.0.8" do
+    test "a headless node on this suite's runtime boots only at 28.5.0.8 or later on OTP 28" do
+      otp = this_otp()
+      [major | _] = version_list(otp)
+      at_floor? = major == 28 and version_list(otp) >= [28, 5, 0, 8]
+
+      IO.puts(
+        "toolchain_node_test: OTP #{otp}, so a headless node " <>
+          if(at_floor?, do: "boots", else: "refuses")
+      )
+
+      for {name, env} <- [
+            {"headless-mode", [{"TRINITY_MODE", "headless"}]},
+            {"headless-release", [{"RELEASE_NAME", "headless"}]}
+          ] do
+        {root, tag} = case_setup(name)
+
+        {out, status} =
+          boot([{"XDG_DATA_HOME", root}, {"TRINITY_BOOT_TAG", tag} | env], @report)
+
+        if at_floor? do
+          assert status == 0, "#{name}: " <> String.slice(out, -3000, 3000)
+          assert out =~ "BOOT_OK"
+        else
+          line = refusal(out)
+          assert status == 3, "#{name} on OTP #{otp} booted:\n" <> String.slice(out, -3000, 3000)
+
+          if major == 28 do
+            assert line =~ "{:otp_below_floor, 28, \"28.5.0.8\"", line
+          else
+            assert line =~ "otp_major_unsupported", line
+          end
+        end
+      end
+    end
+
+    @tag :below_headless_floor_otp
+    test "OTP 28.5.0.7 refuses a headless node, naming erts and ssl, and boots a desktop one" do
+      bin = System.fetch_env!("TRINITY_BELOW_HEADLESS_FLOOR_OTP")
+
+      assert File.exists?(Path.join(bin, "erl")),
+             "TRINITY_BELOW_HEADLESS_FLOOR_OTP=#{bin} has no erl; a missing runtime is a failure here"
+
+      assert {"28", "16.4.0.6"} = runtime_of(bin)
+      path = {"PATH", bin <> ":" <> System.get_env("PATH")}
+
+      {root, tag} = case_setup("below-headless-floor")
+
+      {out, status} =
+        boot(
+          [
+            {"XDG_DATA_HOME", root},
+            {"TRINITY_BOOT_TAG", tag},
+            {"TRINITY_MODE", "headless"},
+            path
+          ],
+          @report
+        )
+
+      line = refusal(out)
+
+      assert status == 3,
+             "a headless node on OTP 28.5.0.7 booted:\n" <> String.slice(out, -3000, 3000)
+
+      assert line =~ "{:otp_below_floor, 28, \"28.5.0.8\"", line
+      assert line =~ ~s|{:ssl, "11.6.0.6", "11.6.0.7"}|, line
+      assert line =~ ~s|{:erts, "16.4.0.6", "16.4.0.7"}|, line
+
+      {root, tag} = case_setup("below-headless-floor-desktop")
+      {out, status} = boot([{"XDG_DATA_HOME", root}, {"TRINITY_BOOT_TAG", tag}, path], @report)
+      assert status == 0, "a desktop node on OTP 28.5.0.7: " <> String.slice(out, -3000, 3000)
+      assert out =~ "BOOT_OK"
     end
   end
 

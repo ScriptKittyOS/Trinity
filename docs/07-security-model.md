@@ -546,6 +546,31 @@ fail-open. Where it signs today: a runtime linked to OpenSSL 3.5 or later with t
 mode, on the image's current FIPS provider, it does not; a provider validated with ML-DSA-87
 (CMVP #5523) is what would change that.
 
+## The headless release's floor, and the decoder asked directly (Slice 141, as built)
+
+The headless release, the one deployed as a server, is held to OTP 28.5.0.8 and to the OTP 28 line
+only; the desktop keeps the floor above, because its runtime is the one Burrito can fetch
+(ADR-0014, amended). 28.5.0.8 fixes CVE-2026-94200 and CVE-2026-105236 in ssl (a TLS 1.3 client's
+ticket store; a session resumed under another SNI name), CVE-2026-42789 in public_key (a v1 or v2
+certificate accepted as a CA) and CVE-2026-48856 in inets (credentials sent on to a cross-origin
+redirect). Those fixes are in the applications, and erts-16.4.0.7 can be installed without them
+(erlang.org: it "can be applied independently of other applications on a full OTP 28
+installation"), so the check is again every loaded application against that release's row of
+`otp_versions.table`, from the same commit as the rows above. A node is held to it when its release name is `headless` or it was
+started with `TRINITY_MODE=headless`; either is enough, so leaving one unset does not lower it.
+Any other OTP line is refused, above as well as below.
+
+Every node also asks the decoder instead of trusting a version string. `Trinity.Toolchain.check_decoder/1`
+decodes a `LARGE_TUPLE_EXT` of arity 2^24, one over erts's tuple limit, which the CVE-2026-55737
+fix refuses (`decoded_size()` in erts's `external.c`), and a small tuple of the same encoding, which
+every runtime decodes, so a decoder that refuses everything is not taken for a fixed one. Measured
+on 2026-10-20: OTP 28.1.1 builds the 16,777,216-element tuple in 82 ms; 28.5.0.5 to 28.5.0.8 and
+29.1 refuse it in about 20 microseconds. It runs in a process of its own, so neither the 16 MiB
+probe nor what an unfixed runtime builds from it stays on the booting process.
+
+Not covered: both checks run when the application starts, so `bin/headless eval`, which runs code
+in the release without starting it, is not held to them.
+
 ## Signed statements in one byte form (Slice 138, as built)
 
 The rule: every statement Trinity constructs and signs is deterministic CBOR inside COSE_Sign1,

@@ -33,7 +33,9 @@ defmodule Trinity.Application do
 
     # Slice 137, in every profile, before every other refusal and every child: a runtime below
     # the CVE-2026-55737 floor, or an Elixir below 1.20, is not one this node trusts to decode
-    # anything. The floor is erts per OTP line (`Trinity.Toolchain.floor/0`).
+    # anything. The floor is erts and every loaded application per OTP line
+    # (`Trinity.Toolchain.floor/1`). Slice 141: the headless release is held to OTP 28.5.0.8 on
+    # the OTP 28 line only, and every node asks its decoder directly as well.
     verify_toolchain!()
 
     # Slice 135, in every profile: a filesystem root that is, contains or sits inside the data

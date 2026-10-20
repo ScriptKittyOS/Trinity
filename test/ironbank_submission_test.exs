@@ -279,12 +279,12 @@ defmodule IronbankSubmissionTest do
       tree = %{
         @tree
         | container_tool_versions:
-            String.replace(@tree.container_tool_versions, "erlang 28.5.0.7", "erlang 28.5.0.8")
+            String.replace(@tree.container_tool_versions, "erlang 28.5.0.8", "erlang 28.5.0.9")
       }
 
       assert_only(
         tree,
-        ~r/^AC6a: no resource otp_src_28\.5\.0\.8\.tar\.gz, the OTP 28\.5\.0\.8 that ci\/container\.tool-versions names/
+        ~r/^AC6a: no resource otp_src_28\.5\.0\.9\.tar\.gz, the OTP 28\.5\.0\.9 that ci\/container\.tool-versions names/
       )
     end
 
@@ -306,7 +306,7 @@ defmodule IronbankSubmissionTest do
             String.replace(@tree.tool_versions, "erlang 28.5.0.6", "erlang 27.3.4.18")
       }
 
-      assert_only(tree, ~r/^ADR-0014: the container's OTP 28\.5\.0\.7 .* are different majors/)
+      assert_only(tree, ~r/^ADR-0014: the container's OTP 28\.5\.0\.8 .* are different majors/)
     end
 
     test "a container OTP older than the desktop's is refused" do
@@ -318,7 +318,7 @@ defmodule IronbankSubmissionTest do
 
       assert_only(
         tree,
-        ~r/^ADR-0014: the container's OTP 28\.5\.0\.7 .* is older than the desktop's 28\.5\.0\.10/
+        ~r/^ADR-0014: the container's OTP 28\.5\.0\.8 .* is older than the desktop's 28\.5\.0\.10/
       )
     end
 

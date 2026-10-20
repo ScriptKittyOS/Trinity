@@ -3,7 +3,9 @@
 defmodule Trinity.ToolchainTest do
   @moduledoc """
   Slice 137, AC1 and AC4: the floor decision, at every boundary, against the rows checked in at
-  `priv/otp_floor.table`. The boot that applies it is `Trinity.ToolchainNodeTest`.
+  `priv/otp_floor.table`. Slice 141: the headless release's floor (OTP 28.5.0.8, the OTP 28 line
+  only), which release a node is, and the decoder probe. The boot that applies them is
+  `Trinity.ToolchainNodeTest`.
   """
   use ExUnit.Case, async: true
   use ExUnitProperties
@@ -25,6 +27,30 @@ defmodule Trinity.ToolchainTest do
                29 => %{release: "29.0.4"}
              } =
                Toolchain.floor()
+
+      assert Toolchain.floor() == Toolchain.floor(:desktop)
+    end
+
+    test "slice 141: the headless release's floor is one row, OTP-28.5.0.8, from the same table" do
+      assert %{28 => %{release: "28.5.0.8", apps: apps}} = Toolchain.floor(:headless)
+      assert map_size(Toolchain.floor(:headless)) == 1
+
+      # erts and the applications whose CVEs 28.5.0.8 fixed, read from its row. The fixes are in
+      # the applications, and erts-16.4.0.7 can be installed without them, so both are compared.
+      assert apps.erts == "16.4.0.7"
+      assert apps.ssl == "11.6.0.7"
+      assert apps.public_key == "1.20.3.6"
+      assert apps.inets == "9.6.2.4"
+      assert apps.ssh == "5.5.2.7"
+    end
+
+    test "slice 141: every application in the headless row is at or above the desktop row's" do
+      desktop = Toolchain.floor(:desktop)[28].apps
+
+      for {app, vsn} <- Toolchain.floor(:headless)[28].apps,
+          required = desktop[app],
+          required != nil,
+          do: assert(Toolchain.at_least?(vsn, required), "#{app} #{vsn} < #{required}")
     end
 
     test "each names erts and the applications whose CVEs the release fixed" do
@@ -140,6 +166,101 @@ defmodule Trinity.ToolchainTest do
 
         assert got == want, "#{major} #{version}"
       end
+    end
+  end
+
+  describe "slice 141: check_otp/4 for the headless release" do
+    # The runtimes measured on 2026-10-20 (`erlang:system_info(version)` and `otp_versions.table`).
+    @r28506 %{ssl: "11.6.0.5", public_key: "1.20.3.4", inets: "9.6.2.3", ssh: "5.5.2.5"}
+    @r28507 %{ssl: "11.6.0.6", public_key: "1.20.3.5", inets: "9.6.2.3", ssh: "5.5.2.6"}
+    @r28508 %{ssl: "11.6.0.7", public_key: "1.20.3.6", inets: "9.6.2.4", ssh: "5.5.2.7"}
+
+    test "28.5.0.8 passes; 28.5.0.7 refuses, naming erts and every application below the row" do
+      assert Toolchain.check_otp(28, "16.4.0.7", @r28508, :headless) == :ok
+
+      assert Toolchain.check_otp(28, "16.4.0.6", @r28507, :headless) ==
+               {:error,
+                {:otp_below_floor, 28, "28.5.0.8",
+                 [
+                   {:erts, "16.4.0.6", "16.4.0.7"},
+                   {:inets, "9.6.2.3", "9.6.2.4"},
+                   {:public_key, "1.20.3.5", "1.20.3.6"},
+                   {:ssh, "5.5.2.6", "5.5.2.7"},
+                   {:ssl, "11.6.0.6", "11.6.0.7"}
+                 ]}}
+    end
+
+    test "erts at the floor with ssl below it refuses, naming ssl" do
+      assert Toolchain.check_otp(28, "16.4.0.7", %{@r28508 | ssl: "11.6.0.6"}, :headless) ==
+               {:error, {:otp_below_floor, 28, "28.5.0.8", [{:ssl, "11.6.0.6", "11.6.0.7"}]}}
+    end
+
+    test "the desktop floor still passes 28.5.0.6, which the headless floor refuses" do
+      assert Toolchain.check_otp(28, "16.4.0.6", @r28506) == :ok
+      assert Toolchain.check_otp(28, "16.4.0.6", @r28506, :desktop) == :ok
+
+      assert {:error, {:otp_below_floor, 28, "28.5.0.8", _}} =
+               Toolchain.check_otp(28, "16.4.0.6", @r28506, :headless)
+    end
+
+    test "every line but OTP 28 refuses, above it as well as below" do
+      for {major, erts} <- [{27, "15.2.7.11"}, {29, "17.0.4"}, {29, "17.1"}, {30, "18.0"}],
+          do:
+            assert(
+              Toolchain.check_otp(major, erts, %{}, :headless) ==
+                {:error, {:otp_major_unsupported, major, erts}}
+            )
+    end
+  end
+
+  describe "slice 141: kind/1, which floor a node is held to" do
+    test "the headless release, by its release name or by its mode, is :headless" do
+      assert Toolchain.kind(%{"RELEASE_NAME" => "headless"}) == :headless
+      assert Toolchain.kind(%{"TRINITY_MODE" => "headless"}) == :headless
+
+      assert Toolchain.kind(%{"RELEASE_NAME" => "desktop", "TRINITY_MODE" => "headless"}) ==
+               :headless
+
+      assert Toolchain.kind(%{"RELEASE_NAME" => "headless", "TRINITY_MODE" => "desktop"}) ==
+               :headless
+    end
+
+    test "anything else is :desktop" do
+      assert Toolchain.kind(%{}) == :desktop
+      assert Toolchain.kind(%{"RELEASE_NAME" => "desktop"}) == :desktop
+      assert Toolchain.kind(%{"TRINITY_MODE" => "Headless"}) == :desktop
+    end
+  end
+
+  describe "slice 141: check_decoder/1, the CVE-2026-55737 behaviour" do
+    test "this runtime refuses a tuple one element over erts's limit and decodes the control" do
+      assert Toolchain.check_decoder() == :ok
+    end
+
+    test "a decoder that builds the oversize tuple is refused, naming its arity" do
+      # A fixed runtime cannot build a tuple that large at all (`erlang:make_tuple/2` is held to
+      # the same limit), so the stand-in returns a term: accepting is answering without raising.
+      accepts = fn _bin -> {:decoded} end
+
+      assert Toolchain.check_decoder(accepts) ==
+               {:error, {:decoder_accepts_oversize_tuple, 16_777_216}}
+    end
+
+    test "a decoder that refuses everything fails the control, so a refusal is not read as a fix" do
+      refuses = fn _ -> :erlang.error(:badarg) end
+      assert Toolchain.check_decoder(refuses) == {:error, {:decoder_control_failed, 256}}
+    end
+
+    test "a decoder that fails another way is a refusal, not a hang and not a pass" do
+      crashes = fn _ -> exit(:boom) end
+      assert Toolchain.check_decoder(crashes) == {:error, {:decoder_probe_failed, :boom}}
+    end
+
+    test "the probe is the encoding the fix refuses: LARGE_TUPLE_EXT with arity 2^24" do
+      <<131, 105, arity::32, rest::binary>> = Toolchain.decoder_probe()
+      assert arity == 16_777_216
+      assert byte_size(rest) == arity
+      assert rest == :binary.copy(<<106>>, arity)
     end
   end
 

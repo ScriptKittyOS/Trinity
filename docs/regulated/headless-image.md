@@ -14,6 +14,12 @@ laid out the way their pipeline reads it, but it has not been submitted, reviewe
 authorization.** The STIG applicability statement below is a statement about one image; whether a
 system that runs it is compliant is decided for that system by whoever authorizes it.
 
+**The image is this release's hardening and CI artifact, not the only place it runs.** A
+deployment that builds its own appliance image carries the headless release in it, with that
+image's OpenSSL and FIPS provider. The release's own boot checks go with it: the OTP floor
+(OTP 28.5.0.8 for this release, `Trinity.Toolchain`) and, where ML-DSA-87 receipts are configured,
+the known-answer preflight. Which provider such an image loads is that image's to state.
+
 ## One recipe, two artifacts
 
 `ci/ironbank/Dockerfile` is the only recipe for the headless image. It is built two ways:
@@ -50,7 +56,7 @@ network, playing the part of Iron Bank's prebuild step; it is not part of the su
   `openssl-libs`, which brings the CA trust store with it as `ca-certificates`), installed with
   `dnf --installroot` so the image's rpm database stays true to what is on disk. No package
   manager, compiler or shell history.
-* **Erlang/OTP 28**, the version `ci/container.tool-versions` names (28.5.0.7), built from source
+* **Erlang/OTP 28**, the version `ci/container.tool-versions` names (28.5.0.8), built from source
   with FIPS support against that OpenSSL (`docs/fips-leg.md`). The container's OTP is pinned apart
   from the desktop's, which waits for Burrito's builds; `docs/adr/0014-otp-pins-split.md` says why.
 * **The Trinity release**, under `/opt/trinity`, owned by root and not writable at run time.
@@ -128,11 +134,13 @@ of it against repo1's intake requirements, are the maintainer's.
 
 ## Known gaps, stated
 
-* **The OTP runtime's advisories are fixed, not justified.** The image builds OTP 28.5.0.7, and
-  grype, which catalogs `erlang 28.5.0.7` from the runtime in the image, reports no advisory against
-  it. Measured on 2026-10-08 with one vulnerability database (built 2026-10-08T06:33:47Z) against both
-  images: the previous build, on 28.5.0.5, had 14 High or Critical findings in the runtime, among
-  them CVE-2026-89422 in `ssl`; this one has none. The desktop build runs an older OTP for now
+* **The OTP runtime's advisories are fixed, not justified.** The image builds OTP 28.5.0.8 (Slice
+  141), the floor the headless release refuses to boot below (`Trinity.Toolchain`). On 2026-10-08,
+  with one vulnerability database (built 2026-10-08T06:33:47Z), grype reported no advisory against
+  the runtime of the 28.5.0.7 build, which had replaced a 28.5.0.5 build with 14 High or Critical
+  findings in the runtime, among them CVE-2026-89422 in `ssl`. 28.5.0.8 fixes four more (ssl,
+  public_key and inets); the image workflow scans every build, and a finding without a
+  justification fails it. The desktop build runs an older OTP for now
   (`docs/adr/0014-otp-pins-split.md`); this image does not depend on it.
 * **The release still carries the local embedder** (`exla` and the XLA library, `tokenizers`) and
   some build-time libraries. Removing them from the regulated image is a change to what the release

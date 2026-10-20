@@ -116,6 +116,20 @@ jobs:
           (cd /tmp/otp-28.5.0.3 && ./Install -minimal "$PWD" > /dev/null)
           TRINITY_BELOW_FLOOR_OTP=/tmp/otp-28.5.0.3/bin mix test --only below_floor_otp test/trinity/toolchain_node_test.exs
 
+      # Slice 141: the headless release's floor is OTP 28.5.0.8. OTP 28.5.0.7 is the release just
+      # before it: a headless node on it must be refused, naming erts and ssl, while a desktop node
+      # on the same runtime boots. Prebuilt by Hex for this runner's OS,
+      # pinned by the sha256 in builds.txt (matched a download on 2026-10-20). The untagged case
+      # beside it runs in `mix gate` on this job's own runtime, where a headless node refuses.
+      - name: A headless boot on OTP 28.5.0.7, below the headless floor, refuses
+        run: |
+          curl -fsSL -o /tmp/otp-28.5.0.7.tar.gz https://builds.hex.pm/builds/otp/ubuntu-24.04/OTP-28.5.0.7.tar.gz
+          echo "90f1dfa231e1536069e445e0d212a8b8fb57f2e8601c55062f500b2a42699a3d  /tmp/otp-28.5.0.7.tar.gz" | sha256sum -c -
+          mkdir -p /tmp/otp-28.5.0.7
+          tar -xzf /tmp/otp-28.5.0.7.tar.gz -C /tmp/otp-28.5.0.7 --strip-components=1
+          (cd /tmp/otp-28.5.0.7 && ./Install -minimal "$PWD" > /dev/null)
+          TRINITY_BELOW_HEADLESS_FLOOR_OTP=/tmp/otp-28.5.0.7/bin mix test --only below_headless_floor_otp test/trinity/toolchain_node_test.exs
+
       # Slice 120 AC1. `reuse lint` is a Python tool and this is the only leg that installs one,
       # deliberately: `mix gate` has to stay runnable inside the FIPS container and on a developer's
       # machine without a Python environment, so the REUSE check is a step here rather than a row in
