@@ -140,6 +140,34 @@ defmodule Trinity.Receipts.Signer do
     end
   end
 
+  @doc """
+  Verifies through an implementation, with a reason where `:crypto` raises rather than answering
+  (slice 139, slice 137's follow-up): `:ok`, `:invalid`, `:alg_unavailable` or `:key_unusable`.
+
+  `:crypto.verify` raises where the runtime refuses the algorithm: `notsup` for Ed25519 in FIPS mode,
+  `error` "Can't create PKEY_CTX from id" for ML-DSA-87 in FIPS mode on Red Hat's provider, `badarg`
+  "Bad digest type" for ML-DSA-87 on OpenSSL 3.0 (each measured). It raises the same `badarg` and
+  `error` for a malformed public key ("Couldn't get EDDSA public key", "Can't create PKEY fromdata",
+  measured on OpenSSL 3.0 and 3.5), so the shape alone cannot say which. The implementation's
+  `available?/0` does: a runtime that cannot do the algorithm at all is `:alg_unavailable`, and one
+  that can was handed a key it cannot use, `:key_unusable`. Either way the caller cannot judge the
+  signature, which is no trust, never a crash and never a pass. Anything else still raises.
+  """
+  @spec check(module(), binary(), binary(), public_key()) ::
+          :ok | :invalid | :alg_unavailable | :key_unusable
+  def check(impl, bytes, signature, public_key) do
+    if impl.verify(bytes, signature, public_key), do: :ok, else: :invalid
+  rescue
+    e in ErlangError ->
+      case e.original do
+        {reason, _, _} when reason in [:notsup, :badarg, :error] ->
+          if impl.available?(), do: :key_unusable, else: :alg_unavailable
+
+        _ ->
+          reraise e, __STACKTRACE__
+      end
+  end
+
   @doc "Every algorithm this tree knows, in the order of preference outside FIPS mode."
   @spec algorithms() :: [algorithm()]
   def algorithms, do: [:ed25519, :p384, :mldsa87]

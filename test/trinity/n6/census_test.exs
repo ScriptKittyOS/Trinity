@@ -34,7 +34,8 @@ defmodule Trinity.N6.CensusTest do
 
   # path => {calls in that file, class, why}
   @census %{
-    "lib/trinity/n6/cose.ex" => {3, :n6, "thumbprint, ML-DSA-87 sign and verify"},
+    "lib/trinity/n6/cose.ex" =>
+      {6, :n6, "thumbprints (AKP and OKP), ML-DSA-87 and Ed25519 sign and verify"},
     "lib/trinity/n6/digest.ex" => {1, :n6, "SHA-384 over foreign bytes exactly as given"},
     "lib/trinity/archive.ex" => {1, :exact_bytes, "the archive file's bytes"},
     "lib/mix/tasks/trinity.image.inspect.ex" => {2, :exact_bytes, "image layer and file bytes"},

@@ -2,22 +2,39 @@
 # SPDX-License-Identifier: Apache-2.0
 defmodule Trinity.N6.COSE do
   @moduledoc """
-  COSE_Sign1 under the N6 profile (its section 5; slice 138): ML-DSA-87 only, the header rules,
-  the key thumbprint, signing and verifying.
+  COSE_Sign1 under the N6 profile (its section 5; slice 138): the header rules, the key
+  thumbprint, signing and verifying. ML-DSA-87 (-50) at every entry point; Ed25519 (-19) on the
+  `commercial` profile only (slice 139, the profile publisher's answers of 2026-10-19).
 
   ## The protected header
 
-      {1: -50, 4: kid, 16: typ, ? 15: {1: iss, 2: sub}}
+      {1: alg, 4: kid, 16: typ, ? 15: {1: iss, 2: sub}}
 
   `alg` -50 is ML-DSA-87 (RFC 9964), pure, with an empty context string (RFC 9964 section 5).
-  `kid` is the RFC 9679 COSE Key Thumbprint, SHA-384, over the AKP members RFC 9964 section 6
-  names: `{1: 7, 3: -50, -1: pub}`, encoded under RFC 8949 section 4.2.1, which for a 2,592-byte key
-  is exactly `a3 01 07 03 38 31 20 59 0a 20` followed by the key. The thumbprint includes `alg`, so a
-  key cannot be used with another algorithm. `typ` (RFC 9596) is a media type, compared byte for
-  byte against the table the caller passes; CWT claims (label 15) are present exactly when the
-  table marks the `typ` as SCITT-renderable.
+  `alg` -19 is Ed25519 (RFC 9864), pure EdDSA as RFC 8032 section 5.1 defines it.
 
-  The protected label set is closed to {1, 4, 15, 16}: content type (3) is refused with its own
+  `kid` is the RFC 9679 COSE Key Thumbprint, SHA-384, encoded under RFC 8949 section 4.2.1:
+
+    * for ML-DSA-87, over the AKP members RFC 9964 section 6 names, `{1: 7, 3: -50, -1: pub}`, which
+      for a 2,592-byte key is exactly `a3 01 07 03 38 31 20 59 0a 20` followed by the key. The
+      thumbprint includes `alg`, so the key cannot be used with another algorithm;
+    * for Ed25519, over the OKP members RFC 9679 section 4.1 names, `{1: 1, -1: 6, -2: x}` (OKP and
+      Ed25519 are 1 and 6 in RFC 9053 section 7.1), which for a 32-byte key is exactly
+      `a3 01 01 20 06 21 58 20` followed by the key. This thumbprint has no `alg`, so the binding
+      comes from elsewhere: the profile table binds each `typ` to its one algorithm, and a key is
+      registered with its algorithm, which must be the header's.
+
+  `typ` (RFC 9596) is a media type, compared byte for byte against the table the caller passes.
+  Each entry names the `typ`'s one `alg`, its carrier and signers (`Trinity.N6.Carrier` reads
+  those), and whether it is SCITT-renderable: CWT claims (label 15) are present exactly when it is.
+
+  ## Entry points
+
+  The caller says which entry point it is (`entry:`, `:nss` when it says nothing). At `:nss` only
+  -50 is permitted; at `:commercial`, -50 and -19. A header whose `alg` is not the one its `typ` is
+  bound to is refused at either. All three refusals are `alg_not_permitted`.
+
+  The protected label set, for both algorithms, is closed to {1, 4, 15, 16}: content type (3) is refused with its own
   code, and every other label, `crit` (2) and the hash-envelope labels (258 to 260) among them,
   with `header_label_forbidden`. The header is strictly decoded (`Trinity.N6.CBOR`); a key that is
   not an unsigned integer is `header_label_forbidden` and every other encoding defect
@@ -39,23 +56,30 @@ defmodule Trinity.N6.COSE do
 
   `verify/2` answers the profile's exit classes: 0 with `:claim`, 1 (invalid) with the code of the
   rule that failed, or 5 (no trust) when the key is unknown (`policy_stale_or_unknown_key`) or the
-  runtime cannot run ML-DSA-87 at all (`alg_unavailable`, this tree's code). A runtime that refuses
-  the algorithm is never a crash and never a pass. The attribution classes 6 and 7 need the
-  profile's key descriptors and are not decided here.
+  runtime cannot run the header's algorithm at all (`alg_unavailable`, this tree's code; FIPS mode
+  refuses Ed25519). A runtime that refuses the algorithm is never a crash and never a pass. The
+  attribution classes 6 and 7 need the profile's key descriptors and are not decided here.
 
   ## Keys
 
-  The private key is the 32-byte seed RFC 9964 section 4 defines, as `{:seed, seed}`, or the
-  expanded key OTP's `generate_key/2` returns. The public key is passed beside it: on OTP 28.5.0.8
-  no form of `:crypto.generate_key/3` derives it from a seed.
+  A key names its algorithm: `%{alg: -50 | -19, public: pub, private: priv}` to sign, and
+  `{:ok, %{alg: alg, public: pub}}` from the `keys` function a verifier passes. The algorithm comes
+  from the key's registration, never from its size or from the header.
+
+  An ML-DSA-87 private key is the 32-byte seed RFC 9964 section 4 defines, as `{:seed, seed}`, or
+  the expanded key OTP's `generate_key/2` returns; `alg` may be left out, as it was before slice
+  139. The public key is passed beside it: on OTP 28.5.0.8 no form of `:crypto.generate_key/3`
+  derives it from a seed. An Ed25519 private key is its 32-byte secret (RFC 8032 section 5.1.5).
   """
 
   alias Trinity.N6.{CBOR, Profile}
 
-  @alg -50
-  @pub_size 2592
-  @sig_size 4627
-  @thumbprint_prefix <<0xA3, 0x01, 0x07, 0x03, 0x38, 0x31, 0x20, 0x59, 0x0A, 0x20>>
+  @mldsa87 -50
+  @ed25519 -19
+  @sizes %{@mldsa87 => %{public: 2592, signature: 4627}, @ed25519 => %{public: 32, signature: 64}}
+  @permitted %{nss: [@mldsa87], commercial: [@mldsa87, @ed25519]}
+  @akp_prefix <<0xA3, 0x01, 0x07, 0x03, 0x38, 0x31, 0x20, 0x59, 0x0A, 0x20>>
+  @okp_prefix <<0xA3, 0x01, 0x01, 0x20, 0x06, 0x21, 0x58, 0x20>>
   @labels [1, 4, 15, 16]
   @required [1, 4, 16]
   @countersignature [7, 9, 11, 12]
@@ -64,21 +88,52 @@ defmodule Trinity.N6.COSE do
   @typedoc "One COSE_Sign1: the protected header bytes, the payload, the signature."
   @type parts :: %{protected: binary(), payload: binary(), signature: binary()}
 
-  @typedoc "The `typ` values an entry point accepts, each saying whether it is SCITT-renderable."
-  @type typ_table :: %{optional(String.t()) => %{scitt: boolean()}}
+  @typedoc "An algorithm N6 permits somewhere: -50 (ML-DSA-87) or -19 (Ed25519)."
+  @type alg :: -50 | -19
 
-  @typedoc "An ML-DSA-87 key: the public key and the private key as a seed or expanded."
-  @type key :: %{public: binary(), private: {:seed, binary()} | binary()}
+  @typedoc "The entry point a verifier is: the `nss` profile, or `commercial`."
+  @type entry_point :: :nss | :commercial
+
+  @typedoc """
+  The `typ` values an entry point accepts: each one's algorithm, carrier, signers, and whether it is
+  SCITT-renderable.
+  """
+  @type typ_table :: %{
+          optional(String.t()) => %{
+            required(:scitt) => boolean(),
+            required(:alg) => alg(),
+            optional(:carrier) => :single | :envelope | :note,
+            optional(:signers) => :single | :pair
+          }
+        }
+
+  @typedoc "A signing key: its algorithm, its public key, and its private key."
+  @type key :: %{
+          optional(:alg) => alg(),
+          public: binary(),
+          private: {:seed, binary()} | binary()
+        }
 
   @doc "The RFC 9679 SHA-384 thumbprint of an ML-DSA-87 public key: its `kid`."
   @spec thumbprint(binary()) :: binary()
-  def thumbprint(pub) when byte_size(pub) == @pub_size,
-    do: :crypto.hash(:sha384, @thumbprint_prefix <> pub)
+  def thumbprint(pub), do: thumbprint(@mldsa87, pub)
 
-  @doc "The protected header bytes for a `kid` and `typ`, with CWT `{iss, sub}` when given."
-  @spec protected_header(binary(), String.t(), {String.t(), String.t()} | nil) :: binary()
-  def protected_header(kid, typ, cwt \\ nil) when byte_size(kid) == 48 and is_binary(typ) do
-    header = %{1 => @alg, 4 => {:bytes, kid}, 16 => {:text, typ}}
+  @doc "The RFC 9679 SHA-384 thumbprint of a public key of an algorithm: its `kid`."
+  @spec thumbprint(alg(), binary()) :: binary()
+  def thumbprint(@mldsa87, pub) when byte_size(pub) == 2592,
+    do: :crypto.hash(:sha384, @akp_prefix <> pub)
+
+  def thumbprint(@ed25519, pub) when byte_size(pub) == 32,
+    do: :crypto.hash(:sha384, @okp_prefix <> pub)
+
+  @doc """
+  The protected header bytes for a `kid` and `typ`, with CWT `{iss, sub}` when given, under `alg`
+  (-50 when not given).
+  """
+  @spec protected_header(binary(), String.t(), {String.t(), String.t()} | nil, alg()) :: binary()
+  def protected_header(kid, typ, cwt \\ nil, alg \\ @mldsa87)
+      when byte_size(kid) == 48 and is_binary(typ) and is_map_key(@sizes, alg) do
+    header = %{1 => alg, 4 => {:bytes, kid}, 16 => {:text, typ}}
 
     header =
       case cwt do
@@ -89,18 +144,25 @@ defmodule Trinity.N6.COSE do
     CBOR.encode!(header)
   end
 
-  @doc "Strictly decodes protected header bytes under the header rules and a `typ` table."
-  @spec decode_protected(binary(), typ_table()) ::
-          {:ok, %{kid: binary(), typ: String.t(), cwt: map() | nil}} | {:error, Profile.code()}
-  def decode_protected(bytes, table) when is_binary(bytes) and is_map(table) do
+  @doc """
+  Strictly decodes protected header bytes under the header rules, a `typ` table and an entry point
+  (`:nss` when none is given). The result carries the `typ`'s table entry, for the carrier rules.
+  """
+  @spec decode_protected(binary(), typ_table(), entry_point()) ::
+          {:ok, %{alg: alg(), kid: binary(), typ: String.t(), cwt: map() | nil, entry: map()}}
+          | {:error, Profile.code()}
+  def decode_protected(bytes, table, entry_point \\ :nss)
+      when is_binary(bytes) and is_map(table) and is_map_key(@permitted, entry_point) do
     with {:ok, header} <- decode_header_map(bytes),
          :ok <- labels(header),
          :ok <- present(header),
-         :ok <- alg(header),
+         {:ok, alg} <- alg(header),
+         :ok <- permitted(alg, entry_point),
          {:ok, kid} <- kid(header),
          {:ok, typ, entry} <- typ(header, table),
+         :ok <- bound(alg, entry),
          {:ok, cwt} <- cwt(header, entry) do
-      {:ok, %{kid: kid, typ: typ, cwt: cwt}}
+      {:ok, %{alg: alg, kid: kid, typ: typ, cwt: cwt, entry: entry}}
     end
   end
 
@@ -127,8 +189,16 @@ defmodule Trinity.N6.COSE do
       else: {:error, :header_not_protected}
   end
 
-  defp alg(%{1 => @alg}), do: :ok
+  defp alg(%{1 => alg}) when is_map_key(@sizes, alg), do: {:ok, alg}
   defp alg(_header), do: {:error, :alg_not_permitted}
+
+  defp permitted(alg, entry_point) do
+    if alg in Map.fetch!(@permitted, entry_point), do: :ok, else: {:error, :alg_not_permitted}
+  end
+
+  # The publisher's answer of 2026-10-19: the table binds each `typ` to its one algorithm.
+  defp bound(alg, %{alg: alg}), do: :ok
+  defp bound(_alg, _entry), do: {:error, :alg_not_permitted}
 
   defp kid(%{4 => {:bytes, kid}}) when byte_size(kid) == 48, do: {:ok, kid}
   defp kid(_header), do: {:error, :kid_not_thumbprint}
@@ -166,25 +236,44 @@ defmodule Trinity.N6.COSE do
       CBOR.encode!([{:text, "Signature1"}, {:bytes, protected}, {:bytes, ""}, {:bytes, payload}])
 
   @doc """
-  Signs a payload as a Sign1 with ML-DSA-87. `opts`: `cwt: {iss, sub}` for a SCITT-renderable
-  `typ`. Answers `{:error, :alg_unavailable}` where the runtime cannot sign ML-DSA-87.
+  Signs a payload as a Sign1 with the key's algorithm. `opts`: `cwt: {iss, sub}` for a
+  SCITT-renderable `typ`. Answers `{:error, :alg_unavailable}` where the runtime cannot sign it.
   """
   @spec sign(binary(), String.t(), key(), keyword()) :: {:ok, parts()} | {:error, Profile.code()}
-  def sign(payload, typ, %{public: pub, private: priv}, opts \\ [])
-      when is_binary(payload) and byte_size(pub) == @pub_size and
-             ((is_binary(priv) and byte_size(priv) == 4896) or
-                (is_tuple(priv) and tuple_size(priv) == 2 and elem(priv, 0) == :seed and
-                   byte_size(elem(priv, 1)) == 32)) do
+  def sign(payload, typ, key, opts \\ [])
+
+  def sign(payload, typ, %{alg: @ed25519, public: pub, private: priv}, opts)
+      when is_binary(payload) and byte_size(pub) == 32 and is_binary(priv) and
+             byte_size(priv) == 32 do
+    protected =
+      protected_header(thumbprint(@ed25519, pub), typ, Keyword.get(opts, :cwt), @ed25519)
+
+    signed(protected, payload, &:crypto.sign(:eddsa, :none, &1, [priv, :ed25519]))
+  end
+
+  def sign(payload, typ, %{public: pub, private: priv} = key, opts)
+      when is_binary(payload) and byte_size(pub) == 2592 and
+             (not is_map_key(key, :alg) or :erlang.map_get(:alg, key) == @mldsa87) do
+    priv = mldsa87_private!(priv)
     protected = protected_header(thumbprint(pub), typ, Keyword.get(opts, :cwt))
-    signature = :crypto.sign(:mldsa87, :none, to_be_signed(protected, payload), priv)
+    signed(protected, payload, &:crypto.sign(:mldsa87, :none, &1, priv))
+  end
+
+  # The two forms of an ML-DSA-87 private key OTP signs with: the expanded key, and the seed.
+  defp mldsa87_private!(priv) when is_binary(priv) and byte_size(priv) == 4896, do: priv
+  defp mldsa87_private!({:seed, seed} = priv) when byte_size(seed) == 32, do: priv
+
+  defp signed(protected, payload, sign) do
+    signature = sign.(to_be_signed(protected, payload))
     {:ok, %{protected: protected, payload: payload, signature: signature}}
   rescue
     e in ErlangError -> unavailable(e)
   end
 
   @doc """
-  Verifies a Sign1's parts. `opts`: `keys`, a function from a `kid` to `{:ok, public_key}` or
-  `:error`; `typ`, the `typ` table of the entry point in use.
+  Verifies a Sign1's parts. `opts`: `keys`, a function from a `kid` to
+  `{:ok, %{alg: alg, public: public_key}}` or `:error`; `typ`, the `typ` table of the entry point in
+  use; `entry`, the entry point (`:nss` when not given).
   """
   @spec verify(parts(), keyword()) ::
           {:ok, %{exit: 0, verdict_code: :claim, kid: binary(), typ: String.t()}}
@@ -193,41 +282,56 @@ defmodule Trinity.N6.COSE do
       when is_binary(protected) and is_binary(payload) and is_binary(signature) do
     keys = Keyword.fetch!(opts, :keys)
     table = Keyword.fetch!(opts, :typ)
+    entry_point = Keyword.get(opts, :entry, :nss)
 
-    with {:ok, %{kid: kid, typ: typ}} <- decode_protected(protected, table),
-         {:ok, pub} <- known_key(keys.(kid)),
-         :ok <- thumbprint_matches(pub, kid),
-         :ok <- signature_size(signature),
-         :ok <- signature_valid(to_be_signed(protected, payload), signature, pub) do
+    with {:ok, %{alg: alg, kid: kid, typ: typ}} <- decode_protected(protected, table, entry_point),
+         {:ok, pub} <- known_key(keys.(kid), alg),
+         :ok <- thumbprint_matches(alg, pub, kid),
+         :ok <- signature_size(alg, signature),
+         :ok <- signature_valid(alg, to_be_signed(protected, payload), signature, pub) do
       {:ok, %{exit: 0, verdict_code: :claim, kid: kid, typ: typ}}
     else
       {:error, code} -> {:error, Profile.exit_of(code), code}
     end
   end
 
-  defp known_key({:ok, pub}) when is_binary(pub), do: {:ok, pub}
-  defp known_key(_unknown), do: {:error, :policy_stale_or_unknown_key}
+  # A key registered under another algorithm than the header's is the draft's C5 case, a key used
+  # with another algorithm, whatever its thumbprint: for OKP the thumbprint cannot say.
+  defp known_key({:ok, %{alg: alg, public: pub}}, alg) when is_binary(pub), do: {:ok, pub}
 
-  defp thumbprint_matches(pub, kid) when byte_size(pub) == @pub_size do
-    if thumbprint(pub) == kid, do: :ok, else: {:error, :kid_not_thumbprint}
+  defp known_key({:ok, %{alg: _other, public: pub}}, _alg) when is_binary(pub),
+    do: {:error, :kid_not_thumbprint}
+
+  defp known_key(_unknown, _alg), do: {:error, :policy_stale_or_unknown_key}
+
+  defp thumbprint_matches(alg, pub, kid) do
+    if byte_size(pub) == @sizes[alg].public and thumbprint(alg, pub) == kid,
+      do: :ok,
+      else: {:error, :kid_not_thumbprint}
   end
 
-  defp thumbprint_matches(_pub, _kid), do: {:error, :kid_not_thumbprint}
+  defp signature_size(alg, sig) do
+    if byte_size(sig) == @sizes[alg].signature, do: :ok, else: {:error, :carrier_malformed}
+  end
 
-  defp signature_size(sig) when byte_size(sig) == @sig_size, do: :ok
-  defp signature_size(_sig), do: {:error, :carrier_malformed}
-
-  defp signature_valid(tbs, sig, pub) do
-    if :crypto.verify(:mldsa87, :none, tbs, sig, pub), do: :ok, else: {:error, :signature_invalid}
+  defp signature_valid(alg, tbs, sig, pub) do
+    if crypto_verify(alg, tbs, sig, pub), do: :ok, else: {:error, :signature_invalid}
   rescue
     e in ErlangError -> unavailable(e)
   end
 
-  # How :crypto says the runtime cannot do ML-DSA-87, each measured: `badarg` ("Bad key type")
-  # where the linked OpenSSL has no ML-DSA (3.0); `error` ("Can't create PKEY_CTX from id") from
-  # `verify` in FIPS mode on Red Hat's provider (the `fips` job, PR #133); `notsup` ("Unsupported
-  # algorithm in FIPS mode") for an algorithm the mode refuses. Key and signature sizes are checked
-  # before any call, so these are the runtime's answer, not the caller's mistake: no trust.
+  defp crypto_verify(@mldsa87, tbs, sig, pub), do: :crypto.verify(:mldsa87, :none, tbs, sig, pub)
+
+  defp crypto_verify(@ed25519, tbs, sig, pub),
+    do: :crypto.verify(:eddsa, :none, tbs, sig, [pub, :ed25519])
+
+  # How :crypto says the runtime cannot do the algorithm, each measured: `badarg` ("Bad key type",
+  # "Bad digest type") where the linked OpenSSL has no ML-DSA (3.0); `error` ("Can't create
+  # PKEY_CTX from id") from `verify` in FIPS mode on Red Hat's provider (the `fips` job, PR #133);
+  # `notsup` ("Unsupported algorithm in FIPS mode") for an algorithm the mode refuses, Ed25519 among
+  # them. `:crypto` raises the same shapes for a malformed public key, but the key's size and its
+  # thumbprint are checked before any call here, so these are the runtime's answer, not the
+  # caller's mistake: no trust.
   defp unavailable(%ErlangError{original: {reason, _, _}})
        when reason in [:notsup, :badarg, :error],
        do: {:error, :alg_unavailable}
@@ -281,9 +385,15 @@ defmodule Trinity.N6.COSE do
     end
   end
 
-  defp unprotected(map) when map == %{}, do: :ok
+  @doc """
+  Checks a Sign1's unprotected header, which must be empty: `alg`, `kid` or `typ` there is
+  `header_not_protected`, a countersignature label `countersignature_forbidden`, any other label
+  `unprotected_forbidden`, and anything but a map `carrier_malformed`.
+  """
+  @spec unprotected(term()) :: :ok | {:error, Profile.code()}
+  def unprotected(map) when map == %{}, do: :ok
 
-  defp unprotected(map) when is_map(map) do
+  def unprotected(map) when is_map(map) do
     keys = Map.keys(map)
 
     cond do
@@ -293,5 +403,5 @@ defmodule Trinity.N6.COSE do
     end
   end
 
-  defp unprotected(_other), do: {:error, :carrier_malformed}
+  def unprotected(_other), do: {:error, :carrier_malformed}
 end

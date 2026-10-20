@@ -23,8 +23,9 @@ defmodule Trinity.Receipts.Verifier do
   signature verifies the same way; a covered range never has a gap.
 
   Outcomes carry the exit vocabulary the operator learns once: `0` verified, `1` invalid,
-  `2` usage, `5` trust not established (a key id the registry does not know), `6` a key the
-  registry marks compromised.
+  `2` usage, `5` trust not established (a key id the registry does not know, or, since slice 139,
+  a signature this runtime cannot judge: an algorithm it refuses, as FIPS mode refuses Ed25519, or
+  a registered key it cannot use), `6` a key the registry marks compromised.
   """
 
   alias Trinity.Receipts.{Envelope, Signer}
@@ -115,11 +116,29 @@ defmodule Trinity.Receipts.Verifier do
   defp check_signature(%{"kind" => kind} = r, bytes, impl, row, seq) when kind in @signed_kinds do
     with {:ok, sig} <- decode_sig(r["signature_b64"], seq),
          {:ok, pub} <- public_key(row, r["key_id"]) do
-      expect(impl.verify(bytes, sig, pub), 1, {:signature_invalid, seq})
+      answer(
+        Signer.check(impl, bytes, sig, pub),
+        seq,
+        impl,
+        r["key_id"],
+        {:signature_invalid, seq}
+      )
     end
   end
 
   defp check_signature(_r, _bytes, _impl, _row, _seq), do: :ok
+
+  # Slice 139: a runtime that refuses the row's algorithm, or cannot use its registered key, cannot
+  # judge the signature. That is trust not established (5), naming where and why; before 139 it was
+  # an exception out of `:crypto.verify`.
+  defp answer(:ok, _at, _impl, _key_id, _invalid), do: :ok
+  defp answer(:invalid, _at, _impl, _key_id, invalid), do: {:error, 1, invalid}
+
+  defp answer(:alg_unavailable, at, impl, _key_id, _invalid),
+    do: {:error, 5, {:alg_unavailable, at, Atom.to_string(impl.algorithm())}}
+
+  defp answer(:key_unusable, _at, _impl, key_id, _invalid),
+    do: {:error, 5, {:key_undecodable, key_id}}
 
   # The stored body must say what the row says: a row whose columns disagree with its
   # signed body is a row edited after the fact.
@@ -198,7 +217,14 @@ defmodule Trinity.Receipts.Verifier do
          {:ok, sig} <- decode_sig(cp["signature_b64"], {:checkpoint, last}),
          {:ok, pub} <- public_key(row, cp["key_id"]) do
       bytes = Envelope.pae(Envelope.checkpoint_type(cp["scheme"]), cp["signed_payload"])
-      expect(impl.verify(bytes, sig, pub), 1, {:checkpoint_signature_invalid, last})
+
+      answer(
+        Signer.check(impl, bytes, sig, pub),
+        {:checkpoint, last},
+        impl,
+        cp["key_id"],
+        {:checkpoint_signature_invalid, last}
+      )
     end
   end
 

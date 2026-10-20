@@ -66,6 +66,29 @@ one; signing and verifying with NIST's published ML-DSA-87 test key on the FIPS 
 off; a decoder planted to accept one defect class failing that class and no other; and an opt-in
 run of 1,000,000 generated statements whose 13,000,000 mutants were all refused.
 
+### `slice/139`: one signer per statement, Ed25519 where it is allowed, and an answer for a chain the runtime cannot check
+
+Trinity's N6 layer now has the single-signer carrier, which holds one statement with its one
+signature, and Ed25519 as a second algorithm on the `commercial` profile, bound to the statement
+types that name it and refused at the `nss` entry point. Both follow the profile publisher's
+answers of 2026-10-19, which a later draft will carry, so both are provisional, and the carrier's
+schema number is a placeholder. Nothing Trinity signs uses either yet.
+
+Receipt verification also gets an answer where it used to crash. A chain signed under an algorithm
+the runtime refuses, such as Ed25519 on a FIPS node or ML-DSA-87 on OpenSSL 3.0, now verifies to
+"trust not established" (exit 5), naming the row and the algorithm. This holds in the verify task,
+the receipts page, chain merges, the standalone verifier and a chain writer starting over such a
+checkpoint.
+
+Verified by the test suite: the Ed25519 key id over RFC 8032's published test key, checked against
+`sha384sum`; signing that key reproduces the sample's signature byte for byte; each carrier and
+header sample gives its expected outcome; receipt chains signed with ML-DSA-87 and with Ed25519
+verify where the runtime has the algorithm and answer exit 5 where it does not, each branch
+exercised on the CI leg whose runtime takes it. Five planted faults (no binding of `typ` to its
+algorithm, Ed25519 admitted at `nss`, any `typ` admitted in the carrier, a refused algorithm told
+apart from a bad key by the error alone, a key's registered algorithm ignored) each turned their
+own tests red.
+
 ## 2026-10-08
 
 ### `slice/136`: the web pages ask who is there

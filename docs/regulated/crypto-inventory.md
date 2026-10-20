@@ -15,7 +15,7 @@ to that provider, on that host, not to this software. **Anything not established
 |---|---|---|---|---|
 | Receipt signing, default | `lib/trinity/receipts/signer/ed25519.ex` | `:crypto.sign(:eddsa, :none, …, :ed25519)`, line 21 | **UNKNOWN** | Ed25519, RFC 8032. `available?/0` line 14 returns false when `:crypto.info_fips() == :enabled`, so it is not selected in FIPS mode |
 | Receipt signing, FIPS mode | `lib/trinity/receipts/signer/p384.ex` | `:crypto.sign(:ecdsa, :sha384, …, :secp384r1)`, line 25 | **UNKNOWN** | ECDSA P-384 with SHA-384. Selected when the mode is enabled |
-| Receipt signing, opt-in | `lib/trinity/receipts/signer/mldsa87.ex` | `:crypto` ML-DSA-87, FIPS 204 | **UNKNOWN** | Never the default. `available?/0` line 24 checks `:mldsa87 in :crypto.supports(:public_keys)` |
+| Receipt signing, opt-in | `lib/trinity/receipts/signer/mldsa87.ex` | `:crypto` ML-DSA-87, FIPS 204 | **UNKNOWN** | Never the default. `available?/0` asks the runtime by generating, signing and verifying a known answer (`Trinity.Crypto.Preflight`, slice 137); it was a `:crypto.supports/1` lookup before, which never holds in FIPS mode |
 | Receipt hashing | `lib/trinity/receipts/envelope.ex:36` | `:crypto.hash(:sha256, …)` | **UNKNOWN** | Over the DSSE pre-authentication encoding, not the bare payload |
 | Merkle tree over a chain | `lib/trinity/receipts/merkle.ex` | `:crypto.hash(:sha256, …)` | **UNKNOWN** | RFC 6962 hashing: distinct leaf and node prefixes, odd nodes promoted not duplicated |
 | Blob encryption at rest | `lib/trinity/vault.ex:180` | `:crypto.crypto_one_time_aead(:aes_256_gcm, …)` | **UNKNOWN** | Fresh 256-bit data key per blob, `docs/encryption-at-rest.md` |
@@ -28,7 +28,8 @@ to that provider, on that host, not to this software. **Anything not established
 | JWK thumbprint | `lib/trinity/receipts/signer.ex` | `:crypto.hash(:sha256, …)` | Not applicable | RFC 7638 |
 | Canonical JSON | `lib/trinity/receipts/envelope.ex:15` | `Jcs.encode/1` | Not applicable | RFC 8785, not a cryptographic primitive |
 | N6 statement signing (slice 138) | `lib/trinity/n6/cose.ex` | `:crypto.sign(:mldsa87, :none, …)` and `:crypto.verify/5`, FIPS 204, pure, empty context | **UNKNOWN** | Over RFC 9052's ToBeSigned. Not used by any statement yet. Where the runtime refuses ML-DSA-87 (FIPS mode on Red Hat's provider; OpenSSL 3.0) verification answers no trust, never a crash |
-| N6 key id | `lib/trinity/n6/cose.ex` | `:crypto.hash(:sha384, …)` | Not applicable | RFC 9679 thumbprint over RFC 9964's AKP members |
+| N6 statement signing, `commercial` profile (slice 139) | `lib/trinity/n6/cose.ex` | `:crypto.sign(:eddsa, :none, …, :ed25519)` and `:crypto.verify/5` | **UNKNOWN** | Ed25519, RFC 8032 section 5.1, as COSE -19 (RFC 9864). Refused at the `nss` entry point; FIPS mode refuses it, and verification there answers no trust. Not used by any statement yet |
+| N6 key id | `lib/trinity/n6/cose.ex` | `:crypto.hash(:sha384, …)` | Not applicable | RFC 9679 thumbprint over RFC 9964's AKP members (ML-DSA-87) or RFC 9053's OKP members (Ed25519) |
 | N6 foreign-bytes digest | `lib/trinity/n6/digest.ex` | `:crypto.hash(:sha384, …)` | **UNKNOWN** | Over bytes exactly as received, never re-encoded |
 | Deterministic CBOR | `lib/trinity/n6/cbor.ex` | pure Elixir | Not applicable | RFC 8949 section 4.2.1, not a cryptographic primitive |
 

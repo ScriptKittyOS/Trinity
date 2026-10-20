@@ -71,7 +71,70 @@ defmodule Trinity.TestSupport.N6Vectors do
     |> File.read!()
     |> JSON.decode!()
     |> Map.fetch!("typ")
-    |> Map.new(&{&1["typ"], %{scitt: &1["scitt"]}})
+    |> Map.new(fn e ->
+      {e["typ"],
+       %{
+         scitt: e["scitt"],
+         alg: e["alg"],
+         carrier: String.to_atom(e["carrier"]),
+         signers: String.to_atom(e["signers"])
+       }}
+    end)
+  end
+
+  @doc """
+  The single-signer carrier samples (slice 139): `{id, bytes, exit, code, opts}`, where `opts` is
+  what `Trinity.N6.Carrier.verify/2` takes, read from the sample's `.ctx.json`.
+  """
+  def samples do
+    for bin <- Path.wildcard(Path.join([@root, "cose", "sign1", "*.bin"])) |> Enum.sort() do
+      id = Path.basename(bin, ".bin")
+      base = Path.rootname(bin)
+
+      %{"exit" => exit, "verdict_code" => code} =
+        (base <> ".expect") |> File.read!() |> JSON.decode!()
+
+      ctx = (base <> ".ctx.json") |> File.read!() |> JSON.decode!()
+
+      registered =
+        Map.new(ctx["keys"], fn %{"alg" => alg, "public" => rel} ->
+          pub = File.read!(Path.join(@root, rel))
+          {thumbprint(alg, pub), %{alg: alg, public: pub}}
+        end)
+
+      opts = [
+        keys: &Map.fetch(registered, &1),
+        typ: typ_table(),
+        entry: String.to_atom(ctx["entry_point"])
+      ]
+
+      # `to_atom`, not `to_existing_atom`: which atoms exist depends on which modules a test run has
+      # loaded first, and these strings come from the checked-in fixtures, not from input.
+      {id, File.read!(bin), exit, String.to_atom(code), opts}
+    end
+  end
+
+  # RFC 9679 over the AKP (RFC 9964 section 6) or OKP (RFC 9053 section 7.1) members, built here
+  # from the fixed prefixes rather than asked of `Trinity.N6.COSE`, the code under test.
+  defp thumbprint(-50, pub),
+    do: :crypto.hash(:sha384, <<0xA3, 1, 7, 3, 0x38, 0x31, 0x20, 0x59, 0x0A, 0x20>> <> pub)
+
+  defp thumbprint(-19, pub),
+    do: :crypto.hash(:sha384, <<0xA3, 1, 1, 0x20, 6, 0x21, 0x58, 0x20>> <> pub)
+
+  @doc "RFC 8032 section 7.1, test 1: the published Ed25519 key."
+  def rfc8032_key do
+    %{
+      alg: -19,
+      public:
+        Base.decode16!("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+          case: :lower
+        ),
+      private:
+        Base.decode16!("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+          case: :lower
+        )
+    }
   end
 
   @doc "NIST ACVP's ML-DSA-87 keyGen case (slice 137 pins it): seed, public key, expanded secret key."

@@ -9,7 +9,8 @@
 #   elixir verify_receipt.exs receipts.json [--schemes receipt_v3_ed25519,receipt_v2_ed25519]
 #
 # Exit codes, the vocabulary an operator learns once: 0 verified, 1 invalid, 2 usage,
-# 5 trust not established (a key id the registry does not know), 6 compromised key.
+# 5 trust not established (a key id the registry does not know, or a signature this runtime
+# cannot judge: an algorithm it refuses, or a registered key it cannot use), 6 compromised key.
 #
 # This is a copy of Trinity.Receipts.Verifier's rules, kept small so a stranger can read it:
 # the seq is the previous plus one; prev_hash is the previous receipt_hash; the scheme is
@@ -107,7 +108,7 @@ defmodule VerifyReceipt do
     if r["kind"] in @signed_kinds do
       with {:ok, sig} <- b64(r["signature_b64"], 1, {:signature_undecodable, seq}),
            {:ok, pub} <- b64(row["public_key_b64"], 5, {:key_undecodable, r["key_id"]}) do
-        expect(verify(fam, bytes, sig, pub), 1, {:signature_invalid, seq})
+        check(fam, bytes, sig, pub, seq, r["key_id"], {:signature_invalid, seq})
       end
     else
       :ok
@@ -152,7 +153,7 @@ defmodule VerifyReceipt do
              :ok <- expect(body["last_seq"] == last and body["first_seq"] == cp["first_seq"] and body["tail_hash"] == cp["tail_hash"], 1, {:checkpoint_body_mismatch, last}),
              {:ok, sig} <- b64(cp["signature_b64"], 1, {:signature_undecodable, {:checkpoint, last}}),
              {:ok, pub} <- b64(row["public_key_b64"], 5, {:key_undecodable, cp["key_id"]}) do
-          expect(verify(fam, pae("trinity/checkpoint/" <> cp["scheme"], cp["signed_payload"]), sig, pub), 1, {:checkpoint_signature_invalid, last})
+          check(fam, pae("trinity/checkpoint/" <> cp["scheme"], cp["signed_payload"]), sig, pub, {:checkpoint, last}, cp["key_id"], {:checkpoint_signature_invalid, last})
         end
 
       if r == :ok, do: {:cont, :ok}, else: {:halt, r}
@@ -164,6 +165,39 @@ defmodule VerifyReceipt do
     uncovered = rs |> Enum.filter(&(&1["kind"] == "query" and not MapSet.member?(covered, &1["seq"]))) |> Enum.map(& &1["seq"])
     expect(uncovered == [], 1, {:query_receipts_uncovered, uncovered})
   end
+
+  # Slice 139. :crypto.verify raises, rather than answering, where the runtime refuses the algorithm
+  # (FIPS mode refuses Ed25519; OpenSSL before 3.5, and FIPS mode on Red Hat's provider, refuse
+  # ML-DSA-87) and also for a public key it cannot use, with the same badarg and error shapes. A
+  # fresh key pair of the family says which: if the runtime cannot sign and verify one, it refuses
+  # the algorithm; if it can, the registered key is the problem. Both are 5: no judgement.
+  defp check(fam, bytes, sig, pub, at, key_id, invalid) do
+    expect(verify(fam, bytes, sig, pub), 1, invalid)
+  rescue
+    e in ErlangError ->
+      case e.original do
+        {reason, _, _} when reason in [:notsup, :badarg, :error] ->
+          if runs?(fam), do: {:error, 5, {:key_undecodable, key_id}}, else: {:error, 5, {:alg_unavailable, at, elem(fam, 0)}}
+
+        _ ->
+          reraise e, __STACKTRACE__
+      end
+  end
+
+  defp runs?(fam) do
+    {pub, priv} = keypair(fam)
+    verify(fam, "probe", sign(fam, "probe", priv), pub) == true
+  rescue
+    _ -> false
+  end
+
+  defp keypair({_, :eddsa, _, curve}), do: :crypto.generate_key(:eddsa, curve)
+  defp keypair({_, :ecdsa, _, curve}), do: :crypto.generate_key(:ecdh, curve)
+  defp keypair({_, :mldsa87, _, _}), do: :crypto.generate_key(:mldsa87, [])
+
+  defp sign({_, :eddsa, _, curve}, bytes, priv), do: :crypto.sign(:eddsa, :none, bytes, [priv, curve])
+  defp sign({_, :ecdsa, digest, curve}, bytes, priv), do: :crypto.sign(:ecdsa, digest, bytes, [priv, curve])
+  defp sign({_, :mldsa87, _, _}, bytes, priv), do: :crypto.sign(:mldsa87, :none, bytes, priv)
 
   defp verify({_, :eddsa, _, curve}, bytes, sig, pub), do: :crypto.verify(:eddsa, :none, bytes, sig, [pub, curve])
   defp verify({_, :ecdsa, digest, curve}, bytes, sig, pub), do: :crypto.verify(:ecdsa, digest, bytes, sig, [pub, curve])

@@ -2,13 +2,25 @@
 # SPDX-License-Identifier: Apache-2.0
 defmodule Trinity.N6.Profile do
   @moduledoc """
-  The N6 profile this tree implements, pinned: its version, its limits, and the closed table of
-  refusal codes with the exit class of each (slice 138).
+  The N6 profile this tree implements, pinned: its version, its limits, the closed table of
+  refusal codes with the exit class of each (slice 138), and the schema numbers of its carriers
+  (slice 139).
 
   N6 is a profile of deterministic CBOR (RFC 8949 section 4.2.1) and COSE_Sign1 (RFC 9052) for
   signed statements. The version implemented here is **v0, draft r3, provisional**: every rule may
   change until a frozen v1 is published with its vectors. `pin/0` names the draft and the SHA-384
   of its text, so a later draft is a visible change of pin, not a silent one.
+
+  Slice 139 adds what the profile publisher's answers of 2026-10-19 add to r3 for a single signer,
+  ahead of the draft that will carry them (v0.1): the single-signer carrier, and Ed25519 (-19) as the
+  one classical algorithm on the `commercial` profile. `pin/0` names those answers too.
+
+  ## Schema numbers
+
+  Key 0 of a carrier is a number in the reserved range 0xFFFF0000 to 0xFFFFFFFF. r3 assigns two,
+  still Open in it (its section 12.1 item 3). The single-signer carrier has none yet, so this tree
+  uses a **placeholder**, 0xFFFF0003, and `schemas/0` says so; it changes when the profile assigns
+  the number, and every carrier written under it is provisional for that reason too.
 
   ## Codes
 
@@ -35,12 +47,21 @@ defmodule Trinity.N6.Profile do
   @pin %{
     version: "n6/v0",
     draft: "r3",
+    answers:
+      "the profile publisher's answers of 2026-10-19 (single-signer carrier, Ed25519 on commercial)",
     status: :provisional,
     draft_sha384:
       "54ab5e549259b87b18c51b4d1a3dbbbbb230b74ae562d5c2ef8ec43288c6c2dafc6376bff51ae205da6043bb9da7b7f2"
   }
 
   @limits %{depth: 16, items: 65_536, text: 65_536, size: 1_048_576}
+
+  # carrier => {key 0 value, who assigned it}
+  @schemas %{
+    envelope: {0xFFFF0001, :draft},
+    statement_id: {0xFFFF0002, :draft},
+    single: {0xFFFF0003, :placeholder}
+  }
 
   # code => {exit class, who defines it}
   @codes %{
@@ -91,6 +112,7 @@ defmodule Trinity.N6.Profile do
     kid_not_thumbprint: {1, :draft},
     typ_unexpected: {1, :draft},
     carrier_malformed: {1, :draft},
+    wrong_carrier_for_typ: {1, :draft},
     # The draft names signature failures per twin role (signature_invalid_kv, _kh); a
     # single-signer statement has no role yet (its section 12.1 item 1).
     signature_invalid: {1, :trinity},
@@ -98,8 +120,9 @@ defmodule Trinity.N6.Profile do
     claim: {0, :draft},
     usage: {2, :draft},
     policy_stale_or_unknown_key: {5, :draft},
-    # The runtime cannot run ML-DSA-87 (for example in FIPS mode on a provider that refuses it),
-    # so the verifier cannot judge: no trust, never a pass and never a crash.
+    # The runtime cannot run the header's algorithm (ML-DSA-87 or Ed25519; FIPS mode refuses Ed25519,
+    # and Red Hat's provider ML-DSA-87), so the verifier cannot judge: no trust, never a pass and
+    # never a crash.
     alg_unavailable: {5, :trinity}
   }
 
@@ -122,6 +145,17 @@ defmodule Trinity.N6.Profile do
   @doc "Every code, with its exit class and whether the draft defines it."
   @spec codes() :: %{code() => {0 | 1 | 2 | 5, :draft | :trinity}}
   def codes, do: @codes
+
+  @doc """
+  The reserved-range schema numbers of the carriers, each with who assigned it: `:draft` (r3, still
+  Open there) or `:placeholder` (none assigned yet; this tree's stand-in).
+  """
+  @spec schemas() :: %{atom() => {non_neg_integer(), :draft | :placeholder}}
+  def schemas, do: @schemas
+
+  @doc "The key 0 value of a carrier."
+  @spec schema(:envelope | :statement_id | :single) :: non_neg_integer()
+  def schema(carrier), do: @schemas |> Map.fetch!(carrier) |> elem(0)
 
   @doc "The exit class of a code. Raises on a code not in the table, which is a bug in the caller."
   @spec exit_of(code()) :: 0 | 1 | 2 | 5
