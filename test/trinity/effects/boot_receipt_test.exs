@@ -24,7 +24,7 @@ defmodule Trinity.Effects.BootReceiptTest do
     assert r.subject["fips"] == Atom.to_string(:crypto.info_fips())
     assert r.meta["core_policy_hash"] == CorePolicy.hash()
     assert r.meta["canonicalization_version"] == 1
-    body = JSON.decode!(r.signed_payload)
+    body = Trinity.TestSupport.ReceiptBody.of(r)
     assert body["subject"]["authority"] == "Trinity.Authority.Local"
     # The policy hash is unsigned metadata, per the R21 default: not in the signed body.
     refute Map.has_key?(body, "core_policy_hash")
@@ -47,7 +47,7 @@ defmodule Trinity.Effects.BootReceiptTest do
         {:error, {:mldsa87_preflight_failed, step, _}} -> "failed:#{step}"
       end
 
-    body = JSON.decode!(r.signed_payload)
+    body = Trinity.TestSupport.ReceiptBody.of(r)
 
     for {key, value} <- [{"erts", erts}, {"elixir", elixir}, {"mldsa87_preflight", want}] do
       assert r.subject[key] == value, key

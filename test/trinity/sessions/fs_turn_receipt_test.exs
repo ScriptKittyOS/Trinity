@@ -58,7 +58,7 @@ defmodule Trinity.Sessions.FsTurnReceiptTest do
       |> Receipts.list(kind: "decision")
       |> Enum.filter(&(&1.subject["tool"] == "fs_read"))
 
-    [fs] = JSON.decode!(decision.signed_payload)["decision"]["fs"]
+    [fs] = Trinity.TestSupport.ReceiptBody.of(decision)["decision"]["fs"]
     assert fs["decision"] == "allow"
     assert fs["canonical_path"] == Path.join(root, "a.txt")
     assert fs["root"] == root

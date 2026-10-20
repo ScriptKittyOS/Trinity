@@ -140,7 +140,7 @@ defmodule Trinity.Gateways.ApprovalsTest do
     assert refusal.subject["adapter"] == "console"
     assert refusal.subject["external_user_id"] == @user
     assert refusal.subject["risk"] == "destructive"
-    assert Jason.decode!(refusal.signed_payload)["decision"]["basis"] == "channel_cap"
+    assert Trinity.TestSupport.ReceiptBody.of(refusal)["decision"]["basis"] == "channel_cap"
     on_exit(fn -> Receipts.stop_writer(scope) end)
   end
 

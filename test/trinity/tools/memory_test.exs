@@ -50,7 +50,7 @@ defmodule Trinity.Tools.MemoryTest do
     [decision | effects] = Receipts.list(scope)
     assert decision.kind == "decision"
 
-    assert JSON.decode!(decision.signed_payload)["decision"] == %{
+    assert Trinity.TestSupport.ReceiptBody.of(decision)["decision"] == %{
              "outcome" => "allow",
              "basis" => "persona",
              "reason" => nil

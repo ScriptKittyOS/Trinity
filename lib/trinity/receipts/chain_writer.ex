@@ -8,11 +8,14 @@ defmodule Trinity.Receipts.ChainWriter do
   process, so a predecessor read and a successor append cannot interleave and the chain
   cannot fork. `append/2` is a call: the caller learns whether its receipt is in the chain.
 
-  Per row: the body (`scheme`, `seq`, `chain_scope`, `prev_hash`, `kind`, `subject`,
-  `decision`, `fingerprint`, `at`, `key_id`) is canonicalised, wrapped in the PAE with the
-  receipt type, hashed; decision, effect, boot and cap receipts are signed through
-  `Trinity.Receipts.KeyCustody` before the row is written, and a signer that cannot sign
-  means no row and `{:error, {:signer_unavailable, reason}}` (never an unsigned row; AC5).
+  Per row, since slice 140 (`Trinity.Receipts.V4`): the body is an N6 statement (`issuer`, `prev`,
+  `seq`, `chain_scope`, `at`, `clock`, and `subject` and `decision` as ForeignRefs over their RFC 8785
+  bytes, which are stored beside it), its `receipt_hash` its `statement_id`; decision, effect, boot
+  and cap receipts are signed in the single-signer carrier through `Trinity.Receipts.KeyCustody`
+  before the row is written, and a signer that cannot sign means no row and
+  `{:error, {:signer_unavailable, reason}}` (never an unsigned row; AC5). Rows a chain already holds
+  under v2 or v3 stay as they were signed; the first v4 row links to the last of them by
+  `V4.legacy_link/1`.
   Query receipts are chained unsigned and covered by a checkpoint every N rows, every T
   milliseconds after the first uncovered row, on shutdown, and on rehydrate before a new row
   is accepted (amendment 5, AC9).
@@ -30,6 +33,8 @@ defmodule Trinity.Receipts.ChainWriter do
 
   import Ecto.Query
 
+  alias Trinity.N6.COSE
+
   alias Trinity.Receipts.{
     Checkpoint,
     Clock,
@@ -38,7 +43,8 @@ defmodule Trinity.Receipts.ChainWriter do
     KeyRegistry,
     Queue,
     Receipt,
-    Signer
+    Signer,
+    V4
   }
 
   alias Trinity.Repo.Receipts, as: Repo
@@ -48,9 +54,11 @@ defmodule Trinity.Receipts.ChainWriter do
   @default_every 100
   @default_after_ms 5_000
 
+  # `prev_link` is the tail's link id, 48 bytes: its `statement_id`, or for a v2 or v3 tail the
+  # SHA-384 of its PAE bytes (`V4.legacy_link/1`).
   defstruct scope: nil,
             seq: 0,
-            prev_hash: nil,
+            prev_link: nil,
             clock: nil,
             uncovered_first: nil,
             uncovered_count: 0,
@@ -188,12 +196,12 @@ defmodule Trinity.Receipts.ChainWriter do
     forward? = Map.get(attrs, :forward, true)
 
     with :ok <- check_queue_bound(forward?, state),
-         {:ok, %{scheme: scheme, key_id: key_id}} <- selection(),
-         {row, at, clock} = build_row(attrs, kind, scheme, key_id, state),
+         {:ok, selection} <- selection(),
+         {row, at, clock} = build_row(attrs, kind, selection, state),
          :ok <- check_clock(clock, state),
-         bytes = Envelope.pae(Envelope.receipt_type(scheme), row.signed_payload),
-         {:ok, signature} <- sign_if_needed(kind, bytes) do
-      insert_row(%{row | signature: signature, inserted_at: at}, state, clock, forward?)
+         {:ok, row} <- row_ok(row),
+         {:ok, carrier} <- sign_if_needed(kind, row.body, selection) do
+      insert_row(signed(row, carrier, at), state, clock, forward?)
     else
       {:error, {:clock_regression, offered, held}} ->
         refuse_clock_regression(offered, held, state)
@@ -250,7 +258,6 @@ defmodule Trinity.Receipts.ChainWriter do
   # the attributes, as the merge path and an adapter's replay both do. A row that claims to precede
   # one already in the chain is refused, and the refusal is itself a receipt, because a refusal that
   # leaves no record is indistinguishable from the call never having been made.
-  defp check_clock(nil, _state), do: :ok
   defp check_clock(_clock, %{clock: nil}), do: :ok
 
   defp check_clock(clock, %{clock: held}) do
@@ -286,13 +293,12 @@ defmodule Trinity.Receipts.ChainWriter do
   end
 
   defp do_append_unchecked(attrs, state) do
-    with {:ok, %{scheme: scheme, key_id: key_id}} <- selection(),
-         {row, at, clock} =
-           build_row(Map.delete(attrs, :clock), "decision", scheme, key_id, state),
-         bytes = Envelope.pae(Envelope.receipt_type(scheme), row.signed_payload),
-         {:ok, signature} <- sign_if_needed("decision", bytes) do
+    with {:ok, selection} <- selection(),
+         {row, at, clock} = build_row(Map.delete(attrs, :clock), "decision", selection, state),
+         {:ok, row} <- row_ok(row),
+         {:ok, carrier} <- sign_if_needed("decision", row.body, selection) do
       insert_row(
-        %{row | signature: signature, inserted_at: at},
+        signed(row, carrier, at),
         state,
         clock,
         Map.get(attrs, :forward, true)
@@ -300,45 +306,42 @@ defmodule Trinity.Receipts.ChainWriter do
     end
   end
 
-  defp build_row(attrs, kind, scheme, key_id, state) do
+  defp build_row(attrs, kind, selection, state) do
     seq = state.seq + 1
     at = DateTime.utc_now()
-
-    clock =
-      cond do
-        not Signer.clocked?(scheme) -> nil
-        offered = Map.get(attrs, :clock) -> offered
-        true -> Clock.next(state.clock)
-      end
+    clock = Map.get(attrs, :clock) || Clock.next(state.clock)
+    subject = Map.get(attrs, :subject, %{})
+    subject_bytes = Envelope.canonical(subject)
+    decision_bytes = Map.get(attrs, :decision) && Envelope.canonical(Map.get(attrs, :decision))
 
     body =
-      %{
-        "scheme" => scheme,
-        "seq" => seq,
-        "chain_scope" => state.scope,
-        "prev_hash" => state.prev_hash,
-        "kind" => kind,
-        "subject" => Map.get(attrs, :subject, %{}),
-        "decision" => Map.get(attrs, :decision),
-        "fingerprint" => Map.get(attrs, :fingerprint),
-        "at" => DateTime.to_iso8601(at),
-        "key_id" => key_id
-      }
-      |> then(fn b -> if clock, do: Map.put(b, "clock", Clock.to_map(clock)), else: b end)
-
-    payload = Envelope.canonical(body)
-    hash = Envelope.hash(Envelope.pae(Envelope.receipt_type(scheme), payload))
+      V4.row_body(kind, %{
+        issuer: issuer(),
+        seq: seq,
+        chain_scope: state.scope,
+        prev: state.prev_link,
+        at: DateTime.to_unix(at, :microsecond),
+        clock: {clock.wall, clock.counter, clock.node},
+        subject: subject_bytes,
+        decision: decision_bytes,
+        fingerprint: Map.get(attrs, :fingerprint)
+      })
 
     row = %Receipt{
       chain_scope: state.scope,
       seq: seq,
-      prev_hash: state.prev_hash,
-      receipt_hash: hash,
-      scheme: scheme,
+      prev_hash: state.prev_link && V4.hex(state.prev_link),
+      receipt_hash: statement_hex(kind, body),
+      scheme: selection.scheme,
       kind: kind,
-      signed_payload: payload,
-      key_id: key_id,
-      subject: Map.get(attrs, :subject, %{}),
+      # v2 and v3 rows keep their RFC 8785 body here; a v4 row's body is `body`. The column is NOT
+      # NULL and SQLite cannot relax that in place.
+      signed_payload: "",
+      body: body,
+      subject_bytes: subject_bytes,
+      decision_bytes: decision_bytes,
+      key_id: selection.key_id,
+      subject: subject,
       subject_ref: Map.get(attrs, :subject_ref),
       meta: Map.get(attrs, :meta, %{})
     }
@@ -346,13 +349,35 @@ defmodule Trinity.Receipts.ChainWriter do
     {row, at, clock}
   end
 
+  defp statement_hex(kind, {:ok, body}), do: V4.hex(V4.statement_id(kind, body))
+  defp statement_hex(_kind, {:error, _code}), do: nil
+
+  # A signed row keeps its N6 signature in `signature` as well as in its carrier, as a checkpoint
+  # does, so "signed" reads the same for a v4 row as for a v3 one; the carrier is what a verifier
+  # reads.
+  defp signed(row, nil, at), do: %{row | inserted_at: at}
+
+  defp signed(row, carrier, at) do
+    {:ok, %{signature: signature}} = Trinity.N6.Carrier.decode(carrier)
+    %{row | carrier: carrier, signature: signature, inserted_at: at}
+  end
+
+  # A body the profile refuses is a bug in the caller's fields (a float in a fingerprint, say), never
+  # a row: it is refused with the profile's code.
+  defp row_ok(%Receipt{body: {:ok, body}} = row), do: {:ok, %{row | body: body}}
+  defp row_ok(%Receipt{body: {:error, code}}), do: {:error, {:body_not_n6, code}}
+
+  # The issuer every v4 body names: this installation, by the device id its clock already carries.
+  # Provisional until the profile's issuer key descriptor (r3 section 8.2) exists.
+  defp issuer, do: "trinity:" <> Clock.node_id()
+
   # The receipt and its queue entry land together or not at all. A receipt in the chain with no
   # queue entry is one the far side will never see and nothing will ever notice; a queue entry with
   # no receipt is a promise about a row that does not exist.
   defp insert_row(%Receipt{} = row, state, clock, forward?) do
     case Repo.transaction(fn -> insert_and_queue(row, forward?) end) do
       {:ok, receipt} ->
-        state = %{state | seq: receipt.seq, prev_hash: receipt.receipt_hash, clock: clock}
+        state = %{state | seq: receipt.seq, prev_link: link(receipt), clock: clock}
         {:ok, receipt, track_uncovered(receipt, state)}
 
       {:error, reason} ->
@@ -376,21 +401,29 @@ defmodule Trinity.Receipts.ChainWriter do
     end
   end
 
-  defp sign_if_needed(kind, bytes) do
-    if Receipt.signed?(kind) do
-      case KeyCustody.sign(bytes) do
-        {:ok, sig} ->
-          # fix(s024) at slice 032: a signer that signs again clears the alarm, as Alarm's
-          # doc has said since 024; before this nothing did.
-          if Trinity.Receipts.Alarm.set?(), do: Trinity.Receipts.Alarm.clear()
-          {:ok, sig}
+  defp sign_if_needed(kind, body, selection) do
+    if Receipt.signed?(kind), do: sign_body(kind, body, selection), else: {:ok, nil}
+  end
 
-        {:error, reason} ->
-          Trinity.Receipts.Alarm.signer_unavailable(reason)
-          {:error, {:signer_unavailable, reason}}
-      end
-    else
-      {:ok, nil}
+  # The carrier for a body: its ToBeSigned signed by the key in custody, as the key's algorithm
+  # needs (`V4.carrier/4`).
+  defp sign_body(kind, body, %{n6_alg: alg, public: public}) do
+    protected = V4.protected(kind, alg, public)
+
+    case KeyCustody.sign(COSE.to_be_signed(protected, body)) do
+      {:ok, sig} ->
+        # fix(s024) at slice 032: a signer that signs again clears the alarm, as Alarm's
+        # doc has said since 024; before this nothing did.
+        if Trinity.Receipts.Alarm.set?(), do: Trinity.Receipts.Alarm.clear()
+
+        case V4.carrier(protected, body, alg, sig) do
+          {:ok, carrier} -> {:ok, carrier}
+          :error -> {:error, {:signer_unavailable, :signature_not_convertible}}
+        end
+
+      {:error, reason} ->
+        Trinity.Receipts.Alarm.signer_unavailable(reason)
+        {:error, {:signer_unavailable, reason}}
     end
   end
 
@@ -436,55 +469,50 @@ defmodule Trinity.Receipts.ChainWriter do
   defp write_checkpoint(%{uncovered_first: nil} = state, _reason), do: {:ok, nil, state}
 
   defp write_checkpoint(state, reason) do
-    with {:ok, %{scheme: scheme, key_id: key_id}} <- selection(),
-         {row, bytes} = build_checkpoint(state, reason, scheme, key_id),
-         {:ok, signature} <- sign_checkpoint(bytes) do
-      insert_checkpoint(%{row | signature: signature}, state)
+    with {:ok, selection} <- selection(),
+         {:ok, row} <- build_checkpoint(state, reason, selection),
+         {:ok, carrier} <- sign_body("checkpoint", row.body, selection),
+         {:ok, %{signature: signature}} <- Trinity.N6.Carrier.decode(carrier) do
+      # The signature column is NOT NULL from slice 024; a v4 checkpoint keeps its N6 signature
+      # there too, and the carrier is what a verifier reads.
+      insert_checkpoint(%{row | carrier: carrier, signature: signature}, state)
     end
   end
 
-  defp build_checkpoint(state, reason, scheme, key_id) do
+  defp build_checkpoint(state, reason, selection) do
     at = DateTime.utc_now()
+    boot = Trinity.Receipts.boot_hash()
 
-    body = %{
-      "scheme" => scheme,
-      "chain_scope" => state.scope,
-      "boot_receipt_hash" => Trinity.Receipts.boot_hash(),
-      "first_seq" => state.uncovered_first,
-      "last_seq" => state.seq,
-      "tail_hash" => state.prev_hash,
-      "key_id" => key_id,
-      "reason" => reason,
-      "at" => DateTime.to_iso8601(at)
-    }
-
-    payload = Envelope.canonical(body)
-
-    row = %Checkpoint{
-      chain_scope: state.scope,
-      boot_receipt_hash: body["boot_receipt_hash"],
+    fields = %{
+      issuer: issuer(),
       first_seq: state.uncovered_first,
       last_seq: state.seq,
-      tail_hash: state.prev_hash,
-      scheme: scheme,
-      signed_payload: payload,
-      key_id: key_id,
+      chain_scope: state.scope,
+      tail: state.prev_link,
+      boot: boot,
       reason: reason,
-      inserted_at: at
+      at: DateTime.to_unix(at, :microsecond)
     }
 
-    {row, Envelope.pae(Envelope.checkpoint_type(scheme), payload)}
-  end
+    case V4.checkpoint_body(fields) do
+      {:ok, body} ->
+        {:ok,
+         %Checkpoint{
+           chain_scope: state.scope,
+           boot_receipt_hash: boot,
+           first_seq: state.uncovered_first,
+           last_seq: state.seq,
+           tail_hash: V4.hex(state.prev_link),
+           scheme: selection.scheme,
+           signed_payload: "",
+           body: body,
+           key_id: selection.key_id,
+           reason: reason,
+           inserted_at: at
+         }}
 
-  defp sign_checkpoint(bytes) do
-    case KeyCustody.sign(bytes) do
-      {:ok, signature} ->
-        if Trinity.Receipts.Alarm.set?(), do: Trinity.Receipts.Alarm.clear()
-        {:ok, signature}
-
-      {:error, why} ->
-        Trinity.Receipts.Alarm.signer_unavailable(why)
-        {:error, {:signer_unavailable, why}}
+      {:error, code} ->
+        {:error, {:body_not_n6, code}}
     end
   end
 
@@ -504,6 +532,13 @@ defmodule Trinity.Receipts.ChainWriter do
   # The tail's clock is read back so the chain stays monotone across a restart. A `v2` tail has
   # none, and a chain that crosses the bump simply starts its clock at the first `v3` row.
   defp tail_clock(nil), do: nil
+
+  defp tail_clock(%Receipt{body: body, kind: kind}) when is_binary(body) do
+    case V4.read(kind, body) do
+      {:ok, %{19 => %{1 => w, 2 => c, 3 => {:text, n}}}} -> %Clock{wall: w, counter: c, node: n}
+      _ -> nil
+    end
+  end
 
   defp tail_clock(%Receipt{signed_payload: payload}) do
     with {:ok, body} <- JSON.decode(payload),
@@ -535,7 +570,7 @@ defmodule Trinity.Receipts.ChainWriter do
        %__MODULE__{
          scope: scope,
          seq: (tail && tail.seq) || 0,
-         prev_hash: tail && tail.receipt_hash,
+         prev_link: tail && link(tail),
          clock: tail_clock(tail),
          uncovered_first: first,
          uncovered_count: count
@@ -545,6 +580,12 @@ defmodule Trinity.Receipts.ChainWriter do
 
   defp check_tail(nil), do: :ok
 
+  defp check_tail(%Receipt{body: body} = tail) when is_binary(body) do
+    if V4.hex(V4.statement_id(tail.kind, body)) == tail.receipt_hash,
+      do: :ok,
+      else: {:error, {:tail_hash_mismatch, tail.seq}}
+  end
+
   defp check_tail(%Receipt{} = tail) do
     bytes = Envelope.pae(Envelope.receipt_type(tail.scheme), tail.signed_payload)
 
@@ -553,7 +594,41 @@ defmodule Trinity.Receipts.ChainWriter do
       else: {:error, {:tail_hash_mismatch, tail.seq}}
   end
 
+  # A row's link id: a v4 row's `statement_id` (its `receipt_hash`), or SHA-384 over a v2 or v3 row's
+  # PAE bytes.
+  defp link(%Receipt{body: body, receipt_hash: hash}) when is_binary(body),
+    do: Base.decode16!(hash, case: :lower)
+
+  defp link(%Receipt{} = r),
+    do: V4.legacy_link(Envelope.pae(Envelope.receipt_type(r.scheme), r.signed_payload))
+
   defp check_checkpoint(nil, _scope), do: :ok
+
+  defp check_checkpoint(%Checkpoint{body: body} = cp, scope) when is_binary(body) do
+    row = Repo.one(from r in Receipt, where: r.chain_scope == ^scope and r.seq == ^cp.last_seq)
+
+    with true <- row != nil || {:error, {:checkpoint_tail_not_in_chain, cp.last_seq}},
+         {:ok, rows} <- KeyRegistry.read(keys_dir()) do
+      opts = [registry: rows, entry: KeyCustody.profile()]
+
+      case V4.verify_checkpoint(Checkpoint.to_export(cp), link(row), opts) do
+        :ok ->
+          :ok
+
+        {:error, 5, {:alg_unavailable, _at, alg}} ->
+          {:error, {:checkpoint_alg_unavailable, cp.last_seq, alg}}
+
+        {:error, _exit, {:checkpoint_body_mismatch, _}} ->
+          {:error, {:checkpoint_tail_not_in_chain, cp.last_seq}}
+
+        {:error, 1, {:n6, _at, :signature_invalid}} ->
+          {:error, {:checkpoint_signature_invalid, cp.last_seq}}
+
+        {:error, _exit, reason} ->
+          {:error, {:checkpoint_invalid, cp.last_seq, reason}}
+      end
+    end
+  end
 
   defp check_checkpoint(%Checkpoint{} = cp, scope) do
     row = Repo.one(from r in Receipt, where: r.chain_scope == ^scope and r.seq == ^cp.last_seq)
@@ -588,14 +663,15 @@ defmodule Trinity.Receipts.ChainWriter do
   defp ok_or({:ok, v}, _), do: {:ok, v}
   defp ok_or(:error, err), do: err
 
-  defp public_key(key_id) do
-    dir =
-      case KeyCustody.selected() do
-        %{keys_dir: d} -> d
-        _ -> KeyCustody.keys_dir()
-      end
+  defp keys_dir do
+    case KeyCustody.selected() do
+      %{keys_dir: d} -> d
+      _ -> KeyCustody.keys_dir()
+    end
+  end
 
-    with {:ok, rows} <- KeyRegistry.read(dir),
+  defp public_key(key_id) do
+    with {:ok, rows} <- KeyRegistry.read(keys_dir()),
          %{} = row <- KeyRegistry.lookup(rows, key_id) || {:error, {:unknown_key_id, key_id}} do
       KeyRegistry.public_key(row) |> ok_or({:error, {:key_without_public, key_id}})
     end

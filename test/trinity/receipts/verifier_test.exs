@@ -3,12 +3,16 @@
 defmodule Trinity.Receipts.VerifierTest do
   @moduledoc """
   Slice 024, AC3 and AC8: a chain of 1,000 mixed receipts verifies; one byte in any
-  `signed_payload` gives 1; an unknown key id 5; a compromised key 6; a body claiming
+  signed body gives 1; an unknown key id 5; a compromised key 6; a body claiming
   another algorithm verifies against the registry's, not the body's; a foreign family is
   refused at the scheme string before any signature is checked.
+
+  Since slice 140 the chain the writer builds is v4, so the bytes tampered with are each row's N6
+  body and carrier; the hand-built foreign row is v3, which every verifier still reads.
   """
   use Trinity.DataCase, async: false
 
+  alias Trinity.N6.Carrier
   alias Trinity.Receipts
   alias Trinity.Receipts.{Envelope, Signer, Verifier}
 
@@ -70,27 +74,27 @@ defmodule Trinity.Receipts.VerifierTest do
     <<a::binary, Bitwise.bxor(b, 1), rest::binary>>
   end
 
-  test "AC3: 1,000 mixed receipts verify with their checkpoints; one byte in any signed_payload is 1",
+  defp flip_b64(b64, at), do: b64 |> Base.decode64!() |> flip_byte(at) |> Base.encode64()
+
+  test "AC3: 1,000 mixed receipts verify with their checkpoints; one byte in any signed body is 1",
        %{scope: scope} do
     export = build(scope, 1_000)
     assert length(export["receipts"]) == 1_000
     assert length(export["checkpoints"]) >= 10
     assert {:ok, %{receipts: 1_000}} = Verifier.verify(export)
 
-    # A byte inside the JSON text of a random row, not on a structural character: still 1,
-    # because the hash no longer matches, before any signature is looked at.
-    for seq <- [1, 7, 500, 1_000] do
+    # A byte inside the body of a random row: still 1, because its `statement_id`, which is its
+    # `receipt_hash`, no longer matches, before any signature is looked at.
+    for seq <- [1, 7, 500, 1_000], at <- [2, 9] do
       tampered =
         update_in(export["receipts"], fn rows ->
           Enum.map(rows, fn r ->
-            if r["seq"] == seq, do: Map.update!(r, "signed_payload", &flip_byte(&1, 2)), else: r
+            if r["seq"] == seq, do: Map.update!(r, "body_b64", &flip_b64(&1, at)), else: r
           end)
         end)
 
       assert {:error, 1, reason} = Verifier.verify(tampered)
-
-      assert elem(reason, 0) in [:hash_mismatch, :body_column_mismatch, :body_not_json],
-             inspect(reason)
+      assert reason == {:hash_mismatch, seq}, inspect(reason)
 
       assert Verifier.exit_code({:error, 1, reason}) == 1
     end
@@ -131,13 +135,25 @@ defmodule Trinity.Receipts.VerifierTest do
         export,
         "receipts",
         Enum.map(rows, fn r ->
-          if r["kind"] == "decision",
-            do: Map.put(r, "signature_b64", Base.encode64(:crypto.strong_rand_bytes(64))),
-            else: r
+          if r["kind"] == "decision" do
+            {:ok, parts} = r["carrier_b64"] |> Base.decode64!() |> Carrier.decode()
+            forged = %{parts | signature: flip_byte(parts.signature, 5)}
+            Map.put(r, "carrier_b64", Base.encode64(Carrier.encode(forged)))
+          else
+            r
+          end
         end)
       )
 
     assert {:error, 1, {:signature_invalid, _}} = Verifier.verify(forged)
+
+    # A signed kind with its carrier removed is not an unsigned row: it is refused.
+    stripped =
+      update_in(export["receipts"], fn rows ->
+        Enum.map(rows, &if(&1["kind"] == "decision", do: Map.delete(&1, "carrier_b64"), else: &1))
+      end)
+
+    assert {:error, 1, {:signature_missing, 4}} = Verifier.verify(stripped)
   end
 
   test "AC8: the algorithm comes from the registry, not the body; a foreign family is refused at the scheme string",
@@ -154,6 +170,8 @@ defmodule Trinity.Receipts.VerifierTest do
     foreign_impl = Signer.impl(foreign)
     foreign_scheme = foreign_impl.scheme()
     here_scheme = Signer.impl(here).scheme()
+    # The hand-built foreign row below is v3, a scheme every verifier reads.
+    foreign_v3 = "receipt_v3_#{foreign}"
 
     # Mutant 1 (the registry lookup dropped): a receipt whose scheme names the foreign family
     # while its key's registry row says the chain's must be refused for the family mismatch,
@@ -170,30 +188,9 @@ defmodule Trinity.Receipts.VerifierTest do
     assert {:error, 1, {:scheme_family_mismatch, 1, ^foreign_scheme, ^here_s}} =
              Verifier.verify(claimed)
 
-    # The same with the body and the hash rewritten to agree with the column (an attacker who
-    # controls the row controls all three): the registry row's family still refuses the scheme.
-    rebuilt =
-      update_in(export["receipts"], fn rows ->
-        Enum.map(rows, fn r ->
-          if r["seq"] == 1 do
-            body = r["signed_payload"] |> JSON.decode!() |> Map.put("scheme", foreign_scheme)
-            payload = Envelope.canonical(body)
-            bytes = Envelope.pae(Envelope.receipt_type(foreign_scheme), payload)
-
-            %{
-              r
-              | "scheme" => foreign_scheme,
-                "signed_payload" => payload,
-                "receipt_hash" => Envelope.hash(bytes)
-            }
-          else
-            r
-          end
-        end)
-      end)
-
-    assert {:error, 1, {:scheme_family_mismatch, 1, ^foreign_scheme, ^here_s}} =
-             Verifier.verify(rebuilt)
+    # Before slice 140 the body named the scheme too, and a second mutant rewrote body, hash and
+    # column to agree. A v4 body names no family (the key's registration does, D-140-2), so the
+    # column is the only place a family can be claimed, and the case above is the whole of it.
 
     # Mutant 2 (the scheme check dropped): a receipt of the foreign family with its own key in
     # the registry, presented to a verifier told to accept only the chain's family, is refused
@@ -218,7 +215,7 @@ defmodule Trinity.Receipts.VerifierTest do
     foreign_row = %{
       "key_id" => foreign_id,
       "algorithm" => Atom.to_string(foreign),
-      "scheme" => foreign_scheme,
+      "scheme" => foreign_v3,
       "jwk" => jwk,
       "public_key_b64" => Base.encode64(pub),
       "status" => "active",
@@ -227,7 +224,7 @@ defmodule Trinity.Receipts.VerifierTest do
     }
 
     body = %{
-      "scheme" => foreign_scheme,
+      "scheme" => foreign_v3,
       "seq" => 1,
       "chain_scope" => "other",
       "prev_hash" => nil,
@@ -240,7 +237,7 @@ defmodule Trinity.Receipts.VerifierTest do
     }
 
     payload = Envelope.canonical(body)
-    bytes = Envelope.pae(Envelope.receipt_type(foreign_scheme), payload)
+    bytes = Envelope.pae(Envelope.receipt_type(foreign_v3), payload)
 
     foreign_export = %{
       "receipts" => [
@@ -249,7 +246,7 @@ defmodule Trinity.Receipts.VerifierTest do
           "seq" => 1,
           "prev_hash" => nil,
           "receipt_hash" => Envelope.hash(bytes),
-          "scheme" => foreign_scheme,
+          "scheme" => foreign_v3,
           "kind" => "decision",
           "signed_payload" => payload,
           "signature_b64" => Base.encode64(sig_fun.(bytes)),
@@ -264,7 +261,7 @@ defmodule Trinity.Receipts.VerifierTest do
     if foreign_impl.available?(),
       do: assert({:ok, %{receipts: 1}} = Verifier.verify(foreign_export))
 
-    assert {:error, 1, {:scheme_not_allowed, 1, ^foreign_scheme}} =
+    assert {:error, 1, {:scheme_not_allowed, 1, ^foreign_v3}} =
              Verifier.verify(foreign_export, schemes: [here_scheme])
   end
 

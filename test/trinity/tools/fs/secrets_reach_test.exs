@@ -166,7 +166,7 @@ defmodule Trinity.Tools.FS.SecretsReachTest do
       fs =
         scope
         |> Receipts.list(kind: "decision")
-        |> Enum.flat_map(&(JSON.decode!(&1.signed_payload)["decision"]["fs"] || []))
+        |> Enum.flat_map(&(Trinity.TestSupport.ReceiptBody.of(&1)["decision"]["fs"] || []))
 
       allowed = Enum.find(fs, &(&1["decision"] == "allow"))
       denied = Enum.find(fs, &(&1["decision"] == "deny"))
@@ -200,7 +200,7 @@ defmodule Trinity.Tools.FS.SecretsReachTest do
       assert {:ok, _, _} = run(ctx, "fs_grep", %{"pattern" => "PRIVATE"})
 
       [query] = Receipts.list(scope, kind: "query")
-      fs = JSON.decode!(query.signed_payload)["decision"]["fs"]
+      fs = Trinity.TestSupport.ReceiptBody.of(query)["decision"]["fs"]
       # The key is inventoried, so the inode check names it before the link count would.
       assert [%{"deny_rule" => "protected_inode", "nlink" => 2, "decision" => "deny"} = entry] =
                fs

@@ -133,7 +133,7 @@ defmodule TrinityWeb.ApprovalResumeTest do
     decisions = Enum.filter(rows, &(&1.kind == "decision"))
 
     outcomes =
-      for r <- decisions, {:ok, body} <- [JSON.decode(r.signed_payload)] do
+      for r <- decisions, body <- [Trinity.TestSupport.ReceiptBody.of(r)] do
         get_in(body, ["decision", "outcome"])
       end
 
@@ -196,7 +196,7 @@ defmodule TrinityWeb.ApprovalResumeTest do
       |> Enum.find(&(&1.subject_ref == "approval_dropped:#{id}:#{approval.id}"))
 
     assert row, "the drop was not receipted"
-    assert {:ok, body} = JSON.decode(row.signed_payload)
+    body = Trinity.TestSupport.ReceiptBody.of(row)
     assert get_in(body, ["decision", "outcome"]) == "dropped"
     assert get_in(body, ["decision", "reason"]) =~ "no held call"
   end

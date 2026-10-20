@@ -18,6 +18,7 @@ defmodule Trinity.N6.COSETest do
 
   @typ "application/vnd.example.test.v1+cose"
   @typ_ed "application/vnd.example.test-ed25519.v1+cose"
+  @typ_esp "application/vnd.example.test-esp384.v1+cose"
 
   setup_all do
     key = N6Vectors.acvp_key()
@@ -33,6 +34,7 @@ defmodule Trinity.N6.COSETest do
       kid: COSE.thumbprint(key.public),
       ed: ed,
       ed_kid: COSE.thumbprint(-19, ed.public),
+      ec_kid: COSE.thumbprint(-51, N6Vectors.rfc6979_p384_key().public),
       table: N6Vectors.typ_table()
     }
   end
@@ -73,17 +75,28 @@ defmodule Trinity.N6.COSETest do
     test "every positive header decodes at commercial, and the builder makes exactly each", %{
       kid: kid,
       ed_kid: ed_kid,
+      ec_kid: ec_kid,
       table: table
     } do
       positives = Path.wildcard(Path.join(N6Vectors.root(), "header/positive/*.cbor"))
-      assert length(positives) == 3
+      assert length(positives) == 5
 
       for path <- positives do
         assert {:ok, %{kid: k}} = COSE.decode_protected(File.read!(path), table, :commercial),
                path
 
-        assert k in [kid, ed_kid]
+        assert k in [kid, ed_kid, ec_kid]
       end
+
+      # Slice 140: no `typ` names an algorithm, so -19 under the ML-DSA-87 test `typ` decodes; the
+      # key's registration decides (the cose samples).
+      any =
+        File.read!(Path.join(N6Vectors.root(), "header/positive/ed25519_alg_under_any_typ.cbor"))
+
+      assert COSE.protected_header(ed_kid, @typ, nil, -19) == any
+
+      esp = File.read!(Path.join(N6Vectors.root(), "header/positive/esp384_alg_kid_typ.cbor"))
+      assert COSE.protected_header(ec_kid, @typ_esp, nil, -51) == esp
 
       plain = File.read!(Path.join(N6Vectors.root(), "header/positive/alg_kid_typ.cbor"))
       assert COSE.protected_header(kid, @typ) == plain
@@ -110,7 +123,7 @@ defmodule Trinity.N6.COSETest do
     } do
       ed = COSE.protected_header(ed_kid, @typ_ed, nil, -19)
 
-      assert {:ok, %{alg: -19, kid: ^ed_kid, entry: %{alg: -19}}} =
+      assert {:ok, %{alg: -19, kid: ^ed_kid, entry: %{carrier: :single}}} =
                COSE.decode_protected(ed, table, :commercial)
 
       assert COSE.decode_protected(ed, table, :nss) == {:error, :alg_not_permitted}
@@ -226,7 +239,9 @@ defmodule Trinity.N6.COSETest do
   end
 
   describe "slice 139, AC3: Ed25519" do
-    test "a key registered under another algorithm than the header's is kid_not_thumbprint", %{
+    # Slice 140: `alg_not_permitted`, the publisher's Decision of 2026-10-20 (point 1, the algorithm
+    # check); slice 139 answered `kid_not_thumbprint` here.
+    test "a key registered under another algorithm than the header's is alg_not_permitted", %{
       key: key,
       ed: ed,
       ed_kid: ed_kid,
@@ -241,7 +256,7 @@ defmodule Trinity.N6.COSETest do
       }
 
       assert COSE.verify(ed_parts, keys: mldsa(key), typ: table, entry: :commercial) ==
-               {:error, 1, :kid_not_thumbprint}
+               {:error, 1, :alg_not_permitted}
 
       ml_parts = %{
         protected: COSE.protected_header(kid, @typ),
@@ -252,7 +267,7 @@ defmodule Trinity.N6.COSETest do
       ed_key = fn _ -> {:ok, %{alg: -19, public: ed.public}} end
 
       assert COSE.verify(ml_parts, keys: ed_key, typ: table, entry: :commercial) ==
-               {:error, 1, :kid_not_thumbprint}
+               {:error, 1, :alg_not_permitted}
     end
 
     # Found by planting (PROOF, P5): with the sizes of -50 and -19 keys different, the size check
@@ -267,7 +282,7 @@ defmodule Trinity.N6.COSETest do
       wrong = fn k -> if k == ed_kid, do: {:ok, %{alg: -50, public: ed.public}}, else: :error end
 
       assert COSE.verify(parts, keys: wrong, typ: table, entry: :commercial) ==
-               {:error, 1, :kid_not_thumbprint}
+               {:error, 1, :alg_not_permitted}
     end
 
     test "signs the sample's literal signature and verifies; one flipped byte is invalid; " <>
@@ -275,7 +290,11 @@ defmodule Trinity.N6.COSETest do
          %{ed: ed, ed_kid: ed_kid, table: table} do
       sample = File.read!(Path.join(N6Vectors.root(), "cose/sign1/ed25519_single.bin"))
       literal = binary_part(sample, byte_size(sample) - 64, 64)
-      payload = <<0xA2, 0x00, 0x01, 0x10, 0x69>> <> "slice 139"
+      # {0: 1, 1: "trinity:test.invalid", 16: "slice 139"}, the sample's body since slice 140.
+      payload =
+        <<0xA3, 0x00, 0x01, 0x01, 0x74>> <>
+          "trinity:test.invalid" <> <<0x10, 0x69>> <> "slice 139"
+
       keys = fn k -> if k == ed_kid, do: {:ok, %{alg: -19, public: ed.public}}, else: :error end
       opts = [keys: keys, typ: table, entry: :commercial]
 

@@ -14,15 +14,18 @@ profile's own vectors. These are candidate input, not the published set.
 * Expected encodings are hex literals in the generator, copied from RFC 8949 Appendix A or built
   by hand from CBOR heads, never output of the encoder under test.
 * `body/schema.json` and `header/profile-table.json` are Trinity's test schema and test `typ`
-  table (the draft leaves both Open, VB6 and VB4). Each `typ` names its one `alg`, its carrier
-  and its signers, as the publisher's answers of 2026-10-19 bind them. `thumbprint/` uses NIST
-  ACVP's published ML-DSA-87 keyGen case (tgId 3, tcId 51) and RFC 8032's Ed25519 test 1 key; no
-  key of this project's is published.
+  table (the draft leaves both Open, VB6 and VB4). Each `typ` names its carrier, its signers and,
+  where the table says, the schema number its body's key 0 must be; no `typ` names an algorithm,
+  which the key's registration does (the publisher's Decision of 2026-10-20). `thumbprint/` uses
+  NIST ACVP's published ML-DSA-87 keyGen case (tgId 3, tcId 51), RFC 8032's Ed25519 test 1 key,
+  RFC 6979's P-384 key (A.2.6) and a P-384 public key whose `x` begins with a zero byte; no key
+  of this project's is published.
 * `cose/sign1/`: single-signer carriers, `{0: SINGLE_SCHEMA, 1: payload, 2: N6_Sign1}`, each with
   its `.expect` and a `.ctx.json` naming the entry point, the `typ` table and the keys (the draft
-  leaves `ctx.json` Open, VB5). `SINGLE_SCHEMA` is 0xFFFF0003, a placeholder until the profile
-  assigns one. The signed sample is Ed25519, which is deterministic; ML-DSA signatures are hedged,
-  so no ML-DSA-87 sample is included and the suite signs and verifies one where the runtime can.
+  leaves `ctx.json` Open, VB5). `SINGLE_SCHEMA` is 0xFFFF0003, as the publisher assigned it. The
+  signed samples are Ed25519, which is deterministic, and ESP384 with one fixed signature and its
+  `n - s`; ML-DSA signatures are hedged, so no ML-DSA-87 sample is included and the suite signs
+  and verifies one where the runtime can.
 * Not included: the limit vectors at 64 KiB and 1 MiB (the suite builds them).
 
 ## Encoding defects
@@ -66,6 +69,7 @@ profile's own vectors. These are candidate input, not the published set.
 | `bool_schema_version` | `key_not_uint` |
 | `negative_schema_version` | `key_not_uint` |
 | `carrier_schema_key0` | `schema_reserved` |
+| `test_schema_outside_test_mode` | `test_schema_outside_test_mode` |
 | `unknown_schema` | `unknown_schema` |
 | `unknown_key` | `unknown_key` |
 | `required_key_missing` | `required_key_missing` |
@@ -93,7 +97,6 @@ profile's own vectors. These are candidate input, not the published set.
 | `cwt_without_scitt_typ` | `header_label_forbidden` |
 | `kid_wrong_size` | `kid_not_thumbprint` |
 | `header_noncanonical` | `header_noncanonical` |
-| `alg_not_bound_to_typ` | `alg_not_permitted` |
 
 ## Digest defects
 
@@ -110,6 +113,9 @@ profile's own vectors. These are candidate input, not the published set.
 | `ed25519_single` | `commercial` | 0 | `claim` |
 | `ed25519_single_at_nss` | `nss` | 1 | `alg_not_permitted` |
 | `ed25519_signature_flipped` | `commercial` | 1 | `signature_invalid` |
+| `ed25519_no_issuer` | `commercial` | 1 | `issuer_missing` |
+| `ed25519_typ_schema_mismatch` | `commercial` | 1 | `typ_schema_mismatch` |
+| `ed25519_key_registered_as_mldsa87` | `commercial` | 1 | `alg_not_permitted` |
 | `carrier_key0_envelope` | `commercial` | 1 | `carrier_malformed` |
 | `carrier_extra_key` | `commercial` | 1 | `carrier_malformed` |
 | `carrier_no_sign1` | `commercial` | 1 | `carrier_malformed` |
@@ -120,3 +126,13 @@ profile's own vectors. These are candidate input, not the published set.
 | `sign1_tagged` | `commercial` | 1 | `tag_forbidden` |
 | `sign1_unprotected_kid` | `commercial` | 1 | `header_not_protected` |
 | `pair_typ_in_single_carrier` | `commercial` | 1 | `wrong_carrier_for_typ` |
+| `esp384_single` | `commercial` | 0 | `claim` |
+| `esp384_n_minus_s` | `commercial` | 0 | `claim` |
+| `esp384_at_nss` | `nss` | 1 | `alg_not_permitted` |
+| `esp384_signature_der` | `commercial` | 1 | `signature_encoding` |
+| `esp384_signature_95_bytes` | `commercial` | 1 | `signature_encoding` |
+| `esp384_signature_97_bytes` | `commercial` | 1 | `signature_encoding` |
+| `esp384_signature_flipped` | `commercial` | 1 | `signature_invalid` |
+| `esp384_key_compressed` | `commercial` | 1 | `key_invalid` |
+| `esp384_key_p256` | `commercial` | 1 | `key_invalid` |
+| `esp384_key_registered_as_ed25519` | `commercial` | 1 | `alg_not_permitted` |

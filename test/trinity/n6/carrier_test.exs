@@ -6,9 +6,12 @@ defmodule Trinity.N6.CarrierTest do
   built, parsed and verified, and every sample in `test/fixtures/n6/cose/sign1/` giving the outcome
   its `.expect` names under its `.ctx.json`.
 
-  The signed sample is Ed25519. Where the runtime refuses Ed25519 (FIPS mode), a sample whose
-  outcome needs the signature checked answers `alg_unavailable` (5) instead, and every other
-  sample keeps its code, because those are decided before any signature is looked at.
+  The signed samples are Ed25519 and, since slice 140, ESP384. Where the runtime refuses Ed25519
+  (FIPS mode), an Ed25519 sample whose outcome needs the signature checked answers `alg_unavailable`
+  (5) instead, and every other sample keeps its code, because those are decided before any signature
+  is looked at. ESP384 is judged on every runtime here, FIPS mode included. Since slice 140 the body
+  rules (`typ_schema_mismatch`, `issuer_missing`) are read after the signature, so they are judged
+  outcomes too.
   """
 
   use ExUnit.Case, async: true
@@ -17,18 +20,18 @@ defmodule Trinity.N6.CarrierTest do
   alias Trinity.TestSupport.{Ed25519Oracle, N6Vectors}
 
   # The outcomes that need the signature checked.
-  @judged [:claim, :signature_invalid]
+  @judged [:claim, :signature_invalid, :typ_schema_mismatch, :issuer_missing]
 
   test "AC5: every sample gives its expected outcome under its context" do
     samples = N6Vectors.samples()
-    assert length(samples) >= 13
+    assert length(samples) >= 26
     ed25519? = Ed25519Oracle.verifies?()
 
     for {id, bytes, exit, code, opts} <- samples do
       answer = Carrier.verify(bytes, opts)
 
       cond do
-        code in @judged and not ed25519? ->
+        code in @judged and alg(bytes) == -19 and not ed25519? ->
           assert answer == {:error, 5, :alg_unavailable}, id
 
         code == :claim ->
@@ -41,14 +44,21 @@ defmodule Trinity.N6.CarrierTest do
     end
   end
 
-  test "AC4: the carrier round-trips its parts, and its key 0 is the placeholder schema" do
+  # The header's `alg`, read from the sample's own bytes.
+  defp alg(bytes) do
+    {:ok, %{0 => _, 2 => [{:bytes, protected} | _]}} = CBOR.decode(bytes)
+    {:ok, %{1 => alg}} = CBOR.decode(protected)
+    alg
+  end
+
+  test "AC4: the carrier round-trips its parts, and its key 0 is the publisher's schema" do
     bytes = File.read!(Path.join(N6Vectors.root(), "cose/sign1/ed25519_single.bin"))
     assert {:ok, parts} = Carrier.decode(bytes)
     assert Carrier.encode(parts) == bytes
 
     assert {:ok, %{0 => 0xFFFF0003, 1 => {:bytes, payload}}} = CBOR.decode(bytes)
     assert payload == parts.payload
-    assert Profile.schemas().single == {0xFFFF0003, :placeholder}
+    assert Profile.schemas().single == {0xFFFF0003, :publisher}
   end
 
   test "AC4: the twin envelope's schema, and a body's schema, are not a single-signer carrier" do

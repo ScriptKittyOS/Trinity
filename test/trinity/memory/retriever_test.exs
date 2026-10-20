@@ -223,7 +223,7 @@ defmodule Trinity.Memory.RetrieverTest do
     [receipt] =
       Receipts.list(scope, kind: "query") |> Enum.filter(&(&1.subject["prompt_tier"] == "recall"))
 
-    assert JSON.decode!(receipt.signed_payload)["decision"]["dropped_tokens"] > 0
+    assert Trinity.TestSupport.ReceiptBody.of(receipt)["decision"]["dropped_tokens"] > 0
     assert receipt.subject_ref == "prompt:#{row.id}:recall"
 
     # One hit line survives the cap (the two tie on rank and recency; which is first is the id's), the other is cut.

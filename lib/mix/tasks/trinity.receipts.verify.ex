@@ -42,8 +42,12 @@ defmodule Mix.Tasks.Trinity.Receipts.Verify do
     code = Verifier.exit_code(outcome)
 
     case outcome do
-      {:ok, %{receipts: n, checkpoints: c}} ->
+      {:ok, %{receipts: n, checkpoints: c} = ok} ->
         Mix.shell().info("verified: #{n} receipts, #{c} checkpoints, exit #{code}")
+
+        # Slice 140: a v4 row's stored subject or decision bytes missing or not what its signed body
+        # names. A finding beside the verdict, which it does not change.
+        for f <- Map.get(ok, :findings, []), do: Mix.shell().info("finding: #{inspect(f)}")
 
       {:error, ^code, reason} ->
         Mix.shell().error("#{label(code)}: #{inspect(reason)}, exit #{code}")

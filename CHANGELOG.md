@@ -108,6 +108,25 @@ the runtime's `OTP_VERSION` file; a real boot on OTP 28.5.0.7, refused as headle
 as desktop; a runtime with 28.5.0.8's erts and an older ssl refused, naming ssl; and the decoder probe catching the defect on OTP 28.1.1 and
 28.5.0.3.
 
+### `slice/140`: receipts are signed statements in one byte form
+
+New receipts and checkpoints are N6 statements: deterministic CBOR inside COSE_Sign1, in the
+single-signer carrier, signed with ML-DSA-87, Ed25519, or, on a node in FIPS mode, ECDSA P-384 as
+COSE's ESP384. Each row is linked to the one before it by a SHA-384 identity that is the same
+whether or not the row is signed, and a receipt's subject and decision are referenced by digest over
+the exact bytes stored beside it, so a verifier reads what was signed and never a re-encoded copy.
+Receipts written before stay as they were signed and still verify, and a chain that began earlier
+continues into the new form. The verifier inside Trinity and the standalone script give the same
+answer on every chain, the script loading the same N6 code from Trinity's sources when it meets a
+new row. A `typ` no longer names an algorithm: the signing key's registration does, as the
+profile's publisher has since decided.
+
+Verified by the test suite: ESP384 signing and verifying in the gate and in FIPS mode, its key id
+checked against `sha384sum`, and its malformed signatures and keys refused; every receipt kind
+built and read back; a chain crossing from the earlier form, and every tampering with a row, a link
+or a checkpoint refused; attachments missing or altered reported without changing the verdict; and
+the two verifiers agreeing on each case.
+
 ## 2026-10-08
 
 ### `slice/136`: the web pages ask who is there

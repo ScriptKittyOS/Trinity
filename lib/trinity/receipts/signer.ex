@@ -23,9 +23,10 @@ defmodule Trinity.Receipts.Signer do
   `receipt_<version>_<family>`.
 
   Slice 026 moved the current version from `v2` to `v3`, because `v3` carries a hybrid logical
-  clock in the signed payload and `v2` does not. Both are accepted on read (`accepted_schemes/0`):
-  a chain that spans the bump verifies row by row under each row's own scheme, which is what makes
-  this a scheme bump rather than an edit to bytes already signed.
+  clock in the signed payload and `v2` does not. Slice 140 moved it to `v4`, an N6 statement in the
+  single-signer carrier (`Trinity.Receipts.V4`). Every version is accepted on read
+  (`accepted_schemes/0`): a chain that spans a bump verifies row by row under each row's own
+  scheme, which is what makes this a scheme bump rather than an edit to bytes already signed.
   """
   @callback scheme() :: String.t()
 
@@ -65,12 +66,13 @@ defmodule Trinity.Receipts.Signer do
     do: Map.fetch!(@implementations, algorithm)
 
   # Every scheme version this tree can read, oldest first. `v2` is slice 024's; `v3` is slice 026's
-  # and carries the clock. A version is removed from here only when no chain in the world still has
-  # a row of it, which is not a thing this project can know, so in practice it is never removed.
-  @scheme_versions ["v2", "v3"]
+  # and carries the clock; `v4` is slice 140's, N6. A version is removed from here only when no chain
+  # in the world still has a row of it, which is not a thing this project can know, so in practice
+  # it is never removed.
+  @scheme_versions ["v2", "v3", "v4"]
 
   # The version new rows are written under.
-  @current_scheme_version "v3"
+  @current_scheme_version "v4"
 
   @doc "The scheme versions this tree can verify, oldest first."
   @spec scheme_versions() :: [String.t()]
@@ -107,6 +109,15 @@ defmodule Trinity.Receipts.Signer do
   end
 
   def parse_scheme(_), do: :error
+
+  @doc "True when a scheme is an N6 statement (`v4`, slice 140), read by `Trinity.Receipts.V4`."
+  @spec n6?(String.t()) :: boolean()
+  def n6?(scheme) do
+    case parse_scheme(scheme) do
+      {:ok, version, _family} -> version >= "v4"
+      :error -> false
+    end
+  end
 
   @doc """
   True when a scheme's signed payload carries a hybrid logical clock.

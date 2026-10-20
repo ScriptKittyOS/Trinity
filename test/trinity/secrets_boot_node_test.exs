@@ -180,7 +180,8 @@ defmodule Trinity.SecretsBootNodeTest do
         Enum.find_value(1..50, fn _ ->
           Trinity.Receipts.boot_receipt() || (Process.sleep(100) && nil)
         end)
-      IO.puts("MOVE " <> JSON.encode!(JSON.decode!(boot.signed_payload)["subject"]["secrets_migration"]))
+      # Slice 140: the subject the v4 body's ForeignRef names, as stored.
+      IO.puts("MOVE " <> JSON.encode!(JSON.decode!(boot.subject_bytes)["secrets_migration"]))
       {:ok, export} = Trinity.Receipts.export("boot")
       IO.puts("COUNT " <> Integer.to_string(length(export["receipts"])))
       IO.puts("VERIFY " <> inspect(Trinity.Receipts.Verifier.verify(export |> JSON.encode!() |> JSON.decode!())))

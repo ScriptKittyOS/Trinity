@@ -140,6 +140,16 @@ defmodule Trinity.Receipts.Merge do
 
   defp device_of(nil), do: nil
 
+  # Slice 140: a v4 row's device is its body's clock node (key 19).
+  defp device_of(%{"body_b64" => b64, "kind" => kind}) when is_binary(b64) do
+    with {:ok, body} <- Base.decode64(b64),
+         {:ok, %{19 => %{3 => {:text, node}}}} <- Trinity.Receipts.V4.read(kind, body) do
+      node
+    else
+      _ -> nil
+    end
+  end
+
   defp device_of(row) do
     with payload when is_binary(payload) <- row["signed_payload"],
          {:ok, body} <- JSON.decode(payload),

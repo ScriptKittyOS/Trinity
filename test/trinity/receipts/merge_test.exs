@@ -127,7 +127,7 @@ defmodule Trinity.Receipts.MergeTest do
       assert length(conflicts) == 3
 
       for row <- conflicts do
-        {:ok, body} = JSON.decode(row.signed_payload)
+        body = Trinity.TestSupport.ReceiptBody.of(row)
         assert get_in(body, ["decision", "outcome"]) == "conflict"
         assert get_in(body, ["decision", "basis"]) == "merge"
         assert get_in(body, ["subject", "local_receipt_hash"])
@@ -174,7 +174,7 @@ defmodule Trinity.Receipts.MergeTest do
         |> Receipts.list()
         |> Enum.find(&(&1.subject_ref == "merge_conflict:#{scope}:4"))
 
-      {:ok, body} = JSON.decode(row.signed_payload)
+      body = Trinity.TestSupport.ReceiptBody.of(row)
 
       assert get_in(body, ["decision", "reason"]) =~ "the remote chain has a row",
              "a position the remote has and this chain does not was not described as such"
@@ -191,7 +191,7 @@ defmodule Trinity.Receipts.MergeTest do
         |> Receipts.list()
         |> Enum.find(&(&1.subject_ref && String.starts_with?(&1.subject_ref, "merge_conflict:")))
 
-      {:ok, body} = JSON.decode(row.signed_payload)
+      body = Trinity.TestSupport.ReceiptBody.of(row)
 
       assert get_in(body, ["subject", "local_head"]) == summary.local_head
       assert get_in(body, ["subject", "remote_head"]) == summary.remote_head

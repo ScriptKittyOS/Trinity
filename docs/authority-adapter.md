@@ -122,6 +122,13 @@ An implementation that does not export it is one this machine never forwards to,
 its scopes simply does not drain. See `lib/trinity/receipts/queue.ex` and
 `test/trinity/receipts/queue_test.exs`.
 
+**Since slice 140 an envelope may be a v4 row.** Its `scheme` is `receipt_v4_<family>`, its signed
+bytes are `body_b64` (an N6 statement body) inside `carrier_b64` (the single-signer COSE_Sign1
+carrier), and `subject_b64` and `decision_b64` carry the bytes the body references by digest.
+`signed_payload` is empty and `signature_b64` absent. A far side that verifies envelopes offline
+needs the N6 rules for these, as `bin/verify_receipt.exs` does (`docs/regulated/receipts-verify.md`);
+envelopes of rows written earlier keep their `v2` or `v3` form.
+
 ## `act_hash` is opaque
 
 An authority layer may bind its decision to an act identifier. **Trinity treats it as opaque.** It

@@ -27,6 +27,14 @@ defmodule Trinity.N6.Digest do
   @spec of(binary()) :: [integer() | {:bytes, binary()}]
   def of(bytes) when is_binary(bytes), do: [@sha384, {:bytes, :crypto.hash(:sha384, bytes)}]
 
+  @doc """
+  The Digest whose value is a SHA-384 hash already computed: an identifier such as a
+  `statement_id`, named by its hash (the publisher's Decision of 2026-10-20, point 3: `prev` is
+  `[-43, statement_id]`). Slice 140.
+  """
+  @spec of_value(binary()) :: [integer() | {:bytes, binary()}]
+  def of_value(hash) when byte_size(hash) == 48, do: [@sha384, {:bytes, hash}]
+
   @doc "A ForeignRef to bytes exactly as given, with their media type and an optional locator."
   @spec foreign_ref(binary(), String.t(), String.t() | nil) :: %{
           non_neg_integer() => CBOR.value()

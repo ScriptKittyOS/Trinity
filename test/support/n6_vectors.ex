@@ -74,13 +74,13 @@ defmodule Trinity.TestSupport.N6Vectors do
     |> JSON.decode!()
     |> Map.fetch!("typ")
     |> Map.new(fn e ->
-      {e["typ"],
-       %{
-         scitt: e["scitt"],
-         alg: e["alg"],
-         carrier: String.to_atom(e["carrier"]),
-         signers: String.to_atom(e["signers"])
-       }}
+      entry = %{
+        scitt: e["scitt"],
+        carrier: String.to_atom(e["carrier"]),
+        signers: String.to_atom(e["signers"])
+      }
+
+      {e["typ"], if(e["schema"], do: Map.put(entry, :schema, e["schema"]), else: entry)}
     end)
   end
 
@@ -98,10 +98,12 @@ defmodule Trinity.TestSupport.N6Vectors do
 
       ctx = (base <> ".ctx.json") |> File.read!() |> JSON.decode!()
 
+      # A context that registers a key wrongly on purpose (slice 140) names the `kid` it is filed
+      # under, since its thumbprint under the wrong algorithm or shape is not the header's.
       registered =
-        Map.new(ctx["keys"], fn %{"alg" => alg, "public" => rel} ->
+        Map.new(ctx["keys"], fn %{"alg" => alg, "public" => rel} = key ->
           pub = File.read!(Path.join(@root, rel))
-          {thumbprint(alg, pub), %{alg: alg, public: pub}}
+          {kid_of(key, alg, pub), %{alg: alg, public: pub}}
         end)
 
       opts = [
@@ -116,13 +118,23 @@ defmodule Trinity.TestSupport.N6Vectors do
     end
   end
 
-  # RFC 9679 over the AKP (RFC 9964 section 6) or OKP (RFC 9053 section 7.1) members, built here
-  # from the fixed prefixes rather than asked of `Trinity.N6.COSE`, the code under test.
+  defp kid_of(%{"kid" => hex}, _alg, _pub), do: Base.decode16!(hex, case: :lower)
+  defp kid_of(_key, alg, pub), do: thumbprint(alg, pub)
+
+  # RFC 9679 over the AKP (RFC 9964 section 6), OKP or EC2 (RFC 9053 section 7.1) members, built
+  # here from the fixed prefixes rather than asked of `Trinity.N6.COSE`, the code under test.
   defp thumbprint(-50, pub),
     do: :crypto.hash(:sha384, <<0xA3, 1, 7, 3, 0x38, 0x31, 0x20, 0x59, 0x0A, 0x20>> <> pub)
 
   defp thumbprint(-19, pub),
     do: :crypto.hash(:sha384, <<0xA3, 1, 1, 0x20, 6, 0x21, 0x58, 0x20>> <> pub)
+
+  defp thumbprint(-51, <<4, x::binary-size(48), y::binary-size(48)>>),
+    do:
+      :crypto.hash(
+        :sha384,
+        <<0xA4, 1, 2, 0x20, 2, 0x21, 0x58, 0x30>> <> x <> <<0x22, 0x58, 0x30>> <> y
+      )
 
   @doc "RFC 8032 section 7.1, test 1: the published Ed25519 key."
   def rfc8032_key do
@@ -134,6 +146,19 @@ defmodule Trinity.TestSupport.N6Vectors do
         ),
       private:
         Base.decode16!("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+          case: :lower
+        )
+    }
+  end
+
+  @doc "RFC 6979 appendix A.2.6: the published P-384 key, as `Trinity.N6.COSE` signs with it."
+  def rfc6979_p384_key do
+    %{
+      alg: -51,
+      public: File.read!(Path.join(@root, "thumbprint/rfc6979_a26_p384.pub")),
+      private:
+        Base.decode16!(
+          "6b9d3dad2e1b8c1c05b19875b6659f4de23c3b667bf297ba9aa47740787137d896d5724e4c70a825f872c9ea60d2edf5",
           case: :lower
         )
     }

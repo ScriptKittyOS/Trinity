@@ -4,7 +4,9 @@ defmodule Trinity.N6.COSE do
   @moduledoc """
   COSE_Sign1 under the N6 profile (its section 5; slice 138): the header rules, the key
   thumbprint, signing and verifying. ML-DSA-87 (-50) at every entry point; Ed25519 (-19) on the
-  `commercial` profile only (slice 139, the profile publisher's answers of 2026-10-19).
+  `commercial` profile only (slice 139, the profile publisher's answers of 2026-10-19); ESP384
+  (-51) on `commercial` only, for FIPS-mode nodes (slice 140, the publisher's Decision of
+  2026-10-20; `Trinity.N6.EC2`).
 
   ## The protected header
 
@@ -12,6 +14,7 @@ defmodule Trinity.N6.COSE do
 
   `alg` -50 is ML-DSA-87 (RFC 9964), pure, with an empty context string (RFC 9964 section 5).
   `alg` -19 is Ed25519 (RFC 9864), pure EdDSA as RFC 8032 section 5.1 defines it.
+  `alg` -51 is ESP384 (RFC 9864), ECDSA on P-384 with SHA-384, its signature the 96-byte `r || s`.
 
   `kid` is the RFC 9679 COSE Key Thumbprint, SHA-384, encoded under RFC 8949 section 4.2.1:
 
@@ -20,19 +23,24 @@ defmodule Trinity.N6.COSE do
       thumbprint includes `alg`, so the key cannot be used with another algorithm;
     * for Ed25519, over the OKP members RFC 9679 section 4.1 names, `{1: 1, -1: 6, -2: x}` (OKP and
       Ed25519 are 1 and 6 in RFC 9053 section 7.1), which for a 32-byte key is exactly
-      `a3 01 01 20 06 21 58 20` followed by the key. This thumbprint has no `alg`, so the binding
-      comes from elsewhere: the profile table binds each `typ` to its one algorithm, and a key is
-      registered with its algorithm, which must be the header's.
+      `a3 01 01 20 06 21 58 20` followed by the key;
+    * for ESP384, over the EC2 members, the 107 bytes `Trinity.N6.EC2` names.
+
+  Neither the OKP nor the EC2 thumbprint has an `alg`, so the binding comes from the key's
+  registration: a key is registered with its one algorithm, and a header whose `alg` is not it is
+  refused (`alg_not_permitted`). Slice 139 bound each `typ` to one algorithm instead; the
+  publisher's Decision of 2026-10-20 (point 3) replaced that with one `typ` per kind, which is what
+  this tree does since slice 140.
 
   `typ` (RFC 9596) is a media type, compared byte for byte against the table the caller passes.
-  Each entry names the `typ`'s one `alg`, its carrier and signers (`Trinity.N6.Carrier` reads
-  those), and whether it is SCITT-renderable: CWT claims (label 15) are present exactly when it is.
+  Each entry names its carrier and signers (`Trinity.N6.Carrier` reads those), optionally the
+  schema number its body's key 0 must be, and whether it is SCITT-renderable: CWT claims (label 15)
+  are present exactly when it is.
 
   ## Entry points
 
   The caller says which entry point it is (`entry:`, `:nss` when it says nothing). At `:nss` only
-  -50 is permitted; at `:commercial`, -50 and -19. A header whose `alg` is not the one its `typ` is
-  bound to is refused at either. All three refusals are `alg_not_permitted`.
+  -50 is permitted; at `:commercial`, -50, -19 and -51. Both refusals are `alg_not_permitted`.
 
   The protected label set, for both algorithms, is closed to {1, 4, 15, 16}: content type (3) is refused with its own
   code, and every other label, `crit` (2) and the hash-envelope labels (258 to 260) among them,
@@ -57,27 +65,38 @@ defmodule Trinity.N6.COSE do
   `verify/2` answers the profile's exit classes: 0 with `:claim`, 1 (invalid) with the code of the
   rule that failed, or 5 (no trust) when the key is unknown (`policy_stale_or_unknown_key`) or the
   runtime cannot run the header's algorithm at all (`alg_unavailable`, this tree's code; FIPS mode
-  refuses Ed25519). A runtime that refuses the algorithm is never a crash and never a pass. The
+  refuses Ed25519). A runtime that refuses the algorithm is never a crash and never a pass.
+
+  After the header, in this order: the key the `kid` names must be known (5); registered for the
+  header's `alg` (`alg_not_permitted`); for ESP384 a valid P-384 point (`key_invalid`); its
+  thumbprint the `kid` (`kid_not_thumbprint`); the signature its algorithm's size (ESP384:
+  `signature_encoding`; the others: `carrier_malformed`); and the signature valid. The
   attribution classes 6 and 7 need the profile's key descriptors and are not decided here.
 
   ## Keys
 
-  A key names its algorithm: `%{alg: -50 | -19, public: pub, private: priv}` to sign, and
+  A key names its algorithm: `%{alg: -50 | -19 | -51, public: pub, private: priv}` to sign, and
   `{:ok, %{alg: alg, public: pub}}` from the `keys` function a verifier passes. The algorithm comes
   from the key's registration, never from its size or from the header.
 
   An ML-DSA-87 private key is the 32-byte seed RFC 9964 section 4 defines, as `{:seed, seed}`, or
   the expanded key OTP's `generate_key/2` returns; `alg` may be left out, as it was before slice
   139. The public key is passed beside it: on OTP 28.5.0.8 no form of `:crypto.generate_key/3`
-  derives it from a seed. An Ed25519 private key is its 32-byte secret (RFC 8032 section 5.1.5).
+  derives it from a seed. An Ed25519 private key is its 32-byte secret (RFC 8032 section 5.1.5). An
+  ESP384 private key is its 48-byte scalar, and its public key the 97-byte uncompressed point.
   """
 
-  alias Trinity.N6.{CBOR, Profile}
+  alias Trinity.N6.{CBOR, EC2, Profile}
 
   @mldsa87 -50
   @ed25519 -19
-  @sizes %{@mldsa87 => %{public: 2592, signature: 4627}, @ed25519 => %{public: 32, signature: 64}}
-  @permitted %{nss: [@mldsa87], commercial: [@mldsa87, @ed25519]}
+  @esp384 -51
+  @sizes %{
+    @mldsa87 => %{public: 2592, signature: 4627},
+    @ed25519 => %{public: 32, signature: 64},
+    @esp384 => %{public: 97, signature: 96}
+  }
+  @permitted %{nss: [@mldsa87], commercial: [@mldsa87, @ed25519, @esp384]}
   @akp_prefix <<0xA3, 0x01, 0x07, 0x03, 0x38, 0x31, 0x20, 0x59, 0x0A, 0x20>>
   @okp_prefix <<0xA3, 0x01, 0x01, 0x20, 0x06, 0x21, 0x58, 0x20>>
   @labels [1, 4, 15, 16]
@@ -88,20 +107,20 @@ defmodule Trinity.N6.COSE do
   @typedoc "One COSE_Sign1: the protected header bytes, the payload, the signature."
   @type parts :: %{protected: binary(), payload: binary(), signature: binary()}
 
-  @typedoc "An algorithm N6 permits somewhere: -50 (ML-DSA-87) or -19 (Ed25519)."
-  @type alg :: -50 | -19
+  @typedoc "An algorithm N6 permits somewhere: -50 (ML-DSA-87), -19 (Ed25519) or -51 (ESP384)."
+  @type alg :: -50 | -19 | -51
 
   @typedoc "The entry point a verifier is: the `nss` profile, or `commercial`."
   @type entry_point :: :nss | :commercial
 
   @typedoc """
-  The `typ` values an entry point accepts: each one's algorithm, carrier, signers, and whether it is
-  SCITT-renderable.
+  The `typ` values an entry point accepts: each one's carrier, signers, the schema number its body's
+  key 0 must be (when the table says), and whether it is SCITT-renderable.
   """
   @type typ_table :: %{
           optional(String.t()) => %{
             required(:scitt) => boolean(),
-            required(:alg) => alg(),
+            optional(:schema) => non_neg_integer(),
             optional(:carrier) => :single | :envelope | :note,
             optional(:signers) => :single | :pair
           }
@@ -111,7 +130,7 @@ defmodule Trinity.N6.COSE do
   @type key :: %{
           optional(:alg) => alg(),
           public: binary(),
-          private: {:seed, binary()} | binary()
+          private: {:seed, binary()} | {:expandedkey, binary()} | binary()
         }
 
   @doc "The RFC 9679 SHA-384 thumbprint of an ML-DSA-87 public key: its `kid`."
@@ -125,6 +144,8 @@ defmodule Trinity.N6.COSE do
 
   def thumbprint(@ed25519, pub) when byte_size(pub) == 32,
     do: :crypto.hash(:sha384, @okp_prefix <> pub)
+
+  def thumbprint(@esp384, pub) when byte_size(pub) == 97, do: EC2.thumbprint(pub)
 
   @doc """
   The protected header bytes for a `kid` and `typ`, with CWT `{iss, sub}` when given, under `alg`
@@ -160,7 +181,6 @@ defmodule Trinity.N6.COSE do
          :ok <- permitted(alg, entry_point),
          {:ok, kid} <- kid(header),
          {:ok, typ, entry} <- typ(header, table),
-         :ok <- bound(alg, entry),
          {:ok, cwt} <- cwt(header, entry) do
       {:ok, %{alg: alg, kid: kid, typ: typ, cwt: cwt, entry: entry}}
     end
@@ -195,10 +215,6 @@ defmodule Trinity.N6.COSE do
   defp permitted(alg, entry_point) do
     if alg in Map.fetch!(@permitted, entry_point), do: :ok, else: {:error, :alg_not_permitted}
   end
-
-  # The publisher's answer of 2026-10-19: the table binds each `typ` to its one algorithm.
-  defp bound(alg, %{alg: alg}), do: :ok
-  defp bound(_alg, _entry), do: {:error, :alg_not_permitted}
 
   defp kid(%{4 => {:bytes, kid}}) when byte_size(kid) == 48, do: {:ok, kid}
   defp kid(_header), do: {:error, :kid_not_thumbprint}
@@ -251,6 +267,12 @@ defmodule Trinity.N6.COSE do
     signed(protected, payload, &:crypto.sign(:eddsa, :none, &1, [priv, :ed25519]))
   end
 
+  def sign(payload, typ, %{alg: @esp384, public: pub, private: priv}, opts)
+      when is_binary(payload) and byte_size(pub) == 97 and is_binary(priv) do
+    protected = protected_header(EC2.thumbprint(pub), typ, Keyword.get(opts, :cwt), @esp384)
+    signed(protected, payload, &esp384_sign(&1, priv))
+  end
+
   def sign(payload, typ, %{public: pub, private: priv} = key, opts)
       when is_binary(payload) and byte_size(pub) == 2592 and
              (not is_map_key(key, :alg) or :erlang.map_get(:alg, key) == @mldsa87) do
@@ -259,9 +281,21 @@ defmodule Trinity.N6.COSE do
     signed(protected, payload, &:crypto.sign(:mldsa87, :none, &1, priv))
   end
 
-  # The two forms of an ML-DSA-87 private key OTP signs with: the expanded key, and the seed.
+  # The forms of an ML-DSA-87 private key OTP signs with: the expanded key, bare or tagged, and the
+  # seed.
   defp mldsa87_private!(priv) when is_binary(priv) and byte_size(priv) == 4896, do: priv
+  defp mldsa87_private!({:expandedkey, key} = priv) when byte_size(key) == 4896, do: priv
   defp mldsa87_private!({:seed, seed} = priv) when byte_size(seed) == 32, do: priv
+
+  @doc """
+  An ESP384 signature over bytes: `:crypto`'s DER, as the 96-byte `r || s`. For a caller that holds
+  the private key elsewhere (the receipts' key custody) and signs ToBeSigned itself.
+  """
+  @spec esp384_sign(binary(), binary()) :: binary()
+  def esp384_sign(bytes, priv) when is_binary(bytes) and is_binary(priv) do
+    {:ok, raw} = :ecdsa |> :crypto.sign(:sha384, bytes, [priv, :secp384r1]) |> EC2.from_der()
+    raw
+  end
 
   defp signed(protected, payload, sign) do
     signature = sign.(to_be_signed(protected, payload))
@@ -286,6 +320,7 @@ defmodule Trinity.N6.COSE do
 
     with {:ok, %{alg: alg, kid: kid, typ: typ}} <- decode_protected(protected, table, entry_point),
          {:ok, pub} <- known_key(keys.(kid), alg),
+         :ok <- key_valid(alg, pub),
          :ok <- thumbprint_matches(alg, pub, kid),
          :ok <- signature_size(alg, signature),
          :ok <- signature_valid(alg, to_be_signed(protected, payload), signature, pub) do
@@ -295,14 +330,19 @@ defmodule Trinity.N6.COSE do
     end
   end
 
-  # A key registered under another algorithm than the header's is the draft's C5 case, a key used
-  # with another algorithm, whatever its thumbprint: for OKP the thumbprint cannot say.
+  # A key registered under another algorithm than the header's: the publisher's Decision of
+  # 2026-10-20 (point 1, "the algorithm check") refuses a protected `alg` that differs from the key
+  # descriptor's with `alg_not_permitted`. Slice 139 answered `kid_not_thumbprint`, the draft's C5,
+  # which assumed the thumbprint carried `alg`; for OKP and EC2 it does not.
   defp known_key({:ok, %{alg: alg, public: pub}}, alg) when is_binary(pub), do: {:ok, pub}
 
   defp known_key({:ok, %{alg: _other, public: pub}}, _alg) when is_binary(pub),
-    do: {:error, :kid_not_thumbprint}
+    do: {:error, :alg_not_permitted}
 
   defp known_key(_unknown, _alg), do: {:error, :policy_stale_or_unknown_key}
+
+  defp key_valid(@esp384, pub), do: if(EC2.valid_key?(pub), do: :ok, else: {:error, :key_invalid})
+  defp key_valid(_alg, _pub), do: :ok
 
   defp thumbprint_matches(alg, pub, kid) do
     if byte_size(pub) == @sizes[alg].public and thumbprint(alg, pub) == kid,
@@ -311,7 +351,11 @@ defmodule Trinity.N6.COSE do
   end
 
   defp signature_size(alg, sig) do
-    if byte_size(sig) == @sizes[alg].signature, do: :ok, else: {:error, :carrier_malformed}
+    cond do
+      byte_size(sig) == @sizes[alg].signature -> :ok
+      alg == @esp384 -> {:error, :signature_encoding}
+      true -> {:error, :carrier_malformed}
+    end
   end
 
   defp signature_valid(alg, tbs, sig, pub) do
@@ -324,6 +368,9 @@ defmodule Trinity.N6.COSE do
 
   defp crypto_verify(@ed25519, tbs, sig, pub),
     do: :crypto.verify(:eddsa, :none, tbs, sig, [pub, :ed25519])
+
+  defp crypto_verify(@esp384, tbs, sig, pub),
+    do: :crypto.verify(:ecdsa, :sha384, tbs, EC2.to_der(sig), [pub, :secp384r1])
 
   # How :crypto says the runtime cannot do the algorithm, each measured: `badarg` ("Bad key type",
   # "Bad digest type") where the linked OpenSSL has no ML-DSA (3.0); `error` ("Can't create

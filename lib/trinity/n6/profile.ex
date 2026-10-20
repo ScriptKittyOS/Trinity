@@ -13,14 +13,21 @@ defmodule Trinity.N6.Profile do
 
   Slice 139 adds what the profile publisher's answers of 2026-10-19 add to r3 for a single signer,
   ahead of the draft that will carry them (v0.1): the single-signer carrier, and Ed25519 (-19) as the
-  one classical algorithm on the `commercial` profile. `pin/0` names those answers too.
+  one classical algorithm on the `commercial` profile. Slice 140 adds the publisher's Decision of
+  2026-10-20 (17:24Z, with its 17:27Z correction): ESP384 (-51) for FIPS-mode nodes, the schema
+  numbers, `statement_id` as the link, one `typ` per kind, and ForeignRefs for text-keyed content.
+  `pin/0` names both.
 
   ## Schema numbers
 
   Key 0 of a carrier is a number in the reserved range 0xFFFF0000 to 0xFFFFFFFF. r3 assigns two,
-  still Open in it (its section 12.1 item 3). The single-signer carrier has none yet, so this tree
-  uses a **placeholder**, 0xFFFF0003, and `schemas/0` says so; it changes when the profile assigns
-  the number, and every carrier written under it is provisional for that reason too.
+  still Open in it (its section 12.1 item 3); the publisher's Decision of 2026-10-20 assigns the
+  single-signer carrier's, 0xFFFF0003, the value slice 139 had used as a placeholder.
+
+  A statement kind's key 0 is `(block << 24) | (kind << 8) | version` (`statement_schema/3`): a
+  block of 0x80 is the shared test block, accepted only in a verifier's declared test mode; blocks
+  0x81 to 0x8F are provisional, one per publishing board, Trinity's 0x83; numbers below 0x80000000
+  are N21's, none issued yet. Everything provisional is re-issued under N21 at v1.
 
   ## Codes
 
@@ -47,8 +54,11 @@ defmodule Trinity.N6.Profile do
   @pin %{
     version: "n6/v0",
     draft: "r3",
-    answers:
+    answers: [
       "the profile publisher's answers of 2026-10-19 (single-signer carrier, Ed25519 on commercial)",
+      "the profile publisher's Decision of 2026-10-20 17:24Z and its 17:27Z correction (ESP384, " <>
+        "schema numbers, statement_id, one typ per kind, ForeignRefs)"
+    ],
     status: :provisional,
     draft_sha384:
       "54ab5e549259b87b18c51b4d1a3dbbbbb230b74ae562d5c2ef8ec43288c6c2dafc6376bff51ae205da6043bb9da7b7f2"
@@ -60,8 +70,11 @@ defmodule Trinity.N6.Profile do
   @schemas %{
     envelope: {0xFFFF0001, :draft},
     statement_id: {0xFFFF0002, :draft},
-    single: {0xFFFF0003, :placeholder}
+    single: {0xFFFF0003, :publisher}
   }
+
+  @test_block 0x80
+  @trinity_block 0x83
 
   # code => {exit class, who defines it}
   @codes %{
@@ -92,6 +105,9 @@ defmodule Trinity.N6.Profile do
     unknown_schema: {1, :draft},
     unknown_key: {1, :draft},
     schema_reserved: {1, :draft},
+    # The publisher's Decision of 2026-10-20, point 2, checked between `schema_reserved` and
+    # `unknown_schema` (its 17:27Z correction).
+    test_schema_outside_test_mode: {1, :publisher},
     set_not_canonical: {1, :draft},
     body_not_map: {1, :trinity},
     required_key_missing: {1, :trinity},
@@ -116,13 +132,27 @@ defmodule Trinity.N6.Profile do
     # The draft names signature failures per twin role (signature_invalid_kv, _kh); a
     # single-signer statement has no role yet (its section 12.1 item 1).
     signature_invalid: {1, :trinity},
+    # The publisher's Decision of 2026-10-20: an ESP384 signature that is not the 96-byte r || s
+    # (point 1), a key-0 value whose `typ` is another kind's (point 3), a full-payload
+    # single-signer body without key 1 (point 3).
+    signature_encoding: {1, :publisher},
+    typ_schema_mismatch: {1, :publisher},
+    issuer_missing: {1, :publisher},
+    # A registered key that is not what its algorithm needs: for ESP384, a compressed point, another
+    # curve, or a point not on P-384. The Decision asks for the check and names no code.
+    key_invalid: {1, :trinity},
+    # Point 4: the bytes a ForeignRef names. Missing bytes are a finding (no trust where the content
+    # must be judged); bytes that do not match are invalid for the attachment, never for the signed
+    # statement.
+    foreign_bytes_missing: {5, :publisher},
+    foreign_digest_mismatch: {1, :publisher},
     # Section 9.
     claim: {0, :draft},
     usage: {2, :draft},
     policy_stale_or_unknown_key: {5, :draft},
-    # The runtime cannot run the header's algorithm (ML-DSA-87 or Ed25519; FIPS mode refuses Ed25519,
-    # and Red Hat's provider ML-DSA-87), so the verifier cannot judge: no trust, never a pass and
-    # never a crash.
+    # The runtime cannot run the header's algorithm (ML-DSA-87, Ed25519 or ESP384; FIPS mode refuses
+    # Ed25519, and Red Hat's provider ML-DSA-87), so the verifier cannot judge: no trust, never a pass
+    # and never a crash.
     alg_unavailable: {5, :trinity}
   }
 
@@ -143,19 +173,36 @@ defmodule Trinity.N6.Profile do
   def limits, do: @limits
 
   @doc "Every code, with its exit class and whether the draft defines it."
-  @spec codes() :: %{code() => {0 | 1 | 2 | 5, :draft | :trinity}}
+  @spec codes() :: %{code() => {0 | 1 | 2 | 5, :draft | :publisher | :trinity}}
   def codes, do: @codes
 
   @doc """
   The reserved-range schema numbers of the carriers, each with who assigned it: `:draft` (r3, still
-  Open there) or `:placeholder` (none assigned yet; this tree's stand-in).
+  Open there) or `:publisher` (the publisher's answers, ahead of the draft that will carry them).
   """
-  @spec schemas() :: %{atom() => {non_neg_integer(), :draft | :placeholder}}
+  @spec schemas() :: %{atom() => {non_neg_integer(), :draft | :publisher}}
   def schemas, do: @schemas
 
   @doc "The key 0 value of a carrier."
   @spec schema(:envelope | :statement_id | :single) :: non_neg_integer()
   def schema(carrier), do: @schemas |> Map.fetch!(carrier) |> elem(0)
+
+  @doc """
+  A statement kind's key 0: `(block << 24) | (kind << 8) | version`, with `kind` 1 to 65,535 and
+  `version` 1 to 255.
+  """
+  @spec statement_schema(0..0x8F, 1..65_535, 1..255) :: non_neg_integer()
+  def statement_schema(block, kind, version)
+      when block in 0..0x8F and kind in 1..65_535 and version in 1..255,
+      do: Bitwise.bsl(block, 24) + Bitwise.bsl(kind, 8) + version
+
+  @doc "Trinity's provisional block, 0x83."
+  @spec trinity_block() :: 0x83
+  def trinity_block, do: @trinity_block
+
+  @doc "Whether a key-0 value is in the shared test block, 0x80."
+  @spec test_schema?(non_neg_integer()) :: boolean()
+  def test_schema?(n) when is_integer(n), do: Bitwise.bsr(n, 24) == @test_block
 
   @doc "The exit class of a code. Raises on a code not in the table, which is a bug in the caller."
   @spec exit_of(code()) :: 0 | 1 | 2 | 5

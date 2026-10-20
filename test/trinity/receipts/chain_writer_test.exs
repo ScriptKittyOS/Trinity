@@ -1,11 +1,16 @@
 # SPDX-FileCopyrightText: Sudo Apt Holdings LLC
 # SPDX-License-Identifier: Apache-2.0
 defmodule Trinity.Receipts.ChainWriterTest do
-  @moduledoc "Slice 024, G1 line 3: one writer per scope, the chain, the checkpoints, the refusals."
+  @moduledoc """
+  Slice 024, G1 line 3: one writer per scope, the chain, the checkpoints, the refusals. Since slice
+  140 every row and checkpoint the writer makes is v4 (`Trinity.Receipts.V4`), so what is checked
+  here is its N6 body, its `statement_id` and its carrier.
+  """
   use Trinity.DataCase, async: false
 
+  alias Trinity.N6.Carrier
   alias Trinity.Receipts
-  alias Trinity.Receipts.{Alarm, ChainWriter, Checkpoint, Envelope, KeyCustody, Receipt, Signer}
+  alias Trinity.Receipts.{Alarm, ChainWriter, Checkpoint, KeyCustody, Receipt, Signer, V4}
   alias Trinity.Repo.Receipts, as: RRepo
 
   setup do
@@ -52,30 +57,40 @@ defmodule Trinity.Receipts.ChainWriterTest do
     |> Enum.chunk_every(2, 1, :discard)
     |> Enum.each(fn [a, b] -> assert b.prev_hash == a.receipt_hash end)
 
-    %{impl: impl, keys_dir: dir, key_id: key_id} = KeyCustody.selected()
-    {:ok, registry} = Receipts.KeyRegistry.read(dir)
-
-    {:ok, pub} =
-      registry |> Receipts.KeyRegistry.lookup(key_id) |> Receipts.KeyRegistry.public_key()
+    %{impl: impl, n6_alg: alg, public: pub, key_id: key_id} = KeyCustody.selected()
+    kid = Trinity.N6.COSE.thumbprint(alg, pub)
+    keys = fn k -> if k == kid, do: {:ok, %{alg: alg, public: pub}}, else: :error end
 
     for r <- rows do
-      bytes = Envelope.pae(Envelope.receipt_type(r.scheme), r.signed_payload)
-      assert r.receipt_hash == Envelope.hash(bytes)
+      assert r.receipt_hash == V4.hex(V4.statement_id(r.kind, r.body))
       assert r.scheme == impl.scheme()
       assert r.key_id == key_id
+      assert r.signed_payload == ""
 
-      if r.kind == "query",
-        do: assert(r.signature == nil),
-        else: assert(impl.verify(bytes, r.signature, pub))
+      if r.kind == "query" do
+        assert r.carrier == nil
+      else
+        assert {:ok, %{verdict_code: :claim}} =
+                 Carrier.verify(r.carrier, keys: keys, typ: V4.typ_table(), entry: :commercial)
+
+        assert {:ok, %{payload: payload}} = Carrier.decode(r.carrier)
+        assert payload == r.body
+      end
     end
 
-    # The body carries the scheme, the seq, the scope and the key id (the R21 default set).
-    body = JSON.decode!(hd(rows).signed_payload)
+    # The body: issuer, prev (from seq 2), seq, scope, at, clock, subject, decision, fingerprint.
+    [first, second | _] = rows
+    assert {:ok, body} = V4.read("decision", first.body)
+    assert body |> Map.keys() |> Enum.sort() == [0, 1, 16, 17, 18, 19, 20, 21, 22]
+    assert body[0] == V4.schema_number("decision")
+    assert {:ok, %{7 => [-43, {:bytes, prev}]}} = V4.read("decision", second.body)
+    assert V4.hex(prev) == first.receipt_hash
 
-    assert Map.keys(body) |> Enum.sort() ==
-             ~w(at chain_scope clock decision fingerprint key_id kind prev_hash scheme seq subject)
-
-    assert body["scheme"] == impl.scheme()
+    # The ForeignRefs name the stored bytes exactly.
+    assert Trinity.N6.Digest.matches?(body[20][0], first.subject_bytes)
+    assert body[20][1] == byte_size(first.subject_bytes)
+    assert first.subject_bytes == ~s({"n":1})
+    assert first.decision_bytes == ~s({"outcome":"allow"})
   end
 
   test "concurrent appenders to one scope produce one chain: no two rows share a prev_hash", %{
@@ -124,7 +139,7 @@ defmodule Trinity.Receipts.ChainWriterTest do
     assert Alarm.set?()
     assert_receive {:alarm_event, %{count: 1}, %{reason: :signer_unavailable}}
     assert Receipts.count(scope) == 1
-    assert Receipts.list(scope) |> Enum.all?(&(&1.signature != nil))
+    assert Receipts.list(scope) |> Enum.all?(&(&1.carrier != nil))
 
     # A query row is chained without a signature and still goes in; its checkpoint waits.
     assert {:ok, %Receipt{kind: "query"}} = Receipts.append(scope, query(3))
@@ -146,22 +161,14 @@ defmodule Trinity.Receipts.ChainWriterTest do
                  Receipts.checkpoints(scope)
 
         assert cp.tail_hash == Receipts.tail(scope).receipt_hash
-        %{impl: impl, keys_dir: dir, key_id: key_id} = KeyCustody.selected()
+        %{keys_dir: dir} = KeyCustody.selected()
         {:ok, registry} = Receipts.KeyRegistry.read(dir)
+        tail = Base.decode16!(cp.tail_hash, case: :lower)
 
-        {:ok, pub} =
-          registry |> Receipts.KeyRegistry.lookup(key_id) |> Receipts.KeyRegistry.public_key()
+        assert V4.verify_checkpoint(Checkpoint.to_export(cp), tail, registry: registry) == :ok
 
-        assert impl.verify(
-                 Envelope.pae(Envelope.checkpoint_type(cp.scheme), cp.signed_payload),
-                 cp.signature,
-                 pub
-               )
-
-        body = JSON.decode!(cp.signed_payload)
-
-        assert body["first_seq"] == 1 and body["last_seq"] == 3 and
-                 body["tail_hash"] == cp.tail_hash
+        {:ok, body} = V4.read("checkpoint", cp.body)
+        assert body[16] == 1 and body[20] == 3 and body[21] == [-43, {:bytes, tail}]
 
         # A fourth opens a new window; a decision receipt does not count toward it.
         {:ok, _} = Receipts.append(scope, query(4))
@@ -228,8 +235,10 @@ defmodule Trinity.Receipts.ChainWriterTest do
       :ok = Receipts.stop_writer(scope)
       tail = Receipts.tail(scope)
 
+      <<head::binary-size(4), b, rest::binary>> = tail.body
+
       RRepo.update_all(from(r in Receipt, where: r.id == ^tail.id),
-        set: [signed_payload: String.replace(tail.signed_payload, "allow", "deny!")]
+        set: [body: head <> <<Bitwise.bxor(b, 1)>> <> rest]
       )
 
       Process.flag(:trap_exit, true)
@@ -253,8 +262,12 @@ defmodule Trinity.Receipts.ChainWriterTest do
         assert {:error, {:chain_inconsistent, ^scope, {:checkpoint_tail_not_in_chain, 1}}} =
                  ChainWriter.start_link(scope)
 
+        {:ok, parts} = Carrier.decode(cp.carrier)
+        <<s0, srest::binary>> = parts.signature
+        forged = Carrier.encode(%{parts | signature: <<Bitwise.bxor(s0, 1)>> <> srest})
+
         RRepo.update_all(from(c in Checkpoint, where: c.id == ^cp.id),
-          set: [tail_hash: cp.tail_hash, signature: :crypto.strong_rand_bytes(64)]
+          set: [tail_hash: cp.tail_hash, carrier: forged]
         )
 
         assert {:error, {:chain_inconsistent, ^scope, {:checkpoint_signature_invalid, 1}}} =

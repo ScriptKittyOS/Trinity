@@ -20,7 +20,7 @@ defmodule Trinity.Receipts.Signer.MLDSA87 do
   def algorithm, do: :mldsa87
 
   @impl true
-  def scheme, do: "receipt_v3_mldsa87"
+  def scheme, do: "receipt_v4_mldsa87"
 
   # Slice 137, F-137-1. This was `:mldsa87 in :crypto.supports(:public_keys)`, which never holds in
   # FIPS mode: OTP lists no ML-DSA type there whatever the provider can do (`pkey.c`,

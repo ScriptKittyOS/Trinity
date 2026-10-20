@@ -12,8 +12,8 @@ defmodule Trinity.N6.Carrier do
   envelope holds each of its two. ToBeSigned is over key 1's bytes (`Trinity.N6.COSE`). The tagged,
   attached Sign1 is a rendering only (`COSE.render/2`), never this carrier.
 
-  `SINGLE_SCHEMA` is a placeholder, 0xFFFF0003, until the profile assigns it
-  (`Trinity.N6.Profile.schemas/0`).
+  `SINGLE_SCHEMA` is 0xFFFF0003, assigned by the publisher's Decision of 2026-10-20 (point 2; slice
+  139 had used the same value as a placeholder).
 
   ## Refusals
 
@@ -27,6 +27,14 @@ defmodule Trinity.N6.Carrier do
   (`wrong_carrier_for_typ`), before any signature is looked at: each of a twin's two signatures is a
   valid single signature on its own, so a single-signer entry point that accepted one would accept
   half a twin as a whole statement.
+
+  Once the signature verifies, the body it covers (slice 140, the publisher's Decision of
+  2026-10-20, point 3): its key 0 must be the schema number the `typ`'s entry names, where the
+  entry names one (`typ_schema_mismatch`), and a full-payload single-signer body must carry key 1,
+  `issuer` (`issuer_missing`), so two signers over identical bytes cannot pass a copy across
+  issuers as the same statement. Both read only signed bytes, after the signature, as r3's issuer
+  check (T-d) does; the order is provisional with the rest of the profile's step order (VB3). A
+  payload that is not an N6 map is the codec's code, or `body_not_map`.
   """
 
   alias Trinity.N6.{CBOR, COSE, Profile}
@@ -65,10 +73,34 @@ defmodule Trinity.N6.Carrier do
 
     with {:ok, parts} <- decode(bytes),
          {:ok, %{entry: entry}} <- COSE.decode_protected(parts.protected, table, entry_point),
-         :ok <- single(entry) do
-      COSE.verify(parts, opts)
+         :ok <- single(entry),
+         {:ok, verdict} <- COSE.verify(parts, opts),
+         :ok <- body(parts.payload, entry) do
+      {:ok, verdict}
     else
+      {:error, exit, code} -> {:error, exit, code}
       {:error, code} -> {:error, Profile.exit_of(code), code}
+    end
+  end
+
+  defp body(payload, entry) do
+    case CBOR.decode(payload) do
+      {:ok, %{} = body} -> body_rules(body, entry)
+      {:ok, _other} -> {:error, :body_not_map}
+      {:error, code, _offset} -> {:error, code}
+    end
+  end
+
+  defp body_rules(body, entry) do
+    cond do
+      is_map_key(entry, :schema) and Map.get(body, 0) != entry.schema ->
+        {:error, :typ_schema_mismatch}
+
+      not is_map_key(body, 1) ->
+        {:error, :issuer_missing}
+
+      true ->
+        :ok
     end
   end
 

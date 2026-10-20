@@ -6,6 +6,10 @@ defmodule Trinity.Receipts.Checkpoint do
   shape, research amendment D): which boot it belongs to, the first and last seq it covers,
   the tail hash at `last_seq`, and a signature over the PAE of its own canonical body. A
   row, never a write onto a receipt.
+
+  Since slice 140 a checkpoint is a v4 statement (`Trinity.Receipts.V4`): `body` its N6 body,
+  `carrier` its single-signer carrier, `tail_hash` the tail row's link id in hex, and
+  `signed_payload` empty. Checkpoints written before keep their RFC 8785 body and DSSE signature.
   """
   use Ecto.Schema
 
@@ -24,6 +28,8 @@ defmodule Trinity.Receipts.Checkpoint do
     field :signature, :binary
     field :key_id, :string
     field :reason, :string
+    field :body, :binary
+    field :carrier, :binary
     field :inserted_at, :utc_datetime_usec
   end
 
@@ -38,9 +44,11 @@ defmodule Trinity.Receipts.Checkpoint do
       "tail_hash" => c.tail_hash,
       "scheme" => c.scheme,
       "signed_payload" => c.signed_payload,
-      "signature_b64" => Base.encode64(c.signature),
+      "signature_b64" => c.signature && Base.encode64(c.signature),
       "key_id" => c.key_id,
       "reason" => c.reason
     }
+    |> Trinity.Receipts.Receipt.put_b64("body_b64", c.body)
+    |> Trinity.Receipts.Receipt.put_b64("carrier_b64", c.carrier)
   end
 end

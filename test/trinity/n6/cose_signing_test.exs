@@ -106,8 +106,17 @@ defmodule Trinity.N6.COSESigningTest do
     key: key,
     opts: opts
   } do
-    {:ok, parts} =
-      COSE.sign("a statement", @typ, %{alg: -50, public: key.public, private: {:seed, key.seed}})
+    key = %{alg: -50, public: key.public, private: {:seed, key.seed}}
+
+    # Since slice 140 the carrier reads the body it covers: an N6 map naming its issuer (key 1).
+    body =
+      Trinity.N6.CBOR.encode!(%{
+        0 => 1,
+        1 => {:text, "trinity:test.invalid"},
+        16 => {:text, "a statement"}
+      })
+
+    {:ok, parts} = COSE.sign(body, @typ, key)
 
     carrier = Carrier.encode(parts)
     assert Carrier.decode(carrier) == {:ok, parts}
@@ -116,5 +125,10 @@ defmodule Trinity.N6.COSESigningTest do
       assert {:ok, %{exit: 0, verdict_code: :claim}} =
                Carrier.verify(carrier, Keyword.put(opts, :entry, entry))
     end
+
+    # Slice 139's payload, bare text: its signature verifies, and the carrier refuses what it covers.
+    {:ok, bare} = COSE.sign("a statement", @typ, key)
+    assert {:ok, %{verdict_code: :claim}} = COSE.verify(bare, opts)
+    assert Carrier.verify(Carrier.encode(bare), opts) == {:error, 1, :trailing_bytes}
   end
 end

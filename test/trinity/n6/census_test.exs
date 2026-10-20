@@ -20,9 +20,10 @@ defmodule Trinity.N6.CensusTest do
     * `:local_artifact` - a digest of this tree's own build output;
     * `:in_memory` - within one run, never written or signed;
     * `:test_double` - a fake used by the suite;
-    * `:legacy_signed` - receipts and checkpoints as they are signed today (DSSE's
-      pre-authentication encoding over RFC 8785 JSON, SHA-256 chains), which move to N6 with the
-      receipts slice and the per-box log;
+    * `:legacy_signed` - receipts and checkpoints as they were signed before slice 140 (DSSE's
+      pre-authentication encoding over RFC 8785 JSON, SHA-256 chains), which every verifier still
+      reads, and the signers the receipt key custody signs with, whose bytes are N6's since slice
+      140 (`Trinity.Receipts.V4`);
     * `:reserialized` - foreign data re-encoded before it is hashed, which the rule forbids. Each
       is declared here with what it would take to hash the exact bytes instead; none changes in
       this slice.
@@ -35,7 +36,8 @@ defmodule Trinity.N6.CensusTest do
   # path => {calls in that file, class, why}
   @census %{
     "lib/trinity/n6/cose.ex" =>
-      {6, :n6, "thumbprints (AKP and OKP), ML-DSA-87 and Ed25519 sign and verify"},
+      {8, :n6, "thumbprints (AKP and OKP), ML-DSA-87, Ed25519 and ESP384 sign and verify"},
+    "lib/trinity/n6/ec2.ex" => {1, :n6, "the EC2 (P-384) thumbprint"},
     "lib/trinity/n6/digest.ex" => {1, :n6, "SHA-384 over foreign bytes exactly as given"},
     "lib/trinity/archive.ex" => {1, :exact_bytes, "the archive file's bytes"},
     "lib/mix/tasks/trinity.image.inspect.ex" => {2, :exact_bytes, "image layer and file bytes"},
@@ -60,8 +62,11 @@ defmodule Trinity.N6.CensusTest do
     "lib/trinity/receipts/envelope.ex" =>
       {2, :legacy_signed, "RFC 8785 body and SHA-256 chain hash"},
     "lib/trinity/receipts/chain_writer.ex" =>
-      {6, :legacy_signed, "DSSE PAE for receipts and checkpoints"},
-    "lib/trinity/receipts/verifier.ex" => {2, :legacy_signed, "DSSE PAE, verified"},
+      {3, :legacy_signed, "the DSSE PAE of a v2 or v3 tail and checkpoint, read at rehydrate"},
+    "lib/trinity/receipts/verifier.ex" =>
+      {3, :legacy_signed, "DSSE PAE of v2 and v3 rows and checkpoints, verified, and linked"},
+    "lib/trinity/receipts/v4.ex" =>
+      {2, :n6, "a receipt's statement_id, and the link to a v2 or v3 predecessor"},
     "lib/trinity/receipts/merkle.ex" => {3, :legacy_signed, "the checkpoint tree, SHA-256"},
     "lib/trinity/receipts/signer.ex" => {1, :legacy_signed, "RFC 7638 key id"},
     "lib/trinity/receipts/key_custody.ex" =>

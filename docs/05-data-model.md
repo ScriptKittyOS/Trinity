@@ -259,6 +259,15 @@ keys are `scheme, seq, chain_scope, prev_hash, kind, subject, decision, fingerpr
 `canonicalization_version`, `authority`, `tool_definition_digest`), `inserted_at`. Unique `(chain_scope, seq)`
 and `receipt_hash`. Chain scopes: `session:<id>` and `boot`.
 
+As built at slice 140 (receipts v4, `Trinity.Receipts.V4`): new rows are N6 statements, deterministic CBOR in
+the single-signer COSE_Sign1 carrier, under `receipt_v4_<family>`. Four nullable binary columns are added and v2
+and v3 rows are never rewritten: `body` (the N6 body: `issuer`, `prev`, `seq`, `chain_scope`, `at` in microseconds,
+`clock`, and `subject` and `decision` as references by SHA-384 digest, length and media type), `carrier` (for a
+signed kind), `subject_bytes` and `decision_bytes` (the exact RFC 8785 bytes the references name, verified as
+stored). A v4 row's `receipt_hash` is its `statement_id` (SHA-384, hex), its `prev_hash` its predecessor's, or for
+the first v4 row after a v3 one, SHA-384 over that row's PAE bytes; `signed_payload` is the empty string, since the
+column is NOT NULL. `subject` (map) is kept for the receipts page and is never what a verifier reads.
+
 ### receipt_checkpoints (Slice 024)
 | column | type | notes |
 |---|---|---|
@@ -268,6 +277,8 @@ and `receipt_hash`. Chain scopes: `session:<id>` and `boot`.
 | scheme, signed_payload, signature, key_id | | signed like a receipt, over the PAE of `trinity/checkpoint/<scheme>` and the canonical body |
 | reason | string | "count" \| "time" \| "shutdown" \| "rehydrate" \| "manual" |
 A row, never a write onto a receipt: `receipts` stays append-only and a checkpoint states its own coverage.
+Since slice 140 a checkpoint is a v4 statement too: `body` and `carrier` (nullable binary columns), `tail_hash` the
+tail's link id, `signed_payload` empty, and `signature` the carrier's signature.
 
 ### mcp_servers (Slice 060, as built)
 One row per server the client connects to; the row's `name` is the namespace segment of every tool it contributes.
