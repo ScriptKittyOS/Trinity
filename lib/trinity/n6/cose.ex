@@ -223,10 +223,14 @@ defmodule Trinity.N6.COSE do
     e in ErlangError -> unavailable(e)
   end
 
-  # :crypto raises :notsup in FIPS mode on a provider that refuses ML-DSA-87, and badarg where
-  # the linked library has no ML-DSA at all. Either way this runtime cannot judge.
-  defp unavailable(%ErlangError{original: {reason, _, _}}) when reason in [:notsup, :badarg],
-    do: {:error, :alg_unavailable}
+  # How :crypto says the runtime cannot do ML-DSA-87, each measured: `badarg` ("Bad key type")
+  # where the linked OpenSSL has no ML-DSA (3.0); `error` ("Can't create PKEY_CTX from id") from
+  # `verify` in FIPS mode on Red Hat's provider (the `fips` job, PR #133); `notsup` ("Unsupported
+  # algorithm in FIPS mode") for an algorithm the mode refuses. Key and signature sizes are checked
+  # before any call, so these are the runtime's answer, not the caller's mistake: no trust.
+  defp unavailable(%ErlangError{original: {reason, _, _}})
+       when reason in [:notsup, :badarg, :error],
+       do: {:error, :alg_unavailable}
 
   defp unavailable(e), do: raise(e)
 
