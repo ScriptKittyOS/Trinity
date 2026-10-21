@@ -694,6 +694,42 @@ sign through the layer. New rows and checkpoints are written under `receipt_v4_<
   `Trinity.Receipts.V4` from Trinity's `lib/` (`--n6` names it) and runs the same rules as the
   in-app verifier, which a test holds it to; a chain with no v4 row still needs nothing but OTP.
 
+### The profile's v0.1 draft, and the publisher's vectors (Slice 142, as built)
+
+The profile's publisher posted draft v0.1-r7 on 2026-10-21. It fixes the order every check runs in
+(steps D0 to D18 for the codec, B1 to B8 for a body, H1 to H4 for a protected header, K1 to K3 for
+a key) and closes the list of codes a verifier may answer. Trinity's N6 layer now follows it, and
+agrees with every vector the publisher has cut: 347 encoding, 124 body, 85 header, 18 thumbprint
+and 19 digest vectors, measured against the publisher's set by a test anyone can point at it
+(`TRINITY_N6_PUBLISHER_VECTORS`, `test/trinity/n6/publisher_vectors_test.exs`).
+
+- **Text is judged by one pinned Unicode version, never the runtime's.** A text string is refused
+  if it holds a code point unassigned in Unicode 15.0.0, a format control (the bidirectional
+  controls, zero-width characters, the soft hyphen, the byte-order mark, the tag characters), a
+  combining mark out of canonical order, or a code point whose NFC quick check is No or Maybe.
+  Format controls are refused because they make what a reviewer sees differ from what was signed.
+  The four tables are generated from the Unicode 15.0.0 data files, each checked by SHA-256
+  (`scripts/unicode15_tables.exs`, `Trinity.N6.Unicode15`), and no Unicode normaliser runs anywhere
+  in the layer: runtimes ship different Unicode versions, and the one OTP 28 carries already calls
+  some 15.0.0-unassigned code points letters.
+- **Every head is checked in the profile's order.** A map key whose head is malformed keeps that
+  defect's code before its type is looked at; an argument's missing bytes are found before a tag or
+  float is refused; a container's declared contents are counted against the item limit at its head,
+  before anything is read.
+- **A body is one scan.** Required keys, undeclared keys and each value's type, range, grammar and
+  set order are checked in one pass over the keys in ascending order, so the first defect is the
+  same one in every implementation. Field types now carry ranges, enumerations, byte bounds and text
+  grammars.
+- **A header is judged by its `typ` first,** because the `typ` selects which labels may appear; a
+  missing label is `header_missing`, a value of the wrong shape `header_value_invalid`. A strictly
+  decoded Ed25519 key (RFC 8032 section 5.1.3) is required where one is registered; OpenSSL accepts
+  some encodings that rule refuses.
+
+Not covered here: what a verifier answers about a defect it finds after a signature has verified,
+and the publisher's further Ed25519 rule on small-order points, which are the next increment. One
+code Trinity answers, `alg_unavailable` (the runtime cannot run the header's algorithm), is not in
+the draft's list; it is kept and has been put to the publisher.
+
 ## The effect population, published (Slice 027, as built)
 
 The set of things that can cause an effect is small, derived from the tree, and published as

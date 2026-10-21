@@ -97,8 +97,8 @@ defmodule Trinity.Receipts.V4Test do
 
       for {mutant, code} <- [
             {Map.put(v, 30, 1), :unknown_key},
-            {Map.delete(v, 16), :required_key_missing},
-            {Map.put(v, 16, {:text, "two"}), :wrong_type},
+            {Map.delete(v, 16), :field_missing},
+            {Map.put(v, 16, {:text, "two"}), :field_type_mismatch},
             {Map.put(v, 0, V4.schema_number("effect")), :unknown_schema}
           ] do
         assert {:error, ^code, _} =
@@ -111,7 +111,7 @@ defmodule Trinity.Receipts.V4Test do
     end
 
     test "the encoder refuses a body the decoder would refuse" do
-      assert {:error, :wrong_type} = V4.row_body("decision", fields(%{seq: -1}))
+      assert {:error, :value_out_of_range} = V4.row_body("decision", fields(%{seq: -1}))
     end
 
     test "the typ table has one single-signer entry per signed kind and none for query" do

@@ -40,13 +40,31 @@ defmodule Trinity.N6.COSE do
   ## Entry points
 
   The caller says which entry point it is (`entry:`, `:nss` when it says nothing). At `:nss` only
-  -50 is permitted; at `:commercial`, -50, -19 and -51. Both refusals are `alg_not_permitted`.
+  -50 is permitted; at `:commercial`, -50, -19 and -51, and every `typ` of the table. An entry point
+  may also be given as a map, `%{algs: [alg], typs: [typ], single: true}`, as draft v0.1-r7's
+  entry points are (one surface, one algorithm, its own `typ` set); a single-signer one refuses a
+  pair `typ` (`wrong_carrier_for_typ`).
 
-  The protected label set, for both algorithms, is closed to {1, 4, 15, 16}: content type (3) is refused with its own
-  code, and every other label, `crit` (2) and the hash-envelope labels (258 to 260) among them,
-  with `header_label_forbidden`. The header is strictly decoded (`Trinity.N6.CBOR`); a key that is
-  not an unsigned integer is `header_label_forbidden` and every other encoding defect
-  `header_noncanonical` (this tree's reading of the profile's W7).
+  ## Decoding a protected header
+
+  Draft v0.1-r7 section 5.6, steps H1 to H4, each answering the first failure:
+
+    * H1: the bytes decoded by `Trinity.N6.CBOR` (a zero-length string is the empty map); a label
+      that is not an unsigned integer below 2^32, at any depth, is `header_label_forbidden`, and
+      every other encoding defect `header_noncanonical`;
+    * H2: not a map, `header_noncanonical`;
+    * H3: `typ` first, because it selects the label set: absent `header_missing`, not text
+      `typ_unexpected`, a pair `typ` at a single-signer entry point `wrong_carrier_for_typ`, not in
+      the entry point's set `typ_unexpected`;
+    * H4: one scan over the labels present and the labels the `typ` requires, ascending, 16
+      skipped: required and absent `header_missing`; label 3 `content_type_forbidden`; outside the
+      set `header_label_forbidden`; a value of the wrong shape `header_value_invalid`; an `alg`
+      that is not the entry point's `alg_not_permitted`; a hash algorithm (258) other than -43 or
+      -44 `digest_alg_not_permitted`.
+
+  A full-payload `typ`'s set is {1, 4, 16}, with 15 (CWT claims, `{1: iss, 2: sub}`) required
+  exactly when it is SCITT-renderable. A `form: :hash` entry (RFC 9995) requires {1, 4, 16, 258,
+  259} and admits 2 (only as `[258]`) and 260.
 
   ## What is signed
 
@@ -86,7 +104,7 @@ defmodule Trinity.N6.COSE do
   ESP384 private key is its 48-byte scalar, and its public key the 97-byte uncompressed point.
   """
 
-  alias Trinity.N6.{CBOR, EC2, Profile}
+  alias Trinity.N6.{Body, CBOR, EC2, Ed25519, Profile}
 
   @mldsa87 -50
   @ed25519 -19
@@ -99,7 +117,6 @@ defmodule Trinity.N6.COSE do
   @permitted %{nss: [@mldsa87], commercial: [@mldsa87, @ed25519, @esp384]}
   @akp_prefix <<0xA3, 0x01, 0x07, 0x03, 0x38, 0x31, 0x20, 0x59, 0x0A, 0x20>>
   @okp_prefix <<0xA3, 0x01, 0x01, 0x20, 0x06, 0x21, 0x58, 0x20>>
-  @labels [1, 4, 15, 16]
   @required [1, 4, 16]
   @countersignature [7, 9, 11, 12]
   @tag18 0xD2
@@ -166,25 +183,38 @@ defmodule Trinity.N6.COSE do
   end
 
   @doc """
-  Strictly decodes protected header bytes under the header rules, a `typ` table and an entry point
-  (`:nss` when none is given). The result carries the `typ`'s table entry, for the carrier rules.
+  Strictly decodes protected header bytes under the header rules (H1 to H4), a `typ` table and an
+  entry point (`:nss` when none is given). The result carries the `typ`'s table entry, for the
+  carrier rules.
   """
-  @spec decode_protected(binary(), typ_table(), entry_point()) ::
+  @spec decode_protected(binary(), typ_table(), entry_point() | map()) ::
           {:ok, %{alg: alg(), kid: binary(), typ: String.t(), cwt: map() | nil, entry: map()}}
           | {:error, Profile.code()}
   def decode_protected(bytes, table, entry_point \\ :nss)
-      when is_binary(bytes) and is_map(table) and is_map_key(@permitted, entry_point) do
+      when is_binary(bytes) and is_map(table) do
+    point = entry(entry_point, table)
+
     with {:ok, header} <- decode_header_map(bytes),
-         :ok <- labels(header),
-         :ok <- present(header),
-         {:ok, alg} <- alg(header),
-         :ok <- permitted(alg, entry_point),
-         {:ok, kid} <- kid(header),
-         {:ok, typ, entry} <- typ(header, table),
-         {:ok, cwt} <- cwt(header, entry) do
-      {:ok, %{alg: alg, kid: kid, typ: typ, cwt: cwt, entry: entry}}
+         {:ok, typ, entry} <- typ(header, table, point),
+         :ok <- label_scan(header, entry, point) do
+      {:ok,
+       %{
+         alg: header[1],
+         kid: elem(header[4], 1),
+         typ: typ,
+         cwt: cwt(header[15]),
+         entry: entry
+       }}
     end
   end
+
+  defp entry(name, table) when is_map_key(@permitted, name),
+    do: %{algs: Map.fetch!(@permitted, name), typs: Map.keys(table), single: false}
+
+  defp entry(%{algs: _, typs: _} = point, _table), do: Map.put_new(point, :single, true)
+
+  # H1 and H2.
+  defp decode_header_map(<<>>), do: {:ok, %{}}
 
   defp decode_header_map(bytes) do
     case CBOR.decode(bytes) do
@@ -195,54 +225,114 @@ defmodule Trinity.N6.COSE do
     end
   end
 
-  defp labels(header) do
-    case header |> Map.keys() |> Enum.sort() |> Enum.find(&(&1 not in @labels)) do
-      nil -> :ok
-      3 -> {:error, :content_type_forbidden}
-      _label -> {:error, :header_label_forbidden}
-    end
-  end
+  # H3.
+  defp typ(header, table, point) do
+    case Map.fetch(header, 16) do
+      :error ->
+        {:error, :header_missing}
 
-  defp present(header) do
-    if Enum.all?(@required, &is_map_key(header, &1)),
-      do: :ok,
-      else: {:error, :header_not_protected}
-  end
+      {:ok, {:text, typ}} ->
+        entry = Map.get(table, typ)
 
-  defp alg(%{1 => alg}) when is_map_key(@sizes, alg), do: {:ok, alg}
-  defp alg(_header), do: {:error, :alg_not_permitted}
-
-  defp permitted(alg, entry_point) do
-    if alg in Map.fetch!(@permitted, entry_point), do: :ok, else: {:error, :alg_not_permitted}
-  end
-
-  defp kid(%{4 => {:bytes, kid}}) when byte_size(kid) == 48, do: {:ok, kid}
-  defp kid(_header), do: {:error, :kid_not_thumbprint}
-
-  defp typ(%{16 => {:text, typ}}, table) do
-    case Map.fetch(table, typ) do
-      {:ok, entry} -> {:ok, typ, entry}
-      :error -> {:error, :typ_unexpected}
-    end
-  end
-
-  defp typ(_header, _table), do: {:error, :typ_unexpected}
-
-  defp cwt(header, %{scitt: true}) do
-    case Map.fetch(header, 15) do
-      {:ok, %{1 => {:text, iss}, 2 => {:text, sub}} = claims} when map_size(claims) == 2 ->
-        {:ok, %{iss: iss, sub: sub}}
+        cond do
+          point.single and match?(%{signers: :pair}, entry) -> {:error, :wrong_carrier_for_typ}
+          entry == nil or typ not in point.typs -> {:error, :typ_unexpected}
+          true -> {:ok, typ, entry}
+        end
 
       {:ok, _other} ->
-        {:error, :header_label_forbidden}
-
-      :error ->
-        {:error, :header_not_protected}
+        {:error, :typ_unexpected}
     end
   end
 
-  defp cwt(header, _entry) do
-    if is_map_key(header, 15), do: {:error, :header_label_forbidden}, else: {:ok, nil}
+  # H4.
+  defp label_scan(header, entry, point) do
+    {required, allowed} = label_set(entry)
+
+    (Map.keys(header) ++ required)
+    |> Enum.uniq()
+    |> Enum.sort()
+    |> Enum.reject(&(&1 == 16))
+    |> Enum.find_value(:ok, fn label ->
+      case at_label(header, label, required, allowed, point) do
+        :ok -> nil
+        error -> error
+      end
+    end)
+  end
+
+  defp label_set(entry) do
+    scitt = if Map.get(entry, :scitt, false), do: [15], else: []
+
+    case Map.get(entry, :form, :full) do
+      :full -> {[1, 4, 16] ++ scitt, [1, 4, 16] ++ scitt}
+      :hash -> {[1, 4, 16, 258, 259] ++ scitt, [1, 2, 4, 16, 258, 259, 260] ++ scitt}
+    end
+  end
+
+  defp at_label(header, label, required, allowed, point) do
+    case Map.fetch(header, label) do
+      :error ->
+        if label in required, do: {:error, :header_missing}, else: :ok
+
+      {:ok, _value} when label == 3 ->
+        {:error, :content_type_forbidden}
+
+      {:ok, value} ->
+        if label in allowed,
+          do: label_value(label, value, point),
+          else: {:error, :header_label_forbidden}
+    end
+  end
+
+  defp label_value(1, alg, point) when is_integer(alg),
+    do: if(alg in point.algs, do: :ok, else: {:error, :alg_not_permitted})
+
+  defp label_value(4, {:bytes, kid}, _point) when byte_size(kid) == 48, do: :ok
+  defp label_value(2, [258], _point), do: :ok
+
+  defp label_value(15, %{1 => {:text, iss}, 2 => {:text, sub}} = claims, _point)
+       when map_size(claims) == 2,
+       do: if(claim?(iss) and claim?(sub), do: :ok, else: {:error, :header_value_invalid})
+
+  defp label_value(258, alg, _point) when is_integer(alg),
+    do: if(alg in [-43, -44], do: :ok, else: {:error, :digest_alg_not_permitted})
+
+  defp label_value(259, n, _point) when is_integer(n) and n in 0..65_535, do: :ok
+  defp label_value(259, {:text, t}, _point), do: valid_text(Body.media_type?(t))
+  defp label_value(260, {:text, t}, _point), do: valid_text(locator?(t))
+  defp label_value(_label, _value, _point), do: {:error, :header_value_invalid}
+
+  defp valid_text(true), do: :ok
+  defp valid_text(false), do: {:error, :header_value_invalid}
+
+  defp claim?(s), do: byte_size(s) in 1..255 and printable_ascii?(s)
+  defp locator?(s), do: byte_size(s) in 1..2048 and printable_ascii?(s)
+  defp printable_ascii?(s), do: s |> :binary.bin_to_list() |> Enum.all?(&(&1 in 0x21..0x7E))
+
+  defp cwt(%{1 => {:text, iss}, 2 => {:text, sub}}), do: %{iss: iss, sub: sub}
+  defp cwt(nil), do: nil
+
+  @doc """
+  The key checks of draft v0.1-r7 section 5.2, K1 and K2, for a key presented with its type and
+  algorithm (`kty` `:akp`, `:ec2` or `:okp`; `crv` the COSE curve, 2 for P-384 and 6 for Ed25519).
+  """
+  @spec check_key(:akp | :ec2 | :okp, integer() | nil, integer(), binary()) ::
+          :ok | {:error, Profile.code()}
+  def check_key(kty, crv, alg, pub) do
+    cond do
+      {kty, alg} not in [{:akp, @mldsa87}, {:ec2, @esp384}, {:okp, @ed25519}] ->
+        {:error, :alg_not_permitted}
+
+      kty == :ec2 and crv != 2 ->
+        {:error, :key_invalid}
+
+      kty == :okp and crv != 6 ->
+        {:error, :key_invalid}
+
+      true ->
+        key_valid(alg, pub)
+    end
   end
 
   @doc "RFC 9052 section 4.4's ToBeSigned for a Sign1, external_aad empty."
@@ -341,21 +431,22 @@ defmodule Trinity.N6.COSE do
 
   defp known_key(_unknown, _alg), do: {:error, :policy_stale_or_unknown_key}
 
+  # K2.
   defp key_valid(@esp384, pub), do: if(EC2.valid_key?(pub), do: :ok, else: {:error, :key_invalid})
-  defp key_valid(_alg, _pub), do: :ok
 
+  defp key_valid(@ed25519, pub),
+    do: if(match?({:ok, _}, Ed25519.decode(pub)), do: :ok, else: {:error, :key_invalid})
+
+  defp key_valid(@mldsa87, pub),
+    do: if(byte_size(pub) == 2592, do: :ok, else: {:error, :key_invalid})
+
+  # K3.
   defp thumbprint_matches(alg, pub, kid) do
-    if byte_size(pub) == @sizes[alg].public and thumbprint(alg, pub) == kid,
-      do: :ok,
-      else: {:error, :kid_not_thumbprint}
+    if thumbprint(alg, pub) == kid, do: :ok, else: {:error, :kid_not_thumbprint}
   end
 
   defp signature_size(alg, sig) do
-    cond do
-      byte_size(sig) == @sizes[alg].signature -> :ok
-      alg == @esp384 -> {:error, :signature_encoding}
-      true -> {:error, :carrier_malformed}
-    end
+    if byte_size(sig) == @sizes[alg].signature, do: :ok, else: {:error, :signature_encoding}
   end
 
   defp signature_valid(alg, tbs, sig, pub) do

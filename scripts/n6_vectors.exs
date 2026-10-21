@@ -320,8 +320,10 @@ defmodule N6Vectors do
       {"tag_1_datetime", "epoch", "c1 1a 51 4b 67 b0", "tag_forbidden", a},
       {"tag_1_datetime", "nested_in_array", "81 c1 1a 51 4b 67 b0", "tag_forbidden", "hand"},
       {"tag_cose_sign1", "tag_18", "d2 80", "tag_forbidden", "hand: COSE_Sign1's tag inside N6 bytes"},
-      {"text_nfd", "e_combining_acute", "63 65 cc 81", "not_nfc", "hand: U+0065 U+0301"},
-      {"text_nfd", "nested_in_map_value", "a1 01 63 65 cc 81", "not_nfc", "hand"},
+      # Slice 142: U+0301 is NFC_QC Maybe, so the decomposed form is `nfc_maybe` (draft v0.1-r7
+      # section 10.4).
+      {"text_nfd", "e_combining_acute", "63 65 cc 81", "nfc_maybe", "hand: U+0065 U+0301"},
+      {"text_nfd", "nested_in_map_value", "a1 01 63 65 cc 81", "nfc_maybe", "hand"},
       {"text_bad_utf8", "lone_ff", "62 61 ff", "invalid_utf8", "hand"},
       {"text_bad_utf8", "truncated_sequence", "62 61 c3", "invalid_utf8", "hand"},
       {"text_overlong_utf8", "slash", "62 c0 af", "invalid_utf8", "hand: '/' in two bytes"},
@@ -406,8 +408,9 @@ defmodule N6Vectors do
       {"unknown_schema", "reserved_block_0x90", "a2 00 1a 90 00 00 00 10 61 78", "unknown_schema"},
       {"unknown_schema", "trinity_block_unissued", "a2 00 1a 83 00 ff 01 10 61 78", "unknown_schema"},
       {"unknown_key", "key_19", "a3 00 01 10 61 78 13 00", "unknown_key"},
-      {"required_key_missing", "no_name", "a1 00 01", "required_key_missing"},
-      {"wrong_type", "name_as_uint", "a2 00 01 10 01", "wrong_type"},
+      # Slice 142: draft v0.1-r7's names for these two (section 3.6, B8).
+      {"field_missing", "no_name", "a1 00 01", "field_missing"},
+      {"field_type_mismatch", "name_as_uint", "a2 00 01 10 01", "field_type_mismatch"},
       {"set_unsorted", "2_then_1", "a3 00 01 10 61 78 12 82 02 01", "set_not_canonical"},
       {"set_unsorted", "longer_head_first", "a3 00 01 10 61 78 12 82 18 18 17", "set_not_canonical"},
       {"set_duplicate", "1_twice", "a3 00 01 10 61 78 12 82 01 01", "set_not_canonical"},
@@ -466,13 +469,15 @@ defmodule N6Vectors do
         {"label_5", "iv", h("a4") <> alg <> kid_pair <> h("05 41 00") <> typ, "header_label_forbidden"},
         {"label_negative", "minus_1", h("a4") <> alg <> kid_pair <> typ <> h("20 00"), "header_label_forbidden"},
         {"label_hash_envelope", "label_258", h("a4") <> alg <> kid_pair <> typ <> h("19 01 02 38 2a"), "header_label_forbidden"},
-        {"alg_missing", "no_label_1", h("a2") <> kid_pair <> typ, "header_not_protected"},
-        {"kid_missing", "no_label_4", h("a2") <> alg <> typ, "header_not_protected"},
-        {"typ_missing", "no_label_16", h("a2") <> alg <> kid_pair, "header_not_protected"},
+        # Slice 142: draft v0.1-r7 H3 and H4 name a missing label `header_missing` and a `kid` of the
+        # wrong shape `header_value_invalid`.
+        {"alg_missing", "no_label_1", h("a2") <> kid_pair <> typ, "header_missing"},
+        {"kid_missing", "no_label_4", h("a2") <> alg <> typ, "header_missing"},
+        {"typ_missing", "no_label_16", h("a2") <> alg <> kid_pair, "header_missing"},
         {"typ_uint", "typ_1", h("a3") <> alg <> kid_pair <> h("10 01"), "typ_unexpected"},
         {"typ_not_in_table", "other", h("a3") <> alg <> kid_pair <> typ_other, "typ_unexpected"},
         {"cwt_without_scitt_typ", "cwt_on_plain_typ", h("a4") <> alg <> kid_pair <> cwt <> typ, "header_label_forbidden"},
-        {"kid_wrong_size", "kid_32", h("a3") <> alg <> h("04 58 20") <> binary_part(kid, 0, 32) <> typ, "kid_not_thumbprint"},
+        {"kid_wrong_size", "kid_32", h("a3") <> alg <> h("04 58 20") <> binary_part(kid, 0, 32) <> typ, "header_value_invalid"},
         {"header_noncanonical", "typ_before_kid", h("a3") <> alg <> typ <> kid_pair, "header_noncanonical"},
         {"header_noncanonical", "nonminimal_label", h("a3 18 01 38 31") <> kid_pair <> typ, "header_noncanonical"},
         {"header_noncanonical", "trailing_byte", h("a3") <> alg <> kid_pair <> typ <> h("00"), "header_noncanonical"}
@@ -587,7 +592,7 @@ defmodule N6Vectors do
       {"digest_alg_not_permitted", "sha256", h("82 2f 58 20") <> d32, "digest_alg_not_permitted"},
       {"digest_alg_not_permitted", "shake256", h("82 38 2c 58 40") <> :binary.copy(<<0xAB>>, 64), "digest_alg_not_permitted"},
       {"digest_length_mismatch", "sha384_32_bytes", h("82 38 2a 58 20") <> d32, "digest_length_mismatch"},
-      {"digest_not_array", "bstr", h("58 30") <> d48, "digest_malformed"}
+      {"digest_not_array", "bstr", h("58 30") <> d48, "field_type_mismatch"}
     ]
   end
 

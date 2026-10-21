@@ -44,7 +44,7 @@ profile's own vectors. These are candidate input, not the published set.
 | `tag_bignum_small` | `tag_forbidden` |
 | `tag_1_datetime` | `tag_forbidden` |
 | `tag_cose_sign1` | `tag_forbidden` |
-| `text_nfd` | `not_nfc` |
+| `text_nfd` | `nfc_maybe` |
 | `text_bad_utf8` | `invalid_utf8` |
 | `text_overlong_utf8` | `invalid_utf8` |
 | `text_surrogate` | `invalid_utf8` |
@@ -72,8 +72,8 @@ profile's own vectors. These are candidate input, not the published set.
 | `test_schema_outside_test_mode` | `test_schema_outside_test_mode` |
 | `unknown_schema` | `unknown_schema` |
 | `unknown_key` | `unknown_key` |
-| `required_key_missing` | `required_key_missing` |
-| `wrong_type` | `wrong_type` |
+| `field_missing` | `field_missing` |
+| `field_type_mismatch` | `field_type_mismatch` |
 | `set_unsorted` | `set_not_canonical` |
 | `set_duplicate` | `set_not_canonical` |
 | `not_a_map` | `body_not_map` |
@@ -89,13 +89,13 @@ profile's own vectors. These are candidate input, not the published set.
 | `label_5` | `header_label_forbidden` |
 | `label_negative` | `header_label_forbidden` |
 | `label_hash_envelope` | `header_label_forbidden` |
-| `alg_missing` | `header_not_protected` |
-| `kid_missing` | `header_not_protected` |
-| `typ_missing` | `header_not_protected` |
+| `alg_missing` | `header_missing` |
+| `kid_missing` | `header_missing` |
+| `typ_missing` | `header_missing` |
 | `typ_uint` | `typ_unexpected` |
 | `typ_not_in_table` | `typ_unexpected` |
 | `cwt_without_scitt_typ` | `header_label_forbidden` |
-| `kid_wrong_size` | `kid_not_thumbprint` |
+| `kid_wrong_size` | `header_value_invalid` |
 | `header_noncanonical` | `header_noncanonical` |
 
 ## Digest defects
@@ -104,7 +104,7 @@ profile's own vectors. These are candidate input, not the published set.
 | -- | -- |
 | `digest_alg_not_permitted` | `digest_alg_not_permitted` |
 | `digest_length_mismatch` | `digest_length_mismatch` |
-| `digest_not_array` | `digest_malformed` |
+| `digest_not_array` | `field_type_mismatch` |
 
 ## Single-signer carriers (`cose/sign1/`)
 

@@ -10,7 +10,7 @@ defmodule Trinity.N6.CBORTest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
-  alias Trinity.N6.{CBOR, Profile}
+  alias Trinity.N6.{CBOR, Profile, Unicode15}
   alias Trinity.TestSupport.N6Vectors
 
   @limits Profile.limits()
@@ -99,7 +99,7 @@ defmodule Trinity.N6.CBORTest do
       assert CBOR.encode(%{-1 => 0}) == {:error, :key_not_uint}
       assert CBOR.encode(%{0x1_0000_0000 => 0}) == {:error, :key_not_uint}
       assert CBOR.encode(%{"a" => 0}) == {:error, :key_not_uint}
-      assert CBOR.encode({:text, "é"}) == {:error, :not_nfc}
+      assert CBOR.encode({:text, "é"}) == {:error, :nfc_maybe}
       assert CBOR.encode({:text, <<0xFF>>}) == {:error, :invalid_utf8}
       assert CBOR.encode("bare") == {:error, :value_not_n6}
       assert CBOR.encode(:atom) == {:error, :value_not_n6}
@@ -160,18 +160,16 @@ defmodule Trinity.N6.CBORTest do
     end
   end
 
-  # Values in the subset. Text is printable strings normalised to NFC, which is what an encoder
-  # must be given; the checked-in vectors, not this generator, keep to older code points.
+  # Values in the subset. Text is printable strings kept to the code points the text rule passes
+  # on their own (assigned in Unicode 15.0.0, not Cf, class 0, NFC_QC Yes), so every string is one
+  # an encoder may be given. No normaliser is involved.
   defp n6_value do
     leaf =
       StreamData.one_of([
         StreamData.integer(-0x8000_0000_0000_0000..0xFFFF_FFFF_FFFF_FFFF),
         StreamData.integer(-30..30),
         StreamData.map(StreamData.binary(max_length: 40), &{:bytes, &1}),
-        StreamData.map(
-          StreamData.string(:printable, max_length: 20),
-          &{:text, :unicode.characters_to_nfc_binary(&1)}
-        ),
+        StreamData.map(StreamData.string(:printable, max_length: 20), &{:text, passing(&1)}),
         StreamData.member_of([true, false, nil])
       ])
 
@@ -184,6 +182,16 @@ defmodule Trinity.N6.CBORTest do
       ])
     end)
     |> StreamData.filter(&(depth(&1) <= @limits.depth))
+  end
+
+  defp passing(s) do
+    for <<cp::utf8 <- s>>,
+        not Unicode15.unassigned?(cp),
+        not Unicode15.format_control?(cp),
+        Unicode15.ccc(cp) == 0,
+        Unicode15.nfc_qc(cp) == :yes,
+        into: "",
+        do: <<cp::utf8>>
   end
 
   defp depth(v) when is_list(v), do: 1 + Enum.reduce(v, 0, &max(depth(&1), &2))

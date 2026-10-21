@@ -10,6 +10,8 @@ defmodule Trinity.N6 do
 
     * `Trinity.N6.CBOR`: the encoder and the strict decoder (rules E1 to E11);
     * `Trinity.N6.Body`: a statement body against its declared schema;
+    * `Trinity.N6.Unicode15`: the Unicode 15.0.0 tables the text rule reads (generated);
+    * `Trinity.N6.Ed25519`: the strict decoding of an Ed25519 point;
     * `Trinity.N6.Digest`: SHA-384 references to foreign bytes;
     * `Trinity.N6.COSE`: the header rules, the key thumbprint, signing and verifying;
     * `Trinity.N6.EC2`: ESP384's P-384 keys, thumbprint and `r || s` signatures (slice 140);
@@ -18,8 +20,8 @@ defmodule Trinity.N6 do
 
   This is a top-level boundary with no dependency on the rest of Trinity, as `Trinity.Keys` is,
   so it stays extractable: the compiler refuses a call from here into any other Trinity module.
-  The profile is provisional (v0, draft r3, and the publisher's answers of 2026-10-19 and
-  2026-10-20); see `Trinity.N6.Profile`. Nothing Trinity signed
+  The profile is provisional (v0.1, draft v0.1-r7, since slice 142); see `Trinity.N6.Profile`.
+  Nothing Trinity signed
   before this boundary existed is changed by it.
   """
 

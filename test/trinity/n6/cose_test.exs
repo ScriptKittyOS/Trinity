@@ -206,7 +206,7 @@ defmodule Trinity.N6.COSETest do
                {:error, 1, :kid_not_thumbprint}
     end
 
-    test "a signature of the wrong size is a malformed carrier", %{
+    test "a signature of the wrong size is signature_encoding (draft v0.1-r7 section 5.3)", %{
       key: key,
       kid: kid,
       table: table
@@ -214,7 +214,7 @@ defmodule Trinity.N6.COSETest do
       parts = %{protected: COSE.protected_header(kid, @typ), payload: "x", signature: <<0>>}
 
       assert COSE.verify(parts, keys: mldsa(key), typ: table) ==
-               {:error, 1, :carrier_malformed}
+               {:error, 1, :signature_encoding}
     end
 
     test "a runtime without ML-DSA-87 answers no trust, never a crash; one with it judges the signature",
