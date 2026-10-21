@@ -106,7 +106,7 @@ defmodule TrinityWeb.ReceiptsLive do
             <dt class="opacity-70">{gettext("elixir")}</dt>
             <dd>{@boot.subject["elixir"]}</dd>
             <dt class="opacity-70">{gettext("ML-DSA-87 check")}</dt>
-            <dd>{@boot.subject["mldsa87_preflight"]}</dd>
+            <dd>{mldsa87_check(@boot.subject)}</dd>
             <dt class="opacity-70">{gettext("core policy hash")}</dt>
             <dd class="break-all">{@boot.meta["core_policy_hash"]}</dd>
             <dt class="opacity-70">{gettext("receipt hash")}</dt>
@@ -254,6 +254,16 @@ defmodule TrinityWeb.ReceiptsLive do
 
   # Slice 140: a v4 row's decision is the stored bytes its ForeignRef names, shown as they are; a
   # display, never a verdict, which the verifier gives.
+  # Slice 143: the verifier check's answer, and the signer check's where it ran; a boot receipt
+  # written before slice 143 names slice 137's preflight instead.
+  defp mldsa87_check(subject) do
+    case {subject["mldsa87_verifier"], subject["mldsa87_signer"]} do
+      {nil, _} -> subject["mldsa87_preflight"]
+      {verifier, nil} -> verifier
+      {verifier, signer} -> "#{verifier} · signer #{signer}"
+    end
+  end
+
   defp decision(%{body: body, decision_bytes: bytes}) when is_binary(body) do
     case bytes && JSON.decode(bytes) do
       {:ok, d} when is_map(d) -> d |> Enum.map_join(" ", fn {k, v} -> "#{k}=#{value(v)}" end)

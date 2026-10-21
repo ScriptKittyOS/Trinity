@@ -94,7 +94,7 @@ defmodule Trinity.Receipts.SignerTest do
       case Signer.MLDSA87.available?() do
         false ->
           assert {:error, {:mldsa87_preflight_failed, step, _}} = KeyCustody.select()
-          assert step in Trinity.Crypto.Preflight.steps()
+          assert step in Trinity.Crypto.Preflight.signer_steps()
 
         true ->
           assert {:ok, :mldsa87} = KeyCustody.select()

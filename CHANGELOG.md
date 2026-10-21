@@ -127,6 +127,23 @@ built and read back; a chain crossing from the earlier form, and every tampering
 or a checkpoint refused; attachments missing or altered reported without changing the verdict; and
 the two verifiers agreeing on each case.
 
+### `slice/143`: every node checks its ML-DSA-87 verifier at boot
+
+Every node now checks at boot that its cryptography library verifies ML-DSA-87 signatures
+correctly, against nine published cases: two that must verify and seven that must not, so a
+verifier that accepts everything is caught. A wrong answer stops the boot on any node. A runtime
+that cannot do ML-DSA-87 at all still boots and says so on its boot record, except on the national
+security profile, where it is refused. On that profile the node also refuses to start unless FIPS
+mode is on and the FIPS provider reports the build its validation names. A node that signs receipts
+with ML-DSA-87 additionally signs with a published test key at boot, and no longer generates a key
+of its own to test with. None of this is presented as FIPS evidence: the provider tests itself.
+
+Verified by the test suite: every case's expected answer on a runtime that does ML-DSA-87; a planted
+wrong answer at each case and each step refused by name; real boots refusing a wrong verifier in
+both profiles and refusing on the national security profile by mode or by build string; and the
+pass on that profile shown by the decision's own tests, since no CI runtime carries the validated
+provider.
+
 ## 2026-10-08
 
 ### `slice/136`: the web pages ask who is there

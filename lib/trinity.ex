@@ -48,6 +48,8 @@ defmodule Trinity do
         # the runtime, asked before anything starts.
         Toolchain,
         Crypto.Preflight,
+        # Slice 143: what a boot does with the ML-DSA-87 verifier check and the provider's identity.
+        Crypto.BootCheck,
         # Slice 136: the web authentication mode, its rules and the mode in force.
         WebAuth,
         UUID,

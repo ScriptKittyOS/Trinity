@@ -539,7 +539,7 @@ the row names must be at or above its version there. Elixir outside 1.20.x is re
 
 `crypto:supports/0` cannot say whether ML-DSA-87 is usable in FIPS mode: OTP's
 `build_pkey_type_list/3` omits every ML-DSA and SLH-DSA type whenever the mode is on, whatever the
-loaded provider can do. `Trinity.Crypto.Preflight.mldsa87/1` asks the provider by doing the
+loaded provider can do. `Trinity.Crypto.Preflight` (by role since slice 143, below) asks the provider by doing the
 operation: NIST's ACVP keyGen case (the published secret key must yield the published public key),
 Wycheproof's valid, bit-flipped and malformed-hints verify cases, then a fresh key. The ML-DSA-87
 receipts signer reports itself available exactly when that passes.
@@ -548,6 +548,34 @@ Under `:regulated`, a node configured for ML-DSA-87 receipts that fails it refus
 fail-open. Where it signs today: a runtime linked to OpenSSL 3.5 or later with the mode off. In the
 mode, on the image's current FIPS provider, it does not; a provider validated with ML-DSA-87
 (CMVP #5523) is what would change that.
+
+### The check by role, and the provider's identity on `nss` (Slice 143, as built)
+
+Slice 137's six steps are now two checks, chosen by what the node does.
+
+- **The verifier check runs on every node, at boot, right after the floor.** It verifies nine
+  published cases and requires each to give exactly its expected answer: two that must be true
+  (NIST ACVP's ML-DSA-87 sigGen case and Wycheproof's valid signature) and seven that must be false
+  (ACVP's modified signature, Wycheproof's modified signature, hint encoding, infinity norm and
+  wrong length, and the valid signature with one bit of its message or its signature flipped). The
+  table and its measured answers are `priv/kat/mldsa87_boot_check.json`. A verifier that says true
+  to everything fails at the first negative.
+- **A case answered wrongly refuses the boot in every profile**, naming the case. A runtime that
+  cannot run ML-DSA-87 at all (OpenSSL 3.0, or FIPS mode on a provider without it) boots, and the
+  boot receipt says `unavailable`, except on `nss`.
+- **On the `nss` receipts profile** the boot also refuses, each by name, when FIPS mode is not
+  enabled, when no FIPS provider is loaded, when the provider's build string is not "3.6.0-r4"
+  (the string CMVP #5523's security policy, section 11.2, names), or when the verifier check cannot
+  run. This is the node checking itself, not the Crypto Officer's check, and it is never cited as
+  one. The policy's other string, the provider's name, cannot be checked: OTP's `crypto:info/0` does
+  not expose it.
+- **The signer check runs where receipts sign with ML-DSA-87.** It is the verifier check, ACVP's
+  keyGen case, and a signature made with ACVP's published test key that verifies and fails on a
+  flipped message. It generates no key: the provider's own self-tests cover generation, and a key
+  made at boot cannot be wiped from the BEAM's memory.
+- **None of this is FIPS evidence.** Self-tests are the module's duty, and outside the approved
+  mode the provider owes none, so on `commercial` and on development runtimes this check is the only
+  ML-DSA-87 test that runs.
 
 ## The headless release's floor, and the decoder asked directly (Slice 141, as built)
 
