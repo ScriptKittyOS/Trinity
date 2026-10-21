@@ -34,7 +34,14 @@ defmodule Trinity.Receipts.Verifier do
   Outcomes carry the exit vocabulary the operator learns once: `0` verified, `1` invalid,
   `2` usage, `5` trust not established (a key id the registry does not know, or, since slice 139,
   a signature this runtime cannot judge: an algorithm it refuses, as FIPS mode refuses Ed25519, or
-  a registered key it cannot use), `6` a key the registry marks compromised.
+  a registered key it cannot use), `6` a key the registry marks compromised, and, since slice 144,
+  `7` accuse: a v4 row or checkpoint whose signature verifies under its registered key over bytes
+  that break the profile's rules (`{:accuse, at, verdict_code, [{:nonconforming, code}]}`).
+
+  Since slice 144 the chain's crossing from the earlier formats is reported: the first v4 row after
+  a v2 or v3 row adds the finding `{:crossing, seq}`, and a v2 or v3 row after a v4 row is refused
+  (`{:legacy_after_n6, seq}`, exit 1), because a chain crosses once (N6 draft v0.1-r7 section 3.9).
+  Both names are this tree's until the profile names them (its VB3).
   """
 
   alias Trinity.Receipts.{Envelope, Signer, V4}
@@ -42,12 +49,12 @@ defmodule Trinity.Receipts.Verifier do
   @type outcome ::
           {:ok,
            %{receipts: non_neg_integer(), checkpoints: non_neg_integer(), findings: [tuple()]}}
-          | {:error, code :: 1 | 5 | 6, reason :: term()}
+          | {:error, code :: 1 | 5 | 6 | 7, reason :: term()}
 
   @signed_kinds ~w(decision effect boot cap)
 
   @doc "Exit code for an outcome."
-  @spec exit_code(outcome()) :: 0 | 1 | 5 | 6
+  @spec exit_code(outcome()) :: 0 | 1 | 5 | 6 | 7
   def exit_code({:ok, _}), do: 0
   def exit_code({:error, code, _}), do: code
 
@@ -106,13 +113,25 @@ defmodule Trinity.Receipts.Verifier do
   # A v4 row is checked by `V4`, a v2 or v3 row as before. The predecessor is named by its link id
   # (a v4 row) or by its `receipt_hash` (a v2 or v3 row); `link/1` gives the former for either.
   defp check_any(r, prev_seq, prev, registry, schemes, n6) do
-    if Signer.n6?(r["scheme"] || "") do
-      check_v4(r, prev_seq, prev, registry, schemes, n6)
-    else
-      with :ok <- check_receipt(r, prev_seq, prev && prev["receipt_hash"], registry, schemes),
-           do: {:ok, []}
+    cond do
+      n6?(r) ->
+        with {:ok, found} <- check_v4(r, prev_seq, prev, registry, schemes, n6),
+             do: {:ok, crossing(r, prev) ++ found}
+
+      prev != nil and n6?(prev) ->
+        {:error, 1, {:legacy_after_n6, r["seq"]}}
+
+      true ->
+        with :ok <- check_receipt(r, prev_seq, prev && prev["receipt_hash"], registry, schemes),
+             do: {:ok, []}
     end
   end
+
+  defp n6?(r), do: Signer.n6?(r["scheme"] || "")
+
+  # The one link from a v2 or v3 row to the first v4 row after it.
+  defp crossing(_r, nil), do: []
+  defp crossing(r, prev), do: if(n6?(prev), do: [], else: [{:crossing, r["seq"]}])
 
   defp check_v4(r, prev_seq, prev, registry, schemes, n6) do
     seq = r["seq"]

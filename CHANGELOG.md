@@ -144,6 +144,21 @@ both profiles and refusing on the national security profile by mode or by build 
 pass on that profile shown by the decision's own tests, since no CI runtime carries the validated
 provider.
 
+### `slice/144`: a verified signature makes its signer answer for what it signed
+
+When a signature verifies and the bytes it covers break the profile's rules, Trinity now says the
+key's holder signed them (exit 7, "accused") instead of calling the record damaged (exit 1), and it
+names the one defect it found. This applies to single signed statements and to receipt rows, in the
+in-app verifier and in the standalone script. Ed25519 keys and signatures are held to the profile
+publisher's rule, so a weak key, or a signature built to verify for any message, is refused; OpenSSL
+alone accepts both. A receipt chain that moved from the older format to the new one reports the move,
+and an older-format row after a new one is refused.
+
+Verified by the test suite, each case first shown failing on the previous tree: the accusation and
+its single finding at the carrier and in both receipt verifiers; every small-order, mixed-order and
+malformed key and signature the publisher lists, refused, with 1,000 generated keys accepted; and the
+chain's one crossing reported and a later older-format row refused.
+
 ### `slice/142`: signed statements follow the profile's v0.1 draft
 
 The checks Trinity runs on its signed-statement format now follow the profile publisher's v0.1

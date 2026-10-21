@@ -20,14 +20,19 @@ defmodule Trinity.N6.CarrierTest do
   alias Trinity.TestSupport.{Ed25519Oracle, N6Vectors}
 
   # The outcomes that need the signature checked.
-  @judged [:claim, :signature_invalid, :typ_schema_mismatch, :issuer_missing]
+  @judged [
+    :claim,
+    :signature_invalid,
+    :accuse_single_signed_noncanonical,
+    :accuse_single_signed_nonconforming
+  ]
 
   test "AC5: every sample gives its expected outcome under its context" do
     samples = N6Vectors.samples()
     assert length(samples) >= 26
     ed25519? = Ed25519Oracle.verifies?()
 
-    for {id, bytes, exit, code, opts} <- samples do
+    for {id, bytes, exit, code, findings, opts} <- samples do
       answer = Carrier.verify(bytes, opts)
 
       cond do
@@ -36,6 +41,10 @@ defmodule Trinity.N6.CarrierTest do
 
         code == :claim ->
           assert {:ok, %{exit: 0, verdict_code: :claim}} = answer, id
+
+        exit == 7 ->
+          assert answer == {:error, 7, {code, findings}}, id
+          assert [_one] = findings, id
 
         true ->
           assert answer == {:error, exit, code}, id
@@ -74,7 +83,7 @@ defmodule Trinity.N6.CarrierTest do
   end
 
   test "AC4: a pair typ is refused before the signature, whatever the signature" do
-    [{_, bytes, _, :wrong_carrier_for_typ, opts}] =
+    [{_, bytes, _, :wrong_carrier_for_typ, [], opts}] =
       Enum.filter(N6Vectors.samples(), &(elem(&1, 3) == :wrong_carrier_for_typ))
 
     # The sample's signature is 4,627 zero bytes: refused for its typ, never judged.

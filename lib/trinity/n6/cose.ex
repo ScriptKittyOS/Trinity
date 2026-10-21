@@ -434,8 +434,10 @@ defmodule Trinity.N6.COSE do
   # K2.
   defp key_valid(@esp384, pub), do: if(EC2.valid_key?(pub), do: :ok, else: {:error, :key_invalid})
 
+  # K2 with the publisher's key rule (r7 section 5.3): decoded strictly, not the identity, [L]A the
+  # identity.
   defp key_valid(@ed25519, pub),
-    do: if(match?({:ok, _}, Ed25519.decode(pub)), do: :ok, else: {:error, :key_invalid})
+    do: if(Ed25519.valid_key?(pub), do: :ok, else: {:error, :key_invalid})
 
   defp key_valid(@mldsa87, pub),
     do: if(byte_size(pub) == 2592, do: :ok, else: {:error, :key_invalid})
@@ -449,11 +451,18 @@ defmodule Trinity.N6.COSE do
     if byte_size(sig) == @sizes[alg].signature, do: :ok, else: {:error, :signature_encoding}
   end
 
+  # For Ed25519 the R and S checks of r7 section 5.3 run first; one code covers all four
+  # conditions, because a verify call returns one result.
   defp signature_valid(alg, tbs, sig, pub) do
-    if crypto_verify(alg, tbs, sig, pub), do: :ok, else: {:error, :signature_invalid}
+    if r_and_s(alg, sig) and crypto_verify(alg, tbs, sig, pub),
+      do: :ok,
+      else: {:error, :signature_invalid}
   rescue
     e in ErlangError -> unavailable(e)
   end
+
+  defp r_and_s(@ed25519, sig), do: Ed25519.valid_r_and_s?(sig)
+  defp r_and_s(_alg, _sig), do: true
 
   defp crypto_verify(@mldsa87, tbs, sig, pub), do: :crypto.verify(:mldsa87, :none, tbs, sig, pub)
 

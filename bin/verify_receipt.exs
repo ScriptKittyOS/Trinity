@@ -121,6 +121,14 @@ defmodule VerifyReceipt do
         Enum.each(findings, &IO.puts("finding: #{inspect(&1)}"))
         System.halt(0)
 
+      # Slice 144: the issuer's verified key signed nonconforming bytes. The finding names the
+      # defect and the last line on stderr is the verdict code (N6 draft v0.1-r7 section 9.3).
+      {:error, 7, {:accuse, at, verdict, findings}} ->
+        IO.puts(:stderr, "#{label(7)}: #{inspect(at)}")
+        for {:nonconforming, code} <- findings, do: IO.puts(:stderr, "finding: nonconforming #{code}")
+        IO.puts(:stderr, "verdict_code: #{verdict}")
+        System.halt(7)
+
       {:error, code, reason} ->
         IO.puts(:stderr, "#{label(code)}: #{inspect(reason)}")
         System.halt(code)
@@ -132,6 +140,7 @@ defmodule VerifyReceipt do
   defp label(1), do: "invalid"
   defp label(5), do: "trust not established"
   defp label(6), do: "compromised key"
+  defp label(7), do: "accused"
 
   defp walk([], _reg, _schemes, _seq, _prev, _n6, findings), do: {:ok, findings}
 
@@ -139,12 +148,19 @@ defmodule VerifyReceipt do
   defp walk([%{"scheme" => "receipt_v4_" <> _} = r | rest], reg, schemes, prev_seq, prev, n6, findings) do
     seq = r["seq"]
 
+    # Slice 144: the first v4 row after a v2 or v3 row is the chain's one crossing, reported.
+    crossing = if prev != nil and not n6?(prev), do: [{:crossing, seq}], else: []
+
     with :ok <- expect(seq == prev_seq + 1, 1, {:seq_gap, prev_seq, seq}),
          {:ok, _fam, _row} <- resolve(r["scheme"], r["key_id"], reg, schemes, seq),
          {:ok, info} <- v4_row(r, prev, n6) do
-      walk(rest, reg, schemes, seq, r, n6, findings ++ info.findings)
+      walk(rest, reg, schemes, seq, r, n6, findings ++ crossing ++ info.findings)
     end
   end
+
+  # Slice 144: a chain crosses once, so a v2 or v3 row after a v4 row is refused.
+  defp walk([r | _rest], _reg, _schemes, _prev_seq, %{"scheme" => "receipt_v4_" <> _}, _n6, _f),
+    do: {:error, 1, {:legacy_after_n6, r["seq"]}}
 
   defp walk([r | rest], reg, schemes, prev_seq, prev, n6, findings) do
     seq = r["seq"]

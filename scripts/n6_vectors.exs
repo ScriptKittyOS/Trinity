@@ -45,6 +45,15 @@ defmodule N6Vectors do
   @ed_sig "44f793ebf76a054b798344893478ce4d19985eb9b8e813e6a99fa2920cc45f955c8fa32ce1307b6673c5418419cb81b0e35c7018966622bcf179ecd623740703"
   @ed_sig_issuer "ff0ca9413ae325a29a74f71ff62f8cc8d3197d2aa715ac1e43aa74c112c0d51b5325be34e6c097d5e120f9646fdaf7f0c40739e3750a5b49275f2d04bcc07d00"
   @ed_sig_schema_2 "23b8e030b47818e0d28cad5805c155bed332b4fcb9169001acc38f3868278fb5ad4600d75f1ff50f2f693668860ef507ce1ee81c7a8fe9ae46eb83d083649904"
+  # Slice 144. `@ed_sig_cf` is over the body with key 1 whose text is "slic", U+200B, "44" (nine
+  # bytes, a format control). `@ed_sig_r_identity` is a signature the key's holder can make over the
+  # good sample with R the identity and S = k * a: the equation holds, `:crypto` accepts it, and the
+  # profile's rule refuses it (N6 draft v0.1-r7 section 5.3). `@ed_identity_sig` is R the identity and
+  # S = 0, which verifies under the identity key for every message.
+  @ed_sig_cf "833ba6de729c7004d69ea496d6a0b13108546aadf3349142dc299f5c1618c0c76c2ac213c59b625f5e0bc56620f6b18ffc48f20768efcfd1b626ba1f4384ee0d"
+  @ed_sig_r_identity "01000000000000000000000000000000000000000000000000000000000000003f768ff3c0dbfe1fcbc42afeb83d20d7e0f865042c63984e9ef3b5467688d905"
+  @ed_identity "0100000000000000000000000000000000000000000000000000000000000000"
+  @ed_identity_sig "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 
   # Slice 140, ESP384: RFC 6979 appendix A.2.6's published P-384 key (private
   # 6b9d3dad...60d2edf5), its uncompressed public point, and one signature it made, as the 96-byte
@@ -116,6 +125,8 @@ defmodule N6Vectors do
     <<4, ec_x::binary-size(48), ec_y::binary-size(48)>> = h(@ec_pub)
     write(root, "thumbprint/rfc6979_a26_p384_compressed.pub", <<2 + rem(:binary.last(ec_y), 2)>> <> ec_x)
     write(root, "thumbprint/rfc6979_a25_p256.pub", h(@p256_pub))
+    # Slice 144: the Ed25519 identity point, registered as a key on purpose.
+    write(root, "thumbprint/ed25519_identity.pub", h(@ed_identity))
 
     for {id, bytes, exit, code, entry, keys} <- sign1_samples(kid, ed_kid, ec_kid),
         do: sample(root, id, bytes, exit, code, entry, keys)
@@ -508,6 +519,11 @@ defmodule N6Vectors do
     # Slice 139's body, without `issuer`, under its own literal signature; and the body with key 0 = 2.
     no_issuer = h("01 4e a2 00 01 10 69") <> "slice 139"
     schema_2 = h("01 58 24") <> body(h("02"), "slice 139")
+    cf_body = h("01 58 24") <> body(h("01"), "slic\u200b44")
+
+    identity_kid = :crypto.hash(:sha384, h("a3 01 01 20 06 21 58 20") <> h(@ed_identity))
+    identity_protected = h("a3 01 32 04 58 30") <> identity_kid <> h("10 78 2c") <> @typ_ed
+    identity_sign1 = h("84 58 65") <> identity_protected <> h("a0 f6 58 40") <> h(@ed_identity_sig)
 
     esp_payload_field = h("01 58 24") <> body(h("01"), "slice 140")
     esp_protected = h("a3 01 38 32 04 58 30") <> ec_kid <> h("10 78 2b") <> @typ_esp
@@ -522,8 +538,15 @@ defmodule N6Vectors do
       {"ed25519_single", good, 0, "claim", "commercial", nil},
       {"ed25519_single_at_nss", good, 1, "alg_not_permitted", "nss", nil},
       {"ed25519_signature_flipped", carrier.(payload_field, ed_sign1.(flipped)), 1, "signature_invalid", "commercial", nil},
-      {"ed25519_no_issuer", carrier.(no_issuer, ed_sign1.(h(@ed_sig))), 1, "issuer_missing", "commercial", nil},
-      {"ed25519_typ_schema_mismatch", carrier.(schema_2, ed_sign1.(h(@ed_sig_schema_2))), 1, "typ_schema_mismatch", "commercial", nil},
+      # Slice 144: a defect in bytes a verified signature covers is the issuer's act, exit 7, with
+      # the defect named in one finding (N6 draft v0.1-r7 sections 9.2 and 9.3).
+      {"ed25519_no_issuer", carrier.(no_issuer, ed_sign1.(h(@ed_sig))), 7, "accuse_single_signed_nonconforming", "commercial", nil},
+      {"ed25519_typ_schema_mismatch", carrier.(schema_2, ed_sign1.(h(@ed_sig_schema_2))), 7, "accuse_single_signed_nonconforming", "commercial", nil},
+      {"ed25519_body_format_control", carrier.(cf_body, ed_sign1.(h(@ed_sig_cf))), 7, "accuse_single_signed_noncanonical", "commercial", nil},
+      # Slice 144, the Ed25519 rule (r7 section 5.3): R the identity, and the identity key.
+      {"ed25519_r_identity", carrier.(payload_field, ed_sign1.(h(@ed_sig_r_identity))), 1, "signature_invalid", "commercial", nil},
+      {"ed25519_key_identity", carrier.(payload_field, identity_sign1), 1, "key_invalid", "commercial",
+       [%{"alg" => -19, "public" => "thumbprint/ed25519_identity.pub"}]},
       {"ed25519_key_registered_as_mldsa87", good, 1, "alg_not_permitted", "commercial",
        [%{"alg" => -50, "public" => "thumbprint/rfc8032_test1_ed25519.pub", "kid" => ed_kid_hex}]},
       {"carrier_key0_envelope", h("a3 00 1a ff ff 00 01") <> payload_field <> h("02") <> sign1, 1, "carrier_malformed", "commercial", nil},
@@ -563,6 +586,13 @@ defmodule N6Vectors do
   defp ec2_kid(<<4, x::binary-size(48), y::binary-size(48)>>),
     do: :crypto.hash(:sha384, h("a4 01 02 20 02 21 58 30") <> x <> h("22 58 30") <> y)
 
+  # Slice 144: the one finding each exit-7 sample names.
+  @findings %{
+    "ed25519_no_issuer" => "issuer_missing",
+    "ed25519_typ_schema_mismatch" => "typ_schema_mismatch",
+    "ed25519_body_format_control" => "text_format_control"
+  }
+
   @default_keys [
     %{"alg" => -19, "public" => "thumbprint/rfc8032_test1_ed25519.pub"},
     %{"alg" => -50, "public" => "thumbprint/acvp_mldsa87_tg3_tc51.pub"},
@@ -571,7 +601,9 @@ defmodule N6Vectors do
 
   defp sample(root, id, bytes, exit, code, entry, keys) do
     write(root, "cose/sign1/#{id}.bin", bytes)
-    write(root, "cose/sign1/#{id}.expect", json(%{"exit" => exit, "verdict_code" => code, "source" => "hand"}))
+    expect = %{"exit" => exit, "verdict_code" => code, "source" => "hand"}
+    expect = if exit == 7, do: Map.put(expect, "findings", ["nonconforming " <> Map.fetch!(@findings, id)]), else: expect
+    write(root, "cose/sign1/#{id}.expect", json(expect))
 
     ctx = %{
       "entry_point" => entry,

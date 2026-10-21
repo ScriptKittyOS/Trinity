@@ -1,1 +1,1 @@
-{"exit":1,"source":"hand","verdict_code":"typ_schema_mismatch"}
+{"exit":7,"findings":["nonconforming typ_schema_mismatch"],"source":"hand","verdict_code":"accuse_single_signed_nonconforming"}

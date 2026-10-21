@@ -129,7 +129,7 @@ defmodule Trinity.Receipts.V4 do
   def schemas do
     for {kind, _} <- @kinds do
       fields = if kind == "checkpoint", do: @checkpoint_fields, else: @row_fields
-      %{kind: body_kind(kind), version: schema_number(kind), fields: fields}
+      %{kind: body_kind(kind), version: schema_number(kind), typ: typ(kind), fields: fields}
     end
   end
 
@@ -245,19 +245,22 @@ defmodule Trinity.Receipts.V4 do
   """
   @spec verify_row(map(), binary() | nil, keyword()) ::
           {:ok, %{link: binary(), at: integer(), node: String.t(), findings: [tuple()]}}
-          | {:error, 1 | 5, term()}
+          | {:error, 1 | 5 | 7, term()}
   def verify_row(r, prev_link, opts) do
     seq = r["seq"]
     kind = r["kind"]
 
+    # A signed kind's carrier is verified before its body is read (slice 144): a defect in bytes the
+    # signature covers is then the issuer's act, exit 7, and a body under a signature that does not
+    # verify is never judged.
     with :ok <- expect(is_map_key(@kinds, kind) and kind != "checkpoint", 1, {:unknown_kind, seq}),
          {:ok, body} <- b64(r["body_b64"], {:body_missing, seq}),
          link = statement_id(kind, body),
          :ok <- expect(hex(link) == r["receipt_hash"], 1, {:hash_mismatch, seq}),
+         :ok <- signature(kind, r, body, opts, seq),
          {:ok, value} <- decode_body(body, kind, seq),
          :ok <- columns(value, r, prev_link, seq),
-         :ok <- issuer(value, opts, seq),
-         :ok <- signature(kind, r, body, opts, seq) do
+         :ok <- issuer(value, opts, seq) do
       {:ok,
        %{
          link: link,
@@ -316,9 +319,15 @@ defmodule Trinity.Receipts.V4 do
          {:ok, parts} <- n6(Carrier.decode(carrier), at),
          :ok <- expect(parts.payload == body, 1, {:carrier_payload_mismatch, at}),
          {:ok, row} <- registry_row(opts, key_id, at) do
-      case Carrier.verify(carrier, keys: keys(row), typ: typ_table(), entry: entry(opts)) do
+      case Carrier.verify(carrier,
+             keys: keys(row),
+             typ: typ_table(),
+             entry: entry(opts),
+             schemas: schemas()
+           ) do
         {:ok, _} -> :ok
         {:error, 5, :alg_unavailable} -> {:error, 5, {:alg_unavailable, at, row["algorithm"]}}
+        {:error, 7, {verdict, findings}} -> {:error, 7, {:accuse, at, verdict, findings}}
         {:error, exit, code} -> {:error, exit, {:n6, at, code}}
       end
     end
@@ -384,12 +393,13 @@ defmodule Trinity.Receipts.V4 do
   Verifies one v4 checkpoint, given the link id of the row at its `last_seq`. `opts` as
   `verify_row/3`.
   """
-  @spec verify_checkpoint(map(), binary(), keyword()) :: :ok | {:error, 1 | 5, term()}
+  @spec verify_checkpoint(map(), binary(), keyword()) :: :ok | {:error, 1 | 5 | 7, term()}
   def verify_checkpoint(cp, tail_link, opts) do
     last = cp["last_seq"]
     at = {:checkpoint, last}
 
     with {:ok, body} <- b64(cp["body_b64"], {:checkpoint_body_missing, last}),
+         :ok <- signature("checkpoint", cp, body, opts, at),
          {:ok, value} <- decode_body(body, "checkpoint", at),
          :ok <-
            expect(
@@ -398,9 +408,8 @@ defmodule Trinity.Receipts.V4 do
                cp["tail_hash"] == hex(tail_link),
              1,
              {:checkpoint_body_mismatch, last}
-           ),
-         :ok <- issuer(value, opts, at) do
-      signature("checkpoint", cp, body, opts, at)
+           ) do
+      issuer(value, opts, at)
     end
   end
 

@@ -113,8 +113,11 @@ profile's own vectors. These are candidate input, not the published set.
 | `ed25519_single` | `commercial` | 0 | `claim` |
 | `ed25519_single_at_nss` | `nss` | 1 | `alg_not_permitted` |
 | `ed25519_signature_flipped` | `commercial` | 1 | `signature_invalid` |
-| `ed25519_no_issuer` | `commercial` | 1 | `issuer_missing` |
-| `ed25519_typ_schema_mismatch` | `commercial` | 1 | `typ_schema_mismatch` |
+| `ed25519_no_issuer` | `commercial` | 7 | `accuse_single_signed_nonconforming` |
+| `ed25519_typ_schema_mismatch` | `commercial` | 7 | `accuse_single_signed_nonconforming` |
+| `ed25519_body_format_control` | `commercial` | 7 | `accuse_single_signed_noncanonical` |
+| `ed25519_r_identity` | `commercial` | 1 | `signature_invalid` |
+| `ed25519_key_identity` | `commercial` | 1 | `key_invalid` |
 | `ed25519_key_registered_as_mldsa87` | `commercial` | 1 | `alg_not_permitted` |
 | `carrier_key0_envelope` | `commercial` | 1 | `carrier_malformed` |
 | `carrier_extra_key` | `commercial` | 1 | `carrier_malformed` |

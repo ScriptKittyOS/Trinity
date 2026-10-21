@@ -107,12 +107,17 @@ defmodule Trinity.N6.R7AlignmentTest do
            policy_stale_or_unknown_key unknown_origin descriptor_unverified foreign_bytes_missing
            degraded_kv_only degraded_kh_only fork_kv fork_kh fork_pair epoch_regression
            key_revoked_compromised_kv key_revoked_compromised_kh issuer_mismatch_kh
-           accuse_kv_issuer_mismatch accuse_foreign_origin_signed_kv accuse_logged_nonconforming)a
+           accuse_kv_issuer_mismatch accuse_foreign_origin_signed_kv accuse_logged_nonconforming
+           accuse_single_signed_noncanonical accuse_single_signed_nonconforming)a
 
     test "every draft code is in r7's registry, with r7's exit class; only two are this tree's" do
       for {code, {exit, :draft, _steps}} <- Profile.codes() do
         assert code in @r7, "#{code} is marked :draft but is not in r7 section 9.4"
-        assert exit in [0, 1, 2, 5], "#{code}"
+
+        expected =
+          if String.starts_with?(Atom.to_string(code), "accuse_"), do: [7], else: [0, 1, 2, 5]
+
+        assert exit in expected, "#{code}"
       end
 
       ours = for {code, {_exit, :trinity, _steps}} <- Profile.codes(), do: code
