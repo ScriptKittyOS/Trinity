@@ -9,7 +9,8 @@ defmodule Trinity.N6.CarrierTest do
   The signed samples are Ed25519 and, since slice 140, ESP384. Where the runtime refuses Ed25519
   (FIPS mode), an Ed25519 sample whose outcome needs the signature checked answers `alg_unavailable`
   (5) instead, and every other sample keeps its code, because those are decided before any signature
-  is looked at. ESP384 is judged on every runtime here, FIPS mode included. Since slice 140 the body
+  is looked at. Since slice 144 that includes a signature the Ed25519 R and S checks refuse, which
+  are run before the runtime is asked. ESP384 is judged on every runtime here, FIPS mode included. Since slice 140 the body
   rules (`typ_schema_mismatch`, `issuer_missing`) are read after the signature, so they are judged
   outcomes too.
   """
@@ -27,6 +28,10 @@ defmodule Trinity.N6.CarrierTest do
     :accuse_single_signed_nonconforming
   ]
 
+  # Ed25519 samples whose signature r7 section 5.3's R and S checks refuse (slice 144). Those checks
+  # are the profile's, decided before the runtime is asked, so these keep their code in FIPS mode.
+  @refused_by_rule ["ed25519_r_identity"]
+
   test "AC5: every sample gives its expected outcome under its context" do
     samples = N6Vectors.samples()
     assert length(samples) >= 26
@@ -36,7 +41,7 @@ defmodule Trinity.N6.CarrierTest do
       answer = Carrier.verify(bytes, opts)
 
       cond do
-        code in @judged and alg(bytes) == -19 and not ed25519? ->
+        code in @judged and alg(bytes) == -19 and not ed25519? and id not in @refused_by_rule ->
           assert answer == {:error, 5, :alg_unavailable}, id
 
         code == :claim ->

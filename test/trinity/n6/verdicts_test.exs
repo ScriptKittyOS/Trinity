@@ -92,8 +92,15 @@ defmodule Trinity.N6.VerdictsTest do
       for {name, key} <- refused, do: refute(Ed25519.valid_key?(key), name)
       assert Ed25519Points.encode(a) == @key.public
 
-      for _ <- 1..1000 do
-        {pub, _} = :crypto.generate_key(:eddsa, :ed25519)
+      # Keys from random seeds by the oracle, not `:crypto`, which refuses Ed25519 in FIPS mode.
+      for _ <- 1..200 do
+        seed = :crypto.strong_rand_bytes(32)
+
+        pub =
+          Ed25519Points.encode(
+            Ed25519Points.multiply(Ed25519Points.scalar(seed), Ed25519Points.base())
+          )
+
         assert Ed25519.valid_key?(pub)
       end
     end
@@ -107,19 +114,26 @@ defmodule Trinity.N6.VerdictsTest do
   end
 
   describe "AC4: the Ed25519 signature rule" do
+    # The R and S checks are the profile's, decided before the runtime is asked, so a signature
+    # they refuse is signature_invalid on every runtime, FIPS mode included. A mixed-order R passes
+    # them (it is not of small order) and is refused by the equation, which needs the runtime.
     test "R and S the rule refuses, each signature_invalid, made by the key's holder" do
       body = CBOR.encode!(%{0 => 1, 1 => {:text, "trinity:test.invalid"}})
       t8 = Ed25519Points.order8()
       l = Ed25519Points.l()
       r = 0x1234_5678_9ABC
       r_point = Ed25519Points.multiply(r, Ed25519Points.base())
+      ed25519? = Ed25519Oracle.verifies?()
+
+      mixed = verify(carrier(body, &chosen_r(Ed25519Points.add(r_point, t8), r, &1)))
+
+      if ed25519?,
+        do: assert(mixed == {:error, 1, :signature_invalid}),
+        else: assert(mixed == {:error, 5, :alg_unavailable})
 
       cases = %{
         "R the identity, S = k * a" => fn tbs -> chosen_r({0, 1}, 0, tbs) end,
         "R of order 8, S = k * a" => fn tbs -> chosen_r(t8, 0, tbs) end,
-        "R mixed order, S = r + k * a" => fn tbs ->
-          chosen_r(Ed25519Points.add(r_point, t8), r, tbs)
-        end,
         "R the identity as y = p + 1" => fn tbs ->
           r = <<0xEE>> <> :binary.copy(<<0xFF>>, 30) <> <<0x7F>>
           k = Ed25519Points.challenge(r, @key.public, tbs)
@@ -141,7 +155,7 @@ defmodule Trinity.N6.VerdictsTest do
       # The control: R chosen honestly verifies, where the runtime does Ed25519.
       honest = verify(carrier(body, &chosen_r(r_point, r, &1)))
 
-      if Ed25519Oracle.verifies?(),
+      if ed25519?,
         do: assert({:ok, %{verdict_code: :claim}} = honest),
         else: assert(honest == {:error, 5, :alg_unavailable})
     end

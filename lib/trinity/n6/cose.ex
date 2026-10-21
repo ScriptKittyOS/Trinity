@@ -86,9 +86,12 @@ defmodule Trinity.N6.COSE do
   refuses Ed25519). A runtime that refuses the algorithm is never a crash and never a pass.
 
   After the header, in this order: the key the `kid` names must be known (5); registered for the
-  header's `alg` (`alg_not_permitted`); for ESP384 a valid P-384 point (`key_invalid`); its
+  header's `alg` (`alg_not_permitted`); for ESP384 a valid P-384 point, for Ed25519 the key rule
+  of r7 section 5.3 (`key_invalid`); its
   thumbprint the `kid` (`kid_not_thumbprint`); the signature its algorithm's size (ESP384:
-  `signature_encoding`; the others: `carrier_malformed`); and the signature valid. The
+  `signature_encoding`; the others: `carrier_malformed`); and the signature valid. For Ed25519 the
+  R and S checks of draft v0.1-r7 section 5.3 come before the runtime is asked, so a signature they
+  refuse is `signature_invalid` on every runtime, FIPS mode included. The
   attribution classes 6 and 7 need the profile's key descriptors and are not decided here.
 
   ## Keys
