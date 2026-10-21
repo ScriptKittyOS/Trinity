@@ -51,7 +51,7 @@ defmodule VerifyReceipt do
   @signed_kinds ~w(decision effect boot cap)
 
   # The sources a v4 row needs, relative to Trinity's lib directory, in the order they are loaded.
-  @n6_sources ~w(n6/profile.ex n6/cbor.ex n6/digest.ex n6/body.ex n6/ec2.ex n6/cose.ex n6/carrier.ex receipts/v4.ex)
+  @n6_sources ~w(n6/profile.ex n6/unicode15.ex n6/cbor.ex n6/digest.ex n6/body.ex n6/ec2.ex n6/ed25519.ex n6/cose.ex n6/carrier.ex receipts/v4.ex)
 
   # Named at run time, so compiling this file before the sources are loaded warns about nothing.
   defp v4, do: Module.concat(["Trinity", "Receipts", "V4"])

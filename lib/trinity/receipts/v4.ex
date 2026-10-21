@@ -371,13 +371,12 @@ defmodule Trinity.Receipts.V4 do
 
   defp attachment(_ref, nil, field, seq), do: {:foreign_bytes_missing, seq, field}
 
-  defp attachment(%{0 => digest, 1 => length}, b64, field, seq) do
-    case Base.decode64(b64) do
-      {:ok, bytes} when byte_size(bytes) == length ->
-        if Digest.matches?(digest, bytes), do: nil, else: {:foreign_digest_mismatch, seq, field}
-
-      _ ->
-        {:foreign_digest_mismatch, seq, field}
+  defp attachment(ref, b64, field, seq) do
+    with {:ok, bytes} <- Base.decode64(b64),
+         :ok <- Digest.attachment(ref, bytes) do
+      nil
+    else
+      _ -> {:foreign_digest_mismatch, seq, field}
     end
   end
 

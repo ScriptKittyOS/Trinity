@@ -144,6 +144,21 @@ both profiles and refusing on the national security profile by mode or by build 
 pass on that profile shown by the decision's own tests, since no CI runtime carries the validated
 provider.
 
+### `slice/142`: signed statements follow the profile's v0.1 draft
+
+The checks Trinity runs on its signed-statement format now follow the profile publisher's v0.1
+draft in what they check and in which order, so Trinity names the same first defect as every other
+implementation. Text in signed statements is judged by one pinned Unicode version (15.0.0), never
+the runtime's, and refuses unassigned code points, invisible and bidirectional format controls, and
+text that is not plainly in normal form. Bodies, headers and keys are checked in the draft's order,
+with its names for each defect.
+
+Verified by the test suite: agreement with every vector the publisher has cut, 593 across five
+kinds, by a test that reads the publisher's set from a path and checks its digests first, and that
+was shown to fail on a planted disagreement; the Unicode tables' counts against the draft's and
+their regeneration byte for byte from the published data files; and a census that no normaliser is
+called.
+
 ## 2026-10-08
 
 ### `slice/136`: the web pages ask who is there

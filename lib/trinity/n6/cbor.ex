@@ -10,9 +10,10 @@ defmodule Trinity.N6.CBOR do
 
     * integers in [-2^63, 2^64-1];
     * `{:bytes, binary}` for a byte string and `{:text, binary}` for a text string, which must be
-      valid UTF-8 in Unicode NFC. A bare binary is refused: in signed data, bytes and text differ in
-      meaning, and an untagged binary that happens to be valid UTF-8 would otherwise change type;
-    * lists (arrays);
+      valid UTF-8 and pass the text rule (`Trinity.N6.Unicode15`). A bare binary is refused: in
+      signed data, bytes and text differ in meaning, and an untagged binary that happens to be valid
+      UTF-8 would otherwise change type;
+  * lists (arrays);
     * maps whose keys are integers in 0..2^32-1;
     * `true`, `false` and `nil`.
 
@@ -23,33 +24,39 @@ defmodule Trinity.N6.CBOR do
   ## Decoding
 
   `decode/1` reads the input once, left to right and depth first, and stops at the first defect,
-  answering its code and byte offset. Nothing from an input that fails is returned. At each head
-  the checks run in this order, which is this tree's provisional answer to the profile's open
-  question of precedence (its VB1):
+  answering its code and byte offset. Nothing from an input that fails is returned. The checks are
+  the profile's steps D0 to D18 (N6 draft v0.1-r7 section 2.2), which fix both what is checked and
+  in which order. D0 runs once; at every head, in order:
 
-    1. the head byte exists (`truncated`);
-    2. additional information 28 to 30, or 31 where no indefinite form exists, or a lone break
-       (`not_well_formed`); 31 on a byte string, text string, array or map (`indefinite_length`);
-    3. a tag (`tag_forbidden`); a float (`float_forbidden`); a simple value other than false, true
-       and null (`simple_forbidden`, or `not_well_formed` for `0xf8` below 32);
-    4. the argument's bytes exist (`truncated`) and it is in its shortest form (`noncanonical`);
-    5. the item count (`too_many_items`);
-    6. a negative integer below -2^63 (`int_out_of_range`); a string's bytes exist (`truncated`);
-       a text string's length, validity and form (`text_too_long`, `invalid_utf8`, `not_nfc`); a
-       container's depth (`too_deep`);
-    7. inside a map, for each key: its major type (`key_not_uint`), the key itself by the rules
-       above, its value at most 2^32-1 (`key_not_uint`), and its encoding against the previous
-       key's: equal is `duplicate_key`, lower is `noncanonical` (the profile's W2).
+    * D1: a byte is left for the head (`truncated`);
+    * D2: additional information 28 to 30, or 31 on major type 0, 1, 6 or 7 (`not_well_formed`);
+    * D3: 31 on a byte string, text string, array or map (`indefinite_length`);
+    * D4: the argument's bytes are all present (`truncated`), floats and simple values included;
+    * D5: `0xf8` with an argument below 32 (`not_well_formed`);
+    * D6: in key position, a major type other than 0 (`key_not_uint`), before any D7 check;
+    * D7: a tag (`tag_forbidden`), a float (`float_forbidden`), a simple value other than false,
+      true and null (`simple_forbidden`);
+    * D8: the argument in its shortest form (`noncanonical`);
+    * D9 and D10: a key above 2^32-1 (`key_not_uint`), then the key's encoding against the previous
+      key's: equal is `duplicate_key`, lower is `noncanonical`;
+    * D11: a negative integer below -2^63 (`int_out_of_range`);
+    * D12: an array or map: its depth (`too_deep`), then the fit check, its count against the bytes
+      from after the head to the end of the input, one per element or two per pair (`truncated`),
+      then the item count raised by its declared contents (`too_many_items`);
+    * D13 to D16: a string: the fit check (`truncated`), a text string's length (`text_too_long`),
+      UTF-8 over the whole string (`invalid_utf8`), then the text rule at its first failing code
+      point (`text_unassigned`, `text_format_control`, `not_nfc`, `nfc_maybe`).
 
-  The whole input is checked against the size limit first (`too_large`), and bytes after the
-  top-level item are `trailing_bytes`. Last, the value is re-encoded and compared byte for byte
-  with the input (E11). With the checks above complete, that comparison cannot fail; if it ever
-  does, it is answered as `noncanonical`, and the suite treats it as a rule this pass missed.
+  Bytes after the top-level item are `trailing_bytes` (D17). Last, the value is re-encoded and
+  compared byte for byte with the input (E11, D18). With the checks above complete, that comparison
+  cannot fail; if it ever does, it is answered as `noncanonical`, and the suite treats it as a rule
+  this pass missed.
   """
 
   import Bitwise
 
   alias Trinity.N6.Profile
+  alias Trinity.N6.Unicode15
 
   @typedoc "A value in the N6 subset."
   @type value ::
@@ -135,14 +142,30 @@ defmodule Trinity.N6.CBOR do
   defp head(major, n) when n <= 0xFFFF_FFFF, do: <<major <<< 5 ||| 26, n::32>>
   defp head(major, n), do: <<major <<< 5 ||| 27, n::64>>
 
-  # Erlang's UTF-8 matching refuses overlong forms and surrogates, which is what E8 asks.
-  defp text_defect(s) do
+  # D15 over the whole string, then D16. Erlang's UTF-8 matching refuses overlong forms and
+  # surrogates, which is what E8 asks.
+  defp text_defect(s), do: if(String.valid?(s), do: text_rule(s, 0), else: :invalid_utf8)
+
+  # The text rule (r7 section 2.4): left to right, `last` the previous code point's combining
+  # class; the first code point that fails gives the code. No normaliser is called.
+  defp text_rule(<<>>, _last), do: nil
+  # ASCII is assigned, not Cf, class 0 and NFC_QC Yes, so it only resets `last`.
+  defp text_rule(<<cp, rest::binary>>, _last) when cp < 0x80, do: text_rule(rest, 0)
+
+  defp text_rule(<<cp::utf8, rest::binary>>, last) do
+    ccc = Unicode15.ccc(cp)
+
     cond do
-      not String.valid?(s) -> :invalid_utf8
-      :unicode.characters_to_nfc_binary(s) != s -> :not_nfc
-      true -> nil
+      Unicode15.unassigned?(cp) -> :text_unassigned
+      Unicode15.format_control?(cp) -> :text_format_control
+      ccc != 0 and ccc < last -> :not_nfc
+      true -> quick_check(Unicode15.nfc_qc(cp), rest, ccc)
     end
   end
+
+  defp quick_check(:yes, rest, ccc), do: text_rule(rest, ccc)
+  defp quick_check(:no, _rest, _ccc), do: :not_nfc
+  defp quick_check(:maybe, _rest, _ccc), do: :nfc_maybe
 
   ## Decoding
 
@@ -169,7 +192,8 @@ defmodule Trinity.N6.CBOR do
     total = byte_size(bin)
 
     try do
-      case item(bin, 0, 0) do
+      # The top-level item counts itself; every container adds its declared contents (D12).
+      case item(bin, 0, 1, :value) do
         {value, <<>>, _count} -> {:ok, value}
         {_value, rest, _count} -> {:error, :trailing_bytes, total - byte_size(rest)}
       end
@@ -178,60 +202,73 @@ defmodule Trinity.N6.CBOR do
     end
   end
 
-  # `depth` is the number of containers around this item; `count` the items read so far.
-  defp item(<<>> = here, _depth, _count), do: fail(:truncated, here)
+  # `depth` is the number of containers around this item, `count` the items declared so far, and
+  # `position` whether the item is a map key. Each clause below is one step, in the profile's order.
+  defp item(<<>> = here, _depth, _count, _position), do: fail(:truncated, here)
 
-  defp item(<<ib, tail::binary>> = here, depth, count) do
+  defp item(<<ib, tail::binary>> = here, depth, count, position) do
     major = ib >>> 5
     ai = ib &&& 0x1F
 
     cond do
       ai in 28..30 -> fail(:not_well_formed, here)
-      ai == 31 and major in 2..5 -> fail(:indefinite_length, here)
-      ai == 31 -> fail(:not_well_formed, here)
-      major == 6 -> fail(:tag_forbidden, here)
-      major == 7 -> simple(ai, tail, here, count)
-      true -> argument_item(major, ai, tail, here, depth, count)
+      ai == 31 and major in [0, 1, 6, 7] -> fail(:not_well_formed, here)
+      ai == 31 -> fail(:indefinite_length, here)
+      true -> head_item(major, ai, argument(ai, tail, here), here, depth, count, position)
     end
   end
 
-  defp simple(20, tail, here, count), do: {false, tail, counted(count, here)}
-  defp simple(21, tail, here, count), do: {true, tail, counted(count, here)}
-  defp simple(22, tail, here, count), do: {nil, tail, counted(count, here)}
-  defp simple(ai, _tail, here, _count) when ai in 25..27, do: fail(:float_forbidden, here)
-  defp simple(24, <<>>, here, _count), do: fail(:truncated, here)
-  defp simple(24, <<v, _::binary>>, here, _count) when v < 32, do: fail(:not_well_formed, here)
-  defp simple(_ai, _tail, here, _count), do: fail(:simple_forbidden, here)
+  defp head_item(7, 24, {v, _rest}, here, _depth, _count, _position) when v < 32,
+    do: fail(:not_well_formed, here)
 
-  defp argument_item(major, ai, tail, here, depth, count) do
-    {arg, rest} = argument(ai, tail, here)
-    count = counted(count, here)
+  defp head_item(major, _ai, _arg, here, _depth, _count, :key) when major != 0,
+    do: fail(:key_not_uint, here)
 
+  defp head_item(6, _ai, _arg, here, _depth, _count, _position), do: fail(:tag_forbidden, here)
+  defp head_item(7, ai, arg, here, _depth, count, _position), do: simple(ai, arg, here, count)
+
+  defp head_item(major, ai, {arg, rest}, here, depth, count, position) do
+    if not shortest?(ai, arg), do: fail(:noncanonical, here)
+    if position == :key and arg > @key_max, do: fail(:key_not_uint, here)
+    value_item(major, arg, rest, here, depth, count)
+  end
+
+  # D11 to D16, by major type.
+  defp value_item(major, arg, rest, here, depth, count) do
     case major do
       0 -> {arg, rest, count}
       1 when arg > @nint_arg_max -> fail(:int_out_of_range, here)
       1 -> {-1 - arg, rest, count}
       2 -> string(:bytes, arg, rest, here, count)
       3 -> string(:text, arg, rest, here, count)
-      4 -> array(arg, rest, here, depth + 1, count)
-      5 -> map(arg, rest, here, depth + 1, count)
+      4 -> container(:array, arg, rest, here, depth + 1, count)
+      5 -> container(:map, arg, rest, here, depth + 1, count)
     end
   end
 
-  defp counted(count, here) when count + 1 > @max_items, do: fail(:too_many_items, here)
-  defp counted(count, _here), do: count + 1
+  defp simple(20, {_, rest}, _here, count), do: {false, rest, count}
+  defp simple(21, {_, rest}, _here, count), do: {true, rest, count}
+  defp simple(22, {_, rest}, _here, count), do: {nil, rest, count}
+  defp simple(ai, _arg, here, _count) when ai in 25..27, do: fail(:float_forbidden, here)
+  defp simple(_ai, _arg, here, _count), do: fail(:simple_forbidden, here)
 
+  # D4: the argument's bytes. A float's bytes are its argument here, so a truncated float is
+  # `truncated` before it is `float_forbidden`.
   defp argument(ai, tail, _here) when ai < 24, do: {ai, tail}
-  defp argument(24, <<v, rest::binary>>, here), do: shortest(v, 24, rest, here)
-  defp argument(25, <<v::16, rest::binary>>, here), do: shortest(v, 0x100, rest, here)
-  defp argument(26, <<v::32, rest::binary>>, here), do: shortest(v, 0x1_0000, rest, here)
-  defp argument(27, <<v::64, rest::binary>>, here), do: shortest(v, 0x1_0000_0000, rest, here)
+  defp argument(24, <<v, rest::binary>>, _here), do: {v, rest}
+  defp argument(25, <<v::16, rest::binary>>, _here), do: {v, rest}
+  defp argument(26, <<v::32, rest::binary>>, _here), do: {v, rest}
+  defp argument(27, <<v::64, rest::binary>>, _here), do: {v, rest}
   defp argument(_ai, _tail, here), do: fail(:truncated, here)
 
-  defp shortest(v, min, _rest, here) when v < min, do: fail(:noncanonical, here)
-  defp shortest(v, _min, rest, _here), do: {v, rest}
+  defp shortest?(ai, _v) when ai < 24, do: true
+  defp shortest?(24, v), do: v >= 24
+  defp shortest?(25, v), do: v >= 0x100
+  defp shortest?(26, v), do: v >= 0x1_0000
+  defp shortest?(27, v), do: v >= 0x1_0000_0000
 
-  defp string(_kind, len, rest, here, _count) when byte_size(rest) < len,
+  # D13 compares the declared length with the bytes left (L > R), so it cannot overflow.
+  defp string(_kind, len, rest, here, _count) when len > byte_size(rest),
     do: fail(:truncated, here)
 
   defp string(:bytes, len, rest, _here, count) do
@@ -251,33 +288,39 @@ defmodule Trinity.N6.CBOR do
     end
   end
 
-  # Every item takes at least one byte, so a count beyond what is left is refused before
-  # anything is read: a forged count cannot make the decoder loop.
-  defp array(_n, _rest, here, depth, _count) when depth > @max_depth, do: fail(:too_deep, here)
-  defp array(n, rest, here, _depth, _count) when n > byte_size(rest), do: fail(:truncated, here)
-  defp array(n, rest, _here, depth, count), do: elements(n, rest, depth, count, [])
+  # D12: depth, then the fit check (the count against the bytes left divided by the smallest
+  # element, never the count multiplied), then the item count. Nothing is read or reserved for a
+  # declared count before all three pass.
+  defp container(_kind, _n, _rest, here, depth, _count) when depth > @max_depth,
+    do: fail(:too_deep, here)
+
+  defp container(:array, n, rest, here, _depth, _count) when n > byte_size(rest),
+    do: fail(:truncated, here)
+
+  defp container(:map, n, rest, here, _depth, _count) when n > div(byte_size(rest), 2),
+    do: fail(:truncated, here)
+
+  defp container(kind, n, rest, here, depth, count) do
+    count = count + if(kind == :map, do: 2 * n, else: n)
+    if count > @max_items, do: fail(:too_many_items, here)
+
+    case kind do
+      :array -> elements(n, rest, depth, count, [])
+      :map -> pairs(n, rest, depth, count, nil, [])
+    end
+  end
 
   defp elements(0, rest, _depth, count, acc), do: {Enum.reverse(acc), rest, count}
 
   defp elements(n, rest, depth, count, acc) do
-    {value, rest, count} = item(rest, depth, count)
+    {value, rest, count} = item(rest, depth, count, :value)
     elements(n - 1, rest, depth, count, [value | acc])
   end
-
-  defp map(_n, _rest, here, depth, _count) when depth > @max_depth, do: fail(:too_deep, here)
-  defp map(n, rest, here, _depth, _count) when 2 * n > byte_size(rest), do: fail(:truncated, here)
-  defp map(n, rest, _here, depth, count), do: pairs(n, rest, depth, count, nil, [])
 
   defp pairs(0, rest, _depth, count, _prev, acc), do: {Map.new(acc), rest, count}
 
   defp pairs(n, rest, depth, count, prev, acc) do
-    case rest do
-      <<kb, _::binary>> when kb >>> 5 != 0 -> fail(:key_not_uint, rest)
-      _ -> :ok
-    end
-
-    {key, after_key, count} = item(rest, depth, count)
-    if key > @key_max, do: fail(:key_not_uint, rest)
+    {key, after_key, count} = item(rest, depth, count, :key)
     key_bytes = binary_part(rest, 0, byte_size(rest) - byte_size(after_key))
 
     cond do
@@ -286,7 +329,7 @@ defmodule Trinity.N6.CBOR do
       true -> fail(:noncanonical, rest)
     end
 
-    {value, after_value, count} = item(after_key, depth, count)
+    {value, after_value, count} = item(after_key, depth, count, :value)
     pairs(n - 1, after_value, depth, count, key_bytes, [{key, value} | acc])
   end
 

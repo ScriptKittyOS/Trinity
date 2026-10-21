@@ -7,61 +7,54 @@ defmodule Trinity.N6.Profile do
   (slice 139).
 
   N6 is a profile of deterministic CBOR (RFC 8949 section 4.2.1) and COSE_Sign1 (RFC 9052) for
-  signed statements. The version implemented here is **v0, draft r3, provisional**: every rule may
-  change until a frozen v1 is published with its vectors. `pin/0` names the draft and the SHA-384
-  of its text, so a later draft is a visible change of pin, not a silent one.
-
-  Slice 139 adds what the profile publisher's answers of 2026-10-19 add to r3 for a single signer,
-  ahead of the draft that will carry them (v0.1): the single-signer carrier, and Ed25519 (-19) as the
-  one classical algorithm on the `commercial` profile. Slice 140 adds the publisher's Decision of
-  2026-10-20 (17:24Z, with its 17:27Z correction): ESP384 (-51) for FIPS-mode nodes, the schema
-  numbers, `statement_id` as the link, one `typ` per kind, and ForeignRefs for text-keyed content.
-  `pin/0` names both.
+  signed statements. The version implemented here is **v0.1, draft v0.1-r7, provisional** (slice
+  142; slices 138 to 140 implemented v0 draft r3 and the publisher's answers that followed it):
+  every rule may change until a frozen v1 is published with its vectors. `pin/0` names the draft
+  and the digest of its posted source, so a later draft is a visible change of pin, not a silent
+  one.
 
   ## Schema numbers
 
-  Key 0 of a carrier is a number in the reserved range 0xFFFF0000 to 0xFFFFFFFF. r3 assigns two,
-  still Open in it (its section 12.1 item 3); the publisher's Decision of 2026-10-20 assigns the
-  single-signer carrier's, 0xFFFF0003, the value slice 139 had used as a placeholder.
+  Key 0 of a carrier is a number in the reserved range 0xFFFF0000 to 0xFFFFFFFF: 0xFFFF0001 the
+  twin envelope, 0xFFFF0002 the `statement_id` preimage, 0xFFFF0003 the single-signer carrier (r7
+  section 12.1 item 3, closed).
 
   A statement kind's key 0 is `(block << 24) | (kind << 8) | version` (`statement_schema/3`): a
   block of 0x80 is the shared test block, accepted only in a verifier's declared test mode; blocks
-  0x81 to 0x8F are provisional, one per publishing board, Trinity's 0x83; numbers below 0x80000000
-  are N21's, none issued yet. Everything provisional is re-issued under N21 at v1.
+  0x81 to 0x8F are provisional, one per publishing party, Trinity's 0x83; numbers below 0x80000000
+  are the registry's, none issued yet. Everything provisional is re-issued at v1.
 
   ## Codes
 
-  Every refusal in `Trinity.N6` is one of the atoms in `codes/0`. Each carries its exit class
-  (0 verified, 1 invalid, 2 usage, 5 no trust) and whether the draft defines it (`:draft`) or this
-  tree does, where the draft leaves the code Open (`:trinity`). A `:trinity` code is provisional
-  twice over: it changes when the draft settles that point.
+  Every refusal in `Trinity.N6` is one of the atoms in `codes/0`, which is r7's closed registry
+  (its section 9.4) restricted to what this tree can emit, plus the codes marked `:trinity`. Each
+  carries its exit class (0 verified, 1 invalid, 2 usage, 5 no trust) and the steps that emit it.
 
   ## Limits
 
-  The draft's numbers, Open in it (its section 12.1 item 2), counted as follows, which the draft
-  also leaves Open (its VB2) and so is this tree's provisional reading:
+  r7 section 2.1, each checked where its step says:
 
-    * **depth** is the number of arrays and maps around an item, the top-level container being 1:
-      16 nested arrays are accepted, 17 are refused;
-    * **items** counts every data item, map keys and the top-level item included;
+    * **depth** is the number of arrays and maps on the path to an item, counting the item itself
+      if it is one; the top-level container is 1: 16 nested arrays are accepted, 17 are refused;
+    * **items** counts every data item: the top-level item, and each container's declared contents
+      at its head (n for an array, 2n for a map), before they are read;
     * **text** is the length of one text string in UTF-8 bytes;
     * **size** is the whole input in bytes. There is no separate limit on byte strings.
 
-  Each is accepted at its value and refused one past it. Limits apply to bytes being decoded, not
-  to bytes this tree constructs: a ToBeSigned may be larger than any body it carries.
+  Limits apply to bytes being decoded, not to bytes this tree constructs: a ToBeSigned may be
+  larger than any body it carries.
   """
 
   @pin %{
-    version: "n6/v0",
-    draft: "r3",
+    version: "n6/v0.1",
+    draft: "v0.1-r7",
     answers: [
-      "the profile publisher's answers of 2026-10-19 (single-signer carrier, Ed25519 on commercial)",
-      "the profile publisher's Decision of 2026-10-20 17:24Z and its 17:27Z correction (ESP384, " <>
-        "schema numbers, statement_id, one typ per kind, ForeignRefs)"
+      "the profile publisher's Decisions of 2026-10-20 and 2026-10-21 that draft v0.1-r7 carries",
+      "the publisher's Ed25519 verification rule of 2026-10-21 09:12Z (r7 section 5.3, decided)"
     ],
     status: :provisional,
-    draft_sha384:
-      "54ab5e549259b87b18c51b4d1a3dbbbbb230b74ae562d5c2ef8ec43288c6c2dafc6376bff51ae205da6043bb9da7b7f2"
+    # The SHA-256 the publisher posted with the draft's source file.
+    draft_sha256: "0b0d41382f5221fee48ccb16bce3f33e47f4cd59dba4f7b0bf8d9f5c1fcd1a25"
   }
 
   @limits %{depth: 16, items: 65_536, text: 65_536, size: 1_048_576}
@@ -70,90 +63,88 @@ defmodule Trinity.N6.Profile do
   @schemas %{
     envelope: {0xFFFF0001, :draft},
     statement_id: {0xFFFF0002, :draft},
-    single: {0xFFFF0003, :publisher}
+    single: {0xFFFF0003, :draft}
   }
 
   @test_block 0x80
   @trinity_block 0x83
 
-  # code => {exit class, who defines it}
+  # code => {exit class, who defines it, where it is emitted}. The steps are draft v0.1-r7's: D0 to
+  # D18 (section 2.2, the decoder), B1 to B8 (section 3.6, the body), H1 to H4 (section 5.6, the
+  # protected header), K1 to K3 (section 5.2, a key), and the verifier steps section 9.4 names.
   @codes %{
     # Section 2, the encoding rules.
-    noncanonical: {1, :draft},
-    indefinite_length: {1, :draft},
-    key_not_uint: {1, :draft},
-    duplicate_key: {1, :draft},
-    int_out_of_range: {1, :draft},
-    float_forbidden: {1, :draft},
-    tag_forbidden: {1, :draft},
-    simple_forbidden: {1, :draft},
-    invalid_utf8: {1, :draft},
-    not_nfc: {1, :draft},
-    too_deep: {1, :draft},
-    too_large: {1, :draft},
-    too_many_items: {1, :draft},
-    text_too_long: {1, :draft},
-    trailing_bytes: {1, :draft},
-    truncated: {1, :draft},
-    # A head the draft's code table does not cover yet (its W6): additional information 28 to 30,
-    # 31 on a major type that has no indefinite form, a lone break, 0xf8 below 32.
-    not_well_formed: {1, :trinity},
-    # A term the encoder cannot express in the subset (an atom, a bare binary, a tuple).
-    value_not_n6: {1, :trinity},
+    too_large: {1, :draft, [:d0]},
+    truncated: {1, :draft, [:d1, :d4, :d12, :d13]},
+    not_well_formed: {1, :draft, [:d2, :d5]},
+    indefinite_length: {1, :draft, [:d3]},
+    key_not_uint: {1, :draft, [:d6, :d9, :b3]},
+    tag_forbidden: {1, :draft, [:d7]},
+    float_forbidden: {1, :draft, [:d7]},
+    simple_forbidden: {1, :draft, [:d7]},
+    noncanonical: {1, :draft, [:d8, :d10, :d18]},
+    duplicate_key: {1, :draft, [:d10]},
+    int_out_of_range: {1, :draft, [:d11]},
+    too_deep: {1, :draft, [:d12]},
+    too_many_items: {1, :draft, [:d12]},
+    text_too_long: {1, :draft, [:d14]},
+    invalid_utf8: {1, :draft, [:d15]},
+    text_unassigned: {1, :draft, [:d16]},
+    text_format_control: {1, :draft, [:d16]},
+    not_nfc: {1, :draft, [:d16]},
+    nfc_maybe: {1, :draft, [:d16]},
+    trailing_bytes: {1, :draft, [:d17]},
+    # A term the encoder cannot express in the subset (an atom, a bare binary, a tuple). The encoder
+    # refuses it; no verifier emits it, so it is never a verdict.
+    value_not_n6: {1, :trinity, [:encoder]},
     # Section 3, the body rules.
-    schema_version_missing: {1, :draft},
-    unknown_schema: {1, :draft},
-    unknown_key: {1, :draft},
-    schema_reserved: {1, :draft},
-    # The publisher's Decision of 2026-10-20, point 2, checked between `schema_reserved` and
-    # `unknown_schema` (its 17:27Z correction).
-    test_schema_outside_test_mode: {1, :publisher},
-    set_not_canonical: {1, :draft},
-    body_not_map: {1, :trinity},
-    required_key_missing: {1, :trinity},
-    wrong_type: {1, :trinity},
+    body_not_map: {1, :draft, [:b1]},
+    schema_version_missing: {1, :draft, [:b2]},
+    schema_reserved: {1, :draft, [:b4]},
+    test_schema_outside_test_mode: {1, :draft, [:b5]},
+    unknown_schema: {1, :draft, [:b6]},
+    typ_schema_mismatch: {1, :draft, [:b7]},
+    issuer_missing: {1, :draft, [:b8]},
+    field_missing: {1, :draft, [:b8]},
+    unknown_key: {1, :draft, [:b8]},
+    field_type_mismatch: {1, :draft, [:b8]},
+    value_out_of_range: {1, :draft, [:b8]},
+    text_grammar_mismatch: {1, :draft, [:b8]},
+    set_not_canonical: {1, :draft, [:b8]},
     # Section 4, digests.
-    digest_alg_not_permitted: {1, :draft},
-    # The draft's own name for it (its W29), not yet in its code list.
-    digest_length_mismatch: {1, :trinity},
-    digest_malformed: {1, :trinity},
-    # Section 5, COSE_Sign1.
-    alg_not_permitted: {1, :draft},
-    header_not_protected: {1, :draft},
-    header_label_forbidden: {1, :draft},
-    header_noncanonical: {1, :draft},
-    content_type_forbidden: {1, :draft},
-    countersignature_forbidden: {1, :draft},
-    unprotected_forbidden: {1, :draft},
-    kid_not_thumbprint: {1, :draft},
-    typ_unexpected: {1, :draft},
-    carrier_malformed: {1, :draft},
-    wrong_carrier_for_typ: {1, :draft},
-    # The draft names signature failures per twin role (signature_invalid_kv, _kh); a
-    # single-signer statement has no role yet (its section 12.1 item 1).
-    signature_invalid: {1, :trinity},
-    # The publisher's Decision of 2026-10-20: an ESP384 signature that is not the 96-byte r || s
-    # (point 1), a key-0 value whose `typ` is another kind's (point 3), a full-payload
-    # single-signer body without key 1 (point 3).
-    signature_encoding: {1, :publisher},
-    typ_schema_mismatch: {1, :publisher},
-    issuer_missing: {1, :publisher},
-    # A registered key that is not what its algorithm needs: for ESP384, a compressed point, another
-    # curve, or a point not on P-384. The Decision asks for the check and names no code.
-    key_invalid: {1, :trinity},
-    # Point 4: the bytes a ForeignRef names. Missing bytes are a finding (no trust where the content
-    # must be judged); bytes that do not match are invalid for the attachment, never for the signed
-    # statement.
-    foreign_bytes_missing: {5, :publisher},
-    foreign_digest_mismatch: {1, :publisher},
+    digest_alg_not_permitted: {1, :draft, [:b8, :h4]},
+    digest_length_mismatch: {1, :draft, [:b8, :carrier]},
+    # Sections 5.2 and 5.6, keys and the protected header.
+    header_noncanonical: {1, :draft, [:h1, :h2]},
+    header_label_forbidden: {1, :draft, [:h1, :h4]},
+    header_missing: {1, :draft, [:h3, :h4]},
+    typ_unexpected: {1, :draft, [:h3]},
+    wrong_carrier_for_typ: {1, :draft, [:h3, :carrier]},
+    content_type_forbidden: {1, :draft, [:h4]},
+    header_value_invalid: {1, :draft, [:h4]},
+    alg_not_permitted: {1, :draft, [:h4, :k1]},
+    key_invalid: {1, :draft, [:k2]},
+    kid_not_thumbprint: {1, :draft, [:k3]},
+    # Section 5, the carrier and the signature.
+    carrier_malformed: {1, :draft, [:carrier]},
+    header_not_protected: {1, :draft, [:carrier]},
+    unprotected_forbidden: {1, :draft, [:carrier]},
+    countersignature_forbidden: {1, :draft, [:carrier]},
+    signature_encoding: {1, :draft, [:signature]},
+    signature_invalid: {1, :draft, [:signature]},
+    # Section 4.1: the bytes a ForeignRef names. Missing bytes are a finding (no trust where the
+    # content must be judged); bytes that do not match are invalid for the attachment, never for
+    # the signed statement.
+    foreign_bytes_missing: {5, :draft, [:attachment]},
+    foreign_digest_mismatch: {1, :draft, [:attachment]},
     # Section 9.
-    claim: {0, :draft},
-    usage: {2, :draft},
-    policy_stale_or_unknown_key: {5, :draft},
+    claim: {0, :draft, [:verdict]},
+    usage: {2, :draft, [:invocation]},
+    policy_stale_or_unknown_key: {5, :draft, [:key_resolution]},
     # The runtime cannot run the header's algorithm (ML-DSA-87, Ed25519 or ESP384; FIPS mode refuses
     # Ed25519, and Red Hat's provider ML-DSA-87), so the verifier cannot judge: no trust, never a pass
-    # and never a crash.
-    alg_unavailable: {5, :trinity}
+    # and never a crash. Not in draft v0.1-r7's registry; asked of the publisher on 2026-10-21.
+    alg_unavailable: {5, :trinity, [:signature]}
   }
 
   @typedoc "A refusal code, or `:claim` for a full verdict."
@@ -172,15 +163,18 @@ defmodule Trinity.N6.Profile do
         }
   def limits, do: @limits
 
-  @doc "Every code, with its exit class and whether the draft defines it."
-  @spec codes() :: %{code() => {0 | 1 | 2 | 5, :draft | :publisher | :trinity}}
+  @doc """
+  Every code, with its exit class, whether the draft defines it (`:draft`) or this tree does
+  (`:trinity`), and the steps that emit it.
+  """
+  @spec codes() :: %{code() => {0 | 1 | 2 | 5, :draft | :trinity, [atom()]}}
   def codes, do: @codes
 
   @doc """
-  The reserved-range schema numbers of the carriers, each with who assigned it: `:draft` (r3, still
-  Open there) or `:publisher` (the publisher's answers, ahead of the draft that will carry them).
+  The reserved-range schema numbers of the carriers, each with who assigned it (all `:draft` since
+  v0.1-r7 closed them).
   """
-  @spec schemas() :: %{atom() => {non_neg_integer(), :draft | :publisher}}
+  @spec schemas() :: %{atom() => {non_neg_integer(), :draft}}
   def schemas, do: @schemas
 
   @doc "The key 0 value of a carrier."

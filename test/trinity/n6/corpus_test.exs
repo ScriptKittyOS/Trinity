@@ -34,7 +34,7 @@ defmodule Trinity.N6.CorpusTest do
     duplicate_key: :duplicate_key,
     trailing_bytes: :trailing_bytes,
     truncated: :truncated,
-    not_nfc: :not_nfc
+    nfc_maybe: :nfc_maybe
   }
 
   test "generated bodies round-trip and every mutant is refused with its operator's code" do
@@ -122,7 +122,7 @@ defmodule Trinity.N6.CorpusTest do
   defp mutate(:trailing_bytes, _pairs, bytes), do: bytes <> <<0x00>>
   defp mutate(:truncated, _pairs, bytes), do: binary_part(bytes, 0, byte_size(bytes) - 1)
 
-  defp mutate(:not_nfc, pairs, _bytes),
+  defp mutate(:nfc_maybe, pairs, _bytes),
     do: map(pairs ++ [{<<0x1A, 0xFFFF_FFFE::32>>, <<0x63, 0x65, 0xCC, 0x81>>}])
 
   defp map(pairs), do: <<0xA0 + length(pairs)>> <> join(pairs)

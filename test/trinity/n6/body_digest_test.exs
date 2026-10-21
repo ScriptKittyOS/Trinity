@@ -63,7 +63,7 @@ defmodule Trinity.N6.BodyDigestTest do
       assert Body.check(%{0 => 1, 16 => %{0 => 0, 1 => 5}}, "k", schemas) ==
                {:error, :unknown_key}
 
-      assert Body.check(%{0 => 1, 16 => %{}}, "k", schemas) == {:error, :required_key_missing}
+      assert Body.check(%{0 => 1, 16 => %{}}, "k", schemas) == {:error, :field_missing}
     end
 
     test "a schema version in the reserved carrier range is refused even when a schema claims it" do

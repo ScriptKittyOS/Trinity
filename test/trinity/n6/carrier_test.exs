@@ -58,7 +58,7 @@ defmodule Trinity.N6.CarrierTest do
 
     assert {:ok, %{0 => 0xFFFF0003, 1 => {:bytes, payload}}} = CBOR.decode(bytes)
     assert payload == parts.payload
-    assert Profile.schemas().single == {0xFFFF0003, :publisher}
+    assert Profile.schemas().single == {0xFFFF0003, :draft}
   end
 
   test "AC4: the twin envelope's schema, and a body's schema, are not a single-signer carrier" do
