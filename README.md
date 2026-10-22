@@ -91,7 +91,10 @@ enforces it.
   approvals; every effect passes one membrane and leaves a signed, hash-chained receipt you can
   verify offline (`mix trinity.receipts.verify`). Since slice 140 a receipt is deterministic CBOR in
   COSE_Sign1, signed with ML-DSA-87, Ed25519 or, in FIPS mode, ECDSA P-384, and older receipts still
-  verify. A FIPS build leg in CI proves the receipt scheme under OpenSSL's FIPS provider. No tool can read or write Trinity's own keys or databases, by any
+  verify. Since slices 142 and 144 they follow the N6 profile's draft v0.1-r7: the codec agrees with
+  every vector of the publisher's v0.1 set, Ed25519 keys and signatures are held to the profile's
+  strict rule, and a defect inside bytes a valid signature covers is reported as the signer's act
+  (exit 7 from the verifier, with the one defect named) rather than as a plain invalid record. A FIPS build leg in CI proves the receipt scheme under OpenSSL's FIPS provider. No tool can read or write Trinity's own keys or databases, by any
   path: the secrets live in their own directory outside the data directory, a filesystem root that
   overlaps either refuses the boot, and every path is checked for links, hard links, `/proc` and
   protected inodes before the file is opened and again on the open file (slice 135).
