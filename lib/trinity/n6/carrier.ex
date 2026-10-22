@@ -28,16 +28,21 @@ defmodule Trinity.N6.Carrier do
   valid single signature on its own, so a single-signer entry point that accepted one would accept
   half a twin as a whole statement.
 
-  Once the signature verifies, the body it covers (slice 140, the publisher's Decision of
-  2026-10-20, point 3): its key 0 must be the schema number the `typ`'s entry names, where the
-  entry names one (`typ_schema_mismatch`), and a full-payload single-signer body must carry key 1,
-  `issuer` (`issuer_missing`), so two signers over identical bytes cannot pass a copy across
-  issuers as the same statement. Both read only signed bytes, after the signature, as r3's issuer
-  check (T-d) does; the order is provisional with the rest of the profile's step order (VB3). A
-  payload that is not an N6 map is the codec's code, or `body_not_map`.
+  Once the signature verifies, the body it covers is judged, and the first defect met in it is the
+  issuer's act, not anyone's (draft v0.1-r7 sections 9.2 and 9.3; slice 144): exit 7, ACCUSE, with
+  one finding `{:nonconforming, code}`. The verdict is `accuse_single_signed_noncanonical` when the
+  code comes from the codec (steps D0 to D18) and `accuse_single_signed_nonconforming` otherwise.
+  Judging stops at that first defect, so one carrier gives at most one finding. The same bytes under
+  a signature that does not verify are exit 1, `signature_invalid`, and the body is never read.
+
+  With `schemas:` the body is checked by `Trinity.N6.Body` in full (B1 to B8, with B7 against the
+  `typ`). Without it, by the rules a single-signer entry point always holds: a map
+  (`body_not_map`); key 0 the schema number the `typ`'s entry names (`typ_schema_mismatch`, B7);
+  key 1, `issuer`, present (`issuer_missing`, B8), so two signers over identical bytes cannot pass
+  a copy across issuers as the same statement.
   """
 
-  alias Trinity.N6.{CBOR, COSE, Profile}
+  alias Trinity.N6.{Body, CBOR, COSE, Profile}
 
   @doc "The carrier bytes for a Sign1's parts."
   @spec encode(COSE.parts()) :: binary()
@@ -67,6 +72,7 @@ defmodule Trinity.N6.Carrier do
   @spec verify(binary(), keyword()) ::
           {:ok, %{exit: 0, verdict_code: :claim, kid: binary(), typ: String.t()}}
           | {:error, 1 | 5, Profile.code()}
+          | {:error, 7, {Profile.code(), [{:nonconforming, Profile.code()}]}}
   def verify(bytes, opts) when is_binary(bytes) do
     table = Keyword.fetch!(opts, :typ)
     entry_point = Keyword.get(opts, :entry, :nss)
@@ -74,20 +80,42 @@ defmodule Trinity.N6.Carrier do
     with {:ok, parts} <- decode(bytes),
          {:ok, %{entry: entry}} <- COSE.decode_protected(parts.protected, table, entry_point),
          :ok <- single(entry),
-         {:ok, verdict} <- COSE.verify(parts, opts),
-         :ok <- body(parts.payload, entry) do
-      {:ok, verdict}
+         {:ok, verdict} <- COSE.verify(parts, opts) do
+      case body(parts.payload, entry, verdict.typ, opts) do
+        :ok -> {:ok, verdict}
+        {:error, step, code} -> {:error, 7, {accusation(step), [{:nonconforming, code}]}}
+      end
     else
       {:error, exit, code} -> {:error, exit, code}
       {:error, code} -> {:error, Profile.exit_of(code), code}
     end
   end
 
-  defp body(payload, entry) do
+  defp accusation(:codec), do: :accuse_single_signed_noncanonical
+  defp accusation(:body), do: :accuse_single_signed_nonconforming
+
+  # The body, after the signature: the codec's code first (`:codec`), then the body rules (`:body`).
+  defp body(payload, entry, typ, opts) do
     case CBOR.decode(payload) do
-      {:ok, %{} = body} -> body_rules(body, entry)
-      {:ok, _other} -> {:error, :body_not_map}
-      {:error, code, _offset} -> {:error, code}
+      {:ok, value} -> tag(:body, body_rules(value, entry, typ, opts))
+      {:error, code, _offset} -> {:error, :codec, code}
+    end
+  end
+
+  defp tag(_step, :ok), do: :ok
+  defp tag(step, {:error, code}), do: {:error, step, code}
+
+  defp body_rules(value, entry, typ, opts) do
+    case Keyword.fetch(opts, :schemas) do
+      {:ok, schemas} ->
+        check = Body.check(value, :any, schemas, typ: typ, test_mode: opts[:test_mode] == true)
+        if match?({:ok, _}, check), do: :ok, else: check
+
+      :error when is_map(value) ->
+        body_rules(value, entry)
+
+      :error ->
+        {:error, :body_not_map}
     end
   end
 

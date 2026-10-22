@@ -94,7 +94,12 @@ defmodule Trinity.TestSupport.N6Vectors do
       base = Path.rootname(bin)
 
       %{"exit" => exit, "verdict_code" => code} =
-        (base <> ".expect") |> File.read!() |> JSON.decode!()
+        expect = (base <> ".expect") |> File.read!() |> JSON.decode!()
+
+      # Slice 144: an exit-7 sample names its one finding, `nonconforming <code>`.
+      findings =
+        for "nonconforming " <> c <- Map.get(expect, "findings", []),
+            do: {:nonconforming, String.to_atom(c)}
 
       ctx = (base <> ".ctx.json") |> File.read!() |> JSON.decode!()
 
@@ -114,7 +119,7 @@ defmodule Trinity.TestSupport.N6Vectors do
 
       # `to_atom`, not `to_existing_atom`: which atoms exist depends on which modules a test run has
       # loaded first, and these strings come from the checked-in fixtures, not from input.
-      {id, File.read!(bin), exit, String.to_atom(code), opts}
+      {id, File.read!(bin), exit, String.to_atom(code), findings, opts}
     end
   end
 

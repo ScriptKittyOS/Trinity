@@ -86,9 +86,12 @@ defmodule Trinity.N6.COSE do
   refuses Ed25519). A runtime that refuses the algorithm is never a crash and never a pass.
 
   After the header, in this order: the key the `kid` names must be known (5); registered for the
-  header's `alg` (`alg_not_permitted`); for ESP384 a valid P-384 point (`key_invalid`); its
+  header's `alg` (`alg_not_permitted`); for ESP384 a valid P-384 point, for Ed25519 the key rule
+  of r7 section 5.3 (`key_invalid`); its
   thumbprint the `kid` (`kid_not_thumbprint`); the signature its algorithm's size (ESP384:
-  `signature_encoding`; the others: `carrier_malformed`); and the signature valid. The
+  `signature_encoding`; the others: `carrier_malformed`); and the signature valid. For Ed25519 the
+  R and S checks of draft v0.1-r7 section 5.3 come before the runtime is asked, so a signature they
+  refuse is `signature_invalid` on every runtime, FIPS mode included. The
   attribution classes 6 and 7 need the profile's key descriptors and are not decided here.
 
   ## Keys
@@ -434,8 +437,10 @@ defmodule Trinity.N6.COSE do
   # K2.
   defp key_valid(@esp384, pub), do: if(EC2.valid_key?(pub), do: :ok, else: {:error, :key_invalid})
 
+  # K2 with the publisher's key rule (r7 section 5.3): decoded strictly, not the identity, [L]A the
+  # identity.
   defp key_valid(@ed25519, pub),
-    do: if(match?({:ok, _}, Ed25519.decode(pub)), do: :ok, else: {:error, :key_invalid})
+    do: if(Ed25519.valid_key?(pub), do: :ok, else: {:error, :key_invalid})
 
   defp key_valid(@mldsa87, pub),
     do: if(byte_size(pub) == 2592, do: :ok, else: {:error, :key_invalid})
@@ -449,11 +454,18 @@ defmodule Trinity.N6.COSE do
     if byte_size(sig) == @sizes[alg].signature, do: :ok, else: {:error, :signature_encoding}
   end
 
+  # For Ed25519 the R and S checks of r7 section 5.3 run first; one code covers all four
+  # conditions, because a verify call returns one result.
   defp signature_valid(alg, tbs, sig, pub) do
-    if crypto_verify(alg, tbs, sig, pub), do: :ok, else: {:error, :signature_invalid}
+    if r_and_s(alg, sig) and crypto_verify(alg, tbs, sig, pub),
+      do: :ok,
+      else: {:error, :signature_invalid}
   rescue
     e in ErlangError -> unavailable(e)
   end
+
+  defp r_and_s(@ed25519, sig), do: Ed25519.valid_r_and_s?(sig)
+  defp r_and_s(_alg, _sig), do: true
 
   defp crypto_verify(@mldsa87, tbs, sig, pub), do: :crypto.verify(:mldsa87, :none, tbs, sig, pub)
 

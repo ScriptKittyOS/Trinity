@@ -16,14 +16,21 @@ defmodule Trinity.TestReceipts.LegacyRows do
   Plants `kinds` (a list of `"decision"` and `"query"`) as v3 rows at seq 1 to n of `scope`, under
   the selected key's family. Returns the rows.
   """
-  def plant(scope, kinds) do
+  def plant(scope, kinds), do: plant(scope, kinds, 1, nil)
+
+  @doc """
+  Plants `kinds` as v3 rows from `first_seq`, the first linked to `prev` (a receipt hash, or nil).
+  Slice 144 uses it to put a v3 row after a v4 row, whose link and signature are both good, which
+  a chain must still refuse.
+  """
+  def plant(scope, kinds, first_seq, prev) do
     %{algorithm: alg, key_id: key_id} = KeyCustody.selected()
     scheme = "receipt_v3_#{alg}"
 
     {rows, _prev} =
       kinds
-      |> Enum.with_index(1)
-      |> Enum.map_reduce(nil, fn {kind, seq}, prev ->
+      |> Enum.with_index(first_seq)
+      |> Enum.map_reduce(prev, fn {kind, seq}, prev ->
         body = %{
           "scheme" => scheme,
           "seq" => seq,

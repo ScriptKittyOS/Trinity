@@ -127,8 +127,11 @@ defmodule Trinity.N6.COSESigningTest do
     end
 
     # Slice 139's payload, bare text: its signature verifies, and the carrier refuses what it covers.
+    # Since slice 144 a codec defect in verified bytes is the signer's act: exit 7, `_noncanonical`.
     {:ok, bare} = COSE.sign("a statement", @typ, key)
     assert {:ok, %{verdict_code: :claim}} = COSE.verify(bare, opts)
-    assert Carrier.verify(Carrier.encode(bare), opts) == {:error, 1, :trailing_bytes}
+
+    assert Carrier.verify(Carrier.encode(bare), opts) ==
+             {:error, 7, {:accuse_single_signed_noncanonical, [nonconforming: :trailing_bytes]}}
   end
 end

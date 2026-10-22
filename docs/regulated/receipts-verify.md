@@ -36,7 +36,8 @@ From `lib/mix/tasks/trinity.receipts.verify.ex`:
 >     mix trinity.receipts.verify --file receipts.json
 >
 > Exit codes, the same vocabulary as `bin/verify_receipt.exs`: 0 verified, 1 invalid,
-> 2 usage, 5 trust not established (a key id the registry does not know), 6 compromised key.
+> 2 usage, 5 trust not established (a key id the registry does not know), 6 compromised key,
+> 7 accused (a row's signature verifies over bytes that break the profile's rules).
 
 ## Exporting a scope first
 
@@ -61,11 +62,24 @@ Both entry points use the same codes. Treat them as the finding, not the console
 | 2 | Usage |
 | 5 | Trust not established: a key id the registry does not know |
 | 6 | Compromised key |
+| 7 | Accused: a v4 row's signature verifies under its registered key over bytes that break the profile's rules |
 
 Codes 5 and 6 are the interesting ones for an assessor. **5 is not a failure of the chain**; it says
 the chain refers to a key the reader cannot place, which is a question about key distribution rather
 than about the records. **6 is a refusal**: the registry marks that key compromised and the verifier
 will not vouch for rows signed under it.
+
+**7 is about the signer, not the copy** (slice 144). A v4 row's signature is checked before its body
+is read. If the signature verifies and the body breaks a rule, the defect is in bytes the key's holder
+signed, which nobody else could have produced: both entry points print the defect on one line and the
+verdict code last, for example
+
+    finding: nonconforming issuer_missing
+    verdict_code: accuse_single_signed_nonconforming
+
+`accuse_single_signed_noncanonical` means the defect is in the encoding itself; `..._nonconforming`
+that the encoding is sound and a rule of the body is broken. The same bytes under a signature that
+does not verify are exit 1, because anyone handling the row could have produced them.
 
 ## What the verifier actually checks
 
@@ -78,6 +92,17 @@ will not vouch for rows signed under it.
 4. The stored hash equals the hash of the pre-authentication encoding over the stored body.
 5. The stored columns agree with the signed body, so a row edited after the fact is caught.
 6. For a signed kind, the signature verifies under the registry's public key.
+
+A v4 row is checked in a different order (slice 144): its signature first, then its body, then the
+columns against the body. An Ed25519 key or signature is held to the profile's rule, which `:crypto`
+alone does not apply: the key must decode strictly, must not be the identity and must have no
+small-order part, and the signature's R must decode strictly and not be of small order, with S below
+the group order. Without that rule, one signature under a small-order key verifies for every
+message.
+
+A chain that began before v4 crosses into it once. The first v4 row after a v2 or v3 row is reported
+as `finding: {:crossing, <seq>}`, and a v2 or v3 row after a v4 row is refused
+(`{:legacy_after_n6, <seq>}`, exit 1), however good its link and signature.
 
 Checkpoints are verified as well, so query receipts that are covered rather than individually
 signed are still accounted for.

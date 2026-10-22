@@ -730,6 +730,30 @@ and the publisher's further Ed25519 rule on small-order points, which are the ne
 code Trinity answers, `alg_unavailable` (the runtime cannot run the header's algorithm), is not in
 the draft's list; it is kept and has been put to the publisher.
 
+### What a verified signature makes the signer answer for (Slice 144, as built)
+
+The profile's rule, applied at the carrier and in both receipt verifiers: a defect in bytes that a
+signature verifies over is the act of whoever holds the key, because nobody else could have produced
+it, so it is answered as an accusation (exit 7) and not as a damaged copy (exit 1).
+
+- **Signature first, then the body.** A carrier's signature is verified before its body is read,
+  and a receipt row's before its columns are compared. The first defect met in the verified body is
+  named in one finding, `finding: nonconforming <code>`, and judging stops there. The verdict is
+  `accuse_single_signed_noncanonical` when the encoding itself is broken and
+  `accuse_single_signed_nonconforming` when a body rule is. A body under a signature that does not
+  verify is never read.
+- **Ed25519 is held to one rule.** RFC 8032 permits two verification equations and says nothing about
+  small-order points, so two conforming verifiers can disagree, and under a small-order key one
+  signature verifies for many messages: measured, OpenSSL 3.0.13 and 3.5.9 accept the identity key
+  with a signature of R the identity and S = 0 for every message, and accept R the identity from the
+  key's holder under an ordinary key. Trinity now refuses a key that does not decode strictly, is the
+  identity or has a small-order part (`key_invalid`), and a signature whose R does not decode
+  strictly or is of small order, or whose S is not below the group order (`signature_invalid`),
+  before OpenSSL's equation runs. That makes an accusation under an Ed25519 key well founded.
+- **A chain crosses once.** The first v4 receipt after a v2 or v3 receipt is reported as the
+  crossing, and an older-format receipt after a v4 one is refused, so the format history of a chain
+  cannot be interleaved.
+
 ## The effect population, published (Slice 027, as built)
 
 The set of things that can cause an effect is small, derived from the tree, and published as

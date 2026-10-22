@@ -309,7 +309,8 @@ defmodule Trinity.Receipts.V4Test do
       assert schemes == ["v3", "v3", "v3", "v4", "v4", "v4"]
       assert Enum.any?(export["checkpoints"], &(&1["first_seq"] == 2 and &1["body_b64"]))
 
-      assert {:ok, %{receipts: 6, findings: []}} = Verifier.verify(export)
+      # Slice 144: the one crossing, at the first v4 row after the v3 rows.
+      assert {:ok, %{receipts: 6, findings: [crossing: 4]}} = Verifier.verify(export)
       assert {:ok, :identical, %{conflicts: []}} = Merge.merge(scope, export)
 
       # A restart rehydrates over the v4 tail and its v4 checkpoint, and the chain continues.

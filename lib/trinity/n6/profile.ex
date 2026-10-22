@@ -28,7 +28,8 @@ defmodule Trinity.N6.Profile do
 
   Every refusal in `Trinity.N6` is one of the atoms in `codes/0`, which is r7's closed registry
   (its section 9.4) restricted to what this tree can emit, plus the codes marked `:trinity`. Each
-  carries its exit class (0 verified, 1 invalid, 2 usage, 5 no trust) and the steps that emit it.
+  carries its exit class (0 verified, 1 invalid, 2 usage, 5 no trust, 7 accuse) and the steps that
+  emit it.
 
   ## Limits
 
@@ -139,6 +140,11 @@ defmodule Trinity.N6.Profile do
     foreign_digest_mismatch: {1, :draft, [:attachment]},
     # Section 9.
     claim: {0, :draft, [:verdict]},
+    # Section 9.2: a defect in bytes a verified signature covers is the issuer's act. `<keys>` is
+    # `single` for a single-signer statement; `_noncanonical` when the defect's code came from the
+    # codec (D0 to D18), `_nonconforming` otherwise (G-479). Slice 144.
+    accuse_single_signed_noncanonical: {7, :draft, [:attribution]},
+    accuse_single_signed_nonconforming: {7, :draft, [:attribution]},
     usage: {2, :draft, [:invocation]},
     policy_stale_or_unknown_key: {5, :draft, [:key_resolution]},
     # The runtime cannot run the header's algorithm (ML-DSA-87, Ed25519 or ESP384; FIPS mode refuses
@@ -167,7 +173,7 @@ defmodule Trinity.N6.Profile do
   Every code, with its exit class, whether the draft defines it (`:draft`) or this tree does
   (`:trinity`), and the steps that emit it.
   """
-  @spec codes() :: %{code() => {0 | 1 | 2 | 5, :draft | :trinity, [atom()]}}
+  @spec codes() :: %{code() => {0 | 1 | 2 | 5 | 7, :draft | :trinity, [atom()]}}
   def codes, do: @codes
 
   @doc """
@@ -199,6 +205,6 @@ defmodule Trinity.N6.Profile do
   def test_schema?(n) when is_integer(n), do: Bitwise.bsr(n, 24) == @test_block
 
   @doc "The exit class of a code. Raises on a code not in the table, which is a bug in the caller."
-  @spec exit_of(code()) :: 0 | 1 | 2 | 5
+  @spec exit_of(code()) :: 0 | 1 | 2 | 5 | 7
   def exit_of(code), do: @codes |> Map.fetch!(code) |> elem(0)
 end
